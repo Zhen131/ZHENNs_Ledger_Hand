@@ -53,7 +53,14 @@ RAW_TEXT_MAX_LENGTH = 16_384
 
 # What the ledger's runtime strips from the ends of a text: its white-space
 # and line-terminator characters. Python's own notion differs at the edges.
-_WHITESPACE = "\t\n\v\f\r                  　﻿"
+_WHITESPACE = "".join(
+    map(
+        chr,
+        (0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x20, 0xA0, 0x1680)
+        + tuple(range(0x2000, 0x200B))
+        + (0x2028, 0x2029, 0x202F, 0x205F, 0x3000, 0xFEFF),
+    )
+)
 
 
 def text_length(text: str) -> int:
