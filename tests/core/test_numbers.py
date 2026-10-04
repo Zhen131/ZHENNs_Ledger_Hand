@@ -2245,6 +2245,10 @@ def test_common_words_put_together_never_leave_the_bare_number_in_any_place_or_c
         ("5 btcmk", Doubt.UNCLEAR_MULTIPLIER),
         ("5 millikbtc", Doubt.UNCLEAR_MULTIPLIER),
         ("100 satskm", Doubt.SMALLER_UNIT),
+        ("5 kusdts", Doubt.UNCLEAR_MULTIPLIER),
+        ("5 kbtcs", Doubt.UNCLEAR_MULTIPLIER),
+        ("5 pico", Doubt.HALF_OR_SHARE),
+        ("5 picoBTC", Doubt.HALF_OR_SHARE),
         ("5 \N{GREEK SMALL LETTER MU}usdt", Doubt.HALF_OR_SHARE),
         ("5 \N{GREEK SMALL LETTER MU}ETH", Doubt.HALF_OR_SHARE),
         ("5 \N{MICRO SIGN}eth", Doubt.HALF_OR_SHARE),
@@ -2283,6 +2287,8 @@ def test_two_changing_words_and_a_known_one_never_leave_the_bare_number() -> Non
         ("5 GBP", "GBP"),
         ("5 MNT", "MNT"),
         ("5 GMT", "GMT"),
+        ("5 bittensor", "bittensor"),
+        ("5 centrifuge", "centrifuge"),
     ],
 )
 def test_real_names_that_only_look_as_if_they_came_apart_stay_units(text: str, unit: str) -> None:

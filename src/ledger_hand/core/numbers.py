@@ -598,9 +598,11 @@ def _two_word_doubt(unit: str) -> Doubt | None:
     A coin's name may be two words, and a multiplier may be glued to the
     second of them: "Bitcoin Cashk".
     """
-    for is_said, characters in itertools.groupby(unit, key=_is_without_capitals):
+    # A stretch of characters without capitals has no gap in it, so only a
+    # stretch of letters that have capitals can hold two words.
+    for _, characters in itertools.groupby(unit, key=_is_without_capitals):
         words = "".join(characters).casefold().split()
-        if not is_said and len(words) > 1:
+        if len(words) > 1:
             return _word_doubt(" ".join(words))
     return None
 
@@ -658,13 +660,14 @@ def _taken_apart_doubt(word: str) -> Doubt | None:
 
     The word is tried as a small unit, a currency word or a coin with words
     for a magnitude or a fraction in front of it, behind it, or both.
+    ``word`` is known not to be a single word of any of those kinds.
     """
     fronts, backs = _changing_fronts(word), _changing_backs(word)
     # The longest word that can be the thing counted is tried first, so that
     # "usdtpct" is USDT and a percentage, not USD with more behind it.
     for start in sorted(fronts):
         for end in sorted(backs, reverse=True):
-            if start < end and (start, end) != (0, len(word)):
+            if start < end:
                 doubt = _doubt_about_what_is_counted(word[:start], word[start:end], word[end:])
                 if doubt is not None:
                     return doubt
