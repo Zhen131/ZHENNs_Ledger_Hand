@@ -1026,6 +1026,21 @@ def test_multiplier_letter_inside_a_unit_is_never_handed_back_as_a_unit(text: st
         "5 тыс",
         "5 млн",
         "5 млрд",
+        "3 Gs",
+        "3 gs",
+        "3 large",
+        "3 shi",
+        "3 millón",
+        "3 millones",
+        "3 tausend",
+        "3个达不溜",
+        "3 达不溜",
+        # A long magnitude word at the front of a longer word.
+        "3 millionen",
+        "3 milliarden",
+        "3 thousandish",
+        "3 milliontokens",
+        "3 hundredfold",
         # A magnitude letter or word glued to the front of a currency word.
         "3 mu",
         "3 mU",
@@ -1113,7 +1128,22 @@ def test_amount_in_a_smaller_unit_of_money_is_never_handed_back_as_that_many_who
 
 @pytest.mark.parametrize(
     "text",
-    ["5毫", "5 仙", "5 finney", "5 szabo", "5 bits", "5 centavos", "5 centimes", "5 kopeks"],
+    [
+        "5毫",
+        "5 仙",
+        "100聪",
+        "100 聪",
+        "3个聪",
+        "50便士",
+        "50美分",
+        "50 欧分",
+        "5 finney",
+        "5 szabo",
+        "5 bits",
+        "5 centavos",
+        "5 centimes",
+        "5 kopeks",
+    ],
 )
 def test_small_units_of_other_money_and_of_coins_are_doubted_too(text: str) -> None:
     assert read_number(text) == Unsure(Doubt.SMALLER_UNIT)
@@ -1141,6 +1171,8 @@ def test_dozen_or_pair_said_in_chinese_is_a_multiplier_too(text: str) -> None:
         "5 nano",
         "3 times",
         "3 fold",
+        "5层",
+        "5层仓",
         "5 bp",
         "5 bps",
         "5bps",
@@ -1168,6 +1200,8 @@ def test_word_for_a_fraction_or_a_multiple_is_never_handed_back_as_a_unit(text: 
         ("5 wax", "5", "wax"),
         ("5 tether", "5", "tether"),
         ("5 milk", "5", "milk"),
+        ("5 gigachad", "5", "gigachad"),
+        ("5 millennium", "5", "millennium"),
         ("3 gas", "3", "gas"),
         ("2 tokens", "2", "tokens"),
         ("3个u", "3", "个u"),
@@ -1229,7 +1263,7 @@ PLACES_FOR_A_WORD_AWAY_FROM_THE_DIGITS = [
 PLACES_FOR_A_WORD_RIGHT_AFTER_THE_DIGITS = ["3{}", "3{}刀", "3{} USDT", "3{}个", "$3{}"]
 
 SMALLER_UNITS_IN_MANY_FORMS = [
-    *("毛", "角", "分", "厘", "毫", "仙", "毛钱", "分钱"),
+    *("毛", "角", "分", "厘", "毫", "仙", "聪", "便士", "毛钱", "分钱", "美分"),
     *("cent", "cents", "Cents", "pence", "sat", "sats", "SATS", "satoshi", "satoshis"),
     *("gwei", "wei", "lamports", "mao", "fen"),
 ]

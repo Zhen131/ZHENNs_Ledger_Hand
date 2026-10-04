@@ -35,11 +35,12 @@ and the answer is a ``Doubt``, never the number without that piece applied:
   "w", "m", "million", "thousands", "mln", "wan", "lakh"), and 打, 双, 对
   for a dozen and a pair;
 - such a letter or word glued to the front of a currency word or a coin this
-  program knows ("wu", "kusdt", "musd");
+  program knows ("wu", "kusdt", "musd"), and a long magnitude word at the
+  front of anything ("millionen");
 - any single letter other than "u": single letters are how multipliers and
   small units are abbreviated, and nothing here can tell which one is meant;
-- a smaller unit of money (毛, 角, 分, 厘, cents, pence, sats, gwei and the
-  like): "5毛" is half a yuan, not five. An amount that runs on past its
+- a smaller unit of money (毛, 角, 分, 厘, 聪, cents, pence, sats, gwei and
+  the like): "5毛" is half a yuan, not five. An amount that runs on past its
   unit ("三块五") is the same case;
 - a word for a fraction or a multiple ("tenths", "bps", "times").
 
@@ -211,26 +212,32 @@ _SCALE_WORDS: Mapping[str, int] = {
 # one for a unit would hand back a number that is wrong by orders of magnitude.
 # Each is listed in the singular; a plural in -s is matched as well.
 _MAGNITUDE_WORDS = frozenset(
-    {"k", "w", "m", "b", "t", "bn", "mn", "mm", "kk", "kw", "mil", "mio"}
-    | {"dozen", "hundred", "thousand", "million", "billion", "trillion", "grand"}
+    {"k", "w", "m", "b", "t", "g", "bn", "mn", "mm", "kk", "kw", "mil", "mio"}
+    | {"dozen", "hundred", "thousand", "million", "billion", "trillion", "grand", "large"}
     | {"thou", "mill", "mln", "mia", "mrd", "milliard", "bln", "bil", "trn", "tril", "tsd"}
     | {"kilo", "mega", "giga", "lakh", "lac", "crore", "doz", "hundo", "pair"}
-    | {"bai", "qian", "wan", "yi"}
+    | {"shi", "bai", "qian", "wan", "yi"}
     | {"ezer", "millió", "millio", "milliárd", "mille", "mila", "тыс", "млн", "млрд"}
+    | {"millon", "millón", "tausend"}
 )
+# A magnitude word at least this long at the front of a longer word still says
+# what the word is about: "millionen", "thousandish".
+_LONG_MAGNITUDE_WORD = 6
 
 # Units of money, and of coins, that are a fraction of the unit an amount is
 # normally given in. Taking one for a plain unit would hand back a number that
 # is ten times, or a hundred million times, too large. Words are listed in the
 # singular, or in a plural that is not made with -s.
-_SMALLER_UNIT_CHARACTERS = frozenset("毛角分厘毫仙")
+_SMALLER_UNITS_SAID = ("毛", "角", "分", "厘", "毫", "仙", "聪", "便士")
 _SMALLER_UNIT_WORDS = frozenset(
     {"cent", "penny", "pennies", "pence", "centavo", "centime", "kopek", "fillér", "paisa"}
     | {"sat", "satoshi", "bit", "gwei", "wei", "finney", "szabo", "lamport"}
     | {"mao", "jiao", "fen"}
 )
-# A dozen and a pair, as they are said in Chinese, at the front of a unit.
+# A dozen and a pair, as they are said in Chinese, at the front of a unit; and
+# the letter W as it is sometimes spelled out, anywhere in one.
 _COUNTED_IN_SETS = ("打", "双", "对")
+_W_SPELLED_OUT = "达不溜"
 # Words that make the number a fraction or a multiple of something.
 _SHARE_WORDS = frozenset(
     {"half", "halves", "quarter", "third", "tenth", "hundredth", "thousandth", "millionth"}
@@ -301,7 +308,7 @@ _WORDING_HINTS: tuple[tuple[Doubt, re.Pattern[str]], ...] = (
     (
         Doubt.HALF_OR_SHARE,
         re.compile(
-            rf"半|[%‰]|分之|部分|[{_IN_NUMBER}]\s*[成倍折](?!交)|[0-9]\s*/\s*[0-9]"
+            rf"半|[%‰]|分之|部分|[{_IN_NUMBER}]\s*[成倍折层](?!交)|[0-9]\s*/\s*[0-9]"
             rf"|(?<![{_LATIN}])(?:{'|'.join(sorted(_SHARE_WORDS))})s?(?![{_LATIN}])",
             re.IGNORECASE,
         ),
@@ -328,7 +335,7 @@ _WORDING_HINTS: tuple[tuple[Doubt, re.Pattern[str]], ...] = (
         Doubt.SMALLER_UNIT,
         re.compile(
             rf"[{_IN_NUMBER}]\s*[块元刀]\s*[{_IN_NUMBER}]"
-            rf"|[{_IN_NUMBER}]\s*[{''.join(sorted(_SMALLER_UNIT_CHARACTERS))}]"
+            rf"|[{_IN_NUMBER}]\s*(?:{'|'.join(_SMALLER_UNITS_SAID)})"
             rf"|(?<![{_LATIN}])(?:{'|'.join(sorted(_SMALLER_UNIT_WORDS))})s?(?![{_LATIN}])",
             re.IGNORECASE,
         ),
@@ -519,15 +526,17 @@ def _word_doubt(word: str) -> Doubt | None:
 
 
 def _has_a_magnitude_glued_on(word: str) -> bool:
-    """Whether ``word`` is a magnitude letter or word glued to the front of a currency or a coin.
+    """Whether ``word`` starts with a magnitude that changes the number.
 
-    "wu" after a gap is ten thousand u as readily as "3wu" is.
+    That is a magnitude letter or word glued to the front of a currency word
+    or a coin ("wu" after a gap is ten thousand u as readily as "3wu" is), or
+    a long magnitude word at the front of anything.
     """
     for magnitude in _MAGNITUDE_WORDS:
         rest = word.removeprefix(magnitude)
         if rest == word:
             continue
-        if means_usdt(rest):
+        if len(magnitude) >= _LONG_MAGNITUDE_WORD or means_usdt(rest):
             return True
         # In front of a coin, a single letter this program does not itself
         # apply as a multiplier is as likely part of the name of another
@@ -540,9 +549,9 @@ def _has_a_magnitude_glued_on(word: str) -> bool:
 
 def _character_doubt(piece: str) -> Doubt | None:
     """Why a piece written in characters without capitals is not part of a plain unit."""
-    if not _SMALLER_UNIT_CHARACTERS.isdisjoint(piece):
+    if any(unit in piece for unit in _SMALLER_UNITS_SAID):
         return Doubt.SMALLER_UNIT
-    if piece.startswith(_COUNTED_IN_SETS):
+    if piece.startswith(_COUNTED_IN_SETS) or _W_SPELLED_OUT in piece:
         return Doubt.UNCLEAR_MULTIPLIER
     return None
 
