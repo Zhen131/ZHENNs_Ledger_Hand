@@ -502,11 +502,49 @@ def test_relative_import_climbing_out_of_the_package_is_reported(
     assert reasons(tmp_path, {relative: line}) == [Reason.INTERNAL_IMPORT]
 
 
+# --- imports that are not at the top of a file ------------------------------
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        lines("def load():", "    import socket", "    return socket"),
+        lines("from typing import TYPE_CHECKING", "if TYPE_CHECKING:", "    import socket"),
+        lines("try:", "    import socket", "except ImportError:", "    socket = None"),
+        lines("class Reader:", "    def load(self):", "        from socket import socket"),
+    ],
+)
+def test_import_tucked_inside_a_block_is_still_reported(tmp_path: Path, source: str) -> None:
+    assert reasons(tmp_path, {"core/rules.py": source}) == [Reason.STDLIB_IMPORT]
+
+
+def test_forbidden_internal_import_inside_a_function_is_reported(tmp_path: Path) -> None:
+    files = {
+        "ui/app.py": "",
+        "flows/record.py": lines("def show():", "    from ..ui import app", "    return app"),
+    }
+
+    assert reasons(tmp_path, files) == [Reason.INTERNAL_IMPORT]
+
+
 # --- what the check is given ------------------------------------------------
 
 
 def test_parts_that_do_not_exist_are_not_demanded(tmp_path: Path) -> None:
     assert check(tmp_path, {"core/__init__.py": '"""Pure rules."""'}) == []
+
+
+@pytest.mark.parametrize("directory", ["scripts", "evals", "tests"])
+def test_code_outside_the_package_is_free_to_import_it(tmp_path: Path, directory: str) -> None:
+    package_dir = build_package(tmp_path, {"core/rules.py": "", "ui/app.py": ""})
+    outside = tmp_path / directory
+    outside.mkdir()
+    (outside / "tool.py").write_text(
+        lines("import tzlocal", "import fakepkg.core.rules", "from fakepkg.ui import app"),
+        encoding="utf-8",
+    )
+
+    assert check_package(package_dir) == []
 
 
 def test_package_using_every_allowed_edge_passes(tmp_path: Path) -> None:
