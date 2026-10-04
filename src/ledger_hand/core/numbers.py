@@ -20,68 +20,42 @@ Full-width characters are read as their ordinary forms.
 
 A number may come with one unit: a currency sign before or after it, or one
 or two words after it ("刀", "个", "USDT", "u", "个 BTC"). The unit is handed
-back exactly as it was written and is not interpreted here. A word that
-itself holds a number word is never taken for a unit, and neither is a unit
-longer than the longest coin symbol the ledger allows.
+back exactly as it was written and is not interpreted here.
 
-A unit is handed back only when nothing in it changes the number. Three
-rules decide that, and none of them depends on a unit being listed as a
-whole.
+Only a unit this program knows is handed back. The unit is cut into blocks at
+gaps, and wherever letters that have capitals meet characters that have none,
+so that "个BTC" is 个 and BTC. Every block must be one of these, letter case
+and character width aside:
 
-1. The number characters are a closed set. Every Chinese character that says
-   a number is listed once: the digits, the places from 十 up to 极, 两, 俩,
-   仨, 廿, 卅, and the formal and the traditional forms of them all. A unit
-   holding any of them is not a unit: "3兆" is not three, whatever 兆 is
-   taken to be worth. 半 and 几 are turned away wherever they stand.
+- a word for USDT ("u", "刀", "美金", "$"): the list in ``coins``;
+- the symbol or a name of a coin in the coin table ("BTC", "比特币");
+- a counter that says how many and nothing about how much one of them is
+  ("个", "枚"): the short list in this module, each with its reason;
+- a word the caller passes in for this one call (``extra_units``), such as the
+  name of a coin outside the table.
 
-2. A unit is judged by what it can be taken apart into. It is first cut into
-   pieces at spaces, and wherever letters that have capitals meet characters
-   that have none, so that "个w刀" is 个, w and 刀. A piece in letters is not
-   plain when
+A unit with any other block in it is a ``Doubt``: an unknown unit. That is
+the whole rule, and it is why no list of words that change a number is kept
+here: "5 mBTC", "100 ksats", "3个w", "2 thousands" and "5 BTCks" are all
+turned away for the same reason as "三天", namely that a block is not known.
+Nothing is remembered between calls, and a block is never matched in part: a
+caller that allows "BONK" gets "500 BONK" read, and "5 kBONK" stays a doubt.
 
-   - it is a word for a magnitude ("k", "million", "thousands", "mln",
-     "wan"), for a fraction or a multiple ("milli", "tenths", "bps",
-     "times"), or for a smaller unit of money or of a coin ("cents", "sats",
-     "mBTC", "gwei"), in the singular or the plural;
-   - it is a single letter other than "u": single letters are how
-     multipliers and small units are abbreviated; or it is nothing but the
-     letters this program applies as multipliers ("kkk");
-   - it ends in a word for a smaller unit, whatever stands in front of it
-     ("ksats", "millisats", "mwei");
-   - it comes apart into a currency word or a coin this program knows with
-     words that change a number in front of it, behind it, or both ("wu",
-     "kusdt", "musd", "USDTk", "milliBTC", "kmusdt"), or into a smaller unit
-     followed by any word this program knows ("satsBTC");
-   - a long magnitude word starts or ends it ("millionen").
-
-   A piece in Chinese characters is not plain when it holds a smaller unit
-   (毛, 角, 分, 厘, 聪), a dozen or a pair (打, 双, 对) or a share (成, 倍,
-   折), wherever in the piece that stands. An amount that runs on past its
-   unit ("三块五") is the same case as a smaller unit: "5毛" is half a yuan,
-   not five.
-
-   One case is left alone on purpose: magnitude letters other than "k" and
-   "w" glued to a coin, because such a word is as likely the name of another
-   coin ("mSOL", "tBTC", "bbSOL"). Letters that make a listed word of their
-   own ("mm") are not left alone, and the names that are small units
-   ("mBTC") are listed as such.
-
-3. What this program cannot know, it does not judge. A multiplier letter on
-   a word that is in none of its lists ("kBONK") cannot be told from a name
-   ("KAVA"), and the unit is handed back whole. That is why whoever receives
-   a unit must not drop one it does not know.
-
-Where a unit is not plain the answer is a ``Doubt``, never the number without
-that piece applied. A multiplier is applied only where its place leaves no
-doubt: "k" or "w" directly after the last digit and followed by no further
-letter, and the scale words listed below.
+Two things are settled before the blocks are looked at. A word that holds a
+Chinese number character is never a unit, so "3兆" and "三块五" are not
+numbers with a unit: those characters are a closed set, listed once below.
+And what follows the number must have the shape of a unit at all: one
+currency sign, or at most two words of letters, no longer together than the
+longest coin symbol the ledger allows.
 
 Written digits may be followed by a multiplier: the letter "k" (thousand) or
 "w" (ten thousand, from 万) directly after the last digit, or one of the words
 千, 万, 十万, 百万, 千万, 亿, 十亿, 百亿, 千亿, 万亿. The letter "m" is not
 read as a multiplier: it is a million to some and a thousandth (as in mBTC) to
-others. That, any other magnitude letter or word, and a word that only starts
-like a multiplier ("1ku") are a ``Doubt``.
+others. A multiplier is applied only where its place leaves no doubt: letters
+that go on after the "k" or the "w" are a unit only when they are one known
+word as a whole and are not a multiplier with a known word behind it. "50u"
+is fifty u; "1ku", which may be a thousand u, is a ``Doubt``.
 
 A number may be said in Chinese number words ("九万四千九", "零点五"). Two
 habits of speech are read:
@@ -112,8 +86,8 @@ point, with a ``Caution`` that it may have been meant to group thousands.
 A text that names no single exact amount is a ``Doubt`` too: a range ("8万
 到8万5"), an approximate amount ("大概两万", "两万多"), and a half, a share
 or a multiple ("半个", "30%", "三成"). The word lists for these are a net,
-not a grammar: a vague text they miss comes back as ``NotANumber`` or with
-its vague word handed back as the unit, never as a different number.
+not a grammar: a vague text they miss comes back as ``NotANumber`` or as an
+unknown unit, never as a number.
 
 A number with more decimal places or more digits than the ledger holds is a
 ``Doubt`` as well: it is never rounded or cut to fit. The limits apply to the
@@ -160,7 +134,6 @@ class Doubt(enum.Enum):
     RANGE = "a range, not one amount"
     APPROXIMATE = "an approximate amount, not an exact one"
     HALF_OR_SHARE = "a half, a share or a multiple, not a plain amount"
-    SMALLER_UNIT = "counted in a smaller unit of money, or running on past its unit"
     UNKNOWN_UNIT = "a unit word that is not on the list of units this program knows"
     TOO_MANY_DECIMAL_PLACES = "more decimal places than the ledger holds"
     TOO_MANY_DIGITS = "more digits than the ledger holds"
@@ -262,57 +235,6 @@ _SCALE_WORDS: Mapping[str, int] = {
     "万亿": 12,
 }
 
-# Words in the place of a unit that change how large the number is. Taking
-# one for a unit would hand back a number that is wrong by orders of magnitude.
-# Each is listed in the singular; a plural in -s is matched as well.
-_MAGNITUDE_WORDS = frozenset(
-    {"k", "w", "m", "b", "t", "g", "bn", "mn", "mm", "kk", "kw", "mil", "mio"}
-    | {"dozen", "hundred", "thousand", "million", "billion", "trillion", "grand", "large"}
-    | {"thou", "mill", "mln", "mia", "mrd", "milliard", "bln", "bil", "trn", "tril", "tsd"}
-    | {"kilo", "mega", "giga", "tera", "peta", "lakh", "lac", "crore", "doz", "hundo", "pair"}
-    | {"shi", "bai", "qian", "wan", "yi"}
-    | {"ezer", "millió", "millio", "milliárd", "mille", "mila", "тыс", "млн", "млрд"}
-    | {"millon", "millón", "tausend"}
-)
-# A magnitude word at least this long at the front or the back of a longer word
-# still says what the word is about: "millionen", "thousandish".
-_LONG_MAGNITUDE_WORD = 6
-
-# Units of money, and of coins, that are a fraction of the unit an amount is
-# normally given in. Taking one for a plain unit would hand back a number that
-# is ten times, or a hundred million times, too large. Words are listed in the
-# singular, or in a plural that is not made with -s.
-_SMALLER_UNITS_SAID = ("毛", "角", "分", "厘", "釐", "毫", "仙", "聪", "聰", "便士")
-_SMALLER_UNIT_WORDS = frozenset(
-    {"cent", "penny", "pennies", "pence", "centavo", "centime", "kopek", "fillér", "paisa"}
-    | {"sat", "satoshi", "bit", "mbtc", "ubtc", "\N{GREEK SMALL LETTER MU}btc"}
-    | {"gwei", "wei", "finney", "szabo", "lamport", "lovelace", "drop"}
-    | {"mao", "jiao", "fen"}
-)
-# A dozen and a pair as they are said in Chinese, and the letter W as it is
-# sometimes spelled out.
-_MAGNITUDES_SAID = ("打", "双", "雙", "对", "對", "达不溜", "達不溜")
-# Tenths, multiples and discounts as they are said in Chinese. 成交 only shares
-# a character with them: it means a deal was done.
-_SHARES_SAID = ("成", "倍", "折", "层", "層")
-_A_DEAL_DONE = "成交"
-# Words that make the number a fraction or a multiple of something.
-_SHARE_WORDS = frozenset(
-    {"half", "halves", "quarter", "third", "tenth", "hundredth", "thousandth", "millionth"}
-    | {"percent", "pct", "bp", "bip", "time", "fold"}
-    | {
-        "deci",
-        "centi",
-        "milli",
-        "micro",
-        "\N{GREEK SMALL LETTER MU}",
-        "nano",
-        "pico",
-        "femto",
-        "atto",
-    }
-)
-
 # Number words as they are said.
 _SAID_DIGITS: Mapping[str, int] = {
     "零": 0,
@@ -377,8 +299,8 @@ _WORDING_HINTS: tuple[tuple[Doubt, re.Pattern[str]], ...] = (
     (
         Doubt.HALF_OR_SHARE,
         re.compile(
-            rf"半|[%‰]|分之|部分|[{_IN_NUMBER}]\s*(?:{'|'.join(_SHARES_SAID)})(?!交)|[0-9]\s*/\s*[0-9]"
-            rf"|(?<![{_LATIN}])(?:{'|'.join(sorted(_SHARE_WORDS))})s?(?![{_LATIN}])",
+            rf"半|[%‰]|分之|部分|[{_IN_NUMBER}]\s*[成倍折层](?!交)|[0-9]\s*/\s*[0-9]"
+            rf"|(?<![{_LATIN}])(?:half|percent|pct)(?![{_LATIN}])",
             re.IGNORECASE,
         ),
     ),
@@ -400,52 +322,7 @@ _WORDING_HINTS: tuple[tuple[Doubt, re.Pattern[str]], ...] = (
             re.IGNORECASE,
         ),
     ),
-    (
-        Doubt.SMALLER_UNIT,
-        re.compile(
-            rf"[{_IN_NUMBER}]\s*[块元刀]\s*[{_IN_NUMBER}]"
-            rf"|[{_IN_NUMBER}]\s*(?:{'|'.join(_SMALLER_UNITS_SAID)})"
-            rf"|(?<![{_LATIN}])(?:{'|'.join(sorted(_SMALLER_UNIT_WORDS))})s?(?![{_LATIN}])",
-            re.IGNORECASE,
-        ),
-    ),
 )
-_STRAY_MAGNITUDE = re.compile(
-    rf"(?<![{_LATIN}])(?:{'|'.join(sorted(_MAGNITUDE_WORDS))})s?(?![{_LATIN}])", re.IGNORECASE
-)
-_ALL_HINTS = (*_WORDING_HINTS, (Doubt.UNCLEAR_MULTIPLIER, _STRAY_MAGNITUDE))
-
-
-# The words that change a number without naming anything that is counted.
-_CHANGING_WORDS = _MAGNITUDE_WORDS | _SHARE_WORDS
-# The magnitude letters this program never applies as a multiplier.
-_LETTERS_LEFT_ALONE = frozenset(
-    word for word in _MAGNITUDE_WORDS if len(word) == 1 and word not in _LETTER_MULTIPLIERS
-)
-
-# Every ending that makes a word a smaller unit: each such word and its plural.
-_SMALLER_UNIT_ENDINGS = tuple(
-    ending for word in sorted(_SMALLER_UNIT_WORDS) for ending in (word, word + "s")
-)
-
-
-class _Kind(enum.Enum):
-    """What this program knows a word in a unit to be."""
-
-    MAGNITUDE = "a letter or word for a magnitude"
-    FRACTION = "a word for a fraction or a multiple"
-    SMALLER_UNIT = "a smaller unit of money or of a coin"
-    MONEY = "a word for the pricing currency"
-    COIN = "a coin in the built-in table"
-
-
-# The kinds that change the number, and the doubt each one raises. Currency
-# words and coins are what a plain unit is made of.
-_DOUBT_ABOUT: Mapping[_Kind, Doubt] = {
-    _Kind.MAGNITUDE: Doubt.UNCLEAR_MULTIPLIER,
-    _Kind.FRACTION: Doubt.HALF_OR_SHARE,
-    _Kind.SMALLER_UNIT: Doubt.SMALLER_UNIT,
-}
 
 
 class _Script(enum.Enum):
@@ -502,14 +379,13 @@ def read_number(text: str, extra_units: Iterable[str] = ()) -> Reading:
         return NotANumber()
     reading = _strictly_read(folded, text, allowed)
     if reading is None:
-        doubt = _hinted(folded, _ALL_HINTS)
+        doubt = _wording_doubt(folded)
         return NotANumber() if doubt is None else Unsure(doubt)
     if isinstance(reading, Recognised) and reading.unit is not None:
-        unit = reading.unit.translate(_FOLDED)
-        # What was taken for a unit may be a word like 多 or 左右, or may hide
-        # a multiplier.
-        doubt = _hinted(folded, _WORDING_HINTS) or _unit_doubt(unit)
-        if doubt is None and not _is_known_unit(unit, allowed):
+        # A word like 多 or 左右 says more than "a unit this program does not
+        # know", so the wording is looked at first.
+        doubt = _wording_doubt(folded)
+        if doubt is None and not _is_known_unit(reading.unit.translate(_FOLDED), allowed):
             doubt = Doubt.UNKNOWN_UNIT
         if doubt is not None:
             return Unsure(doubt)
@@ -536,11 +412,11 @@ def write_number(value: Decimal) -> str:
     return format(value.copy_abs(), "f")
 
 
-def _hinted(folded: str, hints: Sequence[tuple[Doubt, re.Pattern[str]]]) -> Doubt | None:
+def _wording_doubt(folded: str) -> Doubt | None:
     """The first reason the wording gives for not naming one exact amount, if any."""
     if _NUMBER_LIKE.search(folded) is None:
         return None
-    for doubt, pattern in hints:
+    for doubt, pattern in _WORDING_HINTS:
         if pattern.search(folded):
             return doubt
     return None
@@ -584,8 +460,7 @@ def _tail(shape: re.Match[str], original: str, allowed: frozenset[str]) -> _Tail
         # known word behind it, are a unit.
         is_one_word = _is_known_block(letters, allowed)
         is_multiplier_and_word = _is_known_block(letters[1:], allowed)
-        is_a_smaller_unit = _kind(letters) is _Kind.SMALLER_UNIT
-        if not (is_one_word and not is_multiplier_and_word) and not is_a_smaller_unit:
+        if is_multiplier_and_word or not is_one_word:
             return Doubt.UNCLEAR_MULTIPLIER
     start = shape.end("letters") if power else shape.start("letters")
     unit = shape.string[start:].strip()
@@ -630,185 +505,11 @@ def _is_known_block(block: str, allowed: frozenset[str]) -> bool:
     return BUILT_IN_TABLE.find(block) is not None
 
 
-def _unit_doubt(unit: str) -> Doubt | None:
-    """Why ``unit`` cannot be handed back as a plain unit, if a piece of it changes the number."""
-    for script, letters in itertools.groupby(unit, key=_script):
-        piece = "".join(letters)
-        if script is _Script.CASED:
-            doubt = _word_doubt(piece.casefold())
-        elif script is _Script.UNCASED:
-            doubt = _character_doubt(piece)
-        else:
-            continue
-        if doubt is not None:
-            return doubt
-    return _two_word_doubt(unit)
-
-
-def _two_word_doubt(unit: str) -> Doubt | None:
-    """Why two words in letters that have capitals, taken as one name, are not a plain unit.
-
-    A coin's name may be two words, and a multiplier may be glued to the
-    second of them: "Bitcoin Cashk".
-    """
-    # A stretch of characters without capitals has no gap in it, so only a
-    # stretch of letters that have capitals can hold two words.
-    for _, characters in itertools.groupby(unit, key=_is_without_capitals):
-        words = "".join(characters).casefold().split()
-        if len(words) > 1:
-            return _word_doubt(" ".join(words))
-    return None
-
-
-def _is_without_capitals(character: str) -> bool:
-    return _script(character) is _Script.UNCASED
-
-
 def _script(character: str) -> _Script | None:
     """Which kind of letter ``character`` is; ``None`` for what is not a letter."""
     if not character.isalpha():
         return None
     return _Script.CASED if character.lower() != character.upper() else _Script.UNCASED
-
-
-def _word_doubt(word: str) -> Doubt | None:
-    """Why a piece written in letters that have capitals is not part of a plain unit.
-
-    The piece is judged by what it can be taken apart into, not by whether it
-    is on a list as a whole.
-    """
-    if (len(word) == 1 and word != "u") or _LETTER_MULTIPLIERS.keys() >= set(word):
-        # A single letter, or nothing but the letters this program applies as
-        # multipliers ("kkk").
-        return Doubt.UNCLEAR_MULTIPLIER
-    kind = _kind(word)
-    if kind is not None:
-        return _DOUBT_ABOUT.get(kind)
-    if word.endswith(_SMALLER_UNIT_ENDINGS):
-        return Doubt.SMALLER_UNIT
-    doubt = _taken_apart_doubt(word)
-    if doubt is None and _has_a_long_magnitude_word_at_an_end(word):
-        return Doubt.UNCLEAR_MULTIPLIER
-    return doubt
-
-
-def _kind(word: str) -> _Kind | None:
-    """What this program knows ``word`` to be, in the singular or the plural."""
-    forms = (word, word.removesuffix("s"))
-    if not _MAGNITUDE_WORDS.isdisjoint(forms):
-        return _Kind.MAGNITUDE
-    if not _SMALLER_UNIT_WORDS.isdisjoint(forms):
-        return _Kind.SMALLER_UNIT
-    if not _SHARE_WORDS.isdisjoint(forms):
-        return _Kind.FRACTION
-    # "us" is not several u, and no coin has a single letter for a name.
-    names = forms if len(word) > 2 else (word,)
-    if any(map(means_usdt, names)):
-        return _Kind.MONEY
-    if any(BUILT_IN_TABLE.find(name) is not None for name in names):
-        return _Kind.COIN
-    return None
-
-
-def _taken_apart_doubt(word: str) -> Doubt | None:
-    """Why ``word`` is not plain when it comes apart into words this program knows.
-
-    The word is tried as a small unit, a currency word or a coin with words
-    for a magnitude or a fraction in front of it, behind it, or both.
-    ``word`` is known not to be a single word of any of those kinds.
-    """
-    fronts, backs = _changing_fronts(word), _changing_backs(word)
-    # The longest word that can be the thing counted is tried first, so that
-    # "usdtpct" is USDT and a percentage, not USD with more behind it.
-    for start in sorted(fronts):
-        for end in sorted(backs, reverse=True):
-            if start < end:
-                doubt = _doubt_about_what_is_counted(word[:start], word[start:end], word[end:])
-                if doubt is not None:
-                    return doubt
-    for cut in range(1, len(word)):
-        if _kind(word[:cut]) is _Kind.SMALLER_UNIT and _kind(word[cut:]) is not None:
-            return Doubt.SMALLER_UNIT
-    return None
-
-
-def _doubt_about_what_is_counted(before: str, counted: str, after: str) -> Doubt | None:
-    """Why ``counted``, with words that change a number around it, is not a plain unit.
-
-    ``None`` when ``counted`` is not a small unit, a currency word or a coin.
-    """
-    kind = _kind(counted)
-    if kind is _Kind.SMALLER_UNIT:
-        return Doubt.SMALLER_UNIT
-    if kind not in (_Kind.MONEY, _Kind.COIN):
-        return None
-    # Next to a coin, letters this program does not itself apply as a
-    # multiplier are as likely part of the name of another coin ("mSOL",
-    # "tBTC", "bbSOL"), and such a unit is handed back whole.
-    if kind is _Kind.COIN and _is_left_alone(before) and _is_left_alone(after):
-        return None
-    if _Kind.FRACTION in (_kind(before), _kind(after)):
-        return Doubt.HALF_OR_SHARE
-    return Doubt.UNCLEAR_MULTIPLIER
-
-
-def _is_left_alone(letters: str) -> bool:
-    """Whether ``letters`` are only magnitude letters this program never applies, or nothing.
-
-    Two of them that make a listed word of their own ("mm") are not left alone.
-    """
-    is_a_listed_word = len(letters) > 1 and letters in _MAGNITUDE_WORDS
-    return _LETTERS_LEFT_ALONE.issuperset(letters) and not is_a_listed_word
-
-
-def _changing_fronts(word: str) -> set[int]:
-    """Every length of a front of ``word`` made up of words that change a number; 0 is one."""
-    lengths = {0}
-    for start in range(len(word)):
-        if start in lengths:
-            lengths.update(
-                end for end in range(start + 1, len(word) + 1) if _changes_a_number(word[start:end])
-            )
-    return lengths
-
-
-def _changing_backs(word: str) -> set[int]:
-    """Every place where a back of ``word`` made up of words that change a number starts."""
-    starts = {len(word)}
-    for end in range(len(word), 0, -1):
-        if end in starts:
-            starts.update(start for start in range(end) if _changes_a_number(word[start:end]))
-    return starts
-
-
-def _changes_a_number(word: str) -> bool:
-    """Whether ``word`` is a word for a magnitude or a fraction.
-
-    A plural counts for a word spelled out, not for a single letter: taking
-    "ws" for several w would find a multiplier inside "wstETH".
-    """
-    return word in _CHANGING_WORDS or (len(word) > 2 and word.removesuffix("s") in _CHANGING_WORDS)
-
-
-def _has_a_long_magnitude_word_at_an_end(word: str) -> bool:
-    """Whether a long magnitude word, or its plural, starts or ends ``word``."""
-    return any(
-        len(magnitude) >= _LONG_MAGNITUDE_WORD
-        and (form.startswith(magnitude) or form.endswith(magnitude))
-        for magnitude in _MAGNITUDE_WORDS
-        for form in (word, word.removesuffix("s"))
-    )
-
-
-def _character_doubt(piece: str) -> Doubt | None:
-    """Why a piece written in characters without capitals is not part of a plain unit."""
-    if any(unit in piece for unit in _SMALLER_UNITS_SAID):
-        return Doubt.SMALLER_UNIT
-    if any(word in piece for word in _MAGNITUDES_SAID):
-        return Doubt.UNCLEAR_MULTIPLIER
-    if any(share in piece.replace(_A_DEAL_DONE, "") for share in _SHARES_SAID):
-        return Doubt.HALF_OR_SHARE
-    return None
 
 
 def _amount(body: str, letter_power: int) -> _Amount | Doubt | None:

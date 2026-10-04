@@ -9,13 +9,11 @@ import decimal
 import itertools
 import random
 import re
-from collections.abc import Callable
 from decimal import Decimal
 
 import pytest
 
-from ledger_hand.core import numbers
-from ledger_hand.core.coins import BUILT_IN_COINS, BUILT_IN_TABLE, USDT_WORDS, means_usdt
+from ledger_hand.core.coins import BUILT_IN_COINS, USDT_WORDS
 from ledger_hand.core.numbers import (
     Caution,
     Doubt,
@@ -599,42 +597,47 @@ def test_caution_and_doubt_about_the_digits_survive_a_multiplier() -> None:
 
 
 @pytest.mark.parametrize(
-    "text",
+    ("text", "reason"),
     [
         # m is a million to some and a thousandth (as in mBTC) to others.
-        "5m",
-        "5M",
-        "2b",
-        "2B",
-        "3t",
-        "2bn",
-        "5kk",
-        "1kw",
-        "1ku",
-        "1wu",
-        "5kas",
-        "3wif",
-        "5 k",
-        "5 w",
-        "5 m",
-        "5 million",
-        "5million",
-        "2 thousand",
-        "2thousand",
-        "3 billion",
-        "1 mil",
-        "3 hundred",
-        "5 dozen",
-        "5 million dollars",
-        "2 k usdt",
-        "3 usdt k",
-        "5 million dollars in cash",
-        "8万k",
-        "8万 w",
+        ("5m", Doubt.UNKNOWN_UNIT),
+        ("5M", Doubt.UNKNOWN_UNIT),
+        ("2b", Doubt.UNKNOWN_UNIT),
+        ("2B", Doubt.UNKNOWN_UNIT),
+        ("3t", Doubt.UNKNOWN_UNIT),
+        ("2bn", Doubt.UNKNOWN_UNIT),
+        ("5kk", Doubt.UNCLEAR_MULTIPLIER),
+        ("1kw", Doubt.UNCLEAR_MULTIPLIER),
+        ("1ku", Doubt.UNCLEAR_MULTIPLIER),
+        ("1wu", Doubt.UNCLEAR_MULTIPLIER),
+        ("5kas", Doubt.UNCLEAR_MULTIPLIER),
+        ("3wif", Doubt.UNCLEAR_MULTIPLIER),
+        ("5 k", Doubt.UNKNOWN_UNIT),
+        ("5 w", Doubt.UNKNOWN_UNIT),
+        ("5 m", Doubt.UNKNOWN_UNIT),
+        ("5 million", Doubt.UNKNOWN_UNIT),
+        ("5million", Doubt.UNKNOWN_UNIT),
+        ("2 thousand", Doubt.UNKNOWN_UNIT),
+        ("2thousand", Doubt.UNKNOWN_UNIT),
+        ("3 billion", Doubt.UNKNOWN_UNIT),
+        ("1 mil", Doubt.UNKNOWN_UNIT),
+        ("3 hundred", Doubt.UNKNOWN_UNIT),
+        ("5 dozen", Doubt.UNKNOWN_UNIT),
+        ("5 million dollars", Doubt.UNKNOWN_UNIT),
+        ("2 k usdt", Doubt.UNKNOWN_UNIT),
+        ("3 usdt k", Doubt.UNKNOWN_UNIT),
+        ("8万k", Doubt.UNCLEAR_MULTIPLIER),
+        ("8万 w", Doubt.UNKNOWN_UNIT),
     ],
 )
-def test_letters_that_may_or_may_not_multiply_are_not_guessed(text: str) -> None:
-    assert read_number(text) == Unsure(Doubt.UNCLEAR_MULTIPLIER)
+def test_letters_that_may_or_may_not_multiply_are_not_guessed(text: str, reason: Doubt) -> None:
+    # A letter glued to the digits that may be a multiplier is named as such;
+    # anywhere else it is simply a unit this program does not know.
+    assert read_number(text) == Unsure(reason)
+
+
+def test_magnitude_word_among_more_words_than_a_unit_has_is_not_a_number() -> None:
+    assert read_number("5 million dollars in cash") == NotANumber()
 
 
 @pytest.mark.parametrize(
@@ -1114,8 +1117,8 @@ def test_doubt_about_the_number_itself_is_reported_before_doubt_about_its_wordin
 
 
 @pytest.mark.parametrize("text", ["5m BTC", "5 million dollars", "2 k usdt", "1k5", "3k万"])
-def test_stray_magnitude_word_is_named_as_the_reason(text: str) -> None:
-    assert read_number(text) == Unsure(Doubt.UNCLEAR_MULTIPLIER)
+def test_stray_magnitude_word_never_yields_a_number(text: str) -> None:
+    assert not isinstance(read_number(text), Recognised)
 
 
 @pytest.mark.parametrize("text", ["很多", "好多", "多少", "大概", "左右", "about", "~", "to", "k"])
@@ -1131,368 +1134,430 @@ def test_unit_that_only_resembles_a_vague_word_stays_a_unit(text: str, unit: str
     assert recognised(text).unit == unit
 
 
-# --- units that would change the number -------------------------------------
+# --- once doubted, never recognised ------------------------------------------
+#
+# Each of these was once handed back as the bare number with part of the text
+# taken for a unit, or was found by taking a unit apart word by word. None of
+# their units is on the list of units this program knows, so none is read.
+
+ONCE_DOUBTED = [
+    # A multiplier letter written into the unit, glued to a known word, or standing alone.
+    "3个w",
+    "三个w",
+    "3 个w",
+    "两个w",
+    "九个w",
+    "1.5个w",
+    "3个k",
+    "3个W",
+    "３个ｗ",
+    "3个w刀",
+    "3个w U",
+    "3 个k刀",
+    "3 w刀",
+    "3 W刀",
+    "3 k刀",
+    "3刀k",
+    "3个w币",
+    "三个k刀",
+    "3个m",
+    "3个b",
+    "3个t",
+    "$3 w",
+    "3 wu",
+    "3 WU",
+    "3 ku",
+    "3个wu",
+    "3个ku",
+    "5 kusdt",
+    "5 wUSDT",
+    "5 kusd",
+    "2 kbtc",
+    "2 wbtc",
+    "5 weth",
+    "5 个 kU",
+    "5g",
+    "5 G",
+    "5x",
+    "5e",
+    "5E",
+    "5c",
+    "5 p",
+    "5 个 x",
+    "5к",
+    "5 mmETH",
+    "5 ETHmm",
+    "5 mmBTC",
+    "5 kkETH",
+    "5 mnSOL",
+    "5 kmusdt",
+    "5 mkusdt",
+    "5 kkkusdt",
+    "5 kilomusdt",
+    "5 usdtkm",
+    "5 mkbtc",
+    "5 btcmk",
+    "5 millikbtc",
+    "100 satskm",
+    "$3 times",
+    "5 tenths of one btc",
+    "5 kusdts",
+    "5 kbtcs",
+    "5 pico",
+    "5 picoBTC",
+    "5 μusdt",
+    "5 μETH",
+    "5 \N{MICRO SIGN}eth",
+    # A magnitude word in the plural, shortened, or in another language.
+    "2 thousands",
+    "2 THOUSANDS",
+    "2 thousands DOGE",
+    "5 millions",
+    "5 millions PEPE",
+    "3 hundreds",
+    "5 grands",
+    "5 dozens",
+    "5 billions",
+    "3 trillions",
+    "2thousands",
+    "5millions",
+    "5 ks",
+    "3 ws",
+    "2 mils",
+    "2 thousands of dollars",
+    "5 mln",
+    "5mln",
+    "5 MLN",
+    "2 bln",
+    "2bln刀",
+    "5 mill",
+    "5 mio",
+    "5 mia",
+    "5 Mrd",
+    "5 milliard",
+    "5 tsd",
+    "2 thou",
+    "2 bil",
+    "2 trn",
+    "5 tril",
+    "5 kilo",
+    "5 kilos",
+    "5 mega",
+    "3 lakh",
+    "3 lakhs",
+    "3 lac",
+    "3 crore",
+    "3 crores",
+    "3 wan",
+    "3个wan",
+    "3 个 wan",
+    "3 WAN",
+    "3 yi",
+    "5 qian",
+    "2 bai",
+    "5 doz",
+    "5 hundos",
+    "5 pairs",
+    "5 pair",
+    "5 ezer",
+    "5 millió",
+    "5 millio",
+    "5 milliárd",
+    "5 mille",
+    "5 mila",
+    "5 тыс",
+    "5 млн",
+    "5 млрд",
+    "3 Gs",
+    "3 gs",
+    "3 ts",
+    "$3 t",
+    "3 large",
+    "3 shi",
+    "3 millón",
+    "3 millones",
+    "3 tausend",
+    "3个达不溜",
+    "3 达不溜",
+    "3 millionen",
+    "3 milliarden",
+    "3 thousandish",
+    "3 milliontokens",
+    "3 hundredfold",
+    "3 dogethousand",
+    "3 pepemillions",
+    "3个XYZmillion",
+    "3 mu",
+    "3 mU",
+    "3 musdt",
+    "3 musd",
+    "3 bU",
+    "5 kiloUSDT",
+    "5 megausdt",
+    "3 mlnusdt",
+    "3个mu",
+    "5 kilobtc",
+    "5 megaeth",
+    "2 kdoge",
+    "3 Uk",
+    "3 uw",
+    "3 USDTk",
+    "3 usdtw",
+    "3 usdm",
+    "3 USDTwan",
+    "3 btck",
+    "3 BTCmln",
+    "3 BTCthousand",
+    "3 BTCthousands",
+    "3个Uk",
+    "$5 mln",
+    "5 mln usdt in cash",
+    "2 thousands usdt in cash",
+    "3打",
+    "三打",
+    "3 打",
+    "3打币",
+    "5双",
+    "5 双",
+    "5对",
+    "5 对",
+    "3 个 打",
+    "3 u 打",
+    "3 U 双",
+    # An amount in a smaller unit of money or of a coin.
+    "5毛",
+    "五毛",
+    "两毛",
+    "5 毛",
+    "5毛钱",
+    "5角",
+    "5角钱",
+    "5分",
+    "五分",
+    "5分钱",
+    "5厘",
+    "十分",
+    "5w毛",
+    "三块五",
+    "3块5",
+    "5块3",
+    "3块5毛",
+    "三块五毛",
+    "两毛五",
+    "3元5角",
+    "1元5",
+    "十块零五毛",
+    "3刀5",
+    "三刀五",
+    "50 cents",
+    "50 cent",
+    "50cents",
+    "50 CENTS",
+    "5 pence",
+    "5 penny",
+    "5 pennies",
+    "100 sats",
+    "100 sat",
+    "100sats",
+    "100 sats BTC",
+    "5000 satoshis",
+    "1 satoshi",
+    "5 gwei",
+    "5 Gwei",
+    "100 wei",
+    "3 lamports",
+    "5 mao",
+    "5 jiao",
+    "5 fen",
+    "$5 cents",
+    "50 cents for each one",
+    "5mBTC",
+    "5 mBTC",
+    "5mbtc",
+    "5 MBTC",
+    "5 mBTCs",
+    "5个mBTC",
+    "5uBTC",
+    "5 uBTC",
+    "5 UBTC",
+    "5μBTC",
+    "5 μBTC",
+    "5 \N{MICRO SIGN}BTC",
+    "$5 mBTC",
+    "100sat",
+    "100 SATS",
+    "100 Sats",
+    "1satoshi",
+    "5000satoshis",
+    "5000 Satoshis",
+    "100聪",
+    "100 聪",
+    "一百聪",
+    "5gwei",
+    "5 GWEI",
+    "100wei",
+    "100 WEI",
+    "5毫",
+    "5 仙",
+    "3个聪",
+    "50便士",
+    "50美分",
+    "50 欧分",
+    "5 finney",
+    "5 szabo",
+    "5 bits",
+    "5 centavos",
+    "5 centimes",
+    "5 kopeks",
+    "5kopek",
+    "5kopeks",
+    "5 centBTC",
+    "5 BTCcent",
+    "5 BTCcents",
+    "5 satsBTC",
+    "5 BTCsats",
+    "5 Ucents",
+    "5个BTCsats",
+    "100 ksats",
+    "21 ksats",
+    "100 KSATS",
+    "100 Ksat",
+    "100 kSats",
+    "100 ｋｓａｔｓ",
+    "100个ksats",
+    "100 ksat BTC",
+    "100 kilosats",
+    "100 kilosatoshi",
+    "100 ksatoshis",
+    "100 msat",
+    "100 msats",
+    "100 MSAT",
+    "100 Msats",
+    "100msat",
+    "100 millisats",
+    "100 millisatoshis",
+    "100 megasats",
+    "100 nanosats",
+    "5 kwei",
+    "5 Kwei",
+    "5 KWEI",
+    "5 mwei",
+    "5 Mwei",
+    "5 MWEI",
+    "5mwei",
+    "5 kgwei",
+    "5 kGwei",
+    "5 Mgwei",
+    "5 microwei",
+    "5 gigawei",
+    "5 megagwei",
+    "5 kcents",
+    "5 mcent",
+    "5 kpence",
+    "5 klamports",
+    "5 kmBTC",
+    "5 mmbtc",
+    "100 xyzsats",
+    "5 abcwei",
+    "5 个 qqqcents",
+    "100 satsk",
+    "100 satk",
+    "5 weim",
+    "5 gweik",
+    "5 centkilo",
+    "100 satsmilli",
+    # A fraction, a share or a multiple.
+    "5 thousandths",
+    "5 hundredths",
+    "5 tenths",
+    "5 halves",
+    "5 quarters",
+    "5 thirds",
+    "5 milli",
+    "5 micro",
+    "5 nano",
+    "3 times",
+    "3 fold",
+    "5层",
+    "5层仓",
+    "5 bp",
+    "5 bps",
+    "5bps",
+    "25 bips",
+    "3 BTC倍",
+    "3 U成",
+    "3 U 成",
+    "3 USDT折",
+    "3 USDTpct",
+    "3 pctUSDT",
+    "3 btcbps",
+    # A number character outside the ones this program reads, and further forms of the above.
+    "3兆",
+    "3 兆",
+    "三兆",
+    "两兆",
+    "一兆",
+    "1.5兆",
+    "3兆刀",
+    "3兆U",
+    "3 兆 USDT",
+    "3兆个",
+    "3个兆",
+    "3万兆",
+    "3京",
+    "3京U",
+    "3个京",
+    "3垓",
+    "3 U兆",
+    "3 USDT 兆",
+    "3個萬",
+    "3个點",
+    "3个幺",
+    "3卌",
+    "3个陌",
+    "3 阡",
+    "3个壱",
+    "3 弐",
+    "3个打",
+    "3 个双",
+    "3个对",
+    "3 U个打",
+    "3个成",
+    "3 个倍",
+    "3个折",
+    "3 个层",
+    "3 BTC个倍",
+    "3个仓位成",
+    "5 tera",
+    "5 peta",
+    "5 teraBTC",
+    "5 centi",
+    "5 deciBTC",
+    "5 femto",
+    "5 attoFIL",
+    "5 lovelace",
+    "5 lovelaces",
+    "5 drops",
+    "5 kdrops",
+    "5 kkk",
+    "5 KKKK",
+    "5 ww",
+    "5 wk",
+    "5个kkw",
+    "$5 kk",
+    "$5 kw",
+    "3 達不溜",
+    "3個雙",
+    "3 對",
+    "3層",
+    "100聰",
+    "5釐",
+]
 
 
-@pytest.mark.parametrize(
-    "text",
-    [
-        # A multiplier letter written into the unit, next to other characters.
-        "3个w",
-        "三个w",
-        "3 个w",
-        "两个w",
-        "九个w",
-        "1.5个w",
-        "3个k",
-        "3个W",
-        "３个ｗ",
-        "3个w刀",
-        "3个w U",
-        "3 个k刀",
-        "3 w刀",
-        "3 W刀",
-        "3 k刀",
-        "3刀k",
-        "3个w币",
-        "三个k刀",
-        "3个m",
-        "3个b",
-        "3个t",
-        "$3 w",
-        # A multiplier letter glued to the front of a currency word or a coin.
-        "3 wu",
-        "3 WU",
-        "3 ku",
-        "3个wu",
-        "3个ku",
-        "5 kusdt",
-        "5 wUSDT",
-        "5 kusd",
-        "2 kbtc",
-        "2 wbtc",
-        "5 weth",
-        "5 个 kU",
-        # Any other single letter: letters are how multipliers and small units are abbreviated.
-        "5g",
-        "5 G",
-        "5x",
-        "5e",
-        "5E",
-        "5c",
-        "5 p",
-        "5 个 x",
-        "5\N{CYRILLIC SMALL LETTER KA}",
-    ],
-)
-def test_multiplier_letter_inside_a_unit_is_never_handed_back_as_a_unit(text: str) -> None:
-    # "3个w" handed back as three with the unit "个w" would turn thirty thousand into three.
-    assert read_number(text) == Unsure(Doubt.UNCLEAR_MULTIPLIER)
-
-
-@pytest.mark.parametrize(
-    "text",
-    [
-        # More than one of a magnitude word.
-        "2 thousands",
-        "2 THOUSANDS",
-        "2 thousands DOGE",
-        "5 millions",
-        "5 millions PEPE",
-        "3 hundreds",
-        "5 grands",
-        "5 dozens",
-        "5 billions",
-        "3 trillions",
-        "2thousands",
-        "5millions",
-        "5 ks",
-        "3 ws",
-        "2 mils",
-        "2 thousands of dollars",
-        # Short forms of magnitude words, and the same words in other languages.
-        "5 mln",
-        "5mln",
-        "5 MLN",
-        "2 bln",
-        "2bln刀",
-        "5 mill",
-        "5 mio",
-        "5 mia",
-        "5 Mrd",
-        "5 milliard",
-        "5 tsd",
-        "2 thou",
-        "2 bil",
-        "2 trn",
-        "5 tril",
-        "5 kilo",
-        "5 kilos",
-        "5 mega",
-        "3 lakh",
-        "3 lakhs",
-        "3 lac",
-        "3 crore",
-        "3 crores",
-        # The Chinese multipliers spelled in Latin letters.
-        "3 wan",
-        "3个wan",
-        "3 个 wan",
-        "3 WAN",
-        "3 yi",
-        "5 qian",
-        "2 bai",
-        # The same in everyday shorthand and in a few other languages.
-        "5 doz",
-        "5 hundos",
-        "5 pairs",
-        "5 pair",
-        "5 ezer",
-        "5 millió",
-        "5 millio",
-        "5 milliárd",
-        "5 mille",
-        "5 mila",
-        "5 тыс",
-        "5 млн",
-        "5 млрд",
-        "3 Gs",
-        "3 gs",
-        "3 ts",
-        "$3 t",
-        "3 large",
-        "3 shi",
-        "3 millón",
-        "3 millones",
-        "3 tausend",
-        "3个达不溜",
-        "3 达不溜",
-        # A long magnitude word at the front or the back of a longer word.
-        "3 millionen",
-        "3 milliarden",
-        "3 thousandish",
-        "3 milliontokens",
-        "3 hundredfold",
-        "3 dogethousand",
-        "3 pepemillions",
-        "3个XYZmillion",
-        # A magnitude letter or word glued to the front of a currency word.
-        "3 mu",
-        "3 mU",
-        "3 musdt",
-        "3 musd",
-        "3 bU",
-        "5 kiloUSDT",
-        "5 megausdt",
-        "3 mlnusdt",
-        "3个mu",
-        # A magnitude word glued to the front of a coin.
-        "5 kilobtc",
-        "5 megaeth",
-        "2 kdoge",
-        # The same glued to the back.
-        "3 Uk",
-        "3 uw",
-        "3 USDTk",
-        "3 usdtw",
-        "3 usdm",
-        "3 USDTwan",
-        "3 btck",
-        "3 BTCmln",
-        "3 BTCthousand",
-        "3 BTCthousands",
-        "3个Uk",
-        # With more around it than one unit.
-        "$5 mln",
-        "5 mln usdt in cash",
-        "2 thousands usdt in cash",
-    ],
-)
-def test_magnitude_word_in_any_common_form_is_never_handed_back_as_a_unit(text: str) -> None:
-    assert read_number(text) == Unsure(Doubt.UNCLEAR_MULTIPLIER)
-
-
-@pytest.mark.parametrize(
-    "text",
-    [
-        # The small units of the yuan.
-        "5毛",
-        "五毛",
-        "两毛",
-        "5 毛",
-        "5毛钱",
-        "5角",
-        "5角钱",
-        "5分",
-        "五分",
-        "5分钱",
-        "5厘",
-        "十分",
-        "5w毛",
-        # An amount that runs on past its unit: three yuan and a half, not three.
-        "三块五",
-        "3块5",
-        "5块3",
-        "3块5毛",
-        "三块五毛",
-        "两毛五",
-        "3元5角",
-        "1元5",
-        "十块零五毛",
-        "3刀5",
-        "三刀五",
-        # The small units of other money, and of coins.
-        "50 cents",
-        "50 cent",
-        "50cents",
-        "50 CENTS",
-        "5 pence",
-        "5 penny",
-        "5 pennies",
-        "100 sats",
-        "100 sat",
-        "100sats",
-        "100 sats BTC",
-        "5000 satoshis",
-        "1 satoshi",
-        "5 gwei",
-        "5 Gwei",
-        "100 wei",
-        "3 lamports",
-        "5 mao",
-        "5 jiao",
-        "5 fen",
-        "$5 cents",
-        "50 cents for each one",
-    ],
-)
-def test_amount_in_a_smaller_unit_of_money_is_never_handed_back_as_that_many_whole_units(
-    text: str,
-) -> None:
-    # "5毛" handed back as five with the unit "毛" would turn half a yuan into five.
-    assert read_number(text) == Unsure(Doubt.SMALLER_UNIT)
-
-
-@pytest.mark.parametrize(
-    "text",
-    [
-        # A thousandth and a millionth of a bitcoin.
-        "5mBTC",
-        "5 mBTC",
-        "5mbtc",
-        "5 MBTC",
-        "5 mBTCs",
-        "5个mBTC",
-        "5uBTC",
-        "5 uBTC",
-        "5 UBTC",
-        "5\N{GREEK SMALL LETTER MU}BTC",
-        "5 \N{GREEK SMALL LETTER MU}BTC",
-        "5 \N{MICRO SIGN}BTC",
-        "$5 mBTC",
-        # A hundred-millionth of one.
-        "100sat",
-        "100 sat",
-        "100sats",
-        "100 sats",
-        "100 SATS",
-        "100 Sats",
-        "1satoshi",
-        "1 satoshi",
-        "5000satoshis",
-        "5000 satoshis",
-        "5000 Satoshis",
-        "100聪",
-        "100 聪",
-        "一百聪",
-        # The small units of ether.
-        "5gwei",
-        "5 gwei",
-        "5 Gwei",
-        "5 GWEI",
-        "100wei",
-        "100 wei",
-        "100 WEI",
-    ],
-)
-def test_small_units_of_coins_are_never_handed_back_as_that_many_coins(text: str) -> None:
-    # "5mBTC" handed back as five with the unit "mBTC" would turn 0.005 of a bitcoin into five.
-    assert read_number(text) == Unsure(Doubt.SMALLER_UNIT)
-
-
-@pytest.mark.parametrize(
-    "text",
-    [
-        "5毫",
-        "5 仙",
-        "100聪",
-        "100 聪",
-        "3个聪",
-        "50便士",
-        "50美分",
-        "50 欧分",
-        "5 finney",
-        "5 szabo",
-        "5 bits",
-        "5 centavos",
-        "5 centimes",
-        "5 kopeks",
-        "5kopek",
-        "5kopeks",
-        # Glued to a currency word or a coin.
-        "5 centBTC",
-        "5 BTCcent",
-        "5 BTCcents",
-        "5 satsBTC",
-        "5 BTCsats",
-        "5 Ucents",
-        "5个BTCsats",
-    ],
-)
-def test_small_units_of_other_money_and_of_coins_are_doubted_too(text: str) -> None:
-    assert read_number(text) == Unsure(Doubt.SMALLER_UNIT)
-
-
-@pytest.mark.parametrize(
-    "text",
-    ["3打", "三打", "3 打", "3打币", "5双", "5 双", "5对", "5 对", "3 个 打", "3 u 打", "3 U 双"],
-)
-def test_dozen_or_pair_said_in_chinese_is_a_multiplier_too(text: str) -> None:
-    assert read_number(text) == Unsure(Doubt.UNCLEAR_MULTIPLIER)
-
-
-@pytest.mark.parametrize(
-    "text",
-    [
-        "5 thousandths",
-        "5 hundredths",
-        "5 tenths",
-        "5 halves",
-        "5 quarters",
-        "5 thirds",
-        "5 milli",
-        "5 micro",
-        "5 nano",
-        "3 times",
-        "3 fold",
-        "5层",
-        "5层仓",
-        "5 bp",
-        "5 bps",
-        "5bps",
-        "25 bips",
-        # Behind a unit, or glued to one.
-        "3 BTC倍",
-        "3 U成",
-        "3 U 成",
-        "3 USDT折",
-        "3 USDTpct",
-        "3 pctUSDT",
-        "3 btcbps",
-    ],
-)
-def test_word_for_a_fraction_or_a_multiple_is_never_handed_back_as_a_unit(text: str) -> None:
-    assert read_number(text) == Unsure(Doubt.HALF_OR_SHARE)
+@pytest.mark.parametrize("text", ONCE_DOUBTED)
+def test_text_once_doubted_for_its_unit_is_never_recognised(text: str) -> None:
+    assert not isinstance(read_number(text), Recognised)
 
 
 @pytest.mark.parametrize(
@@ -1528,163 +1593,6 @@ def test_unit_with_nothing_in_it_that_changes_the_number_is_still_handed_back(
 
     assert format(reading.value, "f") == value
     assert reading.unit == unit
-
-
-@pytest.mark.parametrize(
-    "text",
-    [
-        # 兆 and 京 follow 万 and 亿 in the same series of place words.
-        "3兆",
-        "3 兆",
-        "三兆",
-        "两兆",
-        "一兆",
-        "1.5兆",
-        "3兆刀",
-        "3兆U",
-        "3 兆 USDT",
-        "3兆个",
-        "3个兆",
-        "3万兆",
-        "3京",
-        "3京U",
-        "3个京",
-        "3垓",
-        "3 U兆",
-        "3 USDT 兆",
-        # Other ways of writing a digit or a place.
-        "3個萬",
-        "3个點",
-        "3个幺",
-        "3卌",
-        "3个陌",
-        "3 阡",
-        "3个壱",
-        "3 弐",
-    ],
-)
-def test_place_word_beyond_those_this_program_reads_is_never_taken_for_a_unit(text: str) -> None:
-    # "3兆" handed back as three with the unit "兆" would lose twelve (or six) places.
-    assert not isinstance(read_number(text), Recognised)
-
-
-@pytest.mark.parametrize(
-    "text",
-    [
-        # A multiplier or a fraction in front of a small unit this program knows.
-        "100 ksats",
-        "21 ksats",
-        "100 KSATS",
-        "100 Ksat",
-        "100 kSats",
-        "100 ｋｓａｔｓ",
-        "100个ksats",
-        "100 ksat BTC",
-        "100 kilosats",
-        "100 kilosatoshi",
-        "100 ksatoshis",
-        "100 msat",
-        "100 msats",
-        "100 MSAT",
-        "100 Msats",
-        "100msat",
-        "100 millisats",
-        "100 millisatoshis",
-        "100 megasats",
-        "100 nanosats",
-        "5 kwei",
-        "5 Kwei",
-        "5 KWEI",
-        "5 mwei",
-        "5 Mwei",
-        "5 MWEI",
-        "5mwei",
-        "5 kgwei",
-        "5 kGwei",
-        "5 Mgwei",
-        "5 microwei",
-        "5 gigawei",
-        "5 megagwei",
-        "5 kcents",
-        "5 mcent",
-        "5 kpence",
-        "5 klamports",
-        "5 kmBTC",
-        "5 mmbtc",
-        # Anything at all in front of one.
-        "100 xyzsats",
-        "5 abcwei",
-        "5 个 qqqcents",
-        # The same the other way round.
-        "100 satsk",
-        "100 satk",
-        "5 weim",
-        "5 gweik",
-        "5 centkilo",
-        "100 satsmilli",
-    ],
-)
-def test_small_unit_this_program_knows_is_seen_inside_a_longer_word(text: str) -> None:
-    # "100 ksats" is a hundred thousand of them, "100 msat" a tenth of one.
-    assert read_number(text) == Unsure(Doubt.SMALLER_UNIT)
-
-
-@pytest.mark.parametrize(
-    ("text", "reason"),
-    [
-        # Behind a counter or another unit word, not only at the front.
-        ("3个打", Doubt.UNCLEAR_MULTIPLIER),
-        ("3 个双", Doubt.UNCLEAR_MULTIPLIER),
-        ("3个对", Doubt.UNCLEAR_MULTIPLIER),
-        ("3 U个打", Doubt.UNCLEAR_MULTIPLIER),
-        ("3个成", Doubt.HALF_OR_SHARE),
-        ("3 个倍", Doubt.HALF_OR_SHARE),
-        ("3个折", Doubt.HALF_OR_SHARE),
-        ("3 个层", Doubt.HALF_OR_SHARE),
-        ("3 BTC个倍", Doubt.HALF_OR_SHARE),
-        ("3个仓位成", Doubt.HALF_OR_SHARE),
-        # Further words of the same families as ones already known.
-        ("5 tera", Doubt.UNCLEAR_MULTIPLIER),
-        ("5 peta", Doubt.UNCLEAR_MULTIPLIER),
-        ("5 teraBTC", Doubt.UNCLEAR_MULTIPLIER),
-        ("5 centi", Doubt.HALF_OR_SHARE),
-        ("5 deciBTC", Doubt.HALF_OR_SHARE),
-        ("5 femto", Doubt.HALF_OR_SHARE),
-        ("5 attoFIL", Doubt.HALF_OR_SHARE),
-        ("5 lovelace", Doubt.SMALLER_UNIT),
-        ("5 lovelaces", Doubt.SMALLER_UNIT),
-        ("5 drops", Doubt.SMALLER_UNIT),
-        ("5 kdrops", Doubt.SMALLER_UNIT),
-    ],
-)
-def test_word_that_changes_the_number_is_seen_wherever_it_stands_in_a_unit(
-    text: str, reason: Doubt
-) -> None:
-    assert read_number(text) == Unsure(reason)
-
-
-@pytest.mark.parametrize(
-    ("text", "reason"),
-    [
-        # Nothing but the letters this program applies as multipliers.
-        ("5 kkk", Doubt.UNCLEAR_MULTIPLIER),
-        ("5 KKKK", Doubt.UNCLEAR_MULTIPLIER),
-        ("5 ww", Doubt.UNCLEAR_MULTIPLIER),
-        ("5 wk", Doubt.UNCLEAR_MULTIPLIER),
-        ("5个kkw", Doubt.UNCLEAR_MULTIPLIER),
-        ("$5 kk", Doubt.UNCLEAR_MULTIPLIER),
-        ("$5 kw", Doubt.UNCLEAR_MULTIPLIER),
-        # The traditional forms of the Chinese words listed.
-        ("3 達不溜", Doubt.UNCLEAR_MULTIPLIER),
-        ("3個雙", Doubt.UNCLEAR_MULTIPLIER),
-        ("3 對", Doubt.UNCLEAR_MULTIPLIER),
-        ("3層", Doubt.HALF_OR_SHARE),
-        ("100聰", Doubt.SMALLER_UNIT),
-        ("5釐", Doubt.SMALLER_UNIT),
-    ],
-)
-def test_further_forms_of_listed_words_are_seen_too(text: str, reason: Doubt) -> None:
-    assert read_number(text) == Unsure(reason)
 
 
 NUMBER_CHARACTERS = (
@@ -2310,218 +2218,3 @@ def test_whole_number_written_with_thousands_commas_is_read_back_as_itself() -> 
     ]
 
     assert misread == []
-
-
-# --- attacked with the program's own word lists -----------------------------
-#
-# Every word this program lists as changing a number is combined with every
-# word it knows as a small unit, a currency word or a coin, in every way two
-# words can be put together. The lists are read from the module under test, so
-# a word added to one of them is attacked from then on without anyone having
-# to remember it here.
-
-WORDS_THAT_CHANGE_A_NUMBER = sorted(numbers._MAGNITUDE_WORDS | numbers._SHARE_WORDS)
-SMALL_UNITS_KNOWN = [*sorted(numbers._SMALLER_UNIT_WORDS), *numbers._SMALLER_UNITS_SAID]
-CURRENCY_WORDS_KNOWN = sorted(USDT_WORDS)
-COINS_KNOWN = sorted(
-    {form for coin in BUILT_IN_COINS for form in (coin.symbol, coin.name, *coin.aliases)}
-)
-WORDS_KNOWN = [*SMALL_UNITS_KNOWN, *CURRENCY_WORDS_KNOWN, *COINS_KNOWN]
-
-WAYS_TO_JOIN_TWO_WORDS = [
-    "{changer}{known}",
-    "{known}{changer}",
-    "{changer} {known}",
-    "{known} {changer}",
-]
-WAYS_TO_PUT_A_UNIT_AFTER_FIVE = ["5 {}", "5{}", "5个{}", "5 个{}", "5 个 {}"]
-WAYS_TO_USE_CAPITALS = [str.lower, str.upper, str.capitalize, str.title, str.swapcase]
-
-
-def is_one_known_word(unit: str) -> bool:
-    """Whether the two words happen to spell a currency word or a coin: "usd" and "t" spell USDT."""
-    return means_usdt(unit) or BUILT_IN_TABLE.find(unit) is not None
-
-
-def is_a_letter_on_a_coin(changer: str, known: str, way: str) -> bool:
-    """The one case left alone on purpose: "m", "b", "t" or "g" glued to a coin, as in mSOL."""
-    is_a_magnitude_letter = len(changer) == 1 and changer in numbers._MAGNITUDE_WORDS
-    return " " not in way and is_a_magnitude_letter and changer not in "kw" and known in COINS_KNOWN
-
-
-def units_made_of_two_listed_words() -> list[str]:
-    return [
-        way.format(changer=changer, known=known)
-        for changer in WORDS_THAT_CHANGE_A_NUMBER
-        for known in WORDS_KNOWN
-        for way in WAYS_TO_JOIN_TWO_WORDS
-        if not is_a_letter_on_a_coin(changer, known, way)
-        and not is_one_known_word(way.format(changer=changer, known=known))
-    ]
-
-
-def keeps_the_bare_five(text: str) -> bool:
-    reading = read_number(text)
-    return isinstance(reading, Recognised) and reading.value == 5
-
-
-def test_the_lists_under_attack_are_the_program_s_own_and_are_not_empty() -> None:
-    assert {"k", "w", "m", "kilo", "mega", "million", "wan"} <= set(WORDS_THAT_CHANGE_A_NUMBER)
-    assert {"milli", "micro", "nano", "percent"} <= set(WORDS_THAT_CHANGE_A_NUMBER)
-    assert {"sat", "satoshi", "wei", "gwei", "cent", "聪", "毛"} <= set(SMALL_UNITS_KNOWN)
-    assert {"USDT", "U", "刀", "美金"} <= set(CURRENCY_WORDS_KNOWN)
-    assert {"BTC", "Bitcoin", "比特币", "ETH", "Bitcoin Cash", "PEPE"} <= set(COINS_KNOWN)
-    assert len(units_made_of_two_listed_words()) > 40_000
-
-
-def test_no_two_listed_words_put_together_leave_the_bare_number() -> None:
-    kept = [unit for unit in units_made_of_two_listed_words() if keeps_the_bare_five(f"5 {unit}")]
-
-    assert kept == []
-
-
-def test_no_two_listed_words_leave_the_bare_number_however_written() -> None:
-    # Every unit is tried in one place and one use of capitals, taken in turn,
-    # so that each word meets each place and each use of capitals many times.
-    kept = []
-    for turn, unit in enumerate(units_made_of_two_listed_words()):
-        place = WAYS_TO_PUT_A_UNIT_AFTER_FIVE[turn % 5]
-        capitals = WAYS_TO_USE_CAPITALS[turn // 5 % 5]
-        text = place.format(capitals(unit))
-        if keeps_the_bare_five(text):
-            kept.append(text)
-
-    assert kept == []
-
-
-@pytest.mark.parametrize("capitals", WAYS_TO_USE_CAPITALS)
-@pytest.mark.parametrize("place", WAYS_TO_PUT_A_UNIT_AFTER_FIVE)
-def test_common_words_put_together_never_leave_the_bare_number_in_any_place_or_capitals(
-    place: str, capitals: Callable[[str], str]
-) -> None:
-    changers = [
-        "k",
-        "w",
-        "m",
-        "b",
-        "kilo",
-        "mega",
-        "giga",
-        "milli",
-        "micro",
-        "nano",
-        "million",
-        "mln",
-    ]
-    knowns = [
-        "sat",
-        "sats",
-        "satoshi",
-        "wei",
-        "gwei",
-        "cents",
-        "聪",
-        "usdt",
-        "u",
-        "刀",
-        "btc",
-        "eth",
-    ]
-    kept = [
-        place.format(capitals(way.format(changer=changer, known=known)))
-        for changer in changers
-        for known in knowns
-        for way in WAYS_TO_JOIN_TWO_WORDS
-        if not is_a_letter_on_a_coin(changer, known.upper(), way)
-        and not is_one_known_word(way.format(changer=changer, known=known))
-        and keeps_the_bare_five(place.format(capitals(way.format(changer=changer, known=known))))
-    ]
-
-    assert kept == []
-
-
-@pytest.mark.parametrize(
-    ("text", "reason"),
-    [
-        ("5 kmusdt", Doubt.UNCLEAR_MULTIPLIER),
-        ("5 mkusdt", Doubt.UNCLEAR_MULTIPLIER),
-        ("5 kkkusdt", Doubt.UNCLEAR_MULTIPLIER),
-        ("5 kilomusdt", Doubt.UNCLEAR_MULTIPLIER),
-        ("5 usdtkm", Doubt.UNCLEAR_MULTIPLIER),
-        ("5 mkbtc", Doubt.UNCLEAR_MULTIPLIER),
-        ("5 btcmk", Doubt.UNCLEAR_MULTIPLIER),
-        ("5 millikbtc", Doubt.UNCLEAR_MULTIPLIER),
-        ("100 satskm", Doubt.SMALLER_UNIT),
-        ("$3 times", Doubt.HALF_OR_SHARE),
-        ("5 tenths of one btc", Doubt.HALF_OR_SHARE),
-        ("5 kusdts", Doubt.UNCLEAR_MULTIPLIER),
-        ("5 kbtcs", Doubt.UNCLEAR_MULTIPLIER),
-        ("5 pico", Doubt.HALF_OR_SHARE),
-        ("5 picoBTC", Doubt.HALF_OR_SHARE),
-        ("5 \N{GREEK SMALL LETTER MU}usdt", Doubt.HALF_OR_SHARE),
-        ("5 \N{GREEK SMALL LETTER MU}ETH", Doubt.HALF_OR_SHARE),
-        ("5 \N{MICRO SIGN}eth", Doubt.HALF_OR_SHARE),
-    ],
-)
-def test_several_words_that_change_a_number_glued_to_a_known_unit_are_seen(
-    text: str, reason: Doubt
-) -> None:
-    assert read_number(text) == Unsure(reason)
-
-
-def test_two_changing_words_and_a_known_one_never_leave_the_bare_number() -> None:
-    changers = ["k", "w", "m", "kilo", "mega", "milli", "mln"]
-    knowns = ["usdt", "u", "btc", "eth", "sats", "wei"]
-    kept = [
-        unit
-        for first, second in itertools.product(changers, repeat=2)
-        for known in knowns
-        for unit in (first + second + known, known + first + second, first + known + second)
-        if keeps_the_bare_five(f"5 {unit}")
-    ]
-
-    assert kept == []
-
-
-@pytest.mark.parametrize("text", ["5 mmETH", "5 ETHmm", "5 mmBTC", "5 kkETH", "5 mnSOL"])
-def test_letters_that_make_a_listed_word_are_not_left_alone_on_a_coin(text: str) -> None:
-    assert not isinstance(read_number(text), Recognised)
-
-
-WORDS_SAID_THAT_CHANGE_A_NUMBER = [
-    *numbers._SMALLER_UNITS_SAID,
-    *numbers._MAGNITUDES_SAID,
-    *numbers._SHARES_SAID,
-]
-
-PLACES_FOR_A_WORD_SAID = [
-    "3{}",
-    "3 {}",
-    "3个{}",
-    "3 个 {}",
-    "3{}个",
-    "3{}U",
-    "3 U{}",
-    "3 U {}",
-    "3 USDT{}",
-    "3刀{}",
-    "3k{}",
-    "$3 {}",
-    "三个{}",
-]
-
-
-@pytest.mark.parametrize("place", PLACES_FOR_A_WORD_SAID)
-@pytest.mark.parametrize("word", WORDS_SAID_THAT_CHANGE_A_NUMBER)
-def test_listed_chinese_word_in_a_unit_never_yields_a_number(word: str, place: str) -> None:
-    assert not isinstance(read_number(place.format(word)), Recognised)
-
-
-@pytest.mark.parametrize("place", PLACES_FOR_A_NUMBER_CHARACTER)
-@pytest.mark.parametrize("character", sorted(numbers._NUMBER_WORDS))
-def test_listed_number_character_in_a_unit_never_leaves_the_bare_number(
-    character: str, place: str
-) -> None:
-    reading = read_number(place.format(character))
-
-    assert not (isinstance(reading, Recognised) and reading.value == 3)
