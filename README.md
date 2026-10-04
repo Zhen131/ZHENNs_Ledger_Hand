@@ -92,7 +92,7 @@ in order:
 | `format` | `ruff format --check .` | Formatting is left to the tool. |
 | `lint` | `ruff check .` | Basic errors, import order, naming, common pitfalls, needless complexity, boolean flag parameters, overlong functions. |
 | `types` | `mypy` | Strict type checking of `core/`. |
-| `layering` | `pytest tests/guardrails/test_repo_layering.py` | Each part of the package imports only what the layering table allows. |
+| `layering` | `pytest tests/guardrails/test_repo_layering.py` | Each part of the package imports only what the layering table allows; `core/` reads no clock and uses no floating-point number. |
 | `hygiene` | `pytest tests/guardrails/test_repo_hygiene.py` | No machine-specific paths, private work-log identifiers or tool-attribution text in any file Git tracks or would add. |
 | `tests` | `pytest` | Every test, including the tests of the two guardrails themselves. |
 

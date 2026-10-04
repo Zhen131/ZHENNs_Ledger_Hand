@@ -128,6 +128,17 @@ passes the current moment and the zone in as arguments. The check reports:
 - the builtins that reach outside the program: `open`, `input`, `print`,
   `breakpoint`, `eval`, `exec`, `compile`.
 
+`core/` does not use floating-point numbers either: an amount is an exact
+decimal built from text. The check reports:
+
+- any floating-point or complex constant (`0.1`, `1e5`, `1j`);
+- any call that turns something into such a number: `float()`, `complex()`,
+  `.__float__()`, `.__complex__()`, `.from_float()` and `float.fromhex()`.
+
+It cannot see everything. Dividing two whole numbers with `/`, for one, gives
+a floating-point number without any of these signs; that is left to whoever
+reads the change.
+
 ## The eleven rules
 
 | # | Rule | Why |

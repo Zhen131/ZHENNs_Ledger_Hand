@@ -2,8 +2,8 @@
 
 Given the directory of a package, reads every Python file in it and reports
 each import the layering table below does not allow. For ``core/`` it also
-reports reads of the clock or of the machine's time zone, and builtins that
-reach outside the program.
+reports reads of the clock or of the machine's time zone, builtins that reach
+outside the program, and floating-point numbers.
 
 It only reads source text; it never imports or runs the package under check,
 and it judges nothing outside the directory it is given. Parts of the package
@@ -49,6 +49,7 @@ class Reason(enum.Enum):
     CLOCK_READ = "reads the current time or date"
     LOCAL_ZONE_READ = "reads the machine's time zone"
     OUTSIDE_WORLD_BUILTIN = "calls a builtin that reaches outside the program"
+    FLOAT_USE = "uses a floating-point number"
 
 
 @dataclass(frozen=True)
@@ -138,6 +139,7 @@ _OUTSIDE_WORLD_BUILTINS = frozenset(
     {"open", "input", "print", "breakpoint", "eval", "exec", "compile"}
 )
 _DYNAMIC_IMPORTERS = frozenset({"__import__", "import_module"})
+_FLOAT_MAKERS = frozenset({"float", "complex", "__float__", "__complex__", "from_float"})
 
 _Found = tuple[int, Reason, str]
 
@@ -189,6 +191,7 @@ def _check_file(package_dir: Path, relative: Path) -> list[Violation]:
         found.extend(_clock_findings(tree))
         found.extend(_local_zone_findings(tree))
         found.extend(_outside_world_findings(tree))
+        found.extend(_float_findings(tree))
     return [Violation(shown, line, reason, detail) for line, reason, detail in found]
 
 
@@ -309,6 +312,34 @@ def _outside_world_findings(tree: ast.AST) -> Iterator[_Found]:
             continue
         if node.func.id in _OUTSIDE_WORLD_BUILTINS:
             yield node.lineno, Reason.OUTSIDE_WORLD_BUILTIN, f"{node.func.id}() is not pure"
+
+
+def _float_findings(tree: ast.AST) -> Iterator[_Found]:
+    """Floating-point constants, and calls that turn something into such a number.
+
+    Amounts are exact decimals built from text. What this cannot see has to be
+    caught by reading the code: a division of two whole numbers with ``/``,
+    for one, gives a floating-point number without any of these signs.
+    """
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Constant) and isinstance(node.value, float | complex):
+            detail = f"{node.value!r} is not exact; build a decimal from text instead"
+        elif isinstance(node, ast.Call) and _makes_a_float(node):
+            detail = f"{_called_name(node)}() gives a number that is not exact"
+        else:
+            continue
+        yield node.lineno, Reason.FLOAT_USE, detail
+
+
+def _makes_a_float(call: ast.Call) -> bool:
+    name = _called_name(call)
+    if name in _FLOAT_MAKERS:
+        return True
+    return (
+        name == "fromhex"
+        and isinstance(call.func, ast.Attribute)
+        and _last_name(call.func.value) == "float"
+    )
 
 
 def _called_name(call: ast.Call) -> str | None:

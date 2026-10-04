@@ -459,6 +459,65 @@ def test_core_using_pure_builtins_passes(tmp_path: Path) -> None:
     assert check(tmp_path, {"core/rules.py": source}) == []
 
 
+# --- core: floating-point numbers -------------------------------------------
+
+FLOAT_USES = [
+    "rate = 0.1",
+    "fee = 1e-3",
+    "big = 1E5",
+    "half = .5",
+    "two = 2.",
+    "debt = -0.5",
+    "turn = 1j",
+    lines("def scale(amount):", "    return amount * 1.5"),
+    lines("def scale(amount, rate=0.0):", "    return amount"),
+    "value = float(text)",
+    'value = float("0.1")',
+    "value = complex(text)",
+    "value = number.__float__()",
+    lines("from decimal import Decimal", "value = Decimal.from_float(number)"),
+    lines("from fractions import Fraction", "value = Fraction.from_float(number)"),
+    'value = float.fromhex("0x1p-3")',
+]
+
+EXACT_NUMBER_CODE = [
+    lines("from decimal import Decimal", 'rate = Decimal("0.1")'),
+    lines("from fractions import Fraction", "third = Fraction(1, 3)"),
+    "count = 10",
+    "big = 10**18",
+    "half = 5 // 2",
+    'text = "0.1"',
+    'note = "1e5 is not accepted"',
+    'raw = bytes.fromhex("ff")',
+    lines("def total(amounts):", "    return sum(amounts)"),
+]
+
+
+@pytest.mark.parametrize("source", FLOAT_USES)
+def test_core_using_a_floating_point_number_is_reported(tmp_path: Path, source: str) -> None:
+    assert reasons(tmp_path, {"core/rules.py": source}) == [Reason.FLOAT_USE]
+
+
+def test_every_floating_point_use_on_a_line_is_reported(tmp_path: Path) -> None:
+    found = check(tmp_path, {"core/rules.py": lines("count = 1", "rate = float(0.5) + 0.25")})
+
+    assert [(violation.line, violation.reason) for violation in found] == [
+        (2, Reason.FLOAT_USE),
+        (2, Reason.FLOAT_USE),
+        (2, Reason.FLOAT_USE),
+    ]
+
+
+@pytest.mark.parametrize("source", EXACT_NUMBER_CODE)
+def test_core_calculating_with_exact_numbers_passes(tmp_path: Path, source: str) -> None:
+    assert check(tmp_path, {"core/rules.py": source}) == []
+
+
+@pytest.mark.parametrize("source", FLOAT_USES)
+def test_floating_point_rule_applies_to_core_only(tmp_path: Path, source: str) -> None:
+    assert check(tmp_path, {"flows/record.py": source}) == []
+
+
 # --- imports hidden from the reader -----------------------------------------
 
 
