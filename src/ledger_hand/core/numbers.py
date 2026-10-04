@@ -56,6 +56,10 @@ gaps between digits is a ``Doubt``, because a comma is a decimal mark in much
 of Europe. A point followed by exactly three digits is read as a decimal
 point, with a ``Caution`` that it may have been meant to group thousands.
 
+A number with more decimal places or more digits than the ledger holds is a
+``Doubt`` as well: it is never rounded or cut to fit. The limits apply to the
+number after its multiplier.
+
 This module does not decide whether a number is a price, a quantity or a fee,
 and it does not look for numbers inside a sentence.
 
@@ -73,6 +77,12 @@ from dataclasses import dataclass
 from decimal import Decimal
 
 from ledger_hand.core.arithmetic import working_context
+from ledger_hand.core.ledger_limits import (
+    MAX_DECIMAL_PLACES,
+    MAX_SIGNIFICANT_DIGITS,
+    decimal_places,
+    significant_digits,
+)
 
 
 class Doubt(enum.Enum):
@@ -81,6 +91,8 @@ class Doubt(enum.Enum):
     AMBIGUOUS_SEPARATOR = "the separators can be read in more than one way"
     UNCLEAR_MULTIPLIER = "a letter or word may or may not be meant as a multiplier"
     UNCLEAR_WORDING = "the number words do not add up to one reading"
+    TOO_MANY_DECIMAL_PLACES = "more decimal places than the ledger holds"
+    TOO_MANY_DIGITS = "more digits than the ledger holds"
 
 
 class Caution(enum.Enum):
@@ -215,9 +227,10 @@ class _Tail:
 
 @dataclass(frozen=True)
 class _Amount:
-    """A value read from the number itself, before its unit is attached."""
+    """What the number itself says: a value, times ten to the ``power``."""
 
     value: Decimal
+    power: int = 0
     cautions: tuple[Caution, ...] = ()
 
 
@@ -260,7 +273,10 @@ def _strictly_read(folded: str, original: str) -> Reading | None:
         return None
     if isinstance(amount, Doubt):
         return Unsure(amount)
-    return Recognised(amount.value, sign or tail.unit, amount.cautions)
+    value = _within_limits(amount)
+    if isinstance(value, Doubt):
+        return Unsure(value)
+    return Recognised(value, sign or tail.unit, amount.cautions)
 
 
 def _tail(shape: re.Match[str], original: str) -> _Tail | Doubt | None:
@@ -310,12 +326,12 @@ def _written(digits: str, power: int) -> _Amount | Doubt | None:
     ``None`` when the digits are not a number.
     """
     if _PLAIN.fullmatch(digits):
-        value = _scaled(Decimal(digits), power)
         if _GROUP_LIKE_FRACTION.fullmatch(digits):
-            return _Amount(value, (Caution.POINT_MAY_BE_THOUSANDS_SEPARATOR,))
-        return _Amount(value)
+            caution = Caution.POINT_MAY_BE_THOUSANDS_SEPARATOR
+            return _Amount(Decimal(digits), power, (caution,))
+        return _Amount(Decimal(digits), power)
     if _GROUPED.fullmatch(digits):
-        return _Amount(_scaled(Decimal(digits.replace(",", "")), power))
+        return _Amount(Decimal(digits.replace(",", "")), power)
     if _LEADING_ZERO.match(digits):
         # Nobody writes an amount with zeros in front; this is a code or a clock time.
         return None
@@ -334,7 +350,7 @@ def _said(numeral: str) -> _Amount | None:
     if whole is None:
         return None
     fraction = "".join(str(_SAID_DIGITS[digit]) for digit in decimal["fraction"])
-    return _Amount(_scaled(Decimal(f"{whole}.{fraction}"), _SCALE_WORDS[decimal["scale"]]))
+    return _Amount(Decimal(f"{whole}.{fraction}"), _SCALE_WORDS[decimal["scale"]])
 
 
 def _said_whole(numeral: str) -> int | None:
@@ -440,6 +456,20 @@ def _reads_one_way(places: Sequence[_Place]) -> bool:
         elif below.top not in (above.bottom - 1, 4 * (above.bottom // 4) - 1):
             return False
     return True
+
+
+def _within_limits(amount: _Amount) -> Decimal | Doubt:
+    """The value with its multiplier applied, if the ledger can hold it as it stands."""
+    if significant_digits(amount.value) > MAX_SIGNIFICANT_DIGITS:
+        # Multiplying never makes a number shorter, and turning away the
+        # longest ones here keeps the multiplication below exact.
+        return Doubt.TOO_MANY_DIGITS
+    value = _scaled(amount.value, amount.power)
+    if decimal_places(value) > MAX_DECIMAL_PLACES:
+        return Doubt.TOO_MANY_DECIMAL_PLACES
+    if significant_digits(value) > MAX_SIGNIFICANT_DIGITS:
+        return Doubt.TOO_MANY_DIGITS
+    return value
 
 
 def _scaled(value: Decimal, power: int) -> Decimal:

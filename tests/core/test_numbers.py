@@ -692,6 +692,71 @@ def test_mixed_wording_without_a_single_reading_is_not_guessed(text: str) -> Non
     assert read_number(text) == Unsure(Doubt.UNCLEAR_WORDING)
 
 
+# --- more digits than the ledger holds --------------------------------------
+
+EIGHTEEN_PLACES = "0.123456789012345678"
+NINETEEN_PLACES = "0.1234567890123456789"
+FORTY_DIGITS = "1234567890" * 4
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        NINETEEN_PLACES,
+        "1.0000000000000000000",
+        "0.0000000000000000001",
+        NINETEEN_PLACES + " BTC",
+        "$" + NINETEEN_PLACES,
+        "0." + "0" * 199 + "1",
+        "0." + "0" * 17 + "12345k",
+    ],
+)
+def test_more_decimal_places_than_the_ledger_holds_are_not_rounded_away(text: str) -> None:
+    assert read_number(text) == Unsure(Doubt.TOO_MANY_DECIMAL_PLACES)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        FORTY_DIGITS + "1",
+        "9" * 23 + "." + "9" * 18,
+        "1" * 200,
+        "1" * 200 + "k",
+        FORTY_DIGITS[:37] + "万",
+        FORTY_DIGITS + "k",
+        "1" * 30 + "." + "1" * 30,
+    ],
+)
+def test_more_digits_than_the_ledger_holds_are_not_cut_off(text: str) -> None:
+    assert read_number(text) == Unsure(Doubt.TOO_MANY_DIGITS)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        EIGHTEEN_PLACES,
+        "0.000000000000000001",
+        FORTY_DIGITS,
+        "9" * 22 + "." + "9" * 18,
+    ],
+)
+def test_number_right_at_the_ledger_s_digit_limits_is_read_in_full(text: str) -> None:
+    assert written(text) == text
+
+
+@pytest.mark.parametrize(
+    ("text", "value"),
+    [
+        # Nineteen places as written, fifteen once multiplied.
+        (NINETEEN_PLACES + "万", "1234.567890123456789"),
+        ("0.0000000000000000015k", "0.0000000000000015"),
+        (FORTY_DIGITS[:36] + "万", FORTY_DIGITS[:36] + "0000"),
+    ],
+)
+def test_digit_limits_apply_to_the_number_after_its_multiplier(text: str, value: str) -> None:
+    assert written(text) == value
+
+
 # --- what is not a number ---------------------------------------------------
 
 
