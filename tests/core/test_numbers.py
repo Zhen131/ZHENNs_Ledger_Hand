@@ -1235,6 +1235,7 @@ def test_word_for_a_fraction_or_a_multiple_is_never_handed_back_as_a_unit(text: 
         ("3 bitcoin", "3", "bitcoin"),
         ("3 bitcoins", "3", "bitcoins"),
         ("3 btcs", "3", "btcs"),
+        ("5 USDTs", "5", "USDTs"),
         ("3 usdc", "3", "usdc"),
         ("3 USDT", "3", "USDT"),
         ("3 kg", "3", "kg"),

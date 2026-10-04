@@ -552,7 +552,8 @@ def _has_a_magnitude_glued_on(word: str) -> bool:
 
     That is a magnitude letter or word glued to a currency word or a coin
     ("wu" after a gap is ten thousand u as readily as "3wu" is), or a long
-    magnitude word at the front or the back of anything.
+    magnitude word at the front or the back of anything. ``word`` is known
+    not to be a currency word or a coin itself.
     """
     for magnitude in _MAGNITUDE_WORDS:
         is_long = len(magnitude) >= _LONG_MAGNITUDE_WORD
@@ -563,17 +564,18 @@ def _has_a_magnitude_glued_on(word: str) -> bool:
         # ("mSOL", "tBTC"), and such a unit is handed back whole.
         applies = len(magnitude) > 1 or magnitude in _LETTER_MULTIPLIERS
         for rest in (word.removeprefix(magnitude), word.removesuffix(magnitude)):
-            if rest == word:
-                continue
             if means_usdt(rest) or (applies and BUILT_IN_TABLE.find(rest) is not None):
                 return True
     return False
 
 
 def _is_glued_to_a_unit(word: str, parts: frozenset[str]) -> bool:
-    """Whether ``word`` is one of ``parts``, or its plural, glued to a currency word or a coin."""
+    """Whether ``word`` is one of ``parts``, or its plural, glued to a currency word or a coin.
+
+    ``word`` is known not to be a currency word or a coin itself.
+    """
     return any(
-        rest != word and _names_money_or_a_coin(rest)
+        _names_money_or_a_coin(rest)
         for part in parts
         for form in (part, part + "s")
         for rest in (word.removeprefix(form), word.removesuffix(form))
