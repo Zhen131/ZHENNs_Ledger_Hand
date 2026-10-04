@@ -36,9 +36,9 @@ habits of speech are read:
 
 - A last digit with no unit takes the unit just below the one before it:
   "两万三" is 23000 and "三千五" is 3500. After 十, and after 零, it is a
-  plain digit: "二十三" is 23 and "两千零五" is 2005. After 百万 or 千万 the
-  short form is a ``Doubt``: "一百万五" may end in five thousand or in five
-  hundred thousand.
+  plain digit: "二十三" is 23 and "两千零五" is 2005. After a unit built on
+  百 or 千, such as 百万 or 千亿, the short form is a ``Doubt``: "一百万五"
+  may end in five thousand or in five hundred thousand.
 - 两 stands for two before 百, 千, 万 and 亿, and alone.
 
 Otherwise the words must follow each other the way a number is properly said.
@@ -144,14 +144,14 @@ class NotANumber:
 
 Reading = Recognised | Unsure | NotANumber
 
-# The full-width forms of the ASCII characters, of two currency signs and of
-# the space, each mapped to its ordinary form. One character maps to one
-# character, so a position in the folded text is the same position in the
-# original, and the unit can be handed back as it was written. Folding by
-# Unicode's compatibility rules would also turn circled and superscript digits
-# into plain ones, and those are not how anyone writes an amount.
+# The full-width forms of the ASCII characters and of two currency signs, each
+# mapped to its ordinary form. One character maps to one character, so a
+# position in the folded text is the same position in the original, and the
+# unit can be handed back as it was written. Folding by Unicode's
+# compatibility rules would also turn circled and superscript digits into
+# plain ones, and those are not how anyone writes an amount.
 _FOLDED = {code: code - 0xFEE0 for code in range(0xFF01, 0xFF5F)}
-_FOLDED.update({0x3000: 0x20, 0xFFE5: 0xA5, 0xFFE1: 0xA3})
+_FOLDED.update({0xFFE5: 0xA5, 0xFFE1: 0xA3})
 
 _CURRENCY_SIGNS = "$¥€£"
 
@@ -506,15 +506,16 @@ def _sections(numeral: str) -> list[tuple[str, int]] | None:
     """Split ``numeral`` at 亿 and 万 into the words of each four-digit section.
 
     Each section comes with the power of ten of its lowest place. ``None``
-    when a unit is repeated or has nothing in front of it to count.
+    when a unit has nothing in front of it to count. A unit said twice stays
+    inside a section, where nothing can read it.
     """
     high, yi, low = numeral.partition("亿")
-    if yi and (not high or "亿" in low):
+    if yi and not high:
         return None
     sections: list[tuple[str, int]] = []
     for words, base in [(high, 8), (low, 0)] if yi else [(numeral, 0)]:
         upper, wan, lower = words.partition("万")
-        if wan and (not upper or "万" in lower):
+        if wan and not upper:
             return None
         sections.extend([(upper, base + 4), (lower, base)] if wan else [(words, base)])
     return sections

@@ -123,6 +123,9 @@ def test_commas_between_groups_of_three_digits_are_dropped(text: str, value: str
         "94\N{NARROW NO-BREAK SPACE}900",
         "94, 900",
         "0.5 0.6",
+        "5.万",
+        "8,万",
+        "1.,5",
     ],
 )
 def test_separators_with_more_than_one_reading_are_not_guessed(text: str) -> None:
@@ -587,6 +590,12 @@ def test_number_said_in_chinese_number_words_may_carry_a_unit(
         "三百五千",
         "一万二万",
         "一亿二亿",
+        "一万万",
+        "一亿亿",
+        "万三",
+        "万五千",
+        "亿五",
+        "亿三千万",
         # A point with nothing, or with units, on one side: this is how clock times are said.
         "点五",
         "五点",
