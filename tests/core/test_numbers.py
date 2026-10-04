@@ -9,6 +9,7 @@ import decimal
 import itertools
 import random
 import re
+import unicodedata
 from decimal import Decimal
 
 import pytest
@@ -520,6 +521,209 @@ def test_letters_that_only_read_as_one_allowed_word_are_a_unit() -> None:
     assert read_number("5kas") == Unsure(Doubt.UNCLEAR_MULTIPLIER)
     assert recognised_with("5kas", "kas") == Recognised(Decimal("5"), "kas")
     assert recognised_with("5 kas", "KAS") == Recognised(Decimal("5"), "kas")
+
+
+# --- whatever is recognised carries only known units: random texts ----------
+
+# The list of unit words is written out a second time here, from the two
+# tables it is made of and the counters above, and the unit is cut into blocks
+# by a rule of this file's own: at gaps, and wherever Chinese characters meet
+# anything else.
+EVERY_UNIT_WORD_THIS_PROGRAM_KNOWS = frozenset(
+    unicodedata.normalize("NFKC", word).upper()
+    for word in (
+        *USDT_WORDS,
+        *COUNTERS,
+        *(form for coin in BUILT_IN_COINS for form in (coin.symbol, coin.name, *coin.aliases)),
+    )
+)
+BLOCK_OF_A_UNIT = re.compile(r"[\u3400-\u9fff]+|[^\s\u3400-\u9fff]+")
+
+NUMBERS_FOR_RANDOM_TEXTS = [
+    "5",
+    "0.5",
+    "94,900",
+    "1.2k",
+    "3w",
+    "8万",
+    "两万三",
+    "9万4",
+    "三千",
+    "$5",
+    "５",
+    "5K",
+    "12.5W",
+]
+KNOWN_WORDS_FOR_RANDOM_TEXTS = [
+    "USDT",
+    "usdt",
+    "u",
+    "U",
+    "ｕ",
+    "刀",
+    "美金",
+    "美元",
+    "dollars",
+    "Tether",
+    "BTC",
+    "btc",
+    "Eth",
+    "sol",
+    "DOGE",
+    "ＢＴＣ",
+    "比特币",
+    "以太坊",
+    "个",
+    "個",
+    "枚",
+    "颗",
+    "coins",
+    "Token",
+]
+UNKNOWN_WORDS_FOR_RANDOM_TEXTS = [
+    "k",
+    "K",
+    "w",
+    "W",
+    "m",
+    "b",
+    "t",
+    "g",
+    "s",
+    "x",
+    "ks",
+    "ws",
+    "ms",
+    "mm",
+    "us",
+    "千",
+    "万",
+    "亿",
+    "兆",
+    "萬",
+    "million",
+    "millions",
+    "thousand",
+    "mln",
+    "wan",
+    "kilo",
+    "milli",
+    "half",
+    "sat",
+    "sats",
+    "wei",
+    "gwei",
+    "cents",
+    "毛",
+    "分",
+    "聪",
+    "成",
+    "倍",
+    "打",
+    "块",
+    "元",
+    "币",
+    "天",
+    "тыс",
+    "к",
+    "μ",
+    "BONK",
+    "bonk",
+    "WIF",
+    "kas",
+    "手",
+    "张",
+]
+WORDS_A_CALLER_MAY_ALLOW = ["BONK", "wif", "KAS", "手", "张"]
+GAPS_FOR_RANDOM_TEXTS = ["", "", " ", "\N{IDEOGRAPHIC SPACE}"]
+
+
+def blocks_outside(unit: str, allowed: frozenset[str]) -> list[str]:
+    """The blocks of ``unit`` that are neither known to this program nor in ``allowed``."""
+    blocks = BLOCK_OF_A_UNIT.findall(unit)
+    return [
+        block
+        for block in blocks
+        if unicodedata.normalize("NFKC", block).upper() not in EVERY_UNIT_WORD_THIS_PROGRAM_KNOWS
+        and unicodedata.normalize("NFKC", block).upper() not in allowed
+    ]
+
+
+def test_the_rule_used_to_judge_units_cuts_them_at_gaps_and_between_scripts() -> None:
+    nothing = frozenset[str]()
+
+    assert blocks_outside("个 BTC", nothing) == []
+    assert blocks_outside("个BTC刀", nothing) == []
+    assert blocks_outside("＄", nothing) == []
+    assert blocks_outside("个w刀", nothing) == ["w"]
+    assert blocks_outside("BTCks", nothing) == ["BTCks"]
+    assert blocks_outside("个比特币", nothing) == ["个比特币"]
+    assert blocks_outside("kBONK 个", frozenset({"BONK"})) == ["kBONK"]
+    assert blocks_outside("BONK 个", frozenset({"BONK"})) == []
+
+
+def test_every_unit_handed_back_for_a_random_text_is_made_of_known_or_allowed_words() -> None:
+    dice = random.Random(63)
+    # Known words come up most often, or hardly any unit would be handed back.
+    kinds_of_words = [
+        KNOWN_WORDS_FOR_RANDOM_TEXTS,
+        KNOWN_WORDS_FOR_RANDOM_TEXTS,
+        KNOWN_WORDS_FOR_RANDOM_TEXTS,
+        WORDS_A_CALLER_MAY_ALLOW,
+        UNKNOWN_WORDS_FOR_RANDOM_TEXTS,
+    ]
+    with_a_unit = 0
+    with_an_allowed_word = 0
+    turned_away = 0
+    offending = []
+    for _ in range(40_000):
+        words = [dice.choice(dice.choice(kinds_of_words)) for _ in range(dice.randint(1, 3))]
+        text = dice.choice(NUMBERS_FOR_RANDOM_TEXTS) + "".join(
+            dice.choice(GAPS_FOR_RANDOM_TEXTS) + word for word in words
+        )
+        extra_units = dice.sample(WORDS_A_CALLER_MAY_ALLOW, dice.randint(0, 2))
+        allowed = frozenset(word.upper() for word in extra_units)
+
+        reading = read_number(text, extra_units=extra_units)
+
+        if not isinstance(reading, Recognised):
+            turned_away += 1
+        elif reading.unit is not None:
+            with_a_unit += 1
+            with_an_allowed_word += any(
+                block.upper() in allowed for block in BLOCK_OF_A_UNIT.findall(reading.unit)
+            )
+            if blocks_outside(reading.unit, allowed):
+                offending.append((text, extra_units, reading.unit))
+
+    assert offending == []
+    # The texts must be of all three kinds, or the check above says nothing.
+    assert with_a_unit > 5_000
+    assert with_an_allowed_word > 500
+    assert turned_away > 5_000
+
+
+def test_every_unit_handed_back_for_random_characters_is_made_of_known_words() -> None:
+    dice = random.Random(64)
+    alphabet = (
+        "0123456789.,kKwWmusdtUSDTbcBCeh个枚刀美金元币万千亿兆聪毛块 $¥\N{IDEOGRAPHIC SPACE}ｕｋ５"
+    )
+    with_a_unit = 0
+    offending = []
+    for _ in range(60_000):
+        text = dice.choice("123456789") + "".join(
+            dice.choice(alphabet) for _ in range(dice.randint(1, 6))
+        )
+
+        reading = read_number(text)
+
+        if isinstance(reading, Recognised) and reading.unit is not None:
+            with_a_unit += 1
+            if blocks_outside(reading.unit, frozenset()):
+                offending.append((text, reading.unit))
+
+    assert offending == []
+    assert with_a_unit > 1_000
 
 
 # --- multipliers after written digits ---------------------------------------
