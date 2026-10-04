@@ -15,6 +15,8 @@ built from it. Python's decimal type would by itself accept spellings that are
 refused here on purpose: an exponent, an underscore between digits, a sign,
 "NaN", "Infinity", and digits of other scripts.
 
+Full-width characters are read as their ordinary forms.
+
 Commas count as thousands separators only in the strict form: one to three
 digits, then groups of exactly three. Any other mix of commas, points and
 gaps between digits is a ``Doubt``, because a comma is a decimal mark in much
@@ -70,6 +72,13 @@ class NotANumber:
 
 Reading = Recognised | Unsure | NotANumber
 
+# The full-width forms of the ASCII characters, and the ideographic space, each
+# mapped to its ordinary form. Folding by Unicode's compatibility rules would
+# also turn circled and superscript digits into plain ones, and those are not
+# how anyone writes an amount.
+_FOLDED = {code: code - 0xFEE0 for code in range(0xFF01, 0xFF5F)}
+_FOLDED[0x3000] = 0x20
+
 # Digits are spelled out as 0-9 throughout: the shorthand for "a digit" would
 # also match the digits of every other script.
 _SHAPE = re.compile(r"\s*(?P<body>[0-9](?:[0-9.,\s]*[0-9])?)\s*")
@@ -82,7 +91,7 @@ _LEADING_ZERO = re.compile(r"0[0-9]")
 
 def read_number(text: str) -> Reading:
     """Read ``text`` as one number."""
-    shape = _SHAPE.fullmatch(text)
+    shape = _SHAPE.fullmatch(text.translate(_FOLDED))
     if shape is None:
         return NotANumber()
     return _written(shape["body"])

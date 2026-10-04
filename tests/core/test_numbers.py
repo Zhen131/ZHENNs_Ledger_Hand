@@ -156,6 +156,35 @@ def test_point_that_cannot_be_grouping_thousands_carries_no_caution(text: str) -
     assert recognised(text).cautions == ()
 
 
+# --- full-width characters --------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("text", "value"),
+    [
+        ("９４９００", "94900"),
+        ("０．０２", "0.02"),
+        ("９４，９００", "94900"),
+        ("9４900", "94900"),
+        ("１，２３４，５６７．８９", "1234567.89"),
+        ("\N{IDEOGRAPHIC SPACE}９４９００\N{IDEOGRAPHIC SPACE}", "94900"),
+    ],
+)
+def test_full_width_characters_are_read_as_their_ordinary_forms(text: str, value: str) -> None:
+    assert written(text) == value
+
+
+def test_full_width_separators_are_judged_like_ordinary_ones() -> None:
+    assert read_number("１，５") == Unsure(Doubt.AMBIGUOUS_SEPARATOR)
+    assert read_number("９４\N{IDEOGRAPHIC SPACE}９００") == Unsure(Doubt.AMBIGUOUS_SEPARATOR)
+    assert recognised("９４．９００").cautions == (Caution.POINT_MAY_BE_THOUSANDS_SEPARATOR,)
+
+
+@pytest.mark.parametrize("text", ["－５", "１ｅ５", "１＿０００", "ＮａＮ", "０。５", "００７"])
+def test_full_width_spelling_does_not_let_a_refused_form_through(text: str) -> None:
+    assert read_number(text) == NotANumber()
+
+
 # --- what is not a number ---------------------------------------------------
 
 
