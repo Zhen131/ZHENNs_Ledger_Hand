@@ -40,10 +40,10 @@ The rules:
 Holdings are not checked: this program does not know what the ledger already
 holds, so a sale is never refused for selling more than was bought.
 
-All arithmetic happens in a dedicated decimal context, never in Python's
-default one. The agreement of the three amounts is also tested the way the
-ledger itself calculates it, so that a record accepted here is not turned
-down there over its total.
+All arithmetic goes through the contexts of ``arithmetic``, never through
+Python's default one. The agreement of the three amounts is also tested the
+way the ledger itself calculates it, so that a record accepted here is not
+turned down there over its total.
 
 Names defined here: ``check_draft``, ``Missing``, ``Violation``,
 ``DraftProblems``, ``CheckSettings``, ``DEFAULT_SETTINGS``,
@@ -55,21 +55,12 @@ from __future__ import annotations
 import enum
 from collections.abc import Mapping
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
-from decimal import (
-    ROUND_HALF_UP,
-    Context,
-    Decimal,
-    DivisionByZero,
-    Inexact,
-    InvalidOperation,
-    Overflow,
-)
-from zoneinfo import ZoneInfo
+from datetime import datetime, timedelta
+from decimal import Context, Decimal, Inexact
 
+from ledger_hand.core.arithmetic import ledger_context, round_half_up, working_context
 from ledger_hand.core.coins import CoinTable, means_usdt, spoken_key
 from ledger_hand.core.ledger_limits import (
-    ARITHMETIC_PRECISION,
     MAX_DECIMAL_PLACES,
     NOTE_MAX_LENGTH,
     PLATFORM_MAX_LENGTH,
@@ -179,19 +170,6 @@ _TOO_MANY_DIGITS = {
     Amount.PRICE: Violation.PRICE_TOO_MANY_DIGITS,
     Amount.TOTAL: Violation.TOTAL_TOO_MANY_DIGITS,
 }
-
-_TRAPS = [InvalidOperation, DivisionByZero, Overflow]
-
-# Wide enough to be exact where it matters. Two numbers inside the ledger's
-# digit limits multiply to at most 80 digits, and their product minus a third
-# such number needs at most 99. A quotient gets at least 92 digits after the
-# point, far more than the 60 it takes for a second rounding, to the places
-# asked for, to give the same answer as rounding the true quotient once.
-_WORKING = Context(prec=150, rounding=ROUND_HALF_UP, traps=_TRAPS)
-
-# The ledger's own arithmetic: every product and difference rounded half up
-# to this many significant digits.
-_AS_LEDGER = Context(prec=ARITHMETIC_PRECISION, rounding=ROUND_HALF_UP, traps=_TRAPS)
 
 
 @dataclass(frozen=True)
@@ -334,24 +312,19 @@ def _is_sound(amount: Amount, value: Decimal, found: list[_Problem]) -> bool:
 def _derive(blank: Amount, stated: Mapping[Amount, Decimal], places: int) -> Decimal:
     """The one amount that was not stated, calculated from the two that were."""
     if blank is Amount.TOTAL:
-        product = _WORKING.multiply(stated[Amount.QUANTITY], stated[Amount.PRICE])
-        return _written_plainly(_rounded(product, MAX_DECIMAL_PLACES))
+        product = working_context().multiply(stated[Amount.QUANTITY], stated[Amount.PRICE])
+        return _written_plainly(round_half_up(product, MAX_DECIMAL_PLACES))
     divisor = stated[Amount.PRICE if blank is Amount.QUANTITY else Amount.QUANTITY]
     return _written_plainly(_quotient(stated[Amount.TOTAL], divisor, places))
 
 
 def _quotient(dividend: Decimal, divisor: Decimal, places: int) -> Decimal:
     """``dividend / divisor``: kept whole when it comes out even, else rounded to ``places``."""
-    context = _WORKING.copy()
-    context.clear_flags()
+    context = working_context()
     quotient = context.divide(dividend, divisor)
     if not context.flags[Inexact] and fits_digit_limits(quotient):
         return quotient
-    return _rounded(quotient, places)
-
-
-def _rounded(value: Decimal, places: int) -> Decimal:
-    return value.quantize(Decimal((0, (1,), -places)), context=_WORKING)
+    return round_half_up(quotient, places)
 
 
 def _written_plainly(value: Decimal) -> Decimal:
@@ -362,7 +335,9 @@ def _written_plainly(value: Decimal) -> Decimal:
 
 def _agree(amounts: _Amounts, tolerance: Decimal) -> bool:
     """Whether quantity times price is close enough to the total, here and in the ledger."""
-    return _gap(_WORKING, amounts) <= tolerance and _gap(_AS_LEDGER, amounts) <= TOTAL_TOLERANCE
+    here = _gap(working_context(), amounts) <= tolerance
+    in_the_ledger = _gap(ledger_context(), amounts) <= TOTAL_TOLERANCE
+    return here and in_the_ledger
 
 
 def _gap(context: Context, amounts: _Amounts) -> Decimal:
@@ -434,17 +409,10 @@ def _occurred(
     if occurred is None:
         found.append(Missing.OCCURRED)
         return None
-    if _is_in_the_future(occurred, now, grace):
+    if occurred.is_in_the_future(now, grace):
         found.append(Violation.IN_THE_FUTURE)
         return None
     return occurred
-
-
-def _is_in_the_future(occurred: OccurredTime, now: datetime, grace: timedelta) -> bool:
-    if isinstance(occurred.value, datetime):
-        # In UTC, so that adding the grace moves the instant and not a wall clock.
-        return occurred.value > now.astimezone(timezone.utc) + grace
-    return occurred.value > now.astimezone(ZoneInfo(occurred.time_zone)).date()
 
 
 # --- free text --------------------------------------------------------------
