@@ -1,10 +1,12 @@
-"""Tests of reading a number the way people write or say it.
+"""Tests of reading a number the way people write or say it, and of writing one for the ledger.
 
 Every amount here is invented. Each kind of wording has a section of its own.
 """
 
 from __future__ import annotations
 
+import decimal
+import re
 from decimal import Decimal
 
 import pytest
@@ -16,6 +18,7 @@ from ledger_hand.core.numbers import (
     Recognised,
     Unsure,
     read_number,
+    write_number,
 )
 
 
@@ -910,3 +913,180 @@ def test_unit_that_only_resembles_a_vague_word_stays_a_unit(text: str, unit: str
 )
 def test_text_that_is_not_a_number_is_called_that(text: str) -> None:
     assert read_number(text) == NotANumber()
+
+
+# --- writing a number for the ledger ----------------------------------------
+
+LEDGER_NUMBER = re.compile(r"(?:0|[1-9][0-9]*)(?:\.[0-9]+)?")
+
+
+def is_written_as_the_ledger_requires(text: str) -> bool:
+    """The ledger's rule for a number, restated here independently of the code under test.
+
+    Digits and at most one point; no exponent and no sign; no needless zero in
+    front; at most 18 digits after the point and 40 significant digits, where
+    zeros at the end count as significant.
+    """
+    if LEDGER_NUMBER.fullmatch(text) is None:
+        return False
+    whole, _, fraction = text.partition(".")
+    significant = len((whole + fraction).lstrip("0")) or 1
+    return len(fraction) <= 18 and significant <= 40
+
+
+@pytest.mark.parametrize(
+    "text",
+    ["0", "7", "94900", "0.02", "1898.50", "0.000000033", "9" * 40, "0." + "0" * 17 + "1"],
+)
+def test_the_rule_used_to_judge_written_numbers_accepts_what_the_ledger_accepts(text: str) -> None:
+    assert is_written_as_the_ledger_requires(text)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "1e3",
+        "1E+3",
+        "3.3E-8",
+        "007",
+        "00.5",
+        ".5",
+        "5.",
+        "-5",
+        "-0",
+        "+5",
+        "1,000",
+        " 5",
+        "5 ",
+        "",
+        "NaN",
+        "Infinity",
+        "５",
+        "0." + "0" * 18 + "1",
+        "9" * 41,
+    ],
+)
+def test_the_rule_used_to_judge_written_numbers_refuses_what_the_ledger_refuses(text: str) -> None:
+    assert not is_written_as_the_ledger_requires(text)
+
+
+VALUES_THE_LEDGER_CAN_HOLD = [
+    # whole numbers
+    "0",
+    "1",
+    "7",
+    "10",
+    "94900",
+    "1000000",
+    # decimals
+    "0.02",
+    "0.5",
+    "1898.5",
+    "123456789.123456789",
+    # zeros at the end
+    "1898.50",
+    "0.020",
+    "100.000",
+    "1.0",
+    "0.0",
+    # very large
+    "1234567890" * 4,
+    "9" * 22 + "." + "9" * 18,
+    "1E+39",
+    # very small
+    "0.000000033",
+    "3.3E-8",
+    "1E-7",
+    "1E-18",
+    "0.000000000000000001",
+    # held with an exponent inside
+    "1E+3",
+    "1.5E+4",
+    "0E-7",
+    "0E+3",
+    # zero with a sign
+    "-0",
+    "-0.00",
+]
+
+
+@pytest.mark.parametrize("value", VALUES_THE_LEDGER_CAN_HOLD)
+def test_written_number_has_the_form_the_ledger_requires(value: str) -> None:
+    assert is_written_as_the_ledger_requires(write_number(Decimal(value)))
+
+
+@pytest.mark.parametrize("value", VALUES_THE_LEDGER_CAN_HOLD)
+def test_written_number_reads_back_as_the_same_value(value: str) -> None:
+    text = write_number(Decimal(value))
+
+    assert Decimal(text) == Decimal(value)
+    assert recognised(text).value == Decimal(value)
+    assert recognised(text).unit is None
+
+
+@pytest.mark.parametrize("value", VALUES_THE_LEDGER_CAN_HOLD)
+def test_writing_what_was_read_back_gives_the_same_text(value: str) -> None:
+    text = write_number(Decimal(value))
+
+    assert write_number(recognised(text).value) == text
+
+
+@pytest.mark.parametrize(
+    ("value", "text"),
+    [
+        ("94900", "94900"),
+        ("0.02", "0.02"),
+        ("1898.50", "1898.50"),
+        ("0.020", "0.020"),
+        ("1E+3", "1000"),
+        ("1.5E+4", "15000"),
+        ("3.3E-8", "0.000000033"),
+        ("1E-18", "0.000000000000000001"),
+        ("0E-7", "0.0000000"),
+        ("0E+3", "0"),
+        ("-0", "0"),
+        ("-0.00", "0.00"),
+        ("1E+39", "1" + "0" * 39),
+    ],
+)
+def test_number_is_written_in_plain_digits_with_its_zeros_kept(value: str, text: str) -> None:
+    assert write_number(Decimal(value)) == text
+
+
+def test_python_s_own_text_for_a_small_number_is_not_what_the_ledger_takes() -> None:
+    small = Decimal("0.000000033")
+
+    assert not is_written_as_the_ledger_requires(str(small))
+    assert write_number(small) == "0.000000033"
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "NaN",
+        "sNaN",
+        "Infinity",
+        "-Infinity",
+        "-5",
+        "-0.01",
+        "0." + "0" * 18 + "1",
+        "1." + "1" * 19,
+        "9" * 41,
+        "1E+40",
+    ],
+)
+def test_number_the_ledger_cannot_hold_is_refused_instead_of_written(value: str) -> None:
+    with pytest.raises(ValueError, match="ledger"):
+        write_number(Decimal(value))
+
+
+def test_writing_does_not_depend_on_the_decimal_context_of_the_caller() -> None:
+    hostile = decimal.Context(prec=3, rounding=decimal.ROUND_DOWN)
+    hostile.traps[decimal.Inexact] = True
+    hostile.traps[decimal.Rounded] = True
+    long_number = Decimal("9" * 22 + "." + "9" * 18)
+
+    with decimal.localcontext(hostile):
+        text = write_number(long_number)
+
+    assert text == "9" * 22 + "." + "9" * 18

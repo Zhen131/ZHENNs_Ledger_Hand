@@ -1,4 +1,4 @@
-"""Numbers as text: reading a number the way people write or say it.
+"""Numbers as text: reading one the way people write or say it, writing one for the ledger.
 
 ``read_number`` takes a short piece of text that is supposed to be one number
 and gives back one of these:
@@ -66,11 +66,15 @@ A number with more decimal places or more digits than the ledger holds is a
 ``Doubt`` as well: it is never rounded or cut to fit. The limits apply to the
 number after its multiplier.
 
+``write_number`` goes the other way: an exact decimal becomes the text the
+ledger accepts for a number, which is plain digits with no exponent, no sign
+and no needless zero in front. Zeros after the point are kept as they are.
+
 This module does not decide whether a number is a price, a quantity or a fee,
 and it does not look for numbers inside a sentence.
 
-Names defined here: ``read_number``, ``Reading``, ``Recognised``, ``Unsure``,
-``NotANumber``, ``Doubt`` and ``Caution``.
+Names defined here: ``read_number``, ``write_number``, ``Reading``,
+``Recognised``, ``Unsure``, ``NotANumber``, ``Doubt`` and ``Caution``.
 """
 
 from __future__ import annotations
@@ -87,6 +91,7 @@ from ledger_hand.core.ledger_limits import (
     MAX_DECIMAL_PLACES,
     MAX_SIGNIFICANT_DIGITS,
     decimal_places,
+    fits_digit_limits,
     significant_digits,
 )
 
@@ -312,6 +317,26 @@ def read_number(text: str) -> Reading:
         if doubt is not None:
             return Unsure(doubt)
     return reading
+
+
+def write_number(value: Decimal) -> str:
+    """``value`` as the ledger wants a number written.
+
+    Raises ``ValueError`` for a value the ledger cannot hold as it stands: one
+    that is not finite, is below zero, or has more digits than the ledger's
+    limits. Nothing is rounded to make it fit. A draft with such a number is
+    turned away by ``validation``, so one arriving here is a mistake in the
+    calling code.
+    """
+    if not value.is_finite():
+        raise ValueError(f"the ledger holds only finite numbers, not {value}")
+    if value < 0:
+        raise ValueError(f"the ledger holds no number below zero, such as {value}")
+    if not fits_digit_limits(value):
+        raise ValueError(f"{value} has more digits than the ledger holds")
+    # Python's own text for a decimal switches to an exponent for small
+    # numbers, and writes a zero that carries a sign with that sign.
+    return format(value.copy_abs(), "f")
 
 
 def _hinted(folded: str, hints: Sequence[tuple[Doubt, re.Pattern[str]]]) -> Doubt | None:
