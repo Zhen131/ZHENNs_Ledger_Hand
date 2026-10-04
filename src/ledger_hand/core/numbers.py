@@ -40,12 +40,14 @@ and the answer is a ``Doubt``, never the number without that piece applied:
   to a word this program does not know, a short one cannot be told from
   part of a name, and the unit is handed back whole. So is a coin with a
   single letter other than "k" or "w" next to it, which is as likely the
-  name of another coin ("mSOL", "tBTC");
+  name of another coin ("mSOL", "tBTC"); the ones that are small units
+  ("mBTC") are listed as such;
 - any single letter other than "u": single letters are how multipliers and
   small units are abbreviated, and nothing here can tell which one is meant;
-- a smaller unit of money (毛, 角, 分, 厘, 聪, cents, pence, sats, gwei and
-  the like): "5毛" is half a yuan, not five. An amount that runs on past its
-  unit ("三块五") is the same case;
+- a smaller unit of money or of a coin (毛, 角, 分, 厘, 聪, cents, pence,
+  sats, mBTC, gwei and the like): "5毛" is half a yuan, not five, and
+  "5mBTC" is 0.005 of a bitcoin. An amount that runs on past its unit
+  ("三块五") is the same case;
 - a word for a fraction or a multiple ("tenths", "bps", "times", 成, 倍).
 
 A word for a smaller unit, a fraction or a multiple counts wherever it stands
@@ -239,7 +241,8 @@ _LONG_MAGNITUDE_WORD = 6
 _SMALLER_UNITS_SAID = ("毛", "角", "分", "厘", "毫", "仙", "聪", "便士")
 _SMALLER_UNIT_WORDS = frozenset(
     {"cent", "penny", "pennies", "pence", "centavo", "centime", "kopek", "fillér", "paisa"}
-    | {"sat", "satoshi", "bit", "gwei", "wei", "finney", "szabo", "lamport"}
+    | {"sat", "satoshi", "bit", "mbtc", "ubtc", "\N{GREEK SMALL LETTER MU}btc"}
+    | {"gwei", "wei", "finney", "szabo", "lamport"}
     | {"mao", "jiao", "fen"}
 )
 # A dozen and a pair, as they are said in Chinese, at the front of a unit; and
@@ -477,7 +480,7 @@ def _tail(shape: re.Match[str], original: str) -> _Tail | Doubt | None:
     """
     letters = shape["letters"].lower()
     power = _LETTER_MULTIPLIERS.get(letters, 0)
-    if not power and letters[:1] in _LETTER_MULTIPLIERS:
+    if not power and letters[:1] in _LETTER_MULTIPLIERS and not _is_a_smaller_unit(letters):
         # "1ku" may be a thousand u or one of a coin called ku.
         return Doubt.UNCLEAR_MULTIPLIER
     start = shape.end("letters") if power else shape.start("letters")
@@ -487,6 +490,11 @@ def _tail(shape: re.Match[str], original: str) -> _Tail | Doubt | None:
     if _is_unit(unit):
         return _Tail(power, unit=original[start:].strip())
     return None
+
+
+def _is_a_smaller_unit(word: str) -> bool:
+    """Whether ``word``, in small letters, is a smaller unit of money in the singular or plural."""
+    return not _SMALLER_UNIT_WORDS.isdisjoint((word, word.removesuffix("s")))
 
 
 def _is_unit(text: str) -> bool:

@@ -406,7 +406,6 @@ def test_letters_that_may_or_may_not_multiply_are_not_guessed(text: str) -> None
     ("text", "value", "unit"),
     [
         ("50matic", "50", "matic"),
-        ("5mBTC", "5", "mBTC"),
         ("0.5btc", "0.5", "btc"),
         ("2ton", "2", "ton"),
         ("3trx", "3", "trx"),
@@ -1146,6 +1145,70 @@ def test_amount_in_a_smaller_unit_of_money_is_never_handed_back_as_that_many_who
 @pytest.mark.parametrize(
     "text",
     [
+        # A thousandth and a millionth of a bitcoin.
+        "5mBTC",
+        "5 mBTC",
+        "5mbtc",
+        "5 MBTC",
+        "5 mBTCs",
+        "5个mBTC",
+        "5uBTC",
+        "5 uBTC",
+        "5 UBTC",
+        "5\N{GREEK SMALL LETTER MU}BTC",
+        "5 \N{GREEK SMALL LETTER MU}BTC",
+        "5 \N{MICRO SIGN}BTC",
+        "$5 mBTC",
+        # A hundred-millionth of one.
+        "100sat",
+        "100 sat",
+        "100sats",
+        "100 sats",
+        "100 SATS",
+        "100 Sats",
+        "1satoshi",
+        "1 satoshi",
+        "5000satoshis",
+        "5000 satoshis",
+        "5000 Satoshis",
+        "100聪",
+        "100 聪",
+        "一百聪",
+        # The small units of ether.
+        "5gwei",
+        "5 gwei",
+        "5 Gwei",
+        "5 GWEI",
+        "100wei",
+        "100 wei",
+        "100 WEI",
+    ],
+)
+def test_small_units_of_coins_are_never_handed_back_as_that_many_coins(text: str) -> None:
+    # "5mBTC" handed back as five with the unit "mBTC" would turn 0.005 of a bitcoin into five.
+    assert read_number(text) == Unsure(Doubt.SMALLER_UNIT)
+
+
+@pytest.mark.parametrize(
+    ("text", "unit"),
+    [
+        ("5 mSOL", "mSOL"),
+        ("5 mETH", "mETH"),
+        ("5 tBTC", "tBTC"),
+        ("5 bETH", "bETH"),
+        ("5mSOL", "mSOL"),
+    ],
+)
+def test_coin_whose_own_name_starts_with_such_a_letter_stays_a_unit(text: str, unit: str) -> None:
+    reading = recognised(text)
+
+    assert reading.value == 5
+    assert reading.unit == unit
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
         "5毫",
         "5 仙",
         "100聪",
@@ -1160,6 +1223,8 @@ def test_amount_in_a_smaller_unit_of_money_is_never_handed_back_as_that_many_who
         "5 centavos",
         "5 centimes",
         "5 kopeks",
+        "5kopek",
+        "5kopeks",
         # Glued to a currency word or a coin.
         "5 centBTC",
         "5 BTCcent",
