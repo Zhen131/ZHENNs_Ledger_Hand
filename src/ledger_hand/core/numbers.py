@@ -238,7 +238,7 @@ _MAGNITUDE_WORDS = frozenset(
     {"k", "w", "m", "b", "t", "g", "bn", "mn", "mm", "kk", "kw", "mil", "mio"}
     | {"dozen", "hundred", "thousand", "million", "billion", "trillion", "grand", "large"}
     | {"thou", "mill", "mln", "mia", "mrd", "milliard", "bln", "bil", "trn", "tril", "tsd"}
-    | {"kilo", "mega", "giga", "lakh", "lac", "crore", "doz", "hundo", "pair"}
+    | {"kilo", "mega", "giga", "tera", "peta", "lakh", "lac", "crore", "doz", "hundo", "pair"}
     | {"shi", "bai", "qian", "wan", "yi"}
     | {"ezer", "millió", "millio", "milliárd", "mille", "mila", "тыс", "млн", "млрд"}
     | {"millon", "millón", "tausend"}
@@ -255,21 +255,21 @@ _SMALLER_UNITS_SAID = ("毛", "角", "分", "厘", "毫", "仙", "聪", "便士"
 _SMALLER_UNIT_WORDS = frozenset(
     {"cent", "penny", "pennies", "pence", "centavo", "centime", "kopek", "fillér", "paisa"}
     | {"sat", "satoshi", "bit", "mbtc", "ubtc", "\N{GREEK SMALL LETTER MU}btc"}
-    | {"gwei", "wei", "finney", "szabo", "lamport"}
+    | {"gwei", "wei", "finney", "szabo", "lamport", "lovelace", "drop"}
     | {"mao", "jiao", "fen"}
 )
-# A dozen and a pair, as they are said in Chinese, at the front of a unit; and
-# the letter W as it is sometimes spelled out, anywhere in one.
-_COUNTED_IN_SETS = ("打", "双", "对")
-_W_SPELLED_OUT = "达不溜"
-# Tenths, multiples and discounts as they are said in Chinese. 成交 only starts
-# with the same character: it means a deal was done.
+# A dozen and a pair as they are said in Chinese, and the letter W as it is
+# sometimes spelled out.
+_MAGNITUDES_SAID = ("打", "双", "对", "达不溜")
+# Tenths, multiples and discounts as they are said in Chinese. 成交 only shares
+# a character with them: it means a deal was done.
 _SHARES_SAID = ("成", "倍", "折", "层")
 _A_DEAL_DONE = "成交"
 # Words that make the number a fraction or a multiple of something.
 _SHARE_WORDS = frozenset(
     {"half", "halves", "quarter", "third", "tenth", "hundredth", "thousandth", "millionth"}
-    | {"percent", "pct", "bp", "bip", "milli", "micro", "nano", "pico", "time", "fold"}
+    | {"percent", "pct", "bp", "bip", "time", "fold"}
+    | {"deci", "centi", "milli", "micro", "nano", "pico", "femto", "atto"}
 )
 
 # Number words as they are said.
@@ -650,9 +650,9 @@ def _character_doubt(piece: str) -> Doubt | None:
     """Why a piece written in characters without capitals is not part of a plain unit."""
     if any(unit in piece for unit in _SMALLER_UNITS_SAID):
         return Doubt.SMALLER_UNIT
-    if piece.startswith(_COUNTED_IN_SETS) or _W_SPELLED_OUT in piece:
+    if any(word in piece for word in _MAGNITUDES_SAID):
         return Doubt.UNCLEAR_MULTIPLIER
-    if piece.startswith(_SHARES_SAID) and not piece.startswith(_A_DEAL_DONE):
+    if any(share in piece.replace(_A_DEAL_DONE, "") for share in _SHARES_SAID):
         return Doubt.HALF_OR_SHARE
     return None
 

@@ -1438,6 +1438,45 @@ def test_small_unit_this_program_knows_is_seen_inside_a_longer_word(text: str) -
     assert read_number(text) == Unsure(Doubt.SMALLER_UNIT)
 
 
+@pytest.mark.parametrize(
+    ("text", "reason"),
+    [
+        # Behind a counter or another unit word, not only at the front.
+        ("3个打", Doubt.UNCLEAR_MULTIPLIER),
+        ("3 个双", Doubt.UNCLEAR_MULTIPLIER),
+        ("3个对", Doubt.UNCLEAR_MULTIPLIER),
+        ("3 U个打", Doubt.UNCLEAR_MULTIPLIER),
+        ("3个成", Doubt.HALF_OR_SHARE),
+        ("3 个倍", Doubt.HALF_OR_SHARE),
+        ("3个折", Doubt.HALF_OR_SHARE),
+        ("3 个层", Doubt.HALF_OR_SHARE),
+        ("3 BTC个倍", Doubt.HALF_OR_SHARE),
+        ("3个仓位成", Doubt.HALF_OR_SHARE),
+        # Further words of the same families as ones already known.
+        ("5 tera", Doubt.UNCLEAR_MULTIPLIER),
+        ("5 peta", Doubt.UNCLEAR_MULTIPLIER),
+        ("5 teraBTC", Doubt.UNCLEAR_MULTIPLIER),
+        ("5 centi", Doubt.HALF_OR_SHARE),
+        ("5 deciBTC", Doubt.HALF_OR_SHARE),
+        ("5 femto", Doubt.HALF_OR_SHARE),
+        ("5 attoFIL", Doubt.HALF_OR_SHARE),
+        ("5 lovelace", Doubt.SMALLER_UNIT),
+        ("5 lovelaces", Doubt.SMALLER_UNIT),
+        ("5 drops", Doubt.SMALLER_UNIT),
+        ("5 kdrops", Doubt.SMALLER_UNIT),
+    ],
+)
+def test_word_that_changes_the_number_is_seen_wherever_it_stands_in_a_unit(
+    text: str, reason: Doubt
+) -> None:
+    assert read_number(text) == Unsure(reason)
+
+
+def test_a_deal_done_is_still_not_a_share() -> None:
+    assert recognised("3个成交").unit == "个成交"
+    assert recognised("8万 成交").unit == "成交"
+
+
 NUMBER_CHARACTERS = (
     "零〇一二三四五六七八九十百千万亿兆京垓秭穰沟涧正载极"
     "两俩仨廿卅卌半几幺点"
