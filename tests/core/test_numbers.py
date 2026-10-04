@@ -2138,7 +2138,8 @@ def is_one_known_word(unit: str) -> bool:
 
 def is_a_letter_on_a_coin(changer: str, known: str, way: str) -> bool:
     """The one case left alone on purpose: "m", "b", "t" or "g" glued to a coin, as in mSOL."""
-    return " " not in way and len(changer) == 1 and changer not in "kw" and known in COINS_KNOWN
+    is_a_magnitude_letter = len(changer) == 1 and changer in numbers._MAGNITUDE_WORDS
+    return " " not in way and is_a_magnitude_letter and changer not in "kw" and known in COINS_KNOWN
 
 
 def units_made_of_two_listed_words() -> list[str]:
@@ -2230,6 +2231,70 @@ def test_common_words_put_together_never_leave_the_bare_number_in_any_place_or_c
     ]
 
     assert kept == []
+
+
+@pytest.mark.parametrize(
+    ("text", "reason"),
+    [
+        ("5 kmusdt", Doubt.UNCLEAR_MULTIPLIER),
+        ("5 mkusdt", Doubt.UNCLEAR_MULTIPLIER),
+        ("5 kkkusdt", Doubt.UNCLEAR_MULTIPLIER),
+        ("5 kilomusdt", Doubt.UNCLEAR_MULTIPLIER),
+        ("5 usdtkm", Doubt.UNCLEAR_MULTIPLIER),
+        ("5 mkbtc", Doubt.UNCLEAR_MULTIPLIER),
+        ("5 btcmk", Doubt.UNCLEAR_MULTIPLIER),
+        ("5 millikbtc", Doubt.UNCLEAR_MULTIPLIER),
+        ("100 satskm", Doubt.SMALLER_UNIT),
+        ("5 \N{GREEK SMALL LETTER MU}usdt", Doubt.HALF_OR_SHARE),
+        ("5 \N{GREEK SMALL LETTER MU}ETH", Doubt.HALF_OR_SHARE),
+        ("5 \N{MICRO SIGN}eth", Doubt.HALF_OR_SHARE),
+    ],
+)
+def test_several_words_that_change_a_number_glued_to_a_known_unit_are_seen(
+    text: str, reason: Doubt
+) -> None:
+    assert read_number(text) == Unsure(reason)
+
+
+def test_two_changing_words_and_a_known_one_never_leave_the_bare_number() -> None:
+    changers = ["k", "w", "m", "kilo", "mega", "milli", "mln"]
+    knowns = ["usdt", "u", "btc", "eth", "sats", "wei"]
+    kept = [
+        unit
+        for first, second in itertools.product(changers, repeat=2)
+        for known in knowns
+        for unit in (first + second + known, known + first + second, first + known + second)
+        if keeps_the_bare_five(f"5 {unit}")
+    ]
+
+    # The case left alone on purpose, once more: only "m" on both sides of a coin.
+    assert kept == ["methm"]
+
+
+@pytest.mark.parametrize(
+    ("text", "unit"),
+    [
+        ("5 bbSOL", "bbSOL"),
+        ("5 ggAVAX", "ggAVAX"),
+        ("5 wstETH", "wstETH"),
+        ("5 UST", "UST"),
+        ("5 BTCB", "BTCB"),
+        ("5 BTCUSDT", "BTCUSDT"),
+        ("5 GBP", "GBP"),
+        ("5 MNT", "MNT"),
+        ("5 GMT", "GMT"),
+    ],
+)
+def test_real_names_that_only_look_as_if_they_came_apart_stay_units(text: str, unit: str) -> None:
+    reading = recognised(text)
+
+    assert reading.value == 5
+    assert reading.unit == unit
+
+
+@pytest.mark.parametrize("text", ["5 mmETH", "5 ETHmm", "5 mmBTC", "5 kkETH", "5 mnSOL"])
+def test_letters_that_make_a_listed_word_are_not_left_alone_on_a_coin(text: str) -> None:
+    assert not isinstance(read_number(text), Recognised)
 
 
 def test_the_case_left_alone_on_purpose_is_only_a_single_letter_on_a_coin() -> None:

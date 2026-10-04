@@ -280,7 +280,17 @@ _A_DEAL_DONE = "成交"
 _SHARE_WORDS = frozenset(
     {"half", "halves", "quarter", "third", "tenth", "hundredth", "thousandth", "millionth"}
     | {"percent", "pct", "bp", "bip", "time", "fold"}
-    | {"deci", "centi", "milli", "micro", "nano", "pico", "femto", "atto"}
+    | {
+        "deci",
+        "centi",
+        "milli",
+        "micro",
+        "\N{GREEK SMALL LETTER MU}",
+        "nano",
+        "pico",
+        "femto",
+        "atto",
+    }
 )
 
 # Number words as they are said.
@@ -385,6 +395,13 @@ _STRAY_MAGNITUDE = re.compile(
 )
 _ALL_HINTS = (*_WORDING_HINTS, (Doubt.UNCLEAR_MULTIPLIER, _STRAY_MAGNITUDE))
 
+
+# The words that change a number without naming anything that is counted.
+_CHANGING_WORDS = _MAGNITUDE_WORDS | _SHARE_WORDS
+# The magnitude letters this program never applies as a multiplier.
+_LETTERS_LEFT_ALONE = frozenset(
+    word for word in _MAGNITUDE_WORDS if len(word) == 1 and word not in _LETTER_MULTIPLIERS
+)
 
 # Every ending that makes a word a smaller unit: each such word and its plural.
 _SMALLER_UNIT_ENDINGS = tuple(
@@ -610,13 +627,10 @@ def _word_doubt(word: str) -> Doubt | None:
         return _DOUBT_ABOUT.get(kind)
     if word.endswith(_SMALLER_UNIT_ENDINGS):
         return Doubt.SMALLER_UNIT
-    for cut in range(1, len(word)):
-        doubt = _joined_doubt(word[:cut], word[cut:])
-        if doubt is not None:
-            return doubt
-    if _has_a_long_magnitude_word_at_an_end(word):
+    doubt = _taken_apart_doubt(word)
+    if doubt is None and _has_a_long_magnitude_word_at_an_end(word):
         return Doubt.UNCLEAR_MULTIPLIER
-    return None
+    return doubt
 
 
 def _kind(word: str) -> _Kind | None:
@@ -628,40 +642,92 @@ def _kind(word: str) -> _Kind | None:
         return _Kind.SMALLER_UNIT
     if not _SHARE_WORDS.isdisjoint(forms):
         return _Kind.FRACTION
-    if any(map(means_usdt, forms)):
+    # "us" is not several u, and no coin has a single letter for a name.
+    names = forms if len(word) > 2 else (word,)
+    if any(map(means_usdt, names)):
         return _Kind.MONEY
-    if any(BUILT_IN_TABLE.find(form) is not None for form in forms):
+    if any(BUILT_IN_TABLE.find(name) is not None for name in names):
         return _Kind.COIN
     return None
 
 
-def _joined_doubt(left: str, right: str) -> Doubt | None:
-    """Why two words this program knows, written as one, are not a plain unit.
+def _taken_apart_doubt(word: str) -> Doubt | None:
+    """Why ``word`` is not plain when it comes apart into words this program knows.
 
-    ``None`` when they are one, and when either half is not a word this
-    program knows.
+    The word is tried as a small unit, a currency word or a coin with words
+    for a magnitude or a fraction in front of it, behind it, or both.
     """
-    kinds = {_kind(left), _kind(right)}
-    if None in kinds:
-        return None
-    if _Kind.SMALLER_UNIT in kinds:
+    fronts, backs = _changing_fronts(word), _changing_backs(word)
+    # The longest word that can be the thing counted is tried first, so that
+    # "usdtpct" is USDT and a percentage, not USD with more behind it.
+    for start in sorted(fronts):
+        for end in sorted(backs, reverse=True):
+            if start < end and (start, end) != (0, len(word)):
+                doubt = _doubt_about_what_is_counted(word[:start], word[start:end], word[end:])
+                if doubt is not None:
+                    return doubt
+    for cut in range(1, len(word)):
+        if _kind(word[:cut]) is _Kind.SMALLER_UNIT and _kind(word[cut:]) is not None:
+            return Doubt.SMALLER_UNIT
+    return None
+
+
+def _doubt_about_what_is_counted(before: str, counted: str, after: str) -> Doubt | None:
+    """Why ``counted``, with words that change a number around it, is not a plain unit.
+
+    ``None`` when ``counted`` is not a small unit, a currency word or a coin.
+    """
+    kind = _kind(counted)
+    if kind is _Kind.SMALLER_UNIT:
         return Doubt.SMALLER_UNIT
-    if kinds.isdisjoint({_Kind.MONEY, _Kind.COIN}):
-        # Magnitudes and fractions with nothing to count: "kg", "gbp". Such a
-        # word may well be a unit of its own.
+    if kind not in (_Kind.MONEY, _Kind.COIN):
         return None
-    if _Kind.FRACTION in kinds:
+    # Next to a coin, letters this program does not itself apply as a
+    # multiplier are as likely part of the name of another coin ("mSOL",
+    # "tBTC", "bbSOL"), and such a unit is handed back whole.
+    if kind is _Kind.COIN and _is_left_alone(before) and _is_left_alone(after):
+        return None
+    if _Kind.FRACTION in (_kind(before), _kind(after)):
         return Doubt.HALF_OR_SHARE
-    if _Kind.MAGNITUDE not in kinds:
-        return None
-    magnitude = left if _kind(left) is _Kind.MAGNITUDE else right
-    # Next to a coin, a single letter this program does not itself apply as a
-    # multiplier is as likely part of the name of another coin ("mSOL",
-    # "tBTC"), and such a unit is handed back whole.
-    letter = magnitude.removesuffix("s")
-    if _Kind.COIN in kinds and len(letter) == 1 and letter not in _LETTER_MULTIPLIERS:
-        return None
     return Doubt.UNCLEAR_MULTIPLIER
+
+
+def _is_left_alone(letters: str) -> bool:
+    """Whether ``letters`` are only magnitude letters this program never applies, or nothing.
+
+    Two of them that make a listed word of their own ("mm") are not left alone.
+    """
+    is_a_listed_word = len(letters) > 1 and letters in _MAGNITUDE_WORDS
+    return _LETTERS_LEFT_ALONE.issuperset(letters) and not is_a_listed_word
+
+
+def _changing_fronts(word: str) -> set[int]:
+    """Every length of a front of ``word`` made up of words that change a number; 0 is one."""
+    lengths = {0}
+    for start in range(len(word)):
+        if start in lengths:
+            lengths.update(
+                end for end in range(start + 1, len(word) + 1) if _changes_a_number(word[start:end])
+            )
+    return lengths
+
+
+def _changing_backs(word: str) -> set[int]:
+    """Every place where a back of ``word`` made up of words that change a number starts."""
+    starts = {len(word)}
+    for end in range(len(word), 0, -1):
+        if end in starts:
+            starts.update(start for start in range(end) if _changes_a_number(word[start:end]))
+    return starts
+
+
+def _changes_a_number(word: str) -> bool:
+    """Whether ``word`` is a word for a magnitude or a fraction.
+
+    A plural counts for a word spelled out, not for a single letter: taking
+    "ws" for several w would find a multiplier inside "wstETH".
+    """
+    return word in _CHANGING_WORDS or (len(word) > 2 and word.removesuffix("s") in _CHANGING_WORDS)
 
 
 def _has_a_long_magnitude_word_at_an_end(word: str) -> bool:
