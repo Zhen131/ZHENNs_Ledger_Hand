@@ -9,10 +9,13 @@ import decimal
 import itertools
 import random
 import re
+from collections.abc import Callable
 from decimal import Decimal
 
 import pytest
 
+from ledger_hand.core import numbers
+from ledger_hand.core.coins import BUILT_IN_COINS, BUILT_IN_TABLE, USDT_WORDS, means_usdt
 from ledger_hand.core.numbers import (
     Caution,
     Doubt,
@@ -2100,3 +2103,183 @@ def test_whole_number_written_with_thousands_commas_is_read_back_as_itself() -> 
     ]
 
     assert misread == []
+
+
+# --- attacked with the program's own word lists -----------------------------
+#
+# Every word this program lists as changing a number is combined with every
+# word it knows as a small unit, a currency word or a coin, in every way two
+# words can be put together. The lists are read from the module under test, so
+# a word added to one of them is attacked from then on without anyone having
+# to remember it here.
+
+WORDS_THAT_CHANGE_A_NUMBER = sorted(numbers._MAGNITUDE_WORDS | numbers._SHARE_WORDS)
+SMALL_UNITS_KNOWN = [*sorted(numbers._SMALLER_UNIT_WORDS), *numbers._SMALLER_UNITS_SAID]
+CURRENCY_WORDS_KNOWN = sorted(USDT_WORDS)
+COINS_KNOWN = sorted(
+    {form for coin in BUILT_IN_COINS for form in (coin.symbol, coin.name, *coin.aliases)}
+)
+WORDS_KNOWN = [*SMALL_UNITS_KNOWN, *CURRENCY_WORDS_KNOWN, *COINS_KNOWN]
+
+WAYS_TO_JOIN_TWO_WORDS = [
+    "{changer}{known}",
+    "{known}{changer}",
+    "{changer} {known}",
+    "{known} {changer}",
+]
+WAYS_TO_PUT_A_UNIT_AFTER_FIVE = ["5 {}", "5{}", "5个{}", "5 个{}", "5 个 {}"]
+WAYS_TO_USE_CAPITALS = [str.lower, str.upper, str.capitalize, str.title, str.swapcase]
+
+
+def is_one_known_word(unit: str) -> bool:
+    """Whether the two words happen to spell a currency word or a coin: "usd" and "t" spell USDT."""
+    return means_usdt(unit) or BUILT_IN_TABLE.find(unit) is not None
+
+
+def is_a_letter_on_a_coin(changer: str, known: str, way: str) -> bool:
+    """The one case left alone on purpose: "m", "b", "t" or "g" glued to a coin, as in mSOL."""
+    return " " not in way and len(changer) == 1 and changer not in "kw" and known in COINS_KNOWN
+
+
+def units_made_of_two_listed_words() -> list[str]:
+    return [
+        way.format(changer=changer, known=known)
+        for changer in WORDS_THAT_CHANGE_A_NUMBER
+        for known in WORDS_KNOWN
+        for way in WAYS_TO_JOIN_TWO_WORDS
+        if not is_a_letter_on_a_coin(changer, known, way)
+        and not is_one_known_word(way.format(changer=changer, known=known))
+    ]
+
+
+def keeps_the_bare_five(text: str) -> bool:
+    reading = read_number(text)
+    return isinstance(reading, Recognised) and reading.value == 5
+
+
+def test_the_lists_under_attack_are_the_program_s_own_and_are_not_empty() -> None:
+    assert {"k", "w", "m", "kilo", "mega", "million", "wan"} <= set(WORDS_THAT_CHANGE_A_NUMBER)
+    assert {"milli", "micro", "nano", "percent"} <= set(WORDS_THAT_CHANGE_A_NUMBER)
+    assert {"sat", "satoshi", "wei", "gwei", "cent", "聪", "毛"} <= set(SMALL_UNITS_KNOWN)
+    assert {"USDT", "U", "刀", "美金"} <= set(CURRENCY_WORDS_KNOWN)
+    assert {"BTC", "Bitcoin", "比特币", "ETH", "Bitcoin Cash", "PEPE"} <= set(COINS_KNOWN)
+    assert len(units_made_of_two_listed_words()) > 40_000
+
+
+def test_no_two_listed_words_put_together_leave_the_bare_number() -> None:
+    kept = [unit for unit in units_made_of_two_listed_words() if keeps_the_bare_five(f"5 {unit}")]
+
+    assert kept == []
+
+
+def test_no_two_listed_words_leave_the_bare_number_however_written() -> None:
+    # Every unit is tried in one place and one use of capitals, taken in turn,
+    # so that each word meets each place and each use of capitals many times.
+    kept = []
+    for turn, unit in enumerate(units_made_of_two_listed_words()):
+        place = WAYS_TO_PUT_A_UNIT_AFTER_FIVE[turn % 5]
+        capitals = WAYS_TO_USE_CAPITALS[turn // 5 % 5]
+        text = place.format(capitals(unit))
+        if keeps_the_bare_five(text):
+            kept.append(text)
+
+    assert kept == []
+
+
+@pytest.mark.parametrize("capitals", WAYS_TO_USE_CAPITALS)
+@pytest.mark.parametrize("place", WAYS_TO_PUT_A_UNIT_AFTER_FIVE)
+def test_common_words_put_together_never_leave_the_bare_number_in_any_place_or_capitals(
+    place: str, capitals: Callable[[str], str]
+) -> None:
+    changers = [
+        "k",
+        "w",
+        "m",
+        "b",
+        "kilo",
+        "mega",
+        "giga",
+        "milli",
+        "micro",
+        "nano",
+        "million",
+        "mln",
+    ]
+    knowns = [
+        "sat",
+        "sats",
+        "satoshi",
+        "wei",
+        "gwei",
+        "cents",
+        "聪",
+        "usdt",
+        "u",
+        "刀",
+        "btc",
+        "eth",
+    ]
+    kept = [
+        place.format(capitals(way.format(changer=changer, known=known)))
+        for changer in changers
+        for known in knowns
+        for way in WAYS_TO_JOIN_TWO_WORDS
+        if not is_a_letter_on_a_coin(changer, known.upper(), way)
+        and not is_one_known_word(way.format(changer=changer, known=known))
+        and keeps_the_bare_five(place.format(capitals(way.format(changer=changer, known=known))))
+    ]
+
+    assert kept == []
+
+
+def test_the_case_left_alone_on_purpose_is_only_a_single_letter_on_a_coin() -> None:
+    left_alone = [
+        (changer, known)
+        for changer in WORDS_THAT_CHANGE_A_NUMBER
+        for known in WORDS_KNOWN
+        if is_a_letter_on_a_coin(changer, known, "{changer}{known}")
+    ]
+
+    assert {changer for changer, _ in left_alone} == {"b", "g", "m", "t"}
+    assert all(known in COINS_KNOWN for _, known in left_alone)
+    assert recognised("5 mSOL").unit == "mSOL"
+    assert recognised("5 SOLm").unit == "SOLm"
+
+
+WORDS_SAID_THAT_CHANGE_A_NUMBER = [
+    *numbers._SMALLER_UNITS_SAID,
+    *numbers._MAGNITUDES_SAID,
+    *numbers._SHARES_SAID,
+]
+
+PLACES_FOR_A_WORD_SAID = [
+    "3{}",
+    "3 {}",
+    "3个{}",
+    "3 个 {}",
+    "3{}个",
+    "3{}U",
+    "3 U{}",
+    "3 U {}",
+    "3 USDT{}",
+    "3刀{}",
+    "3k{}",
+    "$3 {}",
+    "三个{}",
+]
+
+
+@pytest.mark.parametrize("place", PLACES_FOR_A_WORD_SAID)
+@pytest.mark.parametrize("word", WORDS_SAID_THAT_CHANGE_A_NUMBER)
+def test_listed_chinese_word_in_a_unit_never_yields_a_number(word: str, place: str) -> None:
+    assert not isinstance(read_number(place.format(word)), Recognised)
+
+
+@pytest.mark.parametrize("place", PLACES_FOR_A_NUMBER_CHARACTER)
+@pytest.mark.parametrize("character", sorted(numbers._NUMBER_WORDS))
+def test_listed_number_character_in_a_unit_never_leaves_the_bare_number(
+    character: str, place: str
+) -> None:
+    reading = read_number(place.format(character))
+
+    assert not (isinstance(reading, Recognised) and reading.value == 3)

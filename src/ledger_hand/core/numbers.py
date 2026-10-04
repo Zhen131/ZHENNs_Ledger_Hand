@@ -559,7 +559,24 @@ def _unit_doubt(unit: str) -> Doubt | None:
             continue
         if doubt is not None:
             return doubt
+    return _two_word_doubt(unit)
+
+
+def _two_word_doubt(unit: str) -> Doubt | None:
+    """Why two words in letters that have capitals, taken as one name, are not a plain unit.
+
+    A coin's name may be two words, and a multiplier may be glued to the
+    second of them: "Bitcoin Cashk".
+    """
+    for is_said, characters in itertools.groupby(unit, key=_is_without_capitals):
+        words = "".join(characters).casefold().split()
+        if not is_said and len(words) > 1:
+            return _word_doubt(" ".join(words))
     return None
+
+
+def _is_without_capitals(character: str) -> bool:
+    return _script(character) is _Script.UNCASED
 
 
 def _script(character: str) -> _Script | None:
