@@ -961,10 +961,76 @@ def test_multiplier_letter_inside_a_unit_is_never_handed_back_as_a_unit(text: st
 
 
 @pytest.mark.parametrize(
+    "text",
+    [
+        # More than one of a magnitude word.
+        "2 thousands",
+        "2 THOUSANDS",
+        "2 thousands DOGE",
+        "5 millions",
+        "5 millions PEPE",
+        "3 hundreds",
+        "5 grands",
+        "5 dozens",
+        "5 billions",
+        "3 trillions",
+        "2thousands",
+        "5millions",
+        "5 ks",
+        "3 ws",
+        "2 mils",
+        "2 thousands of dollars",
+        # Short forms of magnitude words, and the same words in other languages.
+        "5 mln",
+        "5mln",
+        "5 MLN",
+        "2 bln",
+        "2bln刀",
+        "5 mill",
+        "5 mio",
+        "5 mia",
+        "5 Mrd",
+        "5 milliard",
+        "5 tsd",
+        "2 thou",
+        "2 bil",
+        "2 trn",
+        "5 tril",
+        "5 kilo",
+        "5 kilos",
+        "5 mega",
+        "3 lakh",
+        "3 lakhs",
+        "3 lac",
+        "3 crore",
+        "3 crores",
+        # The Chinese multipliers spelled in Latin letters.
+        "3 wan",
+        "3个wan",
+        "3 个 wan",
+        "3 WAN",
+        "3 yi",
+        "5 qian",
+        "2 bai",
+        # With more around it than one unit.
+        "$5 mln",
+        "5 mln usdt in cash",
+        "2 thousands usdt in cash",
+    ],
+)
+def test_magnitude_word_in_any_common_form_is_never_handed_back_as_a_unit(text: str) -> None:
+    assert read_number(text) == Unsure(Doubt.UNCLEAR_MULTIPLIER)
+
+
+@pytest.mark.parametrize(
     ("text", "value", "unit"),
     [
         ("50u", "50", "u"),
         ("50 U", "50", "U"),
+        ("5 coins", "5", "coins"),
+        ("5 units", "5", "units"),
+        ("3 gas", "3", "gas"),
+        ("2 tokens", "2", "tokens"),
         ("3个u", "3", "个u"),
         ("3 个 U", "3", "个 U"),
         ("3w u", "30000", "u"),

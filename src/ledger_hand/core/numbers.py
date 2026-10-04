@@ -30,7 +30,9 @@ that have capitals meet characters that have none, so that "个w刀" is 个, w
 and 刀. If any piece would change the number, the unit is not a plain unit
 and the answer is a ``Doubt``, never the number without that piece applied:
 
-- a letter or word for a magnitude ("k", "w", "m", "million");
+- a letter or word for a magnitude, in the singular or the plural, spelled
+  out or shortened, in English, in pinyin or in another common form ("k",
+  "w", "m", "million", "thousands", "mln", "wan", "lakh");
 - a multiplier letter glued to the front of a currency word or a coin this
   program knows ("wu", "kusdt");
 - any single letter other than "u": single letters are how multipliers and
@@ -197,9 +199,13 @@ _SCALE_WORDS: Mapping[str, int] = {
 
 # Words in the place of a unit that change how large the number is. Taking
 # one for a unit would hand back a number that is wrong by orders of magnitude.
+# Each is listed in the singular; a plural in -s is matched as well.
 _MAGNITUDE_WORDS = frozenset(
     {"k", "w", "m", "b", "t", "bn", "mn", "mm", "kk", "kw", "mil", "mio"}
     | {"dozen", "hundred", "thousand", "million", "billion", "trillion", "grand"}
+    | {"thou", "mill", "mln", "mia", "mrd", "milliard", "bln", "bil", "trn", "tril", "tsd"}
+    | {"kilo", "mega", "giga", "lakh", "lac", "crore"}
+    | {"bai", "qian", "wan", "yi"}
 )
 
 # Number words as they are said.
@@ -288,7 +294,7 @@ _WORDING_HINTS: tuple[tuple[Doubt, re.Pattern[str]], ...] = (
     ),
 )
 _STRAY_MAGNITUDE = re.compile(
-    rf"(?<![a-z])(?:{'|'.join(sorted(_MAGNITUDE_WORDS))})(?![a-z])", re.IGNORECASE
+    rf"(?<![a-z])(?:{'|'.join(sorted(_MAGNITUDE_WORDS))})s?(?![a-z])", re.IGNORECASE
 )
 _ALL_HINTS = (*_WORDING_HINTS, (Doubt.UNCLEAR_MULTIPLIER, _STRAY_MAGNITUDE))
 
@@ -458,7 +464,8 @@ def _script(character: str) -> _Script | None:
 
 def _word_doubt(word: str) -> Doubt | None:
     """Why a piece written in letters that have capitals is not part of a plain unit."""
-    if word in _MAGNITUDE_WORDS or (len(word) == 1 and word != "u"):
+    forms = {word, word.removesuffix("s")}
+    if not forms.isdisjoint(_MAGNITUDE_WORDS) or (len(word) == 1 and word != "u"):
         return Doubt.UNCLEAR_MULTIPLIER
     if word[0] in _LETTER_MULTIPLIERS and _names_money_or_a_coin(word[1:]):
         # "wu" after a gap is ten thousand u as readily as "3wu" is.
