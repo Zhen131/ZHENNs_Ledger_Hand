@@ -142,7 +142,7 @@ passes the current moment and the zone in as arguments. The check reports:
 | 10 | States are named options, not bare strings, and never a true/false switch passed as a parameter. | The reader sees at a glance what a value means. |
 | 11 | Export files and the local database carry version numbers. A change that raises a version adds a golden sample of that version in the same change. | A file written ten years ago can still be read ten years from now. |
 
-Two more, kept from earlier work: comments say only **why**; formatting is
+Two more sit beside the eleven: comments say only **why**; formatting is
 left to the tool.
 
 How the rules are applied in practice:

@@ -50,7 +50,7 @@ LOCAL_PATHS = [
 ]
 
 PRIVATE_LOG_IDS = [
-    f"see {LOG_FILE_STEM}-contract.md",
+    f"see {LOG_FILE_STEM}-notes.md",
     f"as decided in {glue('60', '_W20')}",
     f"review: {glue('61B-R', '_W20')}",
     glue("02A", "_W12"),
