@@ -9,6 +9,7 @@ import decimal
 import itertools
 import random
 import re
+import sys
 import unicodedata
 from decimal import Decimal
 
@@ -19,6 +20,7 @@ from ledger_hand.core.numbers import (
     Caution,
     Doubt,
     NotANumber,
+    Reading,
     Recognised,
     Unsure,
     read_number,
@@ -35,6 +37,40 @@ def recognised(text: str) -> Recognised:
 def written(text: str) -> str:
     """The value read from ``text``, written out in full."""
     return format(recognised(text).value, "f")
+
+
+def in_another_form(text: str, capital_a: str, small_a: str) -> str:
+    """``text`` with its ordinary letters replaced by those of an alphabet listed in order."""
+    return "".join(
+        chr(ord(capital_a) + ord(letter) - ord("A"))
+        if "A" <= letter <= "Z"
+        else chr(ord(small_a) + ord(letter) - ord("a"))
+        if "a" <= letter <= "z"
+        else letter
+        for letter in text
+    )
+
+
+def in_bold(text: str) -> str:
+    return in_another_form(text, "\N{MATHEMATICAL BOLD CAPITAL A}", "\N{MATHEMATICAL BOLD SMALL A}")
+
+
+def in_sans_serif(text: str) -> str:
+    return in_another_form(
+        text, "\N{MATHEMATICAL SANS-SERIF CAPITAL A}", "\N{MATHEMATICAL SANS-SERIF SMALL A}"
+    )
+
+
+def in_monospace(text: str) -> str:
+    return in_another_form(
+        text, "\N{MATHEMATICAL MONOSPACE CAPITAL A}", "\N{MATHEMATICAL MONOSPACE SMALL A}"
+    )
+
+
+USDT_IN_SUPERSCRIPT = (
+    "\N{MODIFIER LETTER CAPITAL U}\N{MODIFIER LETTER SMALL S}"
+    "\N{MODIFIER LETTER CAPITAL D}\N{MODIFIER LETTER CAPITAL T}"
+)
 
 
 # --- ordinary writing -------------------------------------------------------
@@ -607,6 +643,276 @@ def test_long_run_of_one_known_word_after_another_is_read_without_delay() -> Non
     assert read_number("5" + "个" * 31 + "们", extra_units=["个个"]) == Unsure(Doubt.UNKNOWN_UNIT)
 
 
+# --- letters that are not Chinese characters, whatever they look like --------
+
+LETTERS_WRITTEN_TOGETHER_IN_A_FORM_OF_THEIR_OWN = [
+    "5 " + in_bold("BTCUSDT"),
+    "5 " + in_sans_serif("BTCETH"),
+    "5 " + in_monospace("BTCUSDT"),
+    "5 BTC" + USDT_IN_SUPERSCRIPT,
+    "5 " + in_bold("UU"),
+    "5 " + in_bold("TOKENU"),
+    "5 OP\N{MODIFIER LETTER SMALL U}",
+    "5coin" + in_bold("U"),
+    "5 " + in_bold("BTC") + "USDT",
+    "5 " + in_bold("u") + "u",
+    "5 u" + in_bold("u"),
+    "5 " + in_bold("BTC") + in_sans_serif("ETH"),
+    "5 个" + in_bold("BTCUSDT"),
+    "5 " + in_bold("Bitcoin") + "Cash",
+    "5 BTC\N{FULLWIDTH LATIN CAPITAL LETTER U}",
+    "5 u\N{LATIN SUBSCRIPT SMALL LETTER U}",
+    "5 u\N{FEMININE ORDINAL INDICATOR}da",
+]
+
+
+@pytest.mark.parametrize("text", LETTERS_WRITTEN_TOGETHER_IN_A_FORM_OF_THEIR_OWN)
+def test_known_words_run_together_are_no_unit_in_whatever_form_the_letters_are(text: str) -> None:
+    assert read_number(text) == Unsure(Doubt.UNKNOWN_UNIT)
+    # The same text in ordinary letters is turned away for the same reason.
+    assert read_number(in_ordinary_characters(text)) == Unsure(Doubt.UNKNOWN_UNIT)
+
+
+@pytest.mark.parametrize(
+    ("text", "value"),
+    [
+        ("5 " + in_bold("BTC"), "5"),
+        ("5 " + in_sans_serif("usdt"), "5"),
+        ("5 " + USDT_IN_SUPERSCRIPT, "5"),
+        ("5 \N{MODIFIER LETTER SMALL U}", "5"),
+        ("5 \N{FEMININE ORDINAL INDICATOR}DA", "5"),
+        ("5 个" + in_bold("BTC"), "5"),
+        ("5 " + in_bold("BTC") + "个", "5"),
+        ("5 " + in_bold("BTC") + " " + in_monospace("usdt"), "5"),
+        ("5 " + in_bold("Bitcoin Cash"), "5"),
+        ("5k " + in_bold("u"), "5000"),
+        ("3w刀" + in_bold("u"), "30000"),
+    ],
+)
+def test_known_word_in_a_form_of_its_own_is_read_like_the_ordinary_word(
+    text: str, value: str
+) -> None:
+    reading = recognised(text)
+    ordinary = recognised(in_ordinary_characters(text))
+
+    assert format(reading.value, "f") == value == format(ordinary.value, "f")
+    assert reading.unit == text.split(None, 1)[1] if " " in text else True
+    assert in_ordinary_characters(reading.unit or "") == ordinary.unit
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "5k" + in_bold("u"),
+        "5K" + in_bold("usdt"),
+        "5w" + in_bold("BTC"),
+        "5k" + USDT_IN_SUPERSCRIPT,
+        "5k\N{MODIFIER LETTER SMALL U}个",
+        "5w\N{FULLWIDTH LATIN SMALL LETTER U}",
+    ],
+)
+def test_multiplier_letter_with_a_known_word_right_behind_it_in_another_form_is_a_doubt(
+    text: str,
+) -> None:
+    assert read_number(text) == Unsure(Doubt.UNCLEAR_MULTIPLIER)
+    assert read_number(in_ordinary_characters(text)) == Unsure(Doubt.UNCLEAR_MULTIPLIER)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "5" + in_bold("k"),
+        "5" + in_bold("w"),
+        "5" + in_bold("K") + " USDT",
+        "5\N{MODIFIER LETTER SMALL K}",
+        "5\N{MODIFIER LETTER SMALL K}BTC",
+        "5\N{KELVIN SIGN}",
+        "5 " + in_bold("k"),
+        "5 " + in_bold("k") + "BTC",
+        "5 " + in_bold("BTC") + in_bold("k"),
+        "5 " + in_bold("ks") + "BTC",
+        "5 " + in_bold("m") + "BTC",
+        "5 BTC\N{MODIFIER LETTER SMALL K}",
+        "5 \N{CYRILLIC SMALL LETTER KA}BTC",
+        "5 \N{GREEK SMALL LETTER KAPPA}BTC",
+        "5\N{CYRILLIC SMALL LETTER KA}",
+        "5k\N{CYRILLIC SMALL LETTER KA}",
+        "5 个\N{CYRILLIC SMALL LETTER KA}",
+    ],
+)
+def test_multiplier_letter_in_a_form_of_its_own_is_neither_applied_nor_a_unit(text: str) -> None:
+    assert isinstance(read_number(text), Unsure)
+
+
+def test_only_chinese_characters_are_cut_into_known_words_not_other_writing_without_gaps() -> None:
+    doru = "\N{KATAKANA LETTER DO}\N{KATAKANA LETTER RU}"
+    won = "\N{HANGUL SYLLABLE WEON}"
+    ka = "\N{CYRILLIC SMALL LETTER KA}"
+
+    # A word the caller allows is one block next to Chinese characters ...
+    assert recognised_with(f"5個{doru}", doru) == Recognised(Decimal("5"), f"個{doru}")
+    assert recognised_with(f"5 {won}个", won).unit == f"{won}个"
+    # ... but a run of such words is not cut the way Chinese is.
+    assert read_number(f"5 {doru}{doru}", extra_units=[doru]) == Unsure(Doubt.UNKNOWN_UNIT)
+    assert read_number(f"5 {won}{won}", extra_units=[won]) == Unsure(Doubt.UNKNOWN_UNIT)
+    assert read_number(f"5 {ka}{ka}", extra_units=[ka]) == Unsure(Doubt.UNKNOWN_UNIT)
+    assert read_number(f"5 BTC{doru}", extra_units=[doru]) == Unsure(Doubt.UNKNOWN_UNIT)
+    assert read_number("5 " + in_bold("uu"), extra_units=["u"]) == Unsure(Doubt.UNKNOWN_UNIT)
+    assert recognised_with("5 邦克邦克", "邦克").unit == "邦克邦克"
+
+
+def test_letters_in_another_alphabet_after_a_multiplier_letter_carry_on_the_word() -> None:
+    ore = "\N{LATIN SMALL LETTER O WITH DIAERESIS}re"
+
+    assert read_number(f"5k{ore}", extra_units=[ore]) == Unsure(Doubt.UNCLEAR_MULTIPLIER)
+    assert read_number(f"5k{ore}", extra_units=[ore, f"k{ore}"]) == Unsure(Doubt.UNCLEAR_MULTIPLIER)
+    assert recognised_with(f"5k{ore}", f"k{ore}") == Recognised(Decimal("5"), f"k{ore}")
+    assert recognised_with(f"5k {ore}", ore) == Recognised(Decimal("5000"), ore)
+
+
+@pytest.mark.parametrize(
+    "character",
+    [
+        "\N{CJK COMPATIBILITY IDEOGRAPH-F978}",  # a copy of 兩
+        "\N{CJK COMPATIBILITY IDEOGRAPH-F9B2}",  # a copy of 零
+        "\N{CJK COMPATIBILITY IDEOGRAPH-F9D3}",  # a copy of 陸
+        "\N{CJK COMPATIBILITY IDEOGRAPH-F96B}",  # a copy of 參
+    ],
+)
+def test_copy_of_a_number_character_is_a_number_character(character: str) -> None:
+    assert in_ordinary_characters(character) != character
+    for text in (f"5 {character}", f"5{character}", f"3个{character}", f"5 BTC{character}"):
+        assert read_number(text) == NotANumber()
+        assert read_number(text, extra_units=[character]) == NotANumber()
+
+
+def every_character_that_is_not_ordinary(*, letters: bool) -> list[str]:
+    """Every character Unicode lists outside ASCII that is, or is not, a letter.
+
+    Chinese characters are left out, and so are gaps and what has no meaning
+    of its own (private use, surrogates, code points not given out).
+    """
+    return [
+        character
+        for character in map(chr, range(0x80, sys.maxunicode + 1))
+        if character.isalpha() == letters
+        and not character.isspace()
+        and not is_a_chinese_character(character)
+        and unicodedata.category(character) not in {"Co", "Cs", "Cn"}
+    ]
+
+
+def is_read_like_the_same_text_in_ordinary_characters(text: str, reading: Reading) -> bool:
+    """Whether ``text`` is either not recognised, or read just as its ordinary spelling is.
+
+    A recognised unit must also be made of known words, by the rule of this file.
+    """
+    if not isinstance(reading, Recognised):
+        return True
+    ordinary = read_number(in_ordinary_characters(text))
+    return (
+        isinstance(ordinary, Recognised)
+        and ordinary.value == reading.value
+        and in_ordinary_characters(reading.unit or "") == (ordinary.unit or "")
+        and (reading.unit is None or blocks_outside(reading.unit, frozenset()) == [])
+    )
+
+
+PLACES_FOR_A_LETTER_OF_ANY_WRITING = [
+    "5 {}",
+    "5{}",
+    "5 BTC{}",
+    "5 {}BTC",
+    "5 个{}",
+    "5 BTC {}",
+    "5k{}",
+    "5 {0}{0}",
+]
+
+
+def test_no_letter_of_any_writing_gets_a_unit_recognised_that_ordinary_letters_would_not() -> None:
+    letters = every_character_that_is_not_ordinary(letters=True)
+    wrong = []
+    recognised_at_all = 0
+    for letter in letters:
+        # A letter that is already in its ordinary form can only make a word
+        # no table knows; three places are enough for it.
+        is_a_form_of_another = in_ordinary_characters(letter) != letter
+        places = (
+            PLACES_FOR_A_LETTER_OF_ANY_WRITING
+            if is_a_form_of_another
+            else ["5 {}", "5 BTC{}", "5k{}"]
+        )
+        for place in places:
+            text = place.format(letter)
+            reading = read_number(text)
+            recognised_at_all += isinstance(reading, Recognised)
+            if not is_read_like_the_same_text_in_ordinary_characters(text, reading):
+                wrong.append(text)
+
+    assert wrong == []
+    # Mathematical, superscript and full-width forms of u, U and the like are read.
+    assert recognised_at_all > 100
+    assert len(letters) > 30_000
+
+
+def test_no_mark_sign_or_unseen_character_gets_a_unit_recognised() -> None:
+    others = every_character_that_is_not_ordinary(letters=False)
+    wrong = []
+    for character in others:
+        for place in ("5 BTC{}", "5 {}BTC", "5 个{}", "5 u {}", "5 B{}TC", "5k{}"):
+            text = place.format(character)
+            if not is_read_like_the_same_text_in_ordinary_characters(text, read_number(text)):
+                wrong.append(text)
+
+    assert wrong == []
+    assert "\N{ZERO WIDTH SPACE}" in others
+    assert "\N{COMBINING ACUTE ACCENT}" in others
+    assert "\N{CIRCLED LATIN SMALL LETTER K}" in others
+    assert "\N{SMALL ROMAN NUMERAL ONE THOUSAND}" in others
+    assert len(others) > 10_000
+
+
+def test_only_a_chinese_character_is_cut_from_its_neighbour_when_the_caller_allows_it() -> None:
+    # With a character allowed as a word, the same character twice is two
+    # known words only where the writing is cut between them: in Chinese.
+    cut = []
+    chinese_left_whole = []
+    others_left_whole = 0
+    for character in map(chr, range(0x80, sys.maxunicode + 1)):
+        if not character.isalpha():
+            continue
+        # One Chinese character in sixteen, and every one at the edges of a block.
+        if (
+            is_a_chinese_character(character)
+            and ord(character) % 16
+            and all(is_a_chinese_character(chr(ord(character) + step)) for step in (-1, 1))
+        ):
+            continue
+        reading = read_number(f"5 {character}{character}", extra_units=[character])
+        if isinstance(reading, Recognised):
+            cut.append(character)
+        elif is_a_chinese_character(character):
+            chinese_left_whole.append((character, reading))
+        else:
+            others_left_whole += 1
+
+    # Nothing is cut but Chinese characters, or copies of them in the compatibility blocks.
+    assert [
+        character
+        for character in cut
+        if not all(map(is_a_chinese_character, in_ordinary_characters(character)))
+    ] == []
+    # A Chinese character is cut unless it says a number, or makes the amount a vague one.
+    assert [
+        character
+        for character, reading in chinese_left_whole
+        if reading == Unsure(Doubt.UNKNOWN_UNIT)
+    ] == []
+    assert len(cut) > 5_000
+    assert others_left_whole > 30_000
+
+
 # --- units the caller allows for one call -----------------------------------
 
 
@@ -781,8 +1087,26 @@ EVERY_UNIT_WORD_THIS_PROGRAM_KNOWS = frozenset(
         *(form for coin in BUILT_IN_COINS for form in (coin.symbol, coin.name, *coin.aliases)),
     )
 )
-BLOCK_OF_A_UNIT = re.compile(r"[\u3400-\u9fff]+|[^\s\u3400-\u9fff]+")
-CHINESE_CHARACTERS = re.compile(r"[\u3400-\u9fff]+")
+
+
+def is_a_chinese_character(character: str) -> bool:
+    """Whether Unicode itself names ``character`` a Chinese character."""
+    return unicodedata.name(character, "").startswith("CJK UNIFIED IDEOGRAPH-")
+
+
+def in_ordinary_characters(text: str) -> str:
+    """``text`` the way Unicode writes it out for comparison: 𝐁 as B, ｕ as u, ᵘ as u."""
+    return unicodedata.normalize("NFKC", text)
+
+
+def blocks_of(unit: str) -> list[str]:
+    """The unit in ordinary characters, cut at gaps and wherever Chinese meets anything else."""
+    return [
+        "".join(run)
+        for word in in_ordinary_characters(unit).split()
+        for _, run in itertools.groupby(word, key=is_a_chinese_character)
+    ]
+
 
 NUMBERS_FOR_RANDOM_TEXTS = [
     "5",
@@ -826,6 +1150,11 @@ KNOWN_WORDS_FOR_RANDOM_TEXTS = [
     "Token",
     "Bitcoin Cash",
     "shiba inu",
+    in_bold("BTC"),
+    in_bold("U"),
+    in_bold("usdt"),
+    USDT_IN_SUPERSCRIPT,
+    "\N{MODIFIER LETTER SMALL U}",
 ]
 UNKNOWN_WORDS_FOR_RANDOM_TEXTS = [
     "k",
@@ -884,6 +1213,14 @@ UNKNOWN_WORDS_FOR_RANDOM_TEXTS = [
     "Inu",
     "Baby",
     "们",
+    in_bold("k"),
+    in_bold("W"),
+    in_bold("s"),
+    "\N{MODIFIER LETTER SMALL K}",
+    "\N{CYRILLIC SMALL LETTER KA}",
+    "\N{GREEK SMALL LETTER KAPPA}",
+    "\N{KATAKANA LETTER DO}\N{KATAKANA LETTER RU}",
+    "\N{CJK COMPATIBILITY IDEOGRAPH-F978}",
 ]
 WORDS_A_CALLER_MAY_ALLOW = ["BONK", "wif", "KAS", "手", "张", "Baby Doge"]
 GAPS_FOR_RANDOM_TEXTS = ["", "", " ", "\N{IDEOGRAPHIC SPACE}"]
@@ -898,15 +1235,15 @@ def blocks_outside(unit: str, allowed: frozenset[str]) -> list[str]:
     the module under test cuts such a block.
     """
     known = EVERY_UNIT_WORD_THIS_PROGRAM_KNOWS | allowed
-    if " ".join(unicodedata.normalize("NFKC", unit).upper().split()) in known:
+    if " ".join(in_ordinary_characters(unit).upper().split()) in known:
         return []
-    chinese_words = sorted(word for word in known if CHINESE_CHARACTERS.fullmatch(word))
+    chinese_words = sorted(word for word in known if all(map(is_a_chinese_character, word)))
     row_of_known_words = "(?:" + "|".join(map(re.escape, chinese_words)) + ")+"
     return [
         block
-        for block in BLOCK_OF_A_UNIT.findall(unit)
-        if unicodedata.normalize("NFKC", block).upper() not in known
-        and not (CHINESE_CHARACTERS.fullmatch(block) and re.fullmatch(row_of_known_words, block))
+        for block in blocks_of(unit)
+        if block.upper() not in known
+        and not (is_a_chinese_character(block[0]) and re.fullmatch(row_of_known_words, block))
     ]
 
 
@@ -932,6 +1269,15 @@ def test_the_rule_used_to_judge_units_cuts_them_at_gaps_and_between_scripts() ->
     assert blocks_outside("Baby Doge", nothing) == ["Baby"]
     assert blocks_outside("Baby Doge", frozenset({"BABY DOGE"})) == []
     assert blocks_outside("Baby", frozenset({"BABY DOGE"})) == ["Baby"]
+    # Letters in a form of their own are judged as the ordinary letters they stand for.
+    assert blocks_outside(in_bold("BTC"), nothing) == []
+    assert blocks_outside("个" + in_bold("BTC"), nothing) == []
+    assert blocks_outside(in_bold("BTCUSDT"), nothing) == ["BTCUSDT"]
+    assert blocks_outside("BTC" + in_bold("U"), nothing) == ["BTCU"]
+    assert blocks_outside(in_bold("UU"), nothing) == ["UU"]
+    assert blocks_outside("\N{KATAKANA LETTER DO}\N{KATAKANA LETTER RU}个", nothing) == [
+        "\N{KATAKANA LETTER DO}\N{KATAKANA LETTER RU}"
+    ]
     assert blocks_outside("kBONK 个", frozenset({"BONK"})) == ["kBONK"]
     assert blocks_outside("BONK 个", frozenset({"BONK"})) == []
 
@@ -965,7 +1311,7 @@ def test_every_unit_handed_back_for_a_random_text_is_made_of_known_or_allowed_wo
         elif reading.unit is not None:
             with_a_unit += 1
             with_an_allowed_word += any(
-                block.upper() in allowed for block in BLOCK_OF_A_UNIT.findall(reading.unit)
+                block.upper() in allowed for block in blocks_of(reading.unit)
             )
             if blocks_outside(reading.unit, allowed):
                 offending.append((text, extra_units, reading.unit))

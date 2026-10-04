@@ -23,12 +23,20 @@ or two words after it ("刀", "个", "USDT", "u", "个 BTC"). The unit is handed
 back exactly as it was written and is not interpreted here.
 
 Only a unit this program knows is handed back. The unit is cut into blocks at
-gaps, and wherever letters that have capitals meet characters that have none,
-so that "个BTC" is 个 and BTC. Chinese is written without gaps, so a block of
-Chinese characters is cut once more, into known words that follow each other
-with no character left over: "个比特币" is 个 and 比特币, while "个比特" and
-"个币" cannot be cut that way and stay one block. Every block must be one of
-these, letter case and character width aside:
+gaps, and wherever Chinese characters meet anything else, so that "个BTC" is
+个 and BTC. Chinese is written without gaps, so a block of Chinese characters
+is cut once more, into known words that follow each other with no character
+left over: "个比特币" is 个 and 比特币, while "个比特" and "个币" cannot be
+cut that way and stay one block. Which characters are Chinese is listed
+below, block by block as Unicode lists them. Everything else is on the side
+of the letters and is never cut, whatever it looks like: "BTCUSDT" is one
+block whether its letters are ordinary or mathematical bold ones, and so is
+a word in kana or in Cyrillic.
+
+Every block must be one of the following. Letter case does not count, and
+each character is taken in its ordinary form, the way a name is looked up in
+the coin table: a full-width, superscript, subscript or mathematical letter
+is the letter it stands for.
 
 - a word for USDT ("u", "刀", "美金", "$"): the list in ``coins``;
 - the symbol or a name of a coin in the coin table ("BTC", "比特币");
@@ -119,6 +127,7 @@ from __future__ import annotations
 import enum
 import itertools
 import re
+import unicodedata
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from decimal import Decimal
@@ -192,6 +201,24 @@ _FOLDED = {code: code - 0xFEE0 for code in range(0xFF01, 0xFF5F)}
 _FOLDED.update({0xFFE5: 0xA5, 0xFFE1: 0xA3})
 
 _CURRENCY_SIGNS = "$¥€£"
+
+# The blocks of Unicode that hold Chinese characters and nothing else. Only a
+# run of these is cut into known words. Nothing is taken for Chinese because
+# of what it is not: kana, Hangul, the letters of every alphabet, and the
+# mathematical, superscript and subscript forms of Latin letters, which have
+# no capitals either, all stay on the side of the letters.
+_CHINESE_CHARACTER_BLOCKS: Sequence[tuple[int, int]] = (
+    (0x3400, 0x4DBF),  # extension A
+    (0x4E00, 0x9FFF),  # the characters in everyday use
+    (0x20000, 0x2A6DF),  # extension B
+    (0x2A700, 0x2B73F),  # extension C
+    (0x2B740, 0x2B81F),  # extension D
+    (0x2B820, 0x2CEAF),  # extension E
+    (0x2CEB0, 0x2EBEF),  # extension F
+    (0x2EBF0, 0x2EE5F),  # extension I
+    (0x30000, 0x3134F),  # extension G
+    (0x31350, 0x323AF),  # extension H
+)
 
 # The counters: words that say "this many of them" and nothing about how much
 # one of them is, each with the reason it leaves the number as it is. Together
@@ -335,13 +362,6 @@ _WORDING_HINTS: tuple[tuple[Doubt, re.Pattern[str]], ...] = (
 )
 
 
-class _Script(enum.Enum):
-    """The two kinds of letters; a block of a unit holds one kind only."""
-
-    CASED = "letters that have capitals, such as Latin ones"
-    UNCASED = "characters that have none, such as Chinese ones"
-
-
 @dataclass(frozen=True)
 class _Tail:
     """What follows the number: a letter multiplier as a power of ten, and a unit."""
@@ -395,7 +415,7 @@ def read_number(text: str, extra_units: Iterable[str] = ()) -> Reading:
         # A word like 多 or 左右 says more than "a unit this program does not
         # know", so the wording is looked at first.
         doubt = _wording_doubt(folded)
-        if doubt is None and not _is_known_unit(reading.unit.translate(_FOLDED), allowed):
+        if doubt is None and not _is_known_unit(reading.unit, allowed):
             doubt = Doubt.UNKNOWN_UNIT
         if doubt is not None:
             return Unsure(doubt)
@@ -463,7 +483,12 @@ def _tail(shape: re.Match[str], original: str, allowed: frozenset[str]) -> _Tail
     ``None`` when what follows the number is not one unit.
     """
     letters = shape["letters"].lower()
-    power = _LETTER_MULTIPLIERS.get(letters, 0)
+    # Letters may go on in another form or another alphabet ("5k" and then a
+    # mathematical bold u). Whatever is a letter and not Chinese carries on
+    # the word that the "k" began.
+    next_character = _plain(shape["rest"][:1])[:1]
+    go_on = next_character.isalpha() and not _is_chinese(next_character)
+    power = 0 if go_on else _LETTER_MULTIPLIERS.get(letters, 0)
     if not power and letters[:1] in _LETTER_MULTIPLIERS:
         # "5ku" may be five thousand u or five of a coin called ku. What follows
         # the digits is a unit only when it is a known unit as it stands, and
@@ -494,7 +519,10 @@ def _is_unit(text: str, allowed: frozenset[str]) -> bool:
     letters = "".join(words)
     if len(text) > SYMBOL_MAX_LENGTH:
         return False
-    if not all(letter.isalpha() and letter not in _NUMBER_WORDS for letter in letters):
+    if not all(letter.isalpha() for letter in letters):
+        return False
+    # A number character is one in whatever form it is written.
+    if any(letter in _NUMBER_WORDS for letter in _plain(letters)):
         return False
     return len(words) <= 2 or _is_known_word(text, allowed)
 
@@ -504,22 +532,31 @@ def _is_known_unit(unit: str, allowed: frozenset[str]) -> bool:
 
     It is when the whole of it is one known name, which may have several
     words ("Bitcoin Cash"), or when every block of it is a known word. The
-    blocks are what is left when the unit is cut at gaps, and wherever
-    letters that have capitals meet characters that have none. Chinese is
-    written without gaps, so a block of characters without capitals also
-    counts when it is known words one after another, from end to end.
+    unit is cut at its gaps, and each word is put in ordinary characters. The
+    blocks are what is left when a word is then cut wherever Chinese
+    characters meet anything else. Chinese is written without gaps, so a
+    block of Chinese characters also counts when it is known words one after
+    another, from end to end. A block of anything else is one word, whatever
+    it holds.
     """
-    if _is_known_word(unit, allowed):
+    words = [_plain(word) for word in unit.split()]
+    if len(words) == 1 and words[0] in _CURRENCY_SIGNS:
+        return _is_known_word(words[0], allowed)
+    # A word must still be a word of letters once it is in ordinary
+    # characters: some characters come apart into a gap and a mark, and a gap
+    # that was not written must not cut the word in two.
+    if not words or not all(word.isalpha() for word in words):
+        return False
+    if _is_known_word(" ".join(words), allowed):
         return True
     blocks = [
-        (kind, "".join(run))
-        for word in unit.split()
-        for kind, run in itertools.groupby(word, key=_script)
+        (is_chinese, "".join(run))
+        for word in words
+        for is_chinese, run in itertools.groupby(word, key=_is_chinese)
     ]
-    return bool(blocks) and all(
-        _is_known_word(block, allowed)
-        or (kind is _Script.UNCASED and _is_run_of_known_words(block, allowed))
-        for kind, block in blocks
+    return all(
+        _is_known_word(block, allowed) or (is_chinese and _is_run_of_known_words(block, allowed))
+        for is_chinese, block in blocks
     )
 
 
@@ -544,11 +581,20 @@ def _is_known_word(text: str, allowed: frozenset[str]) -> bool:
     return BUILT_IN_TABLE.find(text) is not None
 
 
-def _script(character: str) -> _Script | None:
-    """Which kind of letter ``character`` is; ``None`` for what is not a letter."""
-    if not character.isalpha():
-        return None
-    return _Script.CASED if character.lower() != character.upper() else _Script.UNCASED
+def _is_chinese(character: str) -> bool:
+    """Whether ``character`` is a Chinese character, by the blocks listed for them."""
+    code = ord(character)
+    return any(first <= code <= last for first, last in _CHINESE_CHARACTER_BLOCKS)
+
+
+def _plain(text: str) -> str:
+    """``text`` with every character in its ordinary form, the way names are looked up.
+
+    Full-width, superscript, subscript and mathematical letters become the
+    ordinary letters they stand for, and a Chinese character from the
+    compatibility blocks becomes the character it is a copy of.
+    """
+    return unicodedata.normalize("NFKC", text)
 
 
 def _amount(body: str, letter_power: int) -> _Amount | Doubt | None:
