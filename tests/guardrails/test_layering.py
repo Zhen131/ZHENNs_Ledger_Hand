@@ -297,6 +297,21 @@ def test_ports_may_import_annotation_names(tmp_path: Path, line: str) -> None:
     assert check(tmp_path, {"ports.py": line}) == []
 
 
+@pytest.mark.parametrize(
+    "line",
+    [
+        "import dataclasses",
+        "import enum",
+        "from dataclasses import dataclass",
+        "from enum import Enum",
+    ],
+)
+def test_ports_may_declare_data_classes_and_enumerations(tmp_path: Path, line: str) -> None:
+    # Written out by hand: the ports file states shapes, and a shape may be a
+    # data class or an enumeration.
+    assert check(tmp_path, {"ports.py": line}) == []
+
+
 @pytest.mark.parametrize("module", ["json", "os", "logging", "pathlib", "time"])
 def test_ports_importing_other_stdlib_is_reported(tmp_path: Path, module: str) -> None:
     assert reasons(tmp_path, {"ports.py": f"import {module}"}) == [Reason.STDLIB_IMPORT]
