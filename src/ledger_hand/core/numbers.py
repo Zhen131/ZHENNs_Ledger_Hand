@@ -47,9 +47,10 @@ whole.
      multipliers and small units are abbreviated;
    - it ends in a word for a smaller unit, whatever stands in front of it
      ("ksats", "millisats", "mwei");
-   - it can be split into two words this program knows, one that changes
-     the number and one that is a currency word or a coin ("wu", "kusdt",
-     "musd", "USDTk", "milliBTC", "BTCsats");
+   - it comes apart into a currency word or a coin this program knows with
+     words that change a number in front of it, behind it, or both ("wu",
+     "kusdt", "musd", "USDTk", "milliBTC", "kmusdt"), or into a smaller unit
+     followed by any word this program knows ("satsBTC");
    - a long magnitude word starts or ends it ("millionen").
 
    A piece in Chinese characters is not plain when it holds a smaller unit
@@ -58,10 +59,11 @@ whole.
    unit ("三块五") is the same case as a smaller unit: "5毛" is half a yuan,
    not five.
 
-   One split is left alone on purpose: a single letter other than "k" or "w"
-   glued to a coin, because such a word is as likely the name of another
-   coin ("mSOL", "tBTC"). The ones that are small units ("mBTC") are listed
-   as such.
+   One case is left alone on purpose: magnitude letters other than "k" and
+   "w" glued to a coin, because such a word is as likely the name of another
+   coin ("mSOL", "tBTC", "bbSOL"). Letters that make a listed word of their
+   own ("mm") are not left alone, and the names that are small units
+   ("mBTC") are listed as such.
 
 3. What this program cannot know, it does not judge. A multiplier letter on
    a word that is in none of its lists ("kBONK") cannot be told from a name
