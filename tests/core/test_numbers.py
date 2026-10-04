@@ -271,6 +271,141 @@ def test_word_holding_a_number_word_is_never_taken_for_a_unit(text: str) -> None
     assert not isinstance(read_number(text), Recognised)
 
 
+# --- multipliers after written digits ---------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("text", "value"),
+    [
+        ("1.2k", "1200"),
+        ("3w", "30000"),
+        ("8万", "80000"),
+        ("8.5万", "85000"),
+        ("2亿", "200000000"),
+        ("1.2K", "1200"),
+        ("3W", "30000"),
+        ("5k", "5000"),
+        ("0.5k", "500"),
+        ("1.25w", "12500"),
+        ("3千", "3000"),
+        ("3千万", "30000000"),
+        ("1.5亿", "150000000"),
+        ("2.5百万", "2500000"),
+        ("5十万", "500000"),
+        ("1.2万亿", "1200000000000"),
+        ("12000万", "120000000"),
+        ("1,200万", "12000000"),
+        ("8 万", "80000"),
+        ("８．５万", "85000"),
+        ("３ｗ", "30000"),
+    ],
+)
+def test_multiplier_after_written_digits_is_applied(text: str, value: str) -> None:
+    reading = recognised(text)
+
+    assert format(reading.value, "f") == value
+    assert reading.unit is None
+
+
+@pytest.mark.parametrize(
+    ("text", "value"),
+    [("1.50万", "15000"), ("0.00015万", "1.5"), ("1.2345678k", "1234.5678"), ("0.0010k", "1")],
+)
+def test_multiplying_leaves_no_zeros_behind_after_the_point(text: str, value: str) -> None:
+    assert written(text) == value
+
+
+@pytest.mark.parametrize(
+    ("text", "value", "unit"),
+    [
+        ("8万刀", "80000", "刀"),
+        ("8 万刀", "80000", "刀"),
+        ("3w刀", "30000", "刀"),
+        ("3w usdt", "30000", "usdt"),
+        ("1.2k美金", "1200", "美金"),
+        ("1.2k u", "1200", "u"),
+        ("$1.2k", "1200", "$"),
+        ("2亿个", "200000000", "个"),
+        ("5千 USDT", "5000", "USDT"),
+    ],
+)
+def test_multiplier_and_unit_can_both_follow_the_digits(text: str, value: str, unit: str) -> None:
+    reading = recognised(text)
+
+    assert format(reading.value, "f") == value
+    assert reading.unit == unit
+
+
+def test_caution_and_doubt_about_the_digits_survive_a_multiplier() -> None:
+    cautious = recognised("1.234k")
+
+    assert format(cautious.value, "f") == "1234"
+    assert cautious.cautions == (Caution.POINT_MAY_BE_THOUSANDS_SEPARATOR,)
+    assert read_number("1,5k") == Unsure(Doubt.AMBIGUOUS_SEPARATOR)
+    assert read_number("1,5万") == Unsure(Doubt.AMBIGUOUS_SEPARATOR)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        # m is a million to some and a thousandth (as in mBTC) to others.
+        "5m",
+        "5M",
+        "2b",
+        "2B",
+        "3t",
+        "2bn",
+        "5kk",
+        "1kw",
+        "1ku",
+        "1wu",
+        "5kas",
+        "3wif",
+        "5 k",
+        "5 w",
+        "5 m",
+        "5 million",
+        "5million",
+        "2 thousand",
+        "2thousand",
+        "3 billion",
+        "1 mil",
+        "3 hundred",
+        "8万k",
+        "8万 w",
+    ],
+)
+def test_letters_that_may_or_may_not_multiply_are_not_guessed(text: str) -> None:
+    assert read_number(text) == Unsure(Doubt.UNCLEAR_MULTIPLIER)
+
+
+@pytest.mark.parametrize(
+    ("text", "value", "unit"),
+    [
+        ("50matic", "50", "matic"),
+        ("5mBTC", "5", "mBTC"),
+        ("0.5btc", "0.5", "btc"),
+        ("2ton", "2", "ton"),
+        ("3trx", "3", "trx"),
+        ("5bnb", "5", "bnb"),
+        ("5 kas", "5", "kas"),
+        ("5 wif", "5", "wif"),
+    ],
+)
+def test_unit_that_does_not_read_as_a_multiplier_stays_a_unit(
+    text: str, value: str, unit: str
+) -> None:
+    reading = recognised(text)
+
+    assert format(reading.value, "f") == value
+    assert reading.unit == unit
+
+
+@pytest.mark.parametrize("text", ["3k万", "3kw刀", "1k5", "3w5", "k", "w", "万", "$k"])
+def test_multiplier_out_of_place_never_yields_a_number(text: str) -> None:
+    assert not isinstance(read_number(text), Recognised)
+
+
 # --- what is not a number ---------------------------------------------------
 
 
