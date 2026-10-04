@@ -375,6 +375,31 @@ _STRAY_MAGNITUDE = re.compile(
 _ALL_HINTS = (*_WORDING_HINTS, (Doubt.UNCLEAR_MULTIPLIER, _STRAY_MAGNITUDE))
 
 
+# Every ending that makes a word a smaller unit: each such word and its plural.
+_SMALLER_UNIT_ENDINGS = tuple(
+    ending for word in sorted(_SMALLER_UNIT_WORDS) for ending in (word, word + "s")
+)
+
+
+class _Kind(enum.Enum):
+    """What this program knows a word in a unit to be."""
+
+    MAGNITUDE = "a letter or word for a magnitude"
+    FRACTION = "a word for a fraction or a multiple"
+    SMALLER_UNIT = "a smaller unit of money or of a coin"
+    MONEY = "a word for the pricing currency"
+    COIN = "a coin in the built-in table"
+
+
+# The kinds that change the number, and the doubt each one raises. Currency
+# words and coins are what a plain unit is made of.
+_DOUBT_ABOUT: Mapping[_Kind, Doubt] = {
+    _Kind.MAGNITUDE: Doubt.UNCLEAR_MULTIPLIER,
+    _Kind.FRACTION: Doubt.HALF_OR_SHARE,
+    _Kind.SMALLER_UNIT: Doubt.SMALLER_UNIT,
+}
+
+
 class _Script(enum.Enum):
     """The two kinds of letters a unit is taken apart by."""
 
@@ -493,7 +518,8 @@ def _tail(shape: re.Match[str], original: str) -> _Tail | Doubt | None:
     """
     letters = shape["letters"].lower()
     power = _LETTER_MULTIPLIERS.get(letters, 0)
-    if not power and letters[:1] in _LETTER_MULTIPLIERS and not _is_a_smaller_unit(letters):
+    is_a_smaller_unit = _kind(letters) is _Kind.SMALLER_UNIT
+    if not power and letters[:1] in _LETTER_MULTIPLIERS and not is_a_smaller_unit:
         # "1ku" may be a thousand u or one of a coin called ku.
         return Doubt.UNCLEAR_MULTIPLIER
     start = shape.end("letters") if power else shape.start("letters")
@@ -503,11 +529,6 @@ def _tail(shape: re.Match[str], original: str) -> _Tail | Doubt | None:
     if _is_unit(unit):
         return _Tail(power, unit=original[start:].strip())
     return None
-
-
-def _is_a_smaller_unit(word: str) -> bool:
-    """Whether ``word``, in small letters, is a smaller unit of money in the singular or plural."""
-    return not _SMALLER_UNIT_WORDS.isdisjoint((word, word.removesuffix("s")))
 
 
 def _is_unit(text: str) -> bool:
@@ -549,59 +570,79 @@ def _script(character: str) -> _Script | None:
 
 
 def _word_doubt(word: str) -> Doubt | None:
-    """Why a piece written in letters that have capitals is not part of a plain unit."""
-    forms = (word, word.removesuffix("s"))
-    if not _MAGNITUDE_WORDS.isdisjoint(forms) or (len(word) == 1 and word != "u"):
+    """Why a piece written in letters that have capitals is not part of a plain unit.
+
+    The piece is judged by what it can be taken apart into, not by whether it
+    is on a list as a whole.
+    """
+    if len(word) == 1 and word != "u":
         return Doubt.UNCLEAR_MULTIPLIER
-    if any(map(_names_money_or_a_coin, forms)):
-        # "usdt" is a word of its own, not "usd" with a t for a trillion.
-        return None
-    for form in forms:
-        if _has_a_magnitude_glued_on(form):
-            return Doubt.UNCLEAR_MULTIPLIER
-        if _is_glued_to_a_unit(form, _SMALLER_UNIT_WORDS):
-            return Doubt.SMALLER_UNIT
-        if _is_glued_to_a_unit(form, _SHARE_WORDS):
-            return Doubt.HALF_OR_SHARE
+    kind = _kind(word)
+    if kind is not None:
+        return _DOUBT_ABOUT.get(kind)
+    if word.endswith(_SMALLER_UNIT_ENDINGS):
+        return Doubt.SMALLER_UNIT
+    for cut in range(1, len(word)):
+        doubt = _joined_doubt(word[:cut], word[cut:])
+        if doubt is not None:
+            return doubt
+    if _has_a_long_magnitude_word_at_an_end(word):
+        return Doubt.UNCLEAR_MULTIPLIER
     return None
 
 
-def _names_money_or_a_coin(word: str) -> bool:
-    return means_usdt(word) or BUILT_IN_TABLE.find(word) is not None
+def _kind(word: str) -> _Kind | None:
+    """What this program knows ``word`` to be, in the singular or the plural."""
+    forms = (word, word.removesuffix("s"))
+    if not _MAGNITUDE_WORDS.isdisjoint(forms):
+        return _Kind.MAGNITUDE
+    if not _SMALLER_UNIT_WORDS.isdisjoint(forms):
+        return _Kind.SMALLER_UNIT
+    if not _SHARE_WORDS.isdisjoint(forms):
+        return _Kind.FRACTION
+    if any(map(means_usdt, forms)):
+        return _Kind.MONEY
+    if any(BUILT_IN_TABLE.find(form) is not None for form in forms):
+        return _Kind.COIN
+    return None
 
 
-def _has_a_magnitude_glued_on(word: str) -> bool:
-    """Whether ``word`` has a magnitude at its front or back that changes the number.
+def _joined_doubt(left: str, right: str) -> Doubt | None:
+    """Why two words this program knows, written as one, are not a plain unit.
 
-    That is a magnitude letter or word glued to a currency word or a coin
-    ("wu" after a gap is ten thousand u as readily as "3wu" is), or a long
-    magnitude word at the front or the back of anything. ``word`` is known
-    not to be a currency word or a coin itself.
+    ``None`` when they are one, and when either half is not a word this
+    program knows.
     """
-    for magnitude in _MAGNITUDE_WORDS:
-        is_long = len(magnitude) >= _LONG_MAGNITUDE_WORD
-        if is_long and (word.startswith(magnitude) or word.endswith(magnitude)):
-            return True
-        # Next to a coin, a single letter this program does not itself apply
-        # as a multiplier is as likely part of the name of another coin
-        # ("mSOL", "tBTC"), and such a unit is handed back whole.
-        applies = len(magnitude) > 1 or magnitude in _LETTER_MULTIPLIERS
-        for rest in (word.removeprefix(magnitude), word.removesuffix(magnitude)):
-            if means_usdt(rest) or (applies and BUILT_IN_TABLE.find(rest) is not None):
-                return True
-    return False
+    kinds = {_kind(left), _kind(right)}
+    if None in kinds:
+        return None
+    if _Kind.SMALLER_UNIT in kinds:
+        return Doubt.SMALLER_UNIT
+    if kinds.isdisjoint({_Kind.MONEY, _Kind.COIN}):
+        # Magnitudes and fractions with nothing to count: "kg", "gbp". Such a
+        # word may well be a unit of its own.
+        return None
+    if _Kind.FRACTION in kinds:
+        return Doubt.HALF_OR_SHARE
+    if _Kind.MAGNITUDE not in kinds:
+        return None
+    magnitude = left if _kind(left) is _Kind.MAGNITUDE else right
+    # Next to a coin, a single letter this program does not itself apply as a
+    # multiplier is as likely part of the name of another coin ("mSOL",
+    # "tBTC"), and such a unit is handed back whole.
+    letter = magnitude.removesuffix("s")
+    if _Kind.COIN in kinds and len(letter) == 1 and letter not in _LETTER_MULTIPLIERS:
+        return None
+    return Doubt.UNCLEAR_MULTIPLIER
 
 
-def _is_glued_to_a_unit(word: str, parts: frozenset[str]) -> bool:
-    """Whether ``word`` is one of ``parts``, or its plural, glued to a currency word or a coin.
-
-    ``word`` is known not to be a currency word or a coin itself.
-    """
+def _has_a_long_magnitude_word_at_an_end(word: str) -> bool:
+    """Whether a long magnitude word, or its plural, starts or ends ``word``."""
     return any(
-        _names_money_or_a_coin(rest)
-        for part in parts
-        for form in (part, part + "s")
-        for rest in (word.removeprefix(form), word.removesuffix(form))
+        len(magnitude) >= _LONG_MAGNITUDE_WORD
+        and (form.startswith(magnitude) or form.endswith(magnitude))
+        for magnitude in _MAGNITUDE_WORDS
+        for form in (word, word.removesuffix("s"))
     )
 
 

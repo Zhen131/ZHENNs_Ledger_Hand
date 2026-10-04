@@ -1377,6 +1377,67 @@ def test_place_word_beyond_those_this_program_reads_is_never_taken_for_a_unit(te
     assert not isinstance(read_number(text), Recognised)
 
 
+@pytest.mark.parametrize(
+    "text",
+    [
+        # A multiplier or a fraction in front of a small unit this program knows.
+        "100 ksats",
+        "21 ksats",
+        "100 KSATS",
+        "100 Ksat",
+        "100 kSats",
+        "100 ｋｓａｔｓ",
+        "100个ksats",
+        "100 ksat BTC",
+        "100 kilosats",
+        "100 kilosatoshi",
+        "100 ksatoshis",
+        "100 msat",
+        "100 msats",
+        "100 MSAT",
+        "100 Msats",
+        "100msat",
+        "100 millisats",
+        "100 millisatoshis",
+        "100 megasats",
+        "100 nanosats",
+        "5 kwei",
+        "5 Kwei",
+        "5 KWEI",
+        "5 mwei",
+        "5 Mwei",
+        "5 MWEI",
+        "5mwei",
+        "5 kgwei",
+        "5 kGwei",
+        "5 Mgwei",
+        "5 microwei",
+        "5 gigawei",
+        "5 megagwei",
+        "5 kcents",
+        "5 mcent",
+        "5 kpence",
+        "5 klamports",
+        "5 kmBTC",
+        "5 mmbtc",
+        # Anything at all in front of one.
+        "100 xyzsats",
+        "5 abcwei",
+        "5 个 qqqcents",
+        # The same the other way round.
+        "100 satsk",
+        "100 satk",
+        "5 weim",
+        "5 gweik",
+        "5 centkilo",
+        "100 satsmilli",
+    ],
+)
+def test_small_unit_this_program_knows_is_seen_inside_a_longer_word(text: str) -> None:
+    # "100 ksats" is a hundred thousand of them, "100 msat" a tenth of one.
+    assert read_number(text) == Unsure(Doubt.SMALLER_UNIT)
+
+
 NUMBER_CHARACTERS = (
     "零〇一二三四五六七八九十百千万亿兆京垓秭穰沟涧正载极"
     "两俩仨廿卅卌半几幺点"
