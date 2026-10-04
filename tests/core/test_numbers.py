@@ -901,6 +901,100 @@ def test_unit_that_only_resembles_a_vague_word_stays_a_unit(text: str, unit: str
     assert recognised(text).unit == unit
 
 
+# --- units that would change the number -------------------------------------
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        # A multiplier letter written into the unit, next to other characters.
+        "3个w",
+        "三个w",
+        "3 个w",
+        "两个w",
+        "九个w",
+        "1.5个w",
+        "3个k",
+        "3个W",
+        "３个ｗ",
+        "3个w刀",
+        "3个w U",
+        "3 个k刀",
+        "3 w刀",
+        "3 W刀",
+        "3 k刀",
+        "3刀k",
+        "3个w币",
+        "三个k刀",
+        "3个m",
+        "3个b",
+        "3个t",
+        "$3 w",
+        # A multiplier letter glued to the front of a currency word or a coin.
+        "3 wu",
+        "3 WU",
+        "3 ku",
+        "3个wu",
+        "3个ku",
+        "5 kusdt",
+        "5 wUSDT",
+        "5 kusd",
+        "2 kbtc",
+        "2 wbtc",
+        "5 weth",
+        "5 个 kU",
+        # Any other single letter: letters are how multipliers and small units are abbreviated.
+        "5g",
+        "5 G",
+        "5x",
+        "5e",
+        "5E",
+        "5c",
+        "5 p",
+        "5 个 x",
+        "5\N{CYRILLIC SMALL LETTER KA}",
+    ],
+)
+def test_multiplier_letter_inside_a_unit_is_never_handed_back_as_a_unit(text: str) -> None:
+    # "3个w" handed back as three with the unit "个w" would turn thirty thousand into three.
+    assert read_number(text) == Unsure(Doubt.UNCLEAR_MULTIPLIER)
+
+
+@pytest.mark.parametrize(
+    ("text", "value", "unit"),
+    [
+        ("50u", "50", "u"),
+        ("50 U", "50", "U"),
+        ("3个u", "3", "个u"),
+        ("3 个 U", "3", "个 U"),
+        ("3w u", "30000", "u"),
+        ("3w刀", "30000", "刀"),
+        ("5K USDT", "5000", "USDT"),
+        ("5k usdt", "5000", "usdt"),
+        ("5 kas", "5", "kas"),
+        ("5 wif", "5", "wif"),
+        ("5 wld", "5", "wld"),
+        ("5 ksm", "5", "ksm"),
+        ("3 doge", "3", "doge"),
+        ("3个币", "3", "个币"),
+        ("3个BTC", "3", "个BTC"),
+        ("100块", "100", "块"),
+        ("100元", "100", "元"),
+        ("3枚", "3", "枚"),
+        ("5 USDC", "5", "USDC"),
+        ("0.5 eth", "0.5", "eth"),
+        ("5 op", "5", "op"),
+    ],
+)
+def test_unit_with_nothing_in_it_that_changes_the_number_is_still_handed_back(
+    text: str, value: str, unit: str
+) -> None:
+    reading = recognised(text)
+
+    assert format(reading.value, "f") == value
+    assert reading.unit == unit
+
+
 # --- what is not a number ---------------------------------------------------
 
 

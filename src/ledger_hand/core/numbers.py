@@ -24,6 +24,22 @@ back exactly as it was written and is not interpreted here. A word that
 itself holds a number word is never taken for a unit, and neither is a unit
 longer than the longest coin symbol the ledger allows.
 
+A unit is handed back only when nothing in it changes the number. To judge
+that, the unit is taken apart into pieces: at spaces, and wherever letters
+that have capitals meet characters that have none, so that "个w刀" is 个, w
+and 刀. If any piece would change the number, the unit is not a plain unit
+and the answer is a ``Doubt``, never the number without that piece applied:
+
+- a letter or word for a magnitude ("k", "w", "m", "million");
+- a multiplier letter glued to the front of a currency word or a coin this
+  program knows ("wu", "kusdt");
+- any single letter other than "u": single letters are how multipliers and
+  small units are abbreviated, and nothing here can tell which one is meant.
+
+A multiplier is applied only where its place leaves no doubt: "k" or "w"
+directly after the last digit and followed by no further letter, and the
+scale words listed below.
+
 Written digits may be followed by a multiplier: the letter "k" (thousand) or
 "w" (ten thousand, from 万) directly after the last digit, or one of the words
 千, 万, 十万, 百万, 千万, 亿, 十亿, 百亿, 千亿, 万亿. The letter "m" is not
@@ -88,6 +104,7 @@ from dataclasses import dataclass
 from decimal import Decimal
 
 from ledger_hand.core.arithmetic import working_context
+from ledger_hand.core.coins import BUILT_IN_TABLE, means_usdt
 from ledger_hand.core.ledger_limits import (
     MAX_DECIMAL_PLACES,
     MAX_SIGNIFICANT_DIGITS,
@@ -276,6 +293,13 @@ _STRAY_MAGNITUDE = re.compile(
 _ALL_HINTS = (*_WORDING_HINTS, (Doubt.UNCLEAR_MULTIPLIER, _STRAY_MAGNITUDE))
 
 
+class _Script(enum.Enum):
+    """The two kinds of letters a unit is taken apart by."""
+
+    CASED = "letters that have capitals, such as Latin ones"
+    UNCASED = "characters that have none, such as Chinese ones"
+
+
 @dataclass(frozen=True)
 class _Tail:
     """What follows the number: a letter multiplier as a power of ten, and a unit."""
@@ -317,8 +341,9 @@ def read_number(text: str) -> Reading:
         doubt = _hinted(folded, _ALL_HINTS)
         return NotANumber() if doubt is None else Unsure(doubt)
     if isinstance(reading, Recognised) and reading.unit is not None:
-        # What was taken for a unit may be a word like 多 or 左右.
-        doubt = _hinted(folded, _WORDING_HINTS)
+        # What was taken for a unit may be a word like 多 or 左右, or may hide
+        # a multiplier.
+        doubt = _hinted(folded, _WORDING_HINTS) or _unit_doubt(reading.unit.translate(_FOLDED))
         if doubt is not None:
             return Unsure(doubt)
     return reading
@@ -393,8 +418,6 @@ def _tail(shape: re.Match[str], original: str) -> _Tail | Doubt | None:
     unit = shape.string[start:].strip()
     if not unit:
         return _Tail(power, unit=None)
-    if any(word.lower() in _MAGNITUDE_WORDS for word in unit.split()):
-        return Doubt.UNCLEAR_MULTIPLIER
     if _is_unit(unit):
         return _Tail(power, unit=original[start:].strip())
     return None
@@ -414,6 +437,37 @@ def _is_unit(text: str) -> bool:
         and len(text) <= SYMBOL_MAX_LENGTH
         and all(letter.isalpha() and letter not in _NUMBER_WORDS for letter in letters)
     )
+
+
+def _unit_doubt(unit: str) -> Doubt | None:
+    """Why ``unit`` cannot be handed back as a plain unit, if a piece of it changes the number."""
+    for script, letters in itertools.groupby(unit, key=_script):
+        if script is _Script.CASED:
+            doubt = _word_doubt("".join(letters).casefold())
+            if doubt is not None:
+                return doubt
+    return None
+
+
+def _script(character: str) -> _Script | None:
+    """Which kind of letter ``character`` is; ``None`` for what is not a letter."""
+    if not character.isalpha():
+        return None
+    return _Script.CASED if character.lower() != character.upper() else _Script.UNCASED
+
+
+def _word_doubt(word: str) -> Doubt | None:
+    """Why a piece written in letters that have capitals is not part of a plain unit."""
+    if word in _MAGNITUDE_WORDS or (len(word) == 1 and word != "u"):
+        return Doubt.UNCLEAR_MULTIPLIER
+    if word[0] in _LETTER_MULTIPLIERS and _names_money_or_a_coin(word[1:]):
+        # "wu" after a gap is ten thousand u as readily as "3wu" is.
+        return Doubt.UNCLEAR_MULTIPLIER
+    return None
+
+
+def _names_money_or_a_coin(word: str) -> bool:
+    return means_usdt(word) or BUILT_IN_TABLE.find(word) is not None
 
 
 def _amount(body: str, letter_power: int) -> _Amount | Doubt | None:
