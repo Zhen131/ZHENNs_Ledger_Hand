@@ -19,10 +19,10 @@ refused here on purpose: an exponent, an underscore between digits, a sign,
 Full-width characters are read as their ordinary forms.
 
 A number may come with one unit: a currency sign before or after it, or one
-word after it ("刀", "个", "USDT", "u"). The unit is handed back exactly as it
-was written and is not interpreted here. A word that itself holds a number
-word is never taken for a unit, and neither is one longer than the longest
-coin symbol the ledger allows.
+or two words after it ("刀", "个", "USDT", "u", "个 BTC"). The unit is handed
+back exactly as it was written and is not interpreted here. A word that
+itself holds a number word is never taken for a unit, and neither is a unit
+longer than the longest coin symbol the ledger allows.
 
 Written digits may be followed by a multiplier: the letter "k" (thousand) or
 "w" (ten thousand, from 万) directly after the last digit, or one of the words
@@ -182,7 +182,7 @@ _SCALE_WORDS: Mapping[str, int] = {
 # one for a unit would hand back a number that is wrong by orders of magnitude.
 _MAGNITUDE_WORDS = frozenset(
     {"k", "w", "m", "b", "t", "bn", "mn", "mm", "kk", "kw", "mil", "mio"}
-    | {"hundred", "thousand", "million", "billion", "trillion", "grand"}
+    | {"dozen", "hundred", "thousand", "million", "billion", "trillion", "grand"}
 )
 
 # Number words as they are said.
@@ -238,7 +238,10 @@ _LEADING_ZERO = re.compile(r"0[0-9]")
 # tried only on a text that holds a digit or a number word at all.
 _NUMBER_LIKE = re.compile(rf"[0-9零{_DIGIT}{_SCALE}半几]")
 _IN_NUMBER = f"0-9零一二两三四五六七八九{_SCALE}"
-_VAGUE_WORDS = "about|around|roughly|approx|approximately|nearly|almost|over|under|ish|or so"
+_VAGUE_WORDS = (
+    "about|around|roughly|approx|approximately|nearly|almost|maybe|over|under|ish"
+    "|or so|or more|or less|at most|at least"
+)
 _WORDING_HINTS: tuple[tuple[Doubt, re.Pattern[str]], ...] = (
     (
         Doubt.HALF_OR_SHARE,
@@ -390,18 +393,27 @@ def _tail(shape: re.Match[str], original: str) -> _Tail | Doubt | None:
     unit = shape.string[start:].strip()
     if not unit:
         return _Tail(power, unit=None)
-    if unit.lower() in _MAGNITUDE_WORDS:
+    if any(word.lower() in _MAGNITUDE_WORDS for word in unit.split()):
         return Doubt.UNCLEAR_MULTIPLIER
-    if unit in _CURRENCY_SIGNS or _is_unit_word(unit):
+    if _is_unit(unit):
         return _Tail(power, unit=original[start:].strip())
     return None
 
 
-def _is_unit_word(word: str) -> bool:
-    """Whether ``word`` is one short run of letters with no number word in it."""
-    if len(word) > SYMBOL_MAX_LENGTH:
-        return False
-    return all(letter.isalpha() and letter not in _NUMBER_WORDS for letter in word)
+def _is_unit(text: str) -> bool:
+    """Whether ``text`` is a currency sign, or one or two short words of letters.
+
+    No word may hold a number word.
+    """
+    if len(text) == 1 and text in _CURRENCY_SIGNS:
+        return True
+    words = text.split()
+    letters = "".join(words)
+    return (
+        len(words) <= 2
+        and len(text) <= SYMBOL_MAX_LENGTH
+        and all(letter.isalpha() and letter not in _NUMBER_WORDS for letter in letters)
+    )
 
 
 def _amount(body: str, letter_power: int) -> _Amount | Doubt | None:
