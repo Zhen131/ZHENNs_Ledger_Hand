@@ -24,9 +24,18 @@ dated in the future is accepted. The limits of the ledger (digits, lengths,
 tolerance) are copied into one file and applied the way the ledger applies
 them.
 
+**Numbers as people write and say them.** `read_number` turns a short piece
+of text into an exact decimal: "94,900", "1.2k", "3w", "8万刀", "两万三",
+"9万4", "零点五". A unit or currency word that came with the number is handed
+back as written. When the text has more than one reading ("1,5", "一亿五千"),
+names no single exact amount ("8万到8万5", "大概两万", "半个") or has more
+digits than the ledger holds, the answer is "unsure" with a reason, never a
+guess. `write_number` goes the other way and writes an exact decimal the way
+the ledger accepts it.
+
 All of this is pure computation. There is no language model, no storage and
-no interface yet, and spoken numbers and times ("23k", "last Friday 3pm") are
-not converted yet: a draft already holds exact decimals and a definite time.
+no interface yet, and spoken times ("last Friday 3pm") are not converted yet:
+a draft already holds a definite time.
 
 The repository also has its Python environment, one command that runs every
 check, and two guardrails that keep the code base in shape (the layering
@@ -39,7 +48,7 @@ check and the hygiene scan).
 | `pyproject.toml` | Package metadata and the configuration of every tool (pytest, ruff, mypy). |
 | `requirements.txt` | Exact versions of the development tools, so the environment can be rebuilt identically. |
 | `src/ledger_hand/` | The package. Today it holds its version and `core/`. |
-| `src/ledger_hand/core/` | Core rules: pure computation, no network, files, database, user interface or clock. Holds the shapes of a trade (`trade.py`), the coin table (`coins.py`), the ledger's limits (`ledger_limits.py`), exact decimal arithmetic (`arithmetic.py`) and the check of a draft (`validation.py`). |
+| `src/ledger_hand/core/` | Core rules: pure computation, no network, files, database, user interface or clock. Holds the shapes of a trade (`trade.py`), the coin table (`coins.py`), the ledger's limits (`ledger_limits.py`), exact decimal arithmetic (`arithmetic.py`), the reading and writing of numbers (`numbers.py`) and the check of a draft (`validation.py`). |
 | `tests/` | The tests. `tests/core/` has one test module per core module. |
 | `tests/guardrails/` | The layering check and the hygiene scan, the tests that prove they catch what they should, and the two gate tests that apply them to this repository. |
 | `scripts/check.sh` | One command that runs all checks. |

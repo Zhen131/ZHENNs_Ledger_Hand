@@ -33,7 +33,7 @@ src/ledger_hand/
         arithmetic.py         the decimal contexts every calculation runs in          (exists)
         trade.py              what one trade looks like; drafts may have blanks       (exists)
         coins.py              a small table of common coins                           (exists)
-        numbers.py            number phrases to exact decimals
+        numbers.py            reads number phrases; writes numbers for the ledger     (exists)
         timeparse.py          time phrases to exact moments ("now" is passed in)
         validation.py         validation; which fields are still missing              (exists)
         followup.py           what to ask when something is missing
