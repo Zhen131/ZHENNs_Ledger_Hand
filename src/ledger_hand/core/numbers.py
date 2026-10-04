@@ -24,43 +24,54 @@ back exactly as it was written and is not interpreted here. A word that
 itself holds a number word is never taken for a unit, and neither is a unit
 longer than the longest coin symbol the ledger allows.
 
-A unit is handed back only when nothing in it changes the number. To judge
-that, the unit is taken apart into pieces: at spaces, and wherever letters
-that have capitals meet characters that have none, so that "个w刀" is 个, w
-and 刀. If any piece would change the number, the unit is not a plain unit
-and the answer is a ``Doubt``, never the number without that piece applied:
+A unit is handed back only when nothing in it changes the number. Three
+rules decide that, and none of them depends on a unit being listed as a
+whole.
 
-- a letter or word for a magnitude, in the singular or the plural, spelled
-  out or shortened, in English, in pinyin or in another common form ("k",
-  "w", "m", "million", "thousands", "mln", "wan", "lakh"), and 打, 双, 对
-  for a dozen and a pair;
-- such a letter or word glued to the front or the back of a currency word or
-  a coin this program knows ("wu", "kusdt", "musd", "USDTk"), and a long
-  magnitude word at the front or the back of anything ("millionen"). Glued
-  to a word this program does not know, a short one cannot be told from
-  part of a name, and the unit is handed back whole. So is a coin with a
-  single letter other than "k" or "w" next to it, which is as likely the
-  name of another coin ("mSOL", "tBTC"); the ones that are small units
-  ("mBTC") are listed as such;
-- any single letter other than "u": single letters are how multipliers and
-  small units are abbreviated, and nothing here can tell which one is meant;
-- a smaller unit of money or of a coin (毛, 角, 分, 厘, 聪, cents, pence,
-  sats, mBTC, gwei and the like): "5毛" is half a yuan, not five, and
-  "5mBTC" is 0.005 of a bitcoin. An amount that runs on past its unit
-  ("三块五") is the same case;
-- a word for a fraction or a multiple ("tenths", "bps", "times", 成, 倍).
+1. The number characters are a closed set. Every Chinese character that says
+   a number is listed once: the digits, the places from 十 up to 极, 两, 俩,
+   仨, 廿, 卅, and the formal and the traditional forms of them all. A unit
+   holding any of them is not a unit: "3兆" is not three, whatever 兆 is
+   taken to be worth. 半 and 几 are turned away wherever they stand.
 
-A word for a smaller unit, a fraction or a multiple counts wherever it stands
-by itself in the text, and when it is glued to a currency word or a known
-coin ("BTCsats").
+2. A unit is judged by what it can be taken apart into. It is first cut into
+   pieces at spaces, and wherever letters that have capitals meet characters
+   that have none, so that "个w刀" is 个, w and 刀. A piece in letters is not
+   plain when
 
-The lists of such words are tables that can grow. What they do not hold is
-handed back as part of the unit, which is why whoever receives a unit must
-not drop one it does not know.
+   - it is a word for a magnitude ("k", "million", "thousands", "mln",
+     "wan"), for a fraction or a multiple ("milli", "tenths", "bps",
+     "times"), or for a smaller unit of money or of a coin ("cents", "sats",
+     "mBTC", "gwei"), in the singular or the plural;
+   - it is a single letter other than "u": single letters are how
+     multipliers and small units are abbreviated;
+   - it ends in a word for a smaller unit, whatever stands in front of it
+     ("ksats", "millisats", "mwei");
+   - it can be split into two words this program knows, one that changes
+     the number and one that is a currency word or a coin ("wu", "kusdt",
+     "musd", "USDTk", "milliBTC", "BTCsats");
+   - a long magnitude word starts or ends it ("millionen").
 
-A multiplier is applied only where its place leaves no doubt: "k" or "w"
-directly after the last digit and followed by no further letter, and the
-scale words listed below.
+   A piece in Chinese characters is not plain when it holds a smaller unit
+   (毛, 角, 分, 厘, 聪), a dozen or a pair (打, 双, 对) or a share (成, 倍,
+   折), wherever in the piece that stands. An amount that runs on past its
+   unit ("三块五") is the same case as a smaller unit: "5毛" is half a yuan,
+   not five.
+
+   One split is left alone on purpose: a single letter other than "k" or "w"
+   glued to a coin, because such a word is as likely the name of another
+   coin ("mSOL", "tBTC"). The ones that are small units ("mBTC") are listed
+   as such.
+
+3. What this program cannot know, it does not judge. A multiplier letter on
+   a word that is in none of its lists ("kBONK") cannot be told from a name
+   ("KAVA"), and the unit is handed back whole. That is why whoever receives
+   a unit must not drop one it does not know.
+
+Where a unit is not plain the answer is a ``Doubt``, never the number without
+that piece applied. A multiplier is applied only where its place leaves no
+doubt: "k" or "w" directly after the last digit and followed by no further
+letter, and the scale words listed below.
 
 Written digits may be followed by a multiplier: the letter "k" (thousand) or
 "w" (ten thousand, from 万) directly after the last digit, or one of the words
