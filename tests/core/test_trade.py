@@ -132,6 +132,15 @@ def test_minute_and_second_precision_refuse_a_bare_date(precision: TimePrecision
         OccurredTime(date(2026, 10, 4), precision, BUDAPEST)
 
 
+@pytest.mark.parametrize("precision", list(TimePrecision))
+@pytest.mark.parametrize("value", ["2026-10-04", 20261004, None])
+def test_value_that_is_neither_a_date_nor_a_moment_is_refused(
+    value: object, precision: TimePrecision
+) -> None:
+    with pytest.raises(TypeError, match="date"):
+        OccurredTime(value, precision, BUDAPEST)  # type: ignore[arg-type]
+
+
 def test_moment_without_an_offset_is_refused() -> None:
     with pytest.raises(ValueError, match="offset"):
         OccurredTime(datetime(2026, 10, 4, 9, 40), TimePrecision.MINUTE, BUDAPEST)

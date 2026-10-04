@@ -319,7 +319,11 @@ def _derive(blank: Amount, stated: Mapping[Amount, Decimal], places: int) -> Dec
 
 
 def _quotient(dividend: Decimal, divisor: Decimal, places: int) -> Decimal:
-    """``dividend / divisor``: kept whole when it comes out even, else rounded to ``places``."""
+    """``dividend / divisor``, kept whole or rounded.
+
+    A quotient that comes out even, and that the ledger can hold in full, is
+    kept as it is. Any other is rounded half up to ``places``.
+    """
     context = working_context()
     quotient = context.divide(dividend, divisor)
     if not context.flags[Inexact] and fits_digit_limits(quotient):
@@ -328,7 +332,10 @@ def _quotient(dividend: Decimal, divisor: Decimal, places: int) -> Decimal:
 
 
 def _written_plainly(value: Decimal) -> Decimal:
-    """The same number without an exponent and without trailing zeros after the point."""
+    """The same number without trailing zeros after the point.
+
+    Left in, they would count against the ledger's digit limits.
+    """
     text = format(value, "f")
     return Decimal(text.rstrip("0").rstrip(".") if "." in text else text)
 

@@ -83,6 +83,8 @@ class OccurredTime:
 
     def __post_init__(self) -> None:
         zone = _zone_named(self.time_zone)
+        if not isinstance(self.value, date):
+            raise TypeError(f"a time must be a date or a datetime, not {self.value!r}")
         if self.precision is TimePrecision.DAY:
             if isinstance(self.value, datetime):
                 raise ValueError("day precision holds a date, not a moment")
