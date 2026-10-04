@@ -406,6 +406,195 @@ def test_multiplier_out_of_place_never_yields_a_number(text: str) -> None:
     assert not isinstance(read_number(text), Recognised)
 
 
+# --- numbers said in Chinese number words -----------------------------------
+
+
+@pytest.mark.parametrize(
+    ("text", "value"),
+    [
+        ("九万四千九", "94900"),
+        ("两万三", "23000"),
+        ("三千五", "3500"),
+        ("一百二", "120"),
+        ("两千零五", "2005"),
+        ("十二", "12"),
+        ("五千", "5000"),
+        ("零", "0"),
+        ("一", "1"),
+        ("两", "2"),
+        ("九", "9"),
+        ("十", "10"),
+        ("十一", "11"),
+        ("一十二", "12"),
+        ("二十", "20"),
+        ("二十三", "23"),
+        ("九十九", "99"),
+        ("一百", "100"),
+        ("二百", "200"),
+        ("两百", "200"),
+        ("一百零五", "105"),
+        ("一百一十", "110"),
+        ("一百二十三", "123"),
+        ("三百零五", "305"),
+        ("三百五十", "350"),
+        ("一千", "1000"),
+        ("一千零一十", "1010"),
+        ("一千零五十", "1050"),
+        ("两千零五十", "2050"),
+        ("两千两百", "2200"),
+        ("九千九百九十九", "9999"),
+        ("一万", "10000"),
+        ("一万零五", "10005"),
+        ("一万零五百", "10500"),
+        ("一万五千", "15000"),
+        ("九万四千九百", "94900"),
+        ("十万", "100000"),
+        ("十二万三千", "123000"),
+        ("二十万", "200000"),
+        ("一百万", "1000000"),
+        ("一百万五千", "1005000"),
+        ("一百万零五千", "1005000"),
+        ("一百零五万", "1050000"),
+        ("一百二十万", "1200000"),
+        ("两千万", "20000000"),
+        ("三千五百万", "35000000"),
+        ("一亿", "100000000"),
+        ("一亿五千万", "150000000"),
+        ("一亿零五千", "100005000"),
+        ("十亿", "1000000000"),
+        ("一万亿", "1000000000000"),
+        ("一万二千亿", "1200000000000"),
+        ("两 万 三", "23000"),
+    ],
+)
+def test_number_said_in_chinese_number_words_is_read(text: str, value: str) -> None:
+    reading = recognised(text)
+
+    assert format(reading.value, "f") == value
+    assert reading.unit is None
+    assert reading.cautions == ()
+
+
+@pytest.mark.parametrize(
+    ("text", "value"),
+    [
+        ("三百五", "350"),
+        ("一百一", "110"),
+        ("一千一", "1100"),
+        ("两千五", "2500"),
+        ("一万五", "15000"),
+        ("三万五千二", "35200"),
+        ("十万五", "105000"),
+        ("十二万三", "123000"),
+        ("三十五万六", "356000"),
+        ("一亿五", "150000000"),
+    ],
+)
+def test_last_digit_without_a_unit_takes_the_unit_just_below_the_one_before_it(
+    text: str, value: str
+) -> None:
+    assert written(text) == value
+
+
+@pytest.mark.parametrize(
+    ("text", "value"),
+    [
+        ("零点五", "0.5"),
+        ("零点零五", "0.05"),
+        ("三点一四", "3.14"),
+        ("两点五", "2.5"),
+        ("十二点五", "12.5"),
+        ("一百二十点五", "120.5"),
+        ("零点五零", "0.50"),
+        ("一点五亿", "150000000"),
+        ("二点五千万", "25000000"),
+        ("一点二五万", "12500"),
+    ],
+)
+def test_number_said_with_a_decimal_point_is_read(text: str, value: str) -> None:
+    assert written(text) == value
+
+
+@pytest.mark.parametrize(
+    ("text", "value", "unit"),
+    [
+        ("五千个", "5000", "个"),
+        ("两万三刀", "23000", "刀"),
+        ("一百美金", "100", "美金"),
+        ("十个", "10", "个"),
+        ("两个", "2", "个"),
+        ("零点五个", "0.5", "个"),
+        ("三千块", "3000", "块"),
+        ("九万四千九 USDT", "94900", "USDT"),
+        ("两万三u", "23000", "u"),
+    ],
+)
+def test_number_said_in_chinese_number_words_may_carry_a_unit(
+    text: str, value: str, unit: str
+) -> None:
+    reading = recognised(text)
+
+    assert format(reading.value, "f") == value
+    assert reading.unit == unit
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        # Two digits side by side: "two or three thousand", or digits read out one by one.
+        "两三千",
+        "一二三",
+        "七八",
+        # 两 belongs before 百, 千, 万 or 亿, or stands alone; elsewhere it may be the weight.
+        "三两",
+        "十两",
+        "两十",
+        "三万两",
+        # A place is skipped without 零, so the digit could belong to either place.
+        "一千五十",
+        "两万三百",
+        "一亿五千",
+        # 零 where nothing is skipped, or with nothing after it.
+        "三千零五百",
+        "二十零五",
+        "二十零",
+        "零五",
+        "两千零零五",
+        # A shortened ending in the middle of the number.
+        "三千五万",
+        # Units with nothing to count, or out of order.
+        "万",
+        "千",
+        "百万",
+        "千万",
+        "万一",
+        "一百十二",
+        "三百五千",
+        "一万二万",
+        "一亿二亿",
+        # A point with nothing, or with units, on one side: this is how clock times are said.
+        "点五",
+        "五点",
+        "九点四十",
+        "零点",
+        "一点两",
+        # A shortened ending before the point.
+        "两万三点五",
+        "一百二点五",
+        # A multiplier this short is not said after a decimal.
+        "一点五百",
+        "一点五十",
+    ],
+)
+def test_number_words_without_a_single_reading_are_not_guessed(text: str) -> None:
+    assert read_number(text) == Unsure(Doubt.UNCLEAR_WORDING)
+
+
+def test_letter_multiplier_after_number_words_is_not_guessed() -> None:
+    assert read_number("五千k") == Unsure(Doubt.UNCLEAR_MULTIPLIER)
+    assert read_number("两w") == Unsure(Doubt.UNCLEAR_MULTIPLIER)
+
+
 # --- what is not a number ---------------------------------------------------
 
 
