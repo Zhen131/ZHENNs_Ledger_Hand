@@ -1023,10 +1023,78 @@ def test_magnitude_word_in_any_common_form_is_never_handed_back_as_a_unit(text: 
 
 
 @pytest.mark.parametrize(
+    "text",
+    [
+        # The small units of the yuan.
+        "5毛",
+        "五毛",
+        "两毛",
+        "5 毛",
+        "5毛钱",
+        "5角",
+        "5角钱",
+        "5分",
+        "五分",
+        "5分钱",
+        "5厘",
+        "十分",
+        "5w毛",
+        # An amount that runs on past its unit: three yuan and a half, not three.
+        "三块五",
+        "3块5",
+        "5块3",
+        "3块5毛",
+        "三块五毛",
+        "两毛五",
+        "3元5角",
+        "1元5",
+        "十块零五毛",
+        # The small units of other money, and of coins.
+        "50 cents",
+        "50 cent",
+        "50cents",
+        "50 CENTS",
+        "5 pence",
+        "5 penny",
+        "5 pennies",
+        "100 sats",
+        "100 sat",
+        "100sats",
+        "100 sats BTC",
+        "5000 satoshis",
+        "1 satoshi",
+        "5 gwei",
+        "5 Gwei",
+        "100 wei",
+        "3 lamports",
+        "5 mao",
+        "5 jiao",
+        "5 fen",
+        "$5 cents",
+        "50 cents for each one",
+    ],
+)
+def test_amount_in_a_smaller_unit_of_money_is_never_handed_back_as_that_many_whole_units(
+    text: str,
+) -> None:
+    # "5毛" handed back as five with the unit "毛" would turn half a yuan into five.
+    assert read_number(text) == Unsure(Doubt.SMALLER_UNIT)
+
+
+@pytest.mark.parametrize("text", ["3打", "三打", "3 打", "3打币"])
+def test_dozen_said_in_chinese_is_a_multiplier_too(text: str) -> None:
+    assert read_number(text) == Unsure(Doubt.UNCLEAR_MULTIPLIER)
+
+
+@pytest.mark.parametrize(
     ("text", "value", "unit"),
     [
         ("50u", "50", "u"),
         ("50 U", "50", "U"),
+        ("5块钱", "5", "块钱"),
+        ("五块", "5", "块"),
+        ("5刀", "5", "刀"),
+        ("1手", "1", "手"),
         ("5 coins", "5", "coins"),
         ("5 units", "5", "units"),
         ("3 gas", "3", "gas"),

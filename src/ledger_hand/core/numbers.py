@@ -36,7 +36,10 @@ and the answer is a ``Doubt``, never the number without that piece applied:
 - a multiplier letter glued to the front of a currency word or a coin this
   program knows ("wu", "kusdt");
 - any single letter other than "u": single letters are how multipliers and
-  small units are abbreviated, and nothing here can tell which one is meant.
+  small units are abbreviated, and nothing here can tell which one is meant;
+- a smaller unit of money (毛, 角, 分, 厘, cents, pence, sats, gwei and the
+  like): "5毛" is half a yuan, not five. An amount that runs on past its
+  unit ("三块五") is the same case.
 
 A multiplier is applied only where its place leaves no doubt: "k" or "w"
 directly after the last digit and followed by no further letter, and the
@@ -126,6 +129,7 @@ class Doubt(enum.Enum):
     RANGE = "a range, not one amount"
     APPROXIMATE = "an approximate amount, not an exact one"
     HALF_OR_SHARE = "a half, a share or a multiple, not a plain amount"
+    SMALLER_UNIT = "counted in a smaller unit of money, or running on past its unit"
     TOO_MANY_DECIMAL_PLACES = "more decimal places than the ledger holds"
     TOO_MANY_DIGITS = "more digits than the ledger holds"
 
@@ -208,6 +212,18 @@ _MAGNITUDE_WORDS = frozenset(
     | {"bai", "qian", "wan", "yi"}
 )
 
+# Units of money, and of coins, that are a fraction of the unit an amount is
+# normally given in. Taking one for a plain unit would hand back a number that
+# is ten times, or a hundred million times, too large. Words are listed in the
+# singular, or in a plural that is not made with -s.
+_SMALLER_UNIT_CHARACTERS = frozenset("毛角分厘")
+_SMALLER_UNIT_WORDS = frozenset(
+    {"cent", "penny", "pennies", "pence", "sat", "satoshi", "gwei", "wei", "lamport"}
+    | {"mao", "jiao", "fen"}
+)
+# A dozen, as it is said in Chinese.
+_DOZEN = "打"
+
 # Number words as they are said.
 _SAID_DIGITS: Mapping[str, int] = {
     "零": 0,
@@ -289,6 +305,14 @@ _WORDING_HINTS: tuple[tuple[Doubt, re.Pattern[str]], ...] = (
             r"大概|大约|约|差不多|左右|上下|多|来|余|几|些|近|不到|超过|至少|最多|起码|出头"
             r"|以上|以下|以内|[~〜≈±<>≤≥]|[0-9]\s*\+"
             rf"|(?<![a-z])(?:{_VAGUE_WORDS})(?![a-z])",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        Doubt.SMALLER_UNIT,
+        re.compile(
+            rf"[{_IN_NUMBER}]\s*[块元]\s*[{_IN_NUMBER}]|[{_IN_NUMBER}]\s*[毛角分厘]"
+            rf"|(?<![a-z])(?:{'|'.join(sorted(_SMALLER_UNIT_WORDS))})s?(?![a-z])",
             re.IGNORECASE,
         ),
     ),
@@ -448,10 +472,15 @@ def _is_unit(text: str) -> bool:
 def _unit_doubt(unit: str) -> Doubt | None:
     """Why ``unit`` cannot be handed back as a plain unit, if a piece of it changes the number."""
     for script, letters in itertools.groupby(unit, key=_script):
+        piece = "".join(letters)
         if script is _Script.CASED:
-            doubt = _word_doubt("".join(letters).casefold())
-            if doubt is not None:
-                return doubt
+            doubt = _word_doubt(piece.casefold())
+        elif script is _Script.UNCASED:
+            doubt = _character_doubt(piece)
+        else:
+            continue
+        if doubt is not None:
+            return doubt
     return None
 
 
@@ -469,6 +498,17 @@ def _word_doubt(word: str) -> Doubt | None:
         return Doubt.UNCLEAR_MULTIPLIER
     if word[0] in _LETTER_MULTIPLIERS and _names_money_or_a_coin(word[1:]):
         # "wu" after a gap is ten thousand u as readily as "3wu" is.
+        return Doubt.UNCLEAR_MULTIPLIER
+    if not forms.isdisjoint(_SMALLER_UNIT_WORDS):
+        return Doubt.SMALLER_UNIT
+    return None
+
+
+def _character_doubt(piece: str) -> Doubt | None:
+    """Why a piece written in characters without capitals is not part of a plain unit."""
+    if not _SMALLER_UNIT_CHARACTERS.isdisjoint(piece):
+        return Doubt.SMALLER_UNIT
+    if piece.startswith(_DOZEN):
         return Doubt.UNCLEAR_MULTIPLIER
     return None
 
