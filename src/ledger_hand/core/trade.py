@@ -15,7 +15,9 @@ cannot be changed.
 Day precision holds a calendar date. Minute and second precision hold a moment
 with its offset. All three also carry the name of the time zone the trade was
 recorded in, and the offset of a moment must be that zone's offset at that
-moment, because the ledger checks exactly this.
+moment, because the ledger checks exactly this. It can also say whether it
+lies in the future as seen from a given moment, so that there is one
+definition of "in the future" for everyone who needs it.
 
 This module only states shapes and the conditions a value must meet to exist
 at all. The rules of a trade are in ``validation``. Record identifiers,
@@ -29,7 +31,7 @@ from __future__ import annotations
 
 import enum
 from dataclasses import dataclass
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from zoneinfo import ZoneInfo
 
@@ -94,6 +96,20 @@ class OccurredTime:
     def calendar_date(self) -> date:
         """The day on the wall clock of the trade's own zone."""
         return self.value.date() if isinstance(self.value, datetime) else self.value
+
+    def is_in_the_future(self, now: datetime, grace: timedelta) -> bool:
+        """Whether this time lies in the future as seen from ``now``.
+
+        A moment is in the future when it is more than ``grace`` after ``now``.
+        A day is in the future when it is after today's date in this time's
+        own zone; ``grace`` plays no part there. ``now`` must carry an offset.
+        """
+        if now.utcoffset() is None:
+            raise ValueError("the current moment must carry a time zone offset")
+        if isinstance(self.value, datetime):
+            # In UTC, so that adding the grace moves the instant and not a wall clock.
+            return self.value > now.astimezone(timezone.utc) + grace
+        return self.value > now.astimezone(_zone_named(self.time_zone)).date()
 
 
 def _zone_named(name: str) -> ZoneInfo:

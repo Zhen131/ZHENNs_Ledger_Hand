@@ -173,6 +173,61 @@ def test_fractions_of_a_second_are_refused(precision: TimePrecision) -> None:
         OccurredTime(moment(2026, 10, 4, 9, 40, 0, 500), precision, BUDAPEST)
 
 
+# --- whether a time lies in the future --------------------------------------
+
+NOON = datetime(2026, 10, 4, 12, 0, tzinfo=BUDAPEST_ZONE)
+NO_GRACE = timedelta(0)
+
+
+@pytest.mark.parametrize(
+    ("occurred_at", "grace", "in_the_future"),
+    [
+        (moment(2026, 10, 4, 11, 59), NO_GRACE, False),
+        (moment(2026, 10, 4, 12, 0), NO_GRACE, False),
+        (moment(2026, 10, 4, 12, 1), NO_GRACE, True),
+        (moment(2026, 10, 4, 12, 1), timedelta(minutes=1), False),
+        (moment(2026, 10, 4, 12, 2), timedelta(minutes=1), True),
+    ],
+)
+def test_moment_is_in_the_future_when_it_is_more_than_the_grace_after_now(
+    occurred_at: datetime, grace: timedelta, *, in_the_future: bool
+) -> None:
+    occurred = OccurredTime(occurred_at, TimePrecision.MINUTE, BUDAPEST)
+
+    assert occurred.is_in_the_future(NOON, grace) is in_the_future
+
+
+@pytest.mark.parametrize(
+    ("day", "in_the_future"),
+    [(date(2026, 10, 3), False), (date(2026, 10, 4), False), (date(2026, 10, 5), True)],
+)
+def test_day_is_in_the_future_when_it_is_after_today_whatever_the_grace(
+    day: date, *, in_the_future: bool
+) -> None:
+    occurred = OccurredTime(day, TimePrecision.DAY, BUDAPEST)
+
+    assert occurred.is_in_the_future(NOON, NO_GRACE) is in_the_future
+    assert occurred.is_in_the_future(NOON, timedelta(days=3)) is in_the_future
+
+
+def test_today_is_read_in_the_zone_of_the_time_itself() -> None:
+    late_evening = datetime(2026, 10, 4, 23, 30, tzinfo=BUDAPEST_ZONE)
+    fifth = date(2026, 10, 5)
+
+    in_budapest = OccurredTime(fifth, TimePrecision.DAY, BUDAPEST)
+    in_shanghai = OccurredTime(fifth, TimePrecision.DAY, "Asia/Shanghai")
+
+    assert in_budapest.is_in_the_future(late_evening, NO_GRACE)
+    assert not in_shanghai.is_in_the_future(late_evening, NO_GRACE)
+
+
+def test_future_test_refuses_a_now_without_an_offset() -> None:
+    occurred = OccurredTime(date(2026, 10, 3), TimePrecision.DAY, BUDAPEST)
+
+    with pytest.raises(ValueError, match="offset"):
+        occurred.is_in_the_future(datetime(2026, 10, 4, 12, 0), NO_GRACE)
+
+
 def test_occurred_time_cannot_be_changed() -> None:
     occurred = OccurredTime(date(2026, 10, 3), TimePrecision.DAY, BUDAPEST)
 
