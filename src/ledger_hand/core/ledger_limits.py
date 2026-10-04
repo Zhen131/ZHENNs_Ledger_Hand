@@ -86,8 +86,7 @@ def decimal_places(value: Decimal) -> int:
 def significant_digits(value: Decimal) -> int:
     """Significant digits as the ledger counts them: trailing zeros count, leading ones do not."""
     whole, fraction = _written_out(value)
-    digits = ("" if whole == "0" else whole) + fraction
-    return len(digits.lstrip("0")) or 1
+    return len((whole + fraction).lstrip("0")) or 1
 
 
 def fits_digit_limits(value: Decimal) -> bool:

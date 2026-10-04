@@ -306,6 +306,14 @@ def test_quotient_that_comes_out_even_is_kept_whole_even_past_the_usual_places()
     assert written(built.quantity) == "0.0009765625"
 
 
+def test_quotient_that_comes_out_even_but_too_long_for_the_ledger_is_rounded() -> None:
+    # One over two to the twentieth is exact at twenty decimal places, two
+    # more than the ledger holds.
+    built = record_of(check(complete(**amounts(price="1048576", total="1"))))
+
+    assert written(built.quantity) == "0.00000095"
+
+
 @pytest.mark.parametrize(
     ("quantity", "price", "total"),
     [
@@ -883,6 +891,17 @@ def test_draft_wrong_in_every_way_reports_every_problem_in_the_fixed_order() -> 
             Violation.NOTE_TOO_LONG,
             Violation.RAW_TEXT_EMPTY,
         ),
+    )
+
+
+def test_order_of_the_lists_does_not_depend_on_the_order_problems_were_found_in() -> None:
+    # The quantity is looked at before the price, yet the price's problem is
+    # written earlier in the enumeration and so comes first.
+    stated = amounts(quantity=NINETEEN_PLACES, price="-94900")
+
+    assert violations(complete(**stated)) == (
+        Violation.PRICE_NOT_POSITIVE,
+        Violation.QUANTITY_TOO_MANY_DIGITS,
     )
 
 
