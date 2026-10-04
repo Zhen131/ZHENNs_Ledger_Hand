@@ -485,6 +485,9 @@ def test_number_said_in_chinese_number_words_is_read(text: str, value: str) -> N
         ("一万五", "15000"),
         ("三万五千二", "35200"),
         ("十万五", "105000"),
+        ("二十万五", "205000"),
+        ("一百二十万五", "1205000"),
+        ("十亿五", "1050000000"),
         ("十二万三", "123000"),
         ("三十五万六", "356000"),
         ("一亿五", "150000000"),
@@ -562,6 +565,11 @@ def test_number_said_in_chinese_number_words_may_carry_a_unit(
         "两千零零五",
         # A shortened ending in the middle of the number.
         "三千五万",
+        # After 百万 or 千万 the last digit could count thousands or the unit below those.
+        "一百万五",
+        "三千万五",
+        "两千五百万三",
+        "一百亿五",
         # Units with nothing to count, or out of order.
         "万",
         "千",
@@ -593,6 +601,95 @@ def test_number_words_without_a_single_reading_are_not_guessed(text: str) -> Non
 def test_letter_multiplier_after_number_words_is_not_guessed() -> None:
     assert read_number("五千k") == Unsure(Doubt.UNCLEAR_MULTIPLIER)
     assert read_number("两w") == Unsure(Doubt.UNCLEAR_MULTIPLIER)
+
+
+# --- digits and Chinese number words mixed ----------------------------------
+
+
+@pytest.mark.parametrize(
+    ("text", "value"),
+    [
+        ("9万4", "94000"),
+        ("2万3", "23000"),
+        ("一点二万", "12000"),
+        ("9万4千", "94000"),
+        ("9万4千9", "94900"),
+        ("9万4千9百", "94900"),
+        ("3千5", "3500"),
+        ("3千5百", "3500"),
+        ("5百", "500"),
+        ("1百2", "120"),
+        ("2千零5", "2005"),
+        ("2万零5", "20005"),
+        ("12万3", "123000"),
+        ("12万3千", "123000"),
+        ("50万3千", "503000"),
+        ("120万3", "1203000"),
+        ("120万零5百", "1200500"),
+        ("9万4900", "94900"),
+        ("9万4000", "94000"),
+        ("1亿5千万", "150000000"),
+        ("1亿5000万", "150000000"),
+        ("9万四", "94000"),
+        ("两万3", "23000"),
+        ("9 万 4", "94000"),
+        ("8 万 5", "85000"),
+        ("12千", "12000"),
+        ("９万４", "94000"),
+    ],
+)
+def test_digits_mixed_with_chinese_number_words_are_read(text: str, value: str) -> None:
+    reading = recognised(text)
+
+    assert format(reading.value, "f") == value
+    assert reading.unit is None
+
+
+@pytest.mark.parametrize(
+    ("text", "value", "unit"),
+    [("9万4刀", "94000", "刀"), ("2万3 USDT", "23000", "USDT"), ("$9万4", "94000", "$")],
+)
+def test_mixed_number_may_carry_a_unit(text: str, value: str, unit: str) -> None:
+    reading = recognised(text)
+
+    assert format(reading.value, "f") == value
+    assert reading.unit == unit
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        # Is 9万49 ninety thousand and forty-nine, or ninety-four thousand nine hundred?
+        "9万49",
+        "9万490",
+        "9万40",
+        "9万05",
+        "9万0400",
+        "2万05",
+        "1亿500万",
+        "1亿5千",
+        "1亿5000",
+        "100万3",
+        "3千万5",
+        # Several digits in front of a small unit.
+        "50百",
+        "12百5",
+        "3千500",
+        # A decimal or grouped number cannot be continued with more places.
+        "8.5万3",
+        "1,200万5",
+        "9万4.5",
+        # Digits around 点 are how a clock time is written.
+        "3点5",
+        "0点5",
+        "1点2万",
+        "9点40",
+        "4万4万",
+        "1.5百",
+    ],
+)
+def test_mixed_wording_without_a_single_reading_is_not_guessed(text: str) -> None:
+    assert read_number(text) == Unsure(Doubt.UNCLEAR_WORDING)
 
 
 # --- what is not a number ---------------------------------------------------

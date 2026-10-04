@@ -35,7 +35,9 @@ habits of speech are read:
 
 - A last digit with no unit takes the unit just below the one before it:
   "两万三" is 23000 and "三千五" is 3500. After 十, and after 零, it is a
-  plain digit: "二十三" is 23 and "两千零五" is 2005.
+  plain digit: "二十三" is 23 and "两千零五" is 2005. After 百万 or 千万 the
+  short form is a ``Doubt``: "一百万五" may end in five thousand or in five
+  hundred thousand.
 - 两 stands for two before 百, 千, 万 and 亿, and alone.
 
 Otherwise the words must follow each other the way a number is properly said.
@@ -43,6 +45,10 @@ Where a place is skipped there must be a 零, unless the skipped places are
 the empty end of a four-digit section ("一百万五千"). Without that rule "一亿
 五千" could be 100005000 or the everyday short form of 150000000; such words
 are a ``Doubt``. So are two digits side by side ("两三千").
+
+Digits may stand in for the number words: "9万4" is 94000 and "12万3" is
+123000. A single digit behaves like the word for it. Several digits together
+are a count that fills a four-digit section ("9万4900", "1亿5000万").
 
 Commas count as thousands separators only in the strict form: one to three
 digits, then groups of exactly three. Any other mix of commas, points and
@@ -164,6 +170,7 @@ _SAID_DIGITS: Mapping[str, int] = {
     "七": 7,
     "八": 8,
     "九": 9,
+    **{str(digit): digit for digit in range(1, 10)},
 }
 _SMALL_UNITS: Mapping[str, int] = {"十": 1, "百": 2, "千": 3}
 # The unit a last digit takes when it is said without one: "两万三" ends in 三千.
@@ -171,7 +178,7 @@ _UNIT_BELOW: Mapping[str, str] = {"百": "十", "千": "百", "万": "千", "亿
 
 # Digits are spelled out as 0-9 throughout: the shorthand for "a digit" would
 # also match the digits of every other script.
-_DIGIT = "一二两三四五六七八九"
+_DIGIT = "一二两三四五六七八九1-9"
 _SCALE = "十百千万亿"
 _SAID = f"零{_DIGIT}{_SCALE}点"
 _SHAPE = re.compile(
@@ -180,11 +187,14 @@ _SHAPE = re.compile(
     r"(?P<letters>[A-Za-z]*)(?P<rest>.*)",
     re.DOTALL,
 )
-_SAID_WHOLE = re.compile(rf"[零{_DIGIT}{_SCALE}]+")
+_SAID_WHOLE = re.compile(rf"[0-9零{_DIGIT}{_SCALE}]+")
 _SAID_DECIMAL = re.compile(
-    rf"(?P<whole>[零{_DIGIT}{_SCALE}]+)点(?P<fraction>[零一二三四五六七八九]+)(?P<scale>[{_SCALE}]*)"
+    rf"(?P<whole>[零一二两三四五六七八九{_SCALE}]+)点"
+    rf"(?P<fraction>[零一二三四五六七八九]+)(?P<scale>[{_SCALE}]*)"
 )
 _MISPLACED_TWO = re.compile(r"两(?![百千万亿])")
+_SHORTENED = re.compile(rf"[百千万亿][{_DIGIT}]")
+_COUNT = re.compile(r"[1-9][0-9]+")
 _SECTION = re.compile(rf"(?:零?[{_DIGIT}][十百千]?)*")
 _TERM = re.compile(rf"(零?)([{_DIGIT}])([十百千]?)")
 _SPLIT_DIGITS = re.compile(r"[0-9.,]\s+[0-9.,]")
@@ -213,10 +223,15 @@ class _Amount:
 
 @dataclass(frozen=True)
 class _Place:
-    """One digit of a number said in words, at the power of ten its units give it."""
+    """A digit, or a count written in digits, in a number said in words.
+
+    ``top`` and ``bottom`` are the powers of ten of its highest digit and of
+    its lowest digit that is not zero; for a single digit they are the same.
+    """
 
     amount: int
-    rank: int
+    top: int
+    bottom: int
     after_zero: bool
 
 
@@ -330,22 +345,34 @@ def _said_whole(numeral: str) -> int | None:
         return None
     if numeral != "两" and _MISPLACED_TWO.search(numeral):
         return None
-    sections = _sections(_spelled_out(numeral))
-    if sections is None:
+    places = _all_places(_spelled_out(numeral))
+    if places is None or not _reads_one_way(places):
         return None
-    places: list[_Place] = []
-    for words, base in sections:
-        if _SECTION.fullmatch(words) is None:
-            return None
-        places.extend(_places(words, base))
-    if not _reads_one_way(places):
+    if _is_shortened(numeral) and places[-2].bottom - places[-1].top > 2:
+        # "一百万五" may end in five thousand or in five hundred thousand.
         return None
     return sum(place.amount for place in places)
 
 
+def _all_places(numeral: str) -> list[_Place] | None:
+    """Every digit of ``numeral`` at its place; ``None`` when a section cannot be read."""
+    sections = _sections(numeral)
+    if sections is None:
+        return None
+    places: list[_Place] = []
+    for words, base in sections:
+        if _COUNT.fullmatch(words):
+            places.append(_counted(words, base))
+        elif _SECTION.fullmatch(words):
+            places.extend(_places(words, base))
+        else:
+            return None
+    return places
+
+
 def _is_shortened(numeral: str) -> bool:
     """Whether ``numeral`` ends in a digit that borrows its unit, as "两万三" does."""
-    return len(numeral) > 1 and numeral[-1] in _DIGIT and numeral[-2] in _UNIT_BELOW
+    return _SHORTENED.fullmatch(numeral[-2:]) is not None
 
 
 def _spelled_out(numeral: str) -> str:
@@ -383,8 +410,18 @@ def _places(words: str, base: int) -> list[_Place]:
     places: list[_Place] = []
     for zero, digit, unit in _TERM.findall(words):
         rank = base + _SMALL_UNITS.get(unit, 0)
-        places.append(_Place(_SAID_DIGITS[digit] * 10**rank, rank, after_zero=bool(zero)))
+        places.append(_Place(_SAID_DIGITS[digit] * 10**rank, rank, rank, after_zero=bool(zero)))
     return places
+
+
+def _counted(count: str, base: int) -> _Place:
+    """A whole section written as digits, like the 12 of "12万" or the 4900 of "9万4900"."""
+    return _Place(
+        int(count) * 10**base,
+        top=base + len(count) - 1,
+        bottom=base + len(count) - len(count.rstrip("0")),
+        after_zero=False,
+    )
 
 
 def _reads_one_way(places: Sequence[_Place]) -> bool:
@@ -398,9 +435,9 @@ def _reads_one_way(places: Sequence[_Place]) -> bool:
         return False
     for above, below in itertools.pairwise(places):
         if below.after_zero:
-            if below.rank >= above.rank - 1:
+            if below.top >= above.bottom - 1:
                 return False
-        elif below.rank not in (above.rank - 1, 4 * (above.rank // 4) - 1):
+        elif below.top not in (above.bottom - 1, 4 * (above.bottom // 4) - 1):
             return False
     return True
 
