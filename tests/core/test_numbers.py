@@ -333,8 +333,14 @@ def test_every_counter_is_a_unit_this_program_knows(counter: str) -> None:
         ("两万三 个 USDT", "23000", "个 USDT"),
         ("5 BTC USDT", "5", "BTC USDT"),
         ("5 tokens BTC", "5", "tokens BTC"),
-        ("８万　刀", "80000", "刀"),
+        ("８万\N{IDEOGRAPHIC SPACE}刀", "80000", "刀"),
         ("5 ＢＴＣ", "5", "ＢＴＣ"),
+        # Two known names side by side stay two blocks: they are not put
+        # together and searched for a multiplier ("bn" in BNB, "shi" in SHIB).
+        ("5 USDT BNB", "5", "USDT BNB"),
+        ("5 BNB u", "5", "BNB u"),
+        ("5 SHIB BTC", "5", "SHIB BTC"),
+        ("两万三 Aave SHIB", "23000", "Aave SHIB"),
     ],
 )
 def test_unit_made_of_known_blocks_is_handed_back_as_written(
