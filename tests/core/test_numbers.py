@@ -1012,6 +1012,34 @@ def test_multiplier_letter_inside_a_unit_is_never_handed_back_as_a_unit(text: st
         "3 yi",
         "5 qian",
         "2 bai",
+        # The same in everyday shorthand and in a few other languages.
+        "5 doz",
+        "5 hundos",
+        "5 pairs",
+        "5 pair",
+        "5 ezer",
+        "5 millió",
+        "5 millio",
+        "5 milliárd",
+        "5 mille",
+        "5 mila",
+        "5 тыс",
+        "5 млн",
+        "5 млрд",
+        # A magnitude letter or word glued to the front of a currency word.
+        "3 mu",
+        "3 mU",
+        "3 musdt",
+        "3 musd",
+        "3 bU",
+        "5 kiloUSDT",
+        "5 megausdt",
+        "3 mlnusdt",
+        "3个mu",
+        # A magnitude word glued to the front of a coin.
+        "5 kilobtc",
+        "5 megaeth",
+        "2 kdoge",
         # With more around it than one unit.
         "$5 mln",
         "5 mln usdt in cash",
@@ -1049,6 +1077,8 @@ def test_magnitude_word_in_any_common_form_is_never_handed_back_as_a_unit(text: 
         "3元5角",
         "1元5",
         "十块零五毛",
+        "3刀5",
+        "三刀五",
         # The small units of other money, and of coins.
         "50 cents",
         "50 cent",
@@ -1081,9 +1111,41 @@ def test_amount_in_a_smaller_unit_of_money_is_never_handed_back_as_that_many_who
     assert read_number(text) == Unsure(Doubt.SMALLER_UNIT)
 
 
-@pytest.mark.parametrize("text", ["3打", "三打", "3 打", "3打币"])
-def test_dozen_said_in_chinese_is_a_multiplier_too(text: str) -> None:
+@pytest.mark.parametrize(
+    "text",
+    ["5毫", "5 仙", "5 finney", "5 szabo", "5 bits", "5 centavos", "5 centimes", "5 kopeks"],
+)
+def test_small_units_of_other_money_and_of_coins_are_doubted_too(text: str) -> None:
+    assert read_number(text) == Unsure(Doubt.SMALLER_UNIT)
+
+
+@pytest.mark.parametrize("text", ["3打", "三打", "3 打", "3打币", "5双", "5 双", "5对", "5 对"])
+def test_dozen_or_pair_said_in_chinese_is_a_multiplier_too(text: str) -> None:
     assert read_number(text) == Unsure(Doubt.UNCLEAR_MULTIPLIER)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "5 thousandths",
+        "5 hundredths",
+        "5 tenths",
+        "5 halves",
+        "5 quarters",
+        "5 thirds",
+        "5 milli",
+        "5 micro",
+        "5 nano",
+        "3 times",
+        "3 fold",
+        "5 bp",
+        "5 bps",
+        "5bps",
+        "25 bips",
+    ],
+)
+def test_word_for_a_fraction_or_a_multiple_is_never_handed_back_as_a_unit(text: str) -> None:
+    assert read_number(text) == Unsure(Doubt.HALF_OR_SHARE)
 
 
 @pytest.mark.parametrize(
@@ -1097,6 +1159,12 @@ def test_dozen_said_in_chinese_is_a_multiplier_too(text: str) -> None:
         ("1手", "1", "手"),
         ("5 coins", "5", "coins"),
         ("5 units", "5", "units"),
+        ("5 bucks", "5", "bucks"),
+        ("5 waves", "5", "waves"),
+        ("5 kava", "5", "kava"),
+        ("5 wax", "5", "wax"),
+        ("5 tether", "5", "tether"),
+        ("5 milk", "5", "milk"),
         ("3 gas", "3", "gas"),
         ("2 tokens", "2", "tokens"),
         ("3个u", "3", "个u"),
