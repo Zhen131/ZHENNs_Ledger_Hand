@@ -195,10 +195,23 @@ _FOLDED.update({0xFFE5: 0xA5, 0xFFE1: 0xA3})
 
 _CURRENCY_SIGNS = "$¥€£"
 
-# Characters that say a number, in everyday and in formal writing. A word
-# holding one of them is never a unit.
+# Every character that says a number in Chinese writing, listed once. The set
+# is closed: nothing is added to it as new words come into use. A word holding
+# any of these is never a unit, whether or not this program can read the
+# character where it stands. (半 and 几 belong to the same family and are
+# turned away wherever they stand, by the wording hints further down.)
 _NUMBER_WORDS = frozenset(
-    "零〇一二两三四五六七八九十百千万亿点壹贰叁肆伍陆柒捌玖拾佰仟萬億兩貳參陸廿卅俩仨"
+    # the digits and the places up to 亿, which this program reads
+    "零〇一二三四五六七八九十百千万亿"
+    # the places after 亿
+    "兆京垓秭穰沟涧正载极"
+    # two, a pair, three of something, twenty, thirty, forty, the spoken
+    # "one", and the decimal point
+    "两俩仨廿卅卌幺点"
+    # the formal forms used on cheques and contracts, and their old variants
+    "壹贰叁肆伍陆柒捌玖拾佰仟陌阡壱弐"
+    # the traditional forms of all of the above
+    "萬億兩倆貳參叄陸溝澗載極點幾"
 )
 
 # Multipliers, as powers of ten. A letter counts only directly after the last

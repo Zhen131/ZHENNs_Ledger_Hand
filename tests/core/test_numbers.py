@@ -1339,6 +1339,80 @@ def test_unit_with_nothing_in_it_that_changes_the_number_is_still_handed_back(
     assert reading.unit == unit
 
 
+@pytest.mark.parametrize(
+    "text",
+    [
+        # 兆 and 京 follow 万 and 亿 in the same series of place words.
+        "3兆",
+        "3 兆",
+        "三兆",
+        "两兆",
+        "一兆",
+        "1.5兆",
+        "3兆刀",
+        "3兆U",
+        "3 兆 USDT",
+        "3兆个",
+        "3个兆",
+        "3万兆",
+        "3京",
+        "3京U",
+        "3个京",
+        "3垓",
+        "3 U兆",
+        "3 USDT 兆",
+        # Other ways of writing a digit or a place.
+        "3個萬",
+        "3个點",
+        "3个幺",
+        "3卌",
+        "3个陌",
+        "3 阡",
+        "3个壱",
+        "3 弐",
+    ],
+)
+def test_place_word_beyond_those_this_program_reads_is_never_taken_for_a_unit(text: str) -> None:
+    # "3兆" handed back as three with the unit "兆" would lose twelve (or six) places.
+    assert not isinstance(read_number(text), Recognised)
+
+
+NUMBER_CHARACTERS = (
+    "零〇一二三四五六七八九十百千万亿兆京垓秭穰沟涧正载极"
+    "两俩仨廿卅卌半几幺点"
+    "壹贰叁肆伍陆柒捌玖拾佰仟陌阡"
+    "萬億兩倆貳參叄陸溝澗載極點幾壱弐"
+)
+
+PLACES_FOR_A_NUMBER_CHARACTER = [
+    "3{}",
+    "3 {}",
+    "3个{}",
+    "3 个 {}",
+    "3{}个",
+    "3{}刀",
+    "3{}U",
+    "3 U{}",
+    "3 U {}",
+    "3 USDT{}",
+    "3刀{}",
+    "$3 {}",
+    "三个{}",
+]
+
+
+@pytest.mark.parametrize("place", PLACES_FOR_A_NUMBER_CHARACTER)
+@pytest.mark.parametrize("character", NUMBER_CHARACTERS)
+def test_number_character_in_a_unit_never_leaves_the_bare_number(
+    character: str, place: str
+) -> None:
+    # Where this program reads the character it changes the number ("3万" is
+    # thirty thousand); everywhere else the answer is not a number at all.
+    reading = read_number(place.format(character))
+
+    assert not (isinstance(reading, Recognised) and reading.value == 3)
+
+
 MAGNITUDE_WORDS_IN_MANY_FORMS = [
     *("k", "K", "w", "W", "m", "M", "b", "B", "t", "g", "kk", "kw", "mm", "bn", "mn"),
     *("mil", "mill", "mln", "MLN", "mio", "mrd", "bln", "tsd", "wan", "WAN", "yi", "qian"),
