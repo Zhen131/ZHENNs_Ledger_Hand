@@ -26,14 +26,15 @@ them.
 
 **Numbers as people write and say them.** `read_number` turns a short piece
 of text into an exact decimal: "94,900", "1.2k", "3w", "8万刀", "两万三",
-"9万4", "零点五". A unit or currency word that came with the number is handed
-back as written. When the text has more than one reading ("1,5", "一亿五千"),
-names no single exact amount ("8万到8万5", "大概两万", "半个") or has more
-digits than the ledger holds, the answer is "unsure" with a reason, never a
-guess. The same goes for a unit that would change the number: one that hides
-a multiplier ("3个w", "2 thousands") or counts in a smaller unit of money
-("5毛", "100 sats"). `write_number` goes the other way and writes an exact
-decimal the way the ledger accepts it.
+"9万4", "零点五". A unit that came with the number is handed back as written,
+but only a unit made of words the program knows: the words for USDT, the
+coins in the coin table, a few counters such as "个", and any word the caller
+allows for that one call. When the text has more than one reading ("1,5",
+"一亿五千"), names no single exact amount ("8万到8万5", "大概两万", "半个"),
+has more digits than the ledger holds or carries any other unit ("3个w",
+"2 thousands", "100 sats", "5毛"), the answer is "unsure" with a reason, never
+a guess. `write_number` goes the other way and writes an exact decimal the
+way the ledger accepts it.
 
 All of this is pure computation. There is no language model, no storage and
 no interface yet, and spoken times ("last Friday 3pm") are not converted yet:

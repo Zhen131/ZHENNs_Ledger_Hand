@@ -326,7 +326,7 @@ _WORDING_HINTS: tuple[tuple[Doubt, re.Pattern[str]], ...] = (
 
 
 class _Script(enum.Enum):
-    """The two kinds of letters a unit is taken apart by."""
+    """The two kinds of letters; a block of a unit holds one kind only."""
 
     CASED = "letters that have capitals, such as Latin ones"
     UNCASED = "characters that have none, such as Chinese ones"
