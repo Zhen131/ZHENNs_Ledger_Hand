@@ -213,16 +213,10 @@ def test_full_width_spelling_does_not_let_a_refused_form_through(text: str) -> N
         ("0.02 btc", "0.02", "btc"),
         ("100 dollars", "100", "dollars"),
         ("94,900刀", "94900", "刀"),
-        ("3个比特币", "3", "个比特币"),
-        ("5" + "X" * 32, "5", "X" * 32),
         ("0.02 个 BTC", "0.02", "个 BTC"),
         ("3个 比特币", "3", "个 比特币"),
-        ("2 US dollars", "2", "US dollars"),
         ("两万三 个 USDT", "23000", "个 USDT"),
         ("50$", "50", "$"),
-        ("50 €", "50", "€"),
-        ("¥700", "700", "¥"),
-        ("£5", "5", "£"),
         ("$ 50", "50", "$"),
         (" 2  USDT ", "2", "USDT"),
         ("50\N{IDEOGRAPHIC SPACE}美金", "50", "美金"),
@@ -239,7 +233,7 @@ def test_unit_or_currency_word_is_split_off_and_handed_back(
 
 @pytest.mark.parametrize(
     ("text", "unit"),
-    [("＄５０", "＄"), ("５０Ｕ", "Ｕ"), ("５０ｕｓｄｔ", "ｕｓｄｔ"), ("￥７００", "￥")],
+    [("＄５０", "＄"), ("５０Ｕ", "Ｕ"), ("５０ｕｓｄｔ", "ｕｓｄｔ")],
 )
 def test_unit_is_handed_back_exactly_as_it_was_written(text: str, unit: str) -> None:
     assert recognised(text).unit == unit
@@ -290,6 +284,244 @@ def test_anything_beyond_one_number_and_one_unit_is_not_a_number(text: str) -> N
 def test_word_holding_a_number_word_is_never_taken_for_a_unit(text: str) -> None:
     # Taking "个亿" for a unit would turn three hundred million into three.
     assert not isinstance(read_number(text), Recognised)
+
+
+# --- only units this program knows are handed back --------------------------
+
+ONE_WORD_NAMES_OF_COINS = sorted(
+    form
+    for coin in BUILT_IN_COINS
+    for form in (coin.symbol, coin.name, *coin.aliases)
+    # A name of two words is two blocks, and 二饼 begins with a number word.
+    if " " not in form and form != "二饼"
+)
+
+COUNTERS = ["个", "個", "枚", "颗", "顆", "coin", "coins", "token", "tokens"]
+
+
+@pytest.mark.parametrize("word", sorted(USDT_WORDS))
+def test_every_word_for_usdt_is_a_unit_this_program_knows(word: str) -> None:
+    for written_as in (word, word.lower(), word.capitalize()):
+        reading = recognised(f"5 {written_as}")
+
+        assert reading.value == 5
+        assert reading.unit == written_as
+
+
+@pytest.mark.parametrize("name", ONE_WORD_NAMES_OF_COINS)
+def test_every_one_word_name_of_a_built_in_coin_is_a_unit_this_program_knows(name: str) -> None:
+    for written_as in (name, name.lower(), name.upper()):
+        reading = recognised(f"5 {written_as}")
+
+        assert reading.value == 5
+        assert reading.unit == written_as
+
+
+@pytest.mark.parametrize("counter", COUNTERS)
+def test_every_counter_is_a_unit_this_program_knows(counter: str) -> None:
+    assert recognised(f"5 {counter}").unit == counter
+    assert recognised(f"0.5{counter}").value == Decimal("0.5")
+
+
+@pytest.mark.parametrize(
+    ("text", "value", "unit"),
+    [
+        ("0.02 个 BTC", "0.02", "个 BTC"),
+        ("0.02个BTC", "0.02", "个BTC"),
+        ("3个 比特币", "3", "个 比特币"),
+        ("3枚ETH", "3", "枚ETH"),
+        ("2个u", "2", "个u"),
+        ("两万三 个 USDT", "23000", "个 USDT"),
+        ("5 BTC USDT", "5", "BTC USDT"),
+        ("5 tokens BTC", "5", "tokens BTC"),
+        ("８万　刀", "80000", "刀"),
+        ("5 ＢＴＣ", "5", "ＢＴＣ"),
+    ],
+)
+def test_unit_made_of_known_blocks_is_handed_back_as_written(
+    text: str, value: str, unit: str
+) -> None:
+    reading = recognised(text)
+
+    assert format(reading.value, "f") == value
+    assert reading.unit == unit
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        # Coins and tokens that are not in the built-in table.
+        "500 BONK",
+        "5 WIF",
+        "5 kas",
+        "50matic",
+        "5 mSOL",
+        "5 wstETH",
+        "5 bbSOL",
+        "5 BTCB",
+        # Known words written together with something else, or in the plural.
+        "5 BTCUSDT",
+        "5 BTCs",
+        "5 USDTs",
+        "5 kBONK",
+        "3个比特币",
+        "5个币",
+        "5 个 BONK",
+        # Two-word names of coins: each word is a block of its own.
+        "5 Bitcoin Cash",
+        "5 Shiba Inu",
+        "5 Ethereum Classic",
+        "5 NEAR Protocol",
+        # Other money, and words that are not money at all.
+        "50 €",
+        "¥700",
+        "£5",
+        "￥７００",
+        "100块",
+        "100元",
+        "5块钱",
+        "2 US dollars",
+        "5 bucks",
+        "5 units",
+        "1手",
+        "3张",
+        "三天",
+        "3号",
+        "2026年",
+        "两万吧",
+        "两万都不止",
+        "一下",
+        "8万成交",
+        "3个成交",
+        "8万 成交",
+        "5" + "X" * 32,
+        # Names that were once handed back because nothing in them looked like a multiplier.
+        "5 wif",
+        "5 wld",
+        "5 ksm",
+        "5 waves",
+        "5 kava",
+        "5 wax",
+        "5 milk",
+        "5 gigachad",
+        "5 millennium",
+        "5 bittensor",
+        "5 centrifuge",
+        "3 gas",
+        "3 kg",
+        "3 bitcoins",
+        "3 btcs",
+        "3个币",
+        "五块",
+        "三千块",
+        "5 mETH",
+        "5 tBTC",
+        "5 bETH",
+        "5mSOL",
+        "5 SOLm",
+        "5 ggAVAX",
+        "5 UST",
+        "5 GBP",
+        "5 MNT",
+        "5 GMT",
+    ],
+)
+def test_unit_with_a_block_this_program_does_not_know_is_not_handed_back(text: str) -> None:
+    assert read_number(text) == Unsure(Doubt.UNKNOWN_UNIT)
+
+
+# --- units the caller allows for one call -----------------------------------
+
+
+def test_coin_outside_the_table_is_read_only_when_the_caller_allows_its_name() -> None:
+    assert read_number("500 BONK") == Unsure(Doubt.UNKNOWN_UNIT)
+    assert read_number("5 kBONK") == Unsure(Doubt.UNKNOWN_UNIT)
+
+    allowed = read_number("500 BONK", extra_units=("BONK",))
+
+    assert allowed == Recognised(Decimal("500"), "BONK")
+    assert read_number("5 kBONK", extra_units=("BONK",)) == Unsure(Doubt.UNKNOWN_UNIT)
+
+
+@pytest.mark.parametrize(
+    ("text", "extra"),
+    [
+        ("500 BONK", "bonk"),
+        ("500 bonk", "BONK"),
+        ("500 Bonk", " bonk "),
+        ("500 ＢＯＮＫ", "BONK"),
+        ("500 BONK", "ＢＯＮＫ"),
+        ("500BONK", "BONK"),
+        ("500 个 BONK", "BONK"),
+        ("500个BONK", "BONK"),
+        ("500 BONK USDT", "BONK"),
+        ("三天", "天"),
+    ],
+)
+def test_allowed_unit_is_matched_whatever_its_capitals_and_width(text: str, extra: str) -> None:
+    reading = read_number(text, extra_units=[extra])
+
+    assert isinstance(reading, Recognised)
+    assert reading.value in (500, 3)
+
+
+@pytest.mark.parametrize(
+    "text",
+    ["500 BONKS", "500 BONKk", "500 xBONK", "500 BON", "500 BONK币", "5 kBONK", "5 BONKUSDT"],
+)
+def test_allowed_unit_must_match_a_block_exactly(text: str) -> None:
+    assert read_number(text, extra_units=("BONK",)) == Unsure(Doubt.UNKNOWN_UNIT)
+
+
+def test_unit_allowed_for_one_call_is_not_remembered_for_the_next() -> None:
+    read_number("500 BONK", extra_units=("BONK",))
+
+    assert read_number("500 BONK") == Unsure(Doubt.UNKNOWN_UNIT)
+
+
+def test_allowed_name_of_two_words_never_matches_because_a_block_is_one_word() -> None:
+    assert read_number("5 Bitcoin Cash", extra_units=("Bitcoin Cash",)) == Unsure(
+        Doubt.UNKNOWN_UNIT
+    )
+    assert recognised_with("5 Bitcoin Cash", "Bitcoin", "Cash").unit == "Bitcoin Cash"
+
+
+def test_allowed_units_given_as_one_string_are_refused() -> None:
+    with pytest.raises(TypeError, match="collection"):
+        read_number("500 BONK", extra_units="BONK")
+
+
+def recognised_with(text: str, *extra_units: str) -> Recognised:
+    reading = read_number(text, extra_units=extra_units)
+    assert isinstance(reading, Recognised), f"{text!r} was read as {reading!r}"
+    return reading
+
+
+# --- letters right after the digits: a multiplier, a unit, or a doubt -------
+
+
+def test_multiplier_letter_alone_is_applied_and_known_units_may_follow() -> None:
+    assert recognised("5k").value == 5000
+    assert recognised("5k刀") == Recognised(Decimal("5000"), "刀")
+    assert recognised("5k USDT") == Recognised(Decimal("5000"), "USDT")
+    assert recognised_with("5k BONK", "BONK") == Recognised(Decimal("5000"), "BONK")
+
+
+@pytest.mark.parametrize("text", ["5ku", "5wu", "5kusdt", "5wBTC", "5kU", "3w刀刀k"])
+def test_multiplier_letter_glued_to_a_known_word_is_not_applied(text: str) -> None:
+    assert not isinstance(read_number(text), Recognised)
+
+
+def test_letters_that_read_both_as_multiplier_and_word_and_as_one_word_are_a_doubt() -> None:
+    assert read_number("5wu", extra_units=("wu",)) == Unsure(Doubt.UNCLEAR_MULTIPLIER)
+    assert read_number("5kBONK", extra_units=("BONK",)) == Unsure(Doubt.UNCLEAR_MULTIPLIER)
+    assert read_number("5kBONK", extra_units=("BONK", "kBONK")) == Unsure(Doubt.UNCLEAR_MULTIPLIER)
+
+
+def test_letters_that_only_read_as_one_allowed_word_are_a_unit() -> None:
+    assert read_number("5kas") == Unsure(Doubt.UNCLEAR_MULTIPLIER)
+    assert recognised_with("5kas", "kas") == Recognised(Decimal("5"), "kas")
+    assert recognised_with("5 kas", "KAS") == Recognised(Decimal("5"), "kas")
 
 
 # --- multipliers after written digits ---------------------------------------
@@ -408,13 +640,10 @@ def test_letters_that_may_or_may_not_multiply_are_not_guessed(text: str) -> None
 @pytest.mark.parametrize(
     ("text", "value", "unit"),
     [
-        ("50matic", "50", "matic"),
         ("0.5btc", "0.5", "btc"),
         ("2ton", "2", "ton"),
         ("3trx", "3", "trx"),
         ("5bnb", "5", "bnb"),
-        ("5 kas", "5", "kas"),
-        ("5 wif", "5", "wif"),
     ],
 )
 def test_unit_that_does_not_read_as_a_multiplier_stays_a_unit(
@@ -552,7 +781,6 @@ def test_number_said_with_a_decimal_point_is_read(text: str, value: str) -> None
         ("十个", "10", "个"),
         ("两个", "2", "个"),
         ("零点五个", "0.5", "个"),
-        ("三千块", "3000", "块"),
         ("九万四千九 USDT", "94900", "USDT"),
         ("两万三u", "23000", "u"),
     ],
@@ -897,7 +1125,7 @@ def test_vague_word_without_any_number_is_not_a_number(text: str) -> None:
 
 @pytest.mark.parametrize(
     ("text", "unit"),
-    [("2ton", "ton"), ("3 atom", "atom"), ("5 dot", "dot"), ("8万成交", "成交")],
+    [("2ton", "ton"), ("3 atom", "atom"), ("5 dot", "dot")],
 )
 def test_unit_that_only_resembles_a_vague_word_stays_a_unit(text: str, unit: str) -> None:
     assert recognised(text).unit == unit
@@ -1193,23 +1421,6 @@ def test_small_units_of_coins_are_never_handed_back_as_that_many_coins(text: str
 
 
 @pytest.mark.parametrize(
-    ("text", "unit"),
-    [
-        ("5 mSOL", "mSOL"),
-        ("5 mETH", "mETH"),
-        ("5 tBTC", "tBTC"),
-        ("5 bETH", "bETH"),
-        ("5mSOL", "mSOL"),
-    ],
-)
-def test_coin_whose_own_name_starts_with_such_a_letter_stays_a_unit(text: str, unit: str) -> None:
-    reading = recognised(text)
-
-    assert reading.value == 5
-    assert reading.unit == unit
-
-
-@pytest.mark.parametrize(
     "text",
     [
         "5毫",
@@ -1289,28 +1500,12 @@ def test_word_for_a_fraction_or_a_multiple_is_never_handed_back_as_a_unit(text: 
     [
         ("50u", "50", "u"),
         ("50 U", "50", "U"),
-        ("5块钱", "5", "块钱"),
-        ("五块", "5", "块"),
         ("5刀", "5", "刀"),
-        ("1手", "1", "手"),
         ("5 coins", "5", "coins"),
-        ("5 units", "5", "units"),
-        ("5 bucks", "5", "bucks"),
-        ("5 waves", "5", "waves"),
-        ("5 kava", "5", "kava"),
-        ("5 wax", "5", "wax"),
         ("5 tether", "5", "tether"),
-        ("5 milk", "5", "milk"),
-        ("5 gigachad", "5", "gigachad"),
         ("3 bitcoin", "3", "bitcoin"),
-        ("3 bitcoins", "3", "bitcoins"),
-        ("3 btcs", "3", "btcs"),
-        ("5 USDTs", "5", "USDTs"),
         ("3 usdc", "3", "usdc"),
         ("3 USDT", "3", "USDT"),
-        ("3 kg", "3", "kg"),
-        ("5 millennium", "5", "millennium"),
-        ("3 gas", "3", "gas"),
         ("2 tokens", "2", "tokens"),
         ("3个u", "3", "个u"),
         ("3 个 U", "3", "个 U"),
@@ -1318,15 +1513,8 @@ def test_word_for_a_fraction_or_a_multiple_is_never_handed_back_as_a_unit(text: 
         ("3w刀", "30000", "刀"),
         ("5K USDT", "5000", "USDT"),
         ("5k usdt", "5000", "usdt"),
-        ("5 kas", "5", "kas"),
-        ("5 wif", "5", "wif"),
-        ("5 wld", "5", "wld"),
-        ("5 ksm", "5", "ksm"),
         ("3 doge", "3", "doge"),
-        ("3个币", "3", "个币"),
         ("3个BTC", "3", "个BTC"),
-        ("100块", "100", "块"),
-        ("100元", "100", "元"),
         ("3枚", "3", "枚"),
         ("5 USDC", "5", "USDC"),
         ("0.5 eth", "0.5", "eth"),
@@ -1497,11 +1685,6 @@ def test_word_that_changes_the_number_is_seen_wherever_it_stands_in_a_unit(
 )
 def test_further_forms_of_listed_words_are_seen_too(text: str, reason: Doubt) -> None:
     assert read_number(text) == Unsure(reason)
-
-
-def test_a_deal_done_is_still_not_a_share() -> None:
-    assert recognised("3个成交").unit == "个成交"
-    assert recognised("8万 成交").unit == "成交"
 
 
 NUMBER_CHARACTERS = (
@@ -2297,50 +2480,12 @@ def test_two_changing_words_and_a_known_one_never_leave_the_bare_number() -> Non
         if keeps_the_bare_five(f"5 {unit}")
     ]
 
-    # The case left alone on purpose, once more: only "m" on both sides of a coin.
-    assert kept == ["methm"]
-
-
-@pytest.mark.parametrize(
-    ("text", "unit"),
-    [
-        ("5 bbSOL", "bbSOL"),
-        ("5 ggAVAX", "ggAVAX"),
-        ("5 wstETH", "wstETH"),
-        ("5 UST", "UST"),
-        ("5 BTCB", "BTCB"),
-        ("5 BTCUSDT", "BTCUSDT"),
-        ("5 GBP", "GBP"),
-        ("5 MNT", "MNT"),
-        ("5 GMT", "GMT"),
-        ("5 bittensor", "bittensor"),
-        ("5 centrifuge", "centrifuge"),
-    ],
-)
-def test_real_names_that_only_look_as_if_they_came_apart_stay_units(text: str, unit: str) -> None:
-    reading = recognised(text)
-
-    assert reading.value == 5
-    assert reading.unit == unit
+    assert kept == []
 
 
 @pytest.mark.parametrize("text", ["5 mmETH", "5 ETHmm", "5 mmBTC", "5 kkETH", "5 mnSOL"])
 def test_letters_that_make_a_listed_word_are_not_left_alone_on_a_coin(text: str) -> None:
     assert not isinstance(read_number(text), Recognised)
-
-
-def test_the_case_left_alone_on_purpose_is_only_a_single_letter_on_a_coin() -> None:
-    left_alone = [
-        (changer, known)
-        for changer in WORDS_THAT_CHANGE_A_NUMBER
-        for known in WORDS_KNOWN
-        if is_a_letter_on_a_coin(changer, known, "{changer}{known}")
-    ]
-
-    assert {changer for changer, _ in left_alone} == {"b", "g", "m", "t"}
-    assert all(known in COINS_KNOWN for _, known in left_alone)
-    assert recognised("5 mSOL").unit == "mSOL"
-    assert recognised("5 SOLm").unit == "SOLm"
 
 
 WORDS_SAID_THAT_CHANGE_A_NUMBER = [

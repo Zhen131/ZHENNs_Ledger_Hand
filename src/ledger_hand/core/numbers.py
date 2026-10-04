@@ -135,12 +135,12 @@ from __future__ import annotations
 import enum
 import itertools
 import re
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from decimal import Decimal
 
 from ledger_hand.core.arithmetic import working_context
-from ledger_hand.core.coins import BUILT_IN_TABLE, means_usdt
+from ledger_hand.core.coins import BUILT_IN_TABLE, means_usdt, spoken_key
 from ledger_hand.core.ledger_limits import (
     MAX_DECIMAL_PLACES,
     MAX_SIGNIFICANT_DIGITS,
@@ -161,6 +161,7 @@ class Doubt(enum.Enum):
     APPROXIMATE = "an approximate amount, not an exact one"
     HALF_OR_SHARE = "a half, a share or a multiple, not a plain amount"
     SMALLER_UNIT = "counted in a smaller unit of money, or running on past its unit"
+    UNKNOWN_UNIT = "a unit word that is not on the list of units this program knows"
     TOO_MANY_DECIMAL_PLACES = "more decimal places than the ledger holds"
     TOO_MANY_DIGITS = "more digits than the ledger holds"
 
@@ -208,6 +209,22 @@ _FOLDED = {code: code - 0xFEE0 for code in range(0xFF01, 0xFF5F)}
 _FOLDED.update({0xFFE5: 0xA5, 0xFFE1: 0xA3})
 
 _CURRENCY_SIGNS = "$¥€£"
+
+# The counters: words that say "this many of them" and nothing about how much
+# one of them is, each with the reason it leaves the number as it is. Together
+# with the words for USDT and the names in the coin table, they are the only
+# unit words this program hands back without being told to.
+_COUNTERS: Mapping[str, str] = {
+    "个": "the general counter: 0.5个 is half of one, whatever is counted",
+    "個": "the same counter in its traditional form",
+    "枚": "the counter for coins and other small flat things",
+    "颗": "a counter for small round things, said of coins as well",
+    "顆": "the same counter in its traditional form",
+    "COIN": "the thing counted itself, one at a time",
+    "COINS": "the plural of the same word",
+    "TOKEN": "another word for the thing counted itself",
+    "TOKENS": "the plural of the same word",
+}
 
 # Every character that says a number in Chinese writing, listed once. The set
 # is closed: nothing is added to it as new words come into use. A word holding
@@ -469,19 +486,31 @@ class _Place:
     after_zero: bool
 
 
-def read_number(text: str) -> Reading:
-    """Read ``text`` as one number, or say why it cannot be read as one."""
+def read_number(text: str, extra_units: Iterable[str] = ()) -> Reading:
+    """Read ``text`` as one number, or say why it cannot be read as one.
+
+    ``extra_units`` are unit words the caller allows for this one call, on top
+    of the ones this program knows: the name of a coin outside the table, for
+    instance. A block of the unit must equal one of them, letter case and
+    character width aside.
+    """
+    if isinstance(extra_units, str):
+        raise TypeError("pass the extra unit words as a collection, not as one string")
+    allowed = frozenset(map(spoken_key, extra_units))
     folded = text.translate(_FOLDED)
     if _EXPONENT.search(folded):
         return NotANumber()
-    reading = _strictly_read(folded, text)
+    reading = _strictly_read(folded, text, allowed)
     if reading is None:
         doubt = _hinted(folded, _ALL_HINTS)
         return NotANumber() if doubt is None else Unsure(doubt)
     if isinstance(reading, Recognised) and reading.unit is not None:
+        unit = reading.unit.translate(_FOLDED)
         # What was taken for a unit may be a word like 多 or 左右, or may hide
         # a multiplier.
-        doubt = _hinted(folded, _WORDING_HINTS) or _unit_doubt(reading.unit.translate(_FOLDED))
+        doubt = _hinted(folded, _WORDING_HINTS) or _unit_doubt(unit)
+        if doubt is None and not _is_known_unit(unit, allowed):
+            doubt = Doubt.UNKNOWN_UNIT
         if doubt is not None:
             return Unsure(doubt)
     return reading
@@ -517,7 +546,7 @@ def _hinted(folded: str, hints: Sequence[tuple[Doubt, re.Pattern[str]]]) -> Doub
     return None
 
 
-def _strictly_read(folded: str, original: str) -> Reading | None:
+def _strictly_read(folded: str, original: str, allowed: frozenset[str]) -> Reading | None:
     """Read a text of the one accepted shape: a sign, the number, a multiplier, a unit.
 
     ``None`` means the text does not have that shape.
@@ -525,7 +554,7 @@ def _strictly_read(folded: str, original: str) -> Reading | None:
     shape = _SHAPE.fullmatch(folded)
     if shape is None:
         return None
-    tail = _tail(shape, original)
+    tail = _tail(shape, original, allowed)
     if isinstance(tail, Doubt):
         return Unsure(tail)
     sign = original[shape.start("sign") : shape.end("sign")]
@@ -542,17 +571,22 @@ def _strictly_read(folded: str, original: str) -> Reading | None:
     return Recognised(value, sign or tail.unit, amount.cautions)
 
 
-def _tail(shape: re.Match[str], original: str) -> _Tail | Doubt | None:
+def _tail(shape: re.Match[str], original: str, allowed: frozenset[str]) -> _Tail | Doubt | None:
     """The multiplier letter and the unit after the number.
 
     ``None`` when what follows the number is not one unit.
     """
     letters = shape["letters"].lower()
     power = _LETTER_MULTIPLIERS.get(letters, 0)
-    is_a_smaller_unit = _kind(letters) is _Kind.SMALLER_UNIT
-    if not power and letters[:1] in _LETTER_MULTIPLIERS and not is_a_smaller_unit:
-        # "1ku" may be a thousand u or one of a coin called ku.
-        return Doubt.UNCLEAR_MULTIPLIER
+    if not power and letters[:1] in _LETTER_MULTIPLIERS:
+        # "5ku" may be five thousand u or five of a coin called ku. Only letters
+        # that are a known word as a whole, and are not a multiplier with a
+        # known word behind it, are a unit.
+        is_one_word = _is_known_block(letters, allowed)
+        is_multiplier_and_word = _is_known_block(letters[1:], allowed)
+        is_a_smaller_unit = _kind(letters) is _Kind.SMALLER_UNIT
+        if not (is_one_word and not is_multiplier_and_word) and not is_a_smaller_unit:
+            return Doubt.UNCLEAR_MULTIPLIER
     start = shape.end("letters") if power else shape.start("letters")
     unit = shape.string[start:].strip()
     if not unit:
@@ -576,6 +610,24 @@ def _is_unit(text: str) -> bool:
         and len(text) <= SYMBOL_MAX_LENGTH
         and all(letter.isalpha() and letter not in _NUMBER_WORDS for letter in letters)
     )
+
+
+def _is_known_unit(unit: str, allowed: frozenset[str]) -> bool:
+    """Whether every block of ``unit`` is a unit word this program knows or the caller allows.
+
+    The blocks are what is left when the unit is cut at gaps, and wherever
+    letters that have capitals meet characters that have none.
+    """
+    blocks = ["".join(run) for kind, run in itertools.groupby(unit, key=_script) if kind]
+    return all(_is_known_block(block, allowed) for block in blocks or [unit])
+
+
+def _is_known_block(block: str, allowed: frozenset[str]) -> bool:
+    """Whether ``block`` is a word for USDT, a name in the coin table, a counter or allowed."""
+    word = spoken_key(block)
+    if word in _COUNTERS or word in allowed or means_usdt(block):
+        return True
+    return BUILT_IN_TABLE.find(block) is not None
 
 
 def _unit_doubt(unit: str) -> Doubt | None:
