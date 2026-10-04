@@ -7,6 +7,7 @@ nothing here depends on the day the tests run.
 from __future__ import annotations
 
 import dataclasses
+import decimal
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from fractions import Fraction
@@ -434,6 +435,26 @@ def test_amounts_the_ledger_s_own_arithmetic_would_refuse_are_refused() -> None:
     stated = amounts(quantity=quantity, price=price, total=total)
 
     assert violations(complete(**stated)) == (Violation.AMOUNTS_DISAGREE,)
+
+
+def test_arithmetic_does_not_depend_on_the_decimal_context_of_the_caller() -> None:
+    # A context this coarse, which also raises on any rounding, would wreck or
+    # stop the arithmetic if the check ever fell back on it.
+    hostile = decimal.Context(prec=3, rounding=decimal.ROUND_DOWN)
+    hostile.traps[decimal.Inexact] = True
+    hostile.traps[decimal.Rounded] = True
+    two_given = complete(**amounts(quantity="1.123456789", price="1.1234567891"))
+    three_given = complete(**amounts(quantity="0.02", price="94900", total="1898.005"))
+    quotient = complete(**amounts(price="3", total="100"))
+
+    with decimal.localcontext(hostile):
+        product_built = record_of(check(two_given))
+        stated_built = record_of(check(three_given))
+        quotient_built = record_of(check(quotient))
+
+    assert written(product_built.total) == "1.2621551568625362"
+    assert stated_built.derived is None
+    assert written(quotient_built.quantity) == "33.33333333"
 
 
 # --- a calculated amount must still make a sound trade ----------------------

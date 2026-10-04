@@ -8,7 +8,7 @@ result, not an error, so nothing is raised for it; and every problem is
 reported at once, not just the first one found. Each list is in the order its
 enumeration is written below, whatever order the problems were found in.
 
-The rules, in the order they are applied:
+The rules:
 
 - The side, the coin, the time, the fee and the original text must be there.
 - The coin must be in the coin table or confirmed by the user, must be
@@ -20,10 +20,11 @@ The rules, in the order they are applied:
   are kept as stated.
 - Every amount must be above zero, and a stated number must fit the ledger's
   digit limits as it stands: it is never rounded silently.
-- A calculated quotient that comes out even is kept whole. Otherwise it is
-  rounded half up to ``derived_places``. A calculated total is rounded half up
-  to the most decimal places the ledger holds. After rounding, the three
-  amounts must still agree.
+- A calculated quotient that comes out even, and that the ledger can hold in
+  full, is kept whole. Otherwise it is rounded half up to ``derived_places``.
+  A calculated total is rounded half up to the most decimal places the ledger
+  holds. After rounding, the calculated amount must itself be above zero and
+  fit the ledger, and the three amounts must still agree.
 - The fee must be stated, even when it is zero, and cannot be negative. A fee
   above zero needs its coin: USDT, or a coin the table knows. A fee of zero is
   always recorded in USDT.
@@ -42,7 +43,7 @@ holds, so a sale is never refused for selling more than was bought.
 All arithmetic happens in a dedicated decimal context, never in Python's
 default one. The agreement of the three amounts is also tested the way the
 ledger itself calculates it, so that a record accepted here is not turned
-down there.
+down there over its total.
 
 Names defined here: ``check_draft``, ``Missing``, ``Violation``,
 ``DraftProblems``, ``CheckSettings``, ``DEFAULT_SETTINGS``,
