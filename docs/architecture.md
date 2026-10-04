@@ -30,6 +30,7 @@ data/                     run-time output and the local database; never in Git
 src/ledger_hand/
     core/                 core rules: no network, database or user interface          (exists)
         ledger_limits.py      the ledger's limits, and its way of measuring them      (exists)
+        arithmetic.py         the decimal contexts every calculation runs in          (exists)
         trade.py              what one trade looks like; drafts may have blanks       (exists)
         coins.py              a small table of common coins                           (exists)
         numbers.py            number phrases to exact decimals
