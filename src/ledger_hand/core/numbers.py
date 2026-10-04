@@ -56,6 +56,12 @@ gaps between digits is a ``Doubt``, because a comma is a decimal mark in much
 of Europe. A point followed by exactly three digits is read as a decimal
 point, with a ``Caution`` that it may have been meant to group thousands.
 
+A text that names no single exact amount is a ``Doubt`` too: a range ("8万
+到8万5"), an approximate amount ("大概两万", "两万多"), and a half, a share
+or a multiple ("半个", "30%", "三成"). The word lists for these are a net,
+not a grammar: a vague text they miss comes back as ``NotANumber`` or with
+its vague word handed back as the unit, never as a different number.
+
 A number with more decimal places or more digits than the ledger holds is a
 ``Doubt`` as well: it is never rounded or cut to fit. The limits apply to the
 number after its multiplier.
@@ -91,6 +97,9 @@ class Doubt(enum.Enum):
     AMBIGUOUS_SEPARATOR = "the separators can be read in more than one way"
     UNCLEAR_MULTIPLIER = "a letter or word may or may not be meant as a multiplier"
     UNCLEAR_WORDING = "the number words do not add up to one reading"
+    RANGE = "a range, not one amount"
+    APPROXIMATE = "an approximate amount, not an exact one"
+    HALF_OR_SHARE = "a half, a share or a multiple, not a plain amount"
     TOO_MANY_DECIMAL_PLACES = "more decimal places than the ledger holds"
     TOO_MANY_DIGITS = "more digits than the ledger holds"
 
@@ -209,12 +218,52 @@ _SHORTENED = re.compile(rf"[百千万亿][{_DIGIT}]")
 _COUNT = re.compile(r"[1-9][0-9]+")
 _SECTION = re.compile(rf"(?:零?[{_DIGIT}][十百千]?)*")
 _TERM = re.compile(rf"(零?)([{_DIGIT}])([十百千]?)")
+_EXPONENT = re.compile(r"[0-9]\.?[eE][+-]?[0-9]")
 _SPLIT_DIGITS = re.compile(r"[0-9.,]\s+[0-9.,]")
 _DIGITS_THEN_SCALE = re.compile(rf"(?P<digits>[0-9][0-9.,]*)(?P<scale>[{_SCALE}]*)")
 _PLAIN = re.compile(r"(?:0|[1-9][0-9]*)(?:\.[0-9]+)?")
 _GROUPED = re.compile(r"[1-9][0-9]{0,2}(?:,[0-9]{3})+(?:\.[0-9]+)?")
 _GROUP_LIKE_FRACTION = re.compile(r"[1-9][0-9]{0,2}\.[0-9]{3}")
 _LEADING_ZERO = re.compile(r"0[0-9]")
+
+
+# Wording that says the text names no single exact amount. Each pattern is
+# tried only on a text that holds a digit or a number word at all.
+_NUMBER_LIKE = re.compile(rf"[0-9零{_DIGIT}{_SCALE}半几]")
+_IN_NUMBER = f"0-9零一二两三四五六七八九{_SCALE}"
+_VAGUE_WORDS = "about|around|roughly|approx|approximately|nearly|almost|over|under|ish|or so"
+_WORDING_HINTS: tuple[tuple[Doubt, re.Pattern[str]], ...] = (
+    (
+        Doubt.HALF_OR_SHARE,
+        re.compile(
+            rf"半|[%‰]|分之|部分|[{_IN_NUMBER}]\s*[成倍折](?!交)|[0-9]\s*/\s*[0-9]"
+            r"|(?<![a-z])(?:half|percent|pct)(?![a-z])",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        Doubt.RANGE,
+        re.compile(
+            rf"[{_IN_NUMBER}]\s*[^\W\d_]{{0,8}}\s*"
+            r"(?:[到至~〜\-–—]|(?<![a-z])to(?![a-z]))"
+            rf"\s*[{_CURRENCY_SIGNS}]?\s*[{_IN_NUMBER}]",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        Doubt.APPROXIMATE,
+        re.compile(
+            r"大概|大约|约|差不多|左右|上下|多|来|余|几|些|近|不到|超过|至少|最多|起码|出头"
+            r"|以上|以下|以内|[~〜≈±<>≤≥]|[0-9]\s*\+"
+            rf"|(?<![a-z])(?:{_VAGUE_WORDS})(?![a-z])",
+            re.IGNORECASE,
+        ),
+    ),
+)
+_STRAY_MAGNITUDE = re.compile(
+    rf"(?<![a-z])(?:{'|'.join(sorted(_MAGNITUDE_WORDS))})(?![a-z])", re.IGNORECASE
+)
+_ALL_HINTS = (*_WORDING_HINTS, (Doubt.UNCLEAR_MULTIPLIER, _STRAY_MAGNITUDE))
 
 
 @dataclass(frozen=True)
@@ -250,8 +299,29 @@ class _Place:
 
 def read_number(text: str) -> Reading:
     """Read ``text`` as one number, or say why it cannot be read as one."""
-    reading = _strictly_read(text.translate(_FOLDED), text)
-    return NotANumber() if reading is None else reading
+    folded = text.translate(_FOLDED)
+    if _EXPONENT.search(folded):
+        return NotANumber()
+    reading = _strictly_read(folded, text)
+    if reading is None:
+        doubt = _hinted(folded, _ALL_HINTS)
+        return NotANumber() if doubt is None else Unsure(doubt)
+    if isinstance(reading, Recognised) and reading.unit is not None:
+        # What was taken for a unit may be a word like 多 or 左右.
+        doubt = _hinted(folded, _WORDING_HINTS)
+        if doubt is not None:
+            return Unsure(doubt)
+    return reading
+
+
+def _hinted(folded: str, hints: Sequence[tuple[Doubt, re.Pattern[str]]]) -> Doubt | None:
+    """The first reason the wording gives for not naming one exact amount, if any."""
+    if _NUMBER_LIKE.search(folded) is None:
+        return None
+    for doubt, pattern in hints:
+        if pattern.search(folded):
+            return doubt
+    return None
 
 
 def _strictly_read(folded: str, original: str) -> Reading | None:

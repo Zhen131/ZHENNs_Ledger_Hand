@@ -757,6 +757,116 @@ def test_digit_limits_apply_to_the_number_after_its_multiplier(text: str, value:
     assert written(text) == value
 
 
+# --- ranges, approximate amounts, halves and shares -------------------------
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "8 万到 8 万 5",
+        "8万到8万5",
+        "8万-8万5",
+        "100~200",
+        "100-200",
+        "100\N{EN DASH}200",
+        "100\N{EM DASH}200",
+        "１００～２００",
+        "2到3个",
+        "100u-200u",
+        "0.5至1",
+        "2 to 3",
+        "九万到十万",
+        "8万刀到9万刀",
+        "$100-$200",
+    ],
+)
+def test_range_is_not_one_number(text: str) -> None:
+    assert read_number(text) == Unsure(Doubt.RANGE)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "大概两万",
+        "大约50",
+        "约50",
+        "差不多100",
+        "两万左右",
+        "两万上下",
+        "两万多",
+        "两万多刀",
+        "三千来块",
+        "十几个",
+        "几千",
+        "几个",
+        "一些",
+        "一百出头",
+        "不到100",
+        "100以上",
+        "100+",
+        "~100",
+        "\N{ALMOST EQUAL TO}100",
+        "<100",
+        "about 50",
+        "around 2k",
+        "50 or so",
+        "50ish",
+        "nearly 3 BTC",
+    ],
+)
+def test_approximate_amount_is_not_an_exact_number(text: str) -> None:
+    assert read_number(text) == Unsure(Doubt.APPROXIMATE)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "半个",
+        "一半",
+        "两个半",
+        "一个半",
+        "半",
+        "半仓",
+        "30%",
+        "0.1%",
+        "５０％",
+        "50 percent",
+        "50pct",
+        "三成",
+        "3倍",
+        "8折",
+        "1/2",
+        "三分之一",
+        "一部分",
+    ],
+)
+def test_half_share_or_multiple_is_not_a_plain_amount(text: str) -> None:
+    assert read_number(text) == Unsure(Doubt.HALF_OR_SHARE)
+
+
+def test_doubt_about_the_number_itself_is_reported_before_doubt_about_its_wording() -> None:
+    assert read_number("十点半") == Unsure(Doubt.UNCLEAR_WORDING)
+    assert read_number("1,5左右") == Unsure(Doubt.AMBIGUOUS_SEPARATOR)
+
+
+@pytest.mark.parametrize("text", ["5m BTC", "5 million dollars", "2 k usdt", "1k5", "3k万"])
+def test_stray_magnitude_word_is_named_as_the_reason(text: str) -> None:
+    assert read_number(text) == Unsure(Doubt.UNCLEAR_MULTIPLIER)
+
+
+@pytest.mark.parametrize("text", ["很多", "好多", "多少", "大概", "左右", "about", "~", "to", "k"])
+def test_vague_word_without_any_number_is_not_a_number(text: str) -> None:
+    assert read_number(text) == NotANumber()
+
+
+@pytest.mark.parametrize(
+    ("text", "unit"),
+    [("2ton", "ton"), ("3 atom", "atom"), ("5 dot", "dot"), ("8万成交", "成交")],
+)
+def test_unit_that_only_resembles_a_vague_word_stays_a_unit(text: str, unit: str) -> None:
+    assert recognised(text).unit == unit
+
+
 # --- what is not a number ---------------------------------------------------
 
 
