@@ -21,7 +21,8 @@ Full-width characters are read as their ordinary forms.
 A number may come with one unit: a currency sign before or after it, or one
 word after it ("刀", "个", "USDT", "u"). The unit is handed back exactly as it
 was written and is not interpreted here. A word that itself holds a number
-word is never taken for a unit.
+word is never taken for a unit, and neither is one longer than the longest
+coin symbol the ledger allows.
 
 Written digits may be followed by a multiplier: the letter "k" (thousand) or
 "w" (ten thousand, from 万) directly after the last digit, or one of the words
@@ -90,6 +91,7 @@ from ledger_hand.core.arithmetic import working_context
 from ledger_hand.core.ledger_limits import (
     MAX_DECIMAL_PLACES,
     MAX_SIGNIFICANT_DIGITS,
+    SYMBOL_MAX_LENGTH,
     decimal_places,
     fits_digit_limits,
     significant_digits,
@@ -396,7 +398,9 @@ def _tail(shape: re.Match[str], original: str) -> _Tail | Doubt | None:
 
 
 def _is_unit_word(word: str) -> bool:
-    """Whether ``word`` is one run of letters with no number word in it."""
+    """Whether ``word`` is one short run of letters with no number word in it."""
+    if len(word) > SYMBOL_MAX_LENGTH:
+        return False
     return all(letter.isalpha() and letter not in _NUMBER_WORDS for letter in word)
 
 

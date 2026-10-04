@@ -6,6 +6,8 @@ Every amount here is invented. Each kind of wording has a section of its own.
 from __future__ import annotations
 
 import decimal
+import itertools
+import random
 import re
 from decimal import Decimal
 
@@ -206,6 +208,7 @@ def test_full_width_spelling_does_not_let_a_refused_form_through(text: str) -> N
         ("100 dollars", "100", "dollars"),
         ("94,900刀", "94900", "刀"),
         ("3个比特币", "3", "个比特币"),
+        ("5" + "X" * 32, "5", "X" * 32),
         ("50$", "50", "$"),
         ("50 €", "50", "€"),
         ("¥700", "700", "¥"),
@@ -262,6 +265,7 @@ def test_doubt_about_the_number_is_reported_whatever_its_unit() -> None:
         "50-",
         "u50",
         "美金50",
+        "5" + "X" * 33,
     ],
 )
 def test_anything_beyond_one_number_and_one_unit_is_not_a_number(text: str) -> None:
@@ -1090,3 +1094,292 @@ def test_writing_does_not_depend_on_the_decimal_context_of_the_caller() -> None:
         text = write_number(long_number)
 
     assert text == "9" * 22 + "." + "9" * 18
+
+
+# --- promises that hold for every input -------------------------------------
+
+EVERY_KIND_OF_INPUT = [
+    "0.02",
+    "94,900",
+    "1,5",
+    "94.900",
+    "９４９００",
+    "8万刀",
+    "$50",
+    "1.2k",
+    "5m",
+    "九万四千九",
+    "两三千",
+    "9万4",
+    "一点二万",
+    NINETEEN_PLACES,
+    FORTY_DIGITS + "1",
+    "8万到8万5",
+    "大概两万",
+    "半个",
+    "NaN",
+    "1e5",
+    "-5",
+    "",
+    "很多",
+]
+
+TEXT_THAT_IS_NOT_AN_AMOUNT = [
+    "\x00",
+    "5\x00",
+    "\ud83d",
+    "5\udc00",
+    "\N{GRINNING FACE}",
+    "5\N{ROCKET}",
+    "\N{RIGHT-TO-LEFT OVERRIDE}5",
+    "5\N{COMBINING ACUTE ACCENT}",
+    "e\N{COMBINING ACUTE ACCENT}5",
+    "\N{ROMAN NUMERAL FOUR}",
+    "\N{VULGAR FRACTION ONE HALF}",
+    "5\N{VULGAR FRACTION ONE HALF}",
+    "\N{HANGZHOU NUMERAL FIVE}",
+    "\N{IDEOGRAPHIC NUMBER ZERO}",
+    "\N{CJK UNIFIED IDEOGRAPH-58F9}万",
+    "bought 0.02 BTC at 94,900 at 9:40, fee 2 USDT",
+    "昨天晚上 9 点 40 买了 0.02 个比特币",
+    "\n\n\n",
+    "1\n2",
+    "0b101",
+    "0o17",
+    "1__0",
+    "1\N{ARABIC DECIMAL SEPARATOR}5",
+    "1\N{ARABIC THOUSANDS SEPARATOR}000",
+    "二〇二六",
+    "..",
+    ",,",
+    "$,",
+    "k万点",
+    pytest.param("\x00" * 50 + "5", id="many null characters"),
+    pytest.param("1" * 20_000, id="twenty thousand digits"),
+    pytest.param("1" * 20_000 + "万", id="twenty thousand digits and a multiplier"),
+    pytest.param("9," * 10_000 + "9", id="ten thousand commas"),
+    pytest.param("万" * 20_000, id="twenty thousand units"),
+    pytest.param("一" * 20_000, id="twenty thousand number words"),
+    pytest.param("零点" + "零" * 20_000 + "一", id="twenty thousand decimal places said"),
+    pytest.param("5" + "u" * 20_000, id="a unit twenty thousand letters long"),
+    pytest.param("5 " * 10_000, id="ten thousand separate digits"),
+    pytest.param("到" * 5_000 + "5", id="five thousand range words"),
+    pytest.param("5" + "到" * 5_000 + "5", id="five thousand range words between digits"),
+    pytest.param("$" * 5_000, id="five thousand currency signs"),
+]
+
+
+@pytest.mark.parametrize("text", EVERY_KIND_OF_INPUT)
+def test_same_text_always_gives_the_same_reading(text: str) -> None:
+    first = read_number(text)
+    for other in EVERY_KIND_OF_INPUT:
+        read_number(other)
+
+    assert read_number(text) == first
+
+
+@pytest.mark.parametrize("text", EVERY_KIND_OF_INPUT)
+def test_reading_does_not_depend_on_the_decimal_context_of_the_caller(text: str) -> None:
+    hostile = decimal.Context(prec=3, rounding=decimal.ROUND_DOWN)
+    hostile.traps[decimal.Inexact] = True
+    hostile.traps[decimal.Rounded] = True
+
+    with decimal.localcontext(hostile):
+        reading = read_number(text)
+
+    assert reading == read_number(text)
+
+
+def test_long_number_is_multiplied_exactly_whatever_the_context_of_the_caller() -> None:
+    hostile = decimal.Context(prec=3, rounding=decimal.ROUND_DOWN)
+
+    with decimal.localcontext(hostile):
+        reading = read_number(FORTY_DIGITS[:36] + "." + "5万")
+
+    assert reading == Recognised(Decimal(FORTY_DIGITS[:36] + "5000"))
+
+
+def is_a_sound_reading(reading: object) -> bool:
+    """Whether a reading is one of the three results, and a recognised value fits the ledger."""
+    if isinstance(reading, Recognised):
+        text = write_number(reading.value)
+        return is_written_as_the_ledger_requires(text) and Decimal(text) == reading.value
+    if isinstance(reading, Unsure):
+        return isinstance(reading.reason, Doubt)
+    return reading == NotANumber()
+
+
+@pytest.mark.parametrize("text", [*EVERY_KIND_OF_INPUT, *TEXT_THAT_IS_NOT_AN_AMOUNT])
+def test_no_text_makes_the_reader_raise(text: str) -> None:
+    assert is_a_sound_reading(read_number(text))
+
+
+@pytest.mark.parametrize("text", TEXT_THAT_IS_NOT_AN_AMOUNT)
+def test_text_that_is_not_an_amount_never_becomes_a_number(text: str) -> None:
+    assert not isinstance(read_number(text), Recognised)
+
+
+def test_every_short_string_of_number_characters_gets_a_sound_reading() -> None:
+    alphabet = "015., \N{IDEOGRAPHIC SPACE}万千十零两点kw$刀半-~e"
+    texts = (
+        "".join(letters)
+        for size in (1, 2, 3)
+        for letters in itertools.product(alphabet, repeat=size)
+    )
+
+    unsound = [text for text in texts if not is_a_sound_reading(read_number(text))]
+
+    assert unsound == []
+
+
+def test_recognised_number_survives_being_written_and_read_again() -> None:
+    alphabet = "0159.,万千百十零一二两五点kw"
+    texts = (
+        "".join(letters)
+        for size in (1, 2, 3, 4)
+        for letters in itertools.product(alphabet, repeat=size)
+    )
+    changed = []
+    for text in texts:
+        reading = read_number(text)
+        if isinstance(reading, Recognised):
+            again = read_number(write_number(reading.value))
+            if not isinstance(again, Recognised) or again.value != reading.value:
+                changed.append(text)
+
+    assert changed == []
+
+
+# --- checked against an independent way of saying numbers -------------------
+
+SAID_DIGITS = "零一二三四五六七八九"
+
+
+def said_below_ten_thousand(number: int) -> str:
+    """A number from 1 to 9999 the way it is properly said, 零 included."""
+    words = ""
+    skipped = False
+    for size, unit in ((1000, "千"), (100, "百"), (10, "十"), (1, "")):
+        digit, number = divmod(number, size)
+        if digit == 0:
+            skipped = bool(words)
+            continue
+        words += ("零" if skipped else "") + SAID_DIGITS[digit] + unit
+        skipped = False
+    return words
+
+
+def said(number: int) -> str:
+    """A whole number below a trillion the way it is properly said."""
+    if number == 0:
+        return "零"
+    words = ""
+    skipped = False
+    sections = ((number // 10**8, "亿"), (number // 10**4 % 10**4, "万"), (number % 10**4, ""))
+    for section, unit in sections:
+        if section == 0:
+            skipped = bool(words)
+            continue
+        needs_zero = bool(words) and (skipped or section < 1000)
+        words += ("零" if needs_zero else "") + said_below_ten_thousand(section) + unit
+        skipped = False
+    return words.removeprefix("一") if words.startswith("一十") else words
+
+
+def spread_of_whole_numbers() -> list[int]:
+    """Every number up to 12000, and a fixed spread of larger ones of every length."""
+    dice = random.Random(0)
+    larger = [dice.randrange(10**size) for size in range(5, 13) for _ in range(1500)]
+    rounder = [dice.randrange(1, 10**4) * 10 ** dice.randrange(1, 9) for _ in range(3000)]
+    return [*range(12001), *larger, *rounder]
+
+
+@pytest.mark.parametrize(
+    ("number", "words"),
+    [
+        (0, "零"),
+        (10, "十"),
+        (12, "十二"),
+        (110, "一百一十"),
+        (2005, "二千零五"),
+        (10500, "一万零五百"),
+        (100500, "十万零五百"),
+        (1005000, "一百万五千"),
+        (100005000, "一亿零五千"),
+        (150000000, "一亿五千万"),
+        (999999999999, "九千九百九十九亿九千九百九十九万九千九百九十九"),
+    ],
+)
+def test_the_independent_way_of_saying_numbers_says_them_properly(number: int, words: str) -> None:
+    assert said(number) == words
+
+
+def test_every_properly_said_whole_number_is_read_back_as_itself() -> None:
+    misread = [
+        number
+        for number in spread_of_whole_numbers()
+        if read_number(said(number)) != Recognised(Decimal(number))
+    ]
+
+    assert misread == []
+
+
+def test_saying_two_as_liang_before_a_unit_changes_nothing() -> None:
+    misread = []
+    for number in spread_of_whole_numbers():
+        words = re.sub(r"二(?=[百千万亿])", "两", said(number))
+        if read_number(words) != Recognised(Decimal(number)):
+            misread.append(number)
+
+    assert misread == []
+
+
+def test_dropping_the_last_unit_gives_the_same_number_or_a_doubt_never_another_number() -> None:
+    wrong = []
+    read = 0
+    for number in spread_of_whole_numbers():
+        words = said(number)
+        if re.search(r"[百千万亿][一二三四五六七八九][十百千]$", words) is None:
+            continue
+        reading = read_number(words[:-1])
+        if isinstance(reading, Recognised):
+            read += 1
+            if reading.value != number:
+                wrong.append(number)
+        elif not isinstance(reading, Unsure):
+            wrong.append(number)
+
+    assert wrong == []
+    assert read > 100
+
+
+def test_sections_written_in_digits_give_the_same_number_or_a_doubt() -> None:
+    wrong = []
+    read = 0
+    for number in spread_of_whole_numbers():
+        yi, wan, rest = number // 10**8, number // 10**4 % 10**4, number % 10**4
+        if yi == 0 and wan == 0:
+            continue
+        # The last section is written with all four of its digits, as in "9万4900":
+        # fewer would be the short form, where "1万1" is eleven thousand.
+        text = (f"{yi}亿" if yi else "") + (f"{wan}万" if wan else "") + f"{rest:04d}" * bool(rest)
+        reading = read_number(text)
+        if isinstance(reading, Recognised):
+            read += 1
+            if reading.value != number:
+                wrong.append(number)
+        elif not isinstance(reading, Unsure):
+            wrong.append(number)
+
+    assert wrong == []
+    assert read > 100
+
+
+def test_whole_number_written_with_thousands_commas_is_read_back_as_itself() -> None:
+    misread = [
+        number
+        for number in spread_of_whole_numbers()
+        if read_number(f"{number:,}") != Recognised(Decimal(number))
+    ]
+
+    assert misread == []
