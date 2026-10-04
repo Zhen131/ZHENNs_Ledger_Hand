@@ -61,6 +61,23 @@ PRIVATE_LOG_IDS = [
     f"branch {glue('W20', '-68-evals')}",
 ]
 
+# The same identifiers with an underscore, or text in another script, right
+# beside them: a word-boundary test sees no boundary there.
+GLUED_PRIVATE_LOG_IDS = [
+    f"{LOG_FILE_STEM}_hand",
+    f"file_{LOG_FILE_STEM}",
+    f"notes_{LOG_FILE_STEM}_hand.md",
+    f"{glue('60', '_W20')}_overview",
+    f"review_{glue('61B-R', '_W20')}",
+    f"见{LOG_FILE_STEM}",
+    f"{LOG_FILE_STEM}的合同",
+    f"dir_{LOG_WEEK_FOLDER}",
+    f"{LOG_WEEK_FOLDER}_notes",
+    f"在{LOG_WEEK_FOLDER}里",
+    f"branch_{LOG_BRANCH}",
+    f"分支{LOG_BRANCH}",
+]
+
 TOOL_ATTRIBUTIONS = [
     f"written by {ASSISTANT}",
     ASSISTANT.lower(),
@@ -118,6 +135,34 @@ def test_local_absolute_path_is_reported(line: str) -> None:
 @pytest.mark.parametrize("line", PRIVATE_LOG_IDS)
 def test_private_log_identifier_is_reported(line: str) -> None:
     assert kinds(scan_text(Path("notes.md"), line)) == {Kind.PRIVATE_LOG_ID}
+
+
+@pytest.mark.parametrize("line", GLUED_PRIVATE_LOG_IDS)
+def test_private_log_identifier_glued_to_its_neighbour_is_reported(line: str) -> None:
+    (finding,) = scan_text(Path("notes.md"), line)
+
+    assert finding.kind is Kind.PRIVATE_LOG_ID
+
+
+def test_private_log_identifier_glued_inside_a_file_name_is_reported() -> None:
+    (finding,) = scan_text(Path("docs", f"{LOG_FILE_STEM}_hand.md"), "nothing wrong in here")
+
+    assert (finding.line, finding.kind) == (0, Kind.PRIVATE_LOG_ID)
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "report_2026_W40.csv",
+        "rows_100_wide",
+        "my_week1_2026",
+        "raw_w20-5-x",
+        f"a{LOG_FILE_STEM}",
+        f"{LOG_FILE_STEM}5",
+    ],
+)
+def test_text_that_only_resembles_a_glued_identifier_is_not_reported(line: str) -> None:
+    assert scan_text(Path("notes.md"), line) == []
 
 
 @pytest.mark.parametrize("line", TOOL_ATTRIBUTIONS)

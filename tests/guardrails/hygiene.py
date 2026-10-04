@@ -45,6 +45,17 @@ class NotAGitCheckoutError(RuntimeError):
     """There is no Git checkout here, so there is no list of files to scan."""
 
 
+# A word character that is neither an ASCII letter nor an ASCII digit: an
+# underscore, or a letter of another script. \b sees no boundary beside one,
+# so an identifier glued to such a character needs patterns of its own.
+_GLUE = r"[^\WA-Za-z0-9]"
+
+
+def _glued(shape: str) -> str:
+    """``shape`` with a glue character directly before it or directly after it."""
+    return rf"(?:(?<={_GLUE}){shape}(?![A-Za-z0-9])|(?<!\w){shape}(?={_GLUE}))"
+
+
 _PATTERNS: tuple[tuple[Kind, re.Pattern[str]], ...] = (
     # Home directories on macOS, Linux and Windows.
     (Kind.LOCAL_PATH, re.compile(r"/Users[/]")),
@@ -54,6 +65,13 @@ _PATTERNS: tuple[tuple[Kind, re.Pattern[str]], ...] = (
     (Kind.PRIVATE_LOG_ID, re.compile(r"\b\d{2,3}[A-Z]?(?:-[A-Z])?_W\d{1,2}\b", re.IGNORECASE)),
     (Kind.PRIVATE_LOG_ID, re.compile(r"\bweek\d{1,2}_\d{6}\b", re.IGNORECASE)),
     (Kind.PRIVATE_LOG_ID, re.compile(r"\bw\d{2}-\d{2}-[a-z]", re.IGNORECASE)),
+    # The same three shapes glued to an underscore or to text in another script.
+    (
+        Kind.PRIVATE_LOG_ID,
+        re.compile(_glued(r"\d{2,3}[A-Z]?(?:-[A-Z])?_W\d{1,2}"), re.IGNORECASE),
+    ),
+    (Kind.PRIVATE_LOG_ID, re.compile(_glued(r"week\d{1,2}_\d{6}"), re.IGNORECASE)),
+    (Kind.PRIVATE_LOG_ID, re.compile(rf"(?<={_GLUE})w\d{{2}}-\d{{2}}-[a-z]", re.IGNORECASE)),
     # Assistant and vendor names, and the trailers such tools append.
     (Kind.TOOL_ATTRIBUTION, re.compile(r"Cl[a]ude", re.IGNORECASE)),
     (Kind.TOOL_ATTRIBUTION, re.compile(r"Anthr[o]pic", re.IGNORECASE)),
