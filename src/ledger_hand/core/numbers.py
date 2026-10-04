@@ -44,7 +44,8 @@ whole.
      "times"), or for a smaller unit of money or of a coin ("cents", "sats",
      "mBTC", "gwei"), in the singular or the plural;
    - it is a single letter other than "u": single letters are how
-     multipliers and small units are abbreviated;
+     multipliers and small units are abbreviated; or it is nothing but the
+     letters this program applies as multipliers ("kkk");
    - it ends in a word for a smaller unit, whatever stands in front of it
      ("ksats", "millisats", "mwei");
    - it comes apart into a currency word or a coin this program knows with
@@ -218,13 +219,13 @@ _NUMBER_WORDS = frozenset(
     "零〇一二三四五六七八九十百千万亿"
     # the places after 亿
     "兆京垓秭穰沟涧正载极"
-    # two, a pair, three of something, twenty, thirty, forty, the spoken
-    # "one", and the decimal point
-    "两俩仨廿卅卌幺点"
+    # two, a pair, three of something, twenty, thirty, forty, two hundred,
+    # the spoken "one", and the decimal point
+    "两俩仨廿卅卌皕幺点"
     # the formal forms used on cheques and contracts, and their old variants
-    "壹贰叁肆伍陆柒捌玖拾佰仟陌阡壱弐"
+    "壹贰叁肆伍陆柒捌玖拾佰仟陌阡弌弍弎壱弐"
     # the traditional forms of all of the above
-    "萬億兩倆貳參叄陸溝澗載極點幾"
+    "萬億兩倆貳參叄参陸溝澗載極點幾"
 )
 
 # Multipliers, as powers of ten. A letter counts only directly after the last
@@ -264,7 +265,7 @@ _LONG_MAGNITUDE_WORD = 6
 # normally given in. Taking one for a plain unit would hand back a number that
 # is ten times, or a hundred million times, too large. Words are listed in the
 # singular, or in a plural that is not made with -s.
-_SMALLER_UNITS_SAID = ("毛", "角", "分", "厘", "毫", "仙", "聪", "便士")
+_SMALLER_UNITS_SAID = ("毛", "角", "分", "厘", "釐", "毫", "仙", "聪", "聰", "便士")
 _SMALLER_UNIT_WORDS = frozenset(
     {"cent", "penny", "pennies", "pence", "centavo", "centime", "kopek", "fillér", "paisa"}
     | {"sat", "satoshi", "bit", "mbtc", "ubtc", "\N{GREEK SMALL LETTER MU}btc"}
@@ -273,10 +274,10 @@ _SMALLER_UNIT_WORDS = frozenset(
 )
 # A dozen and a pair as they are said in Chinese, and the letter W as it is
 # sometimes spelled out.
-_MAGNITUDES_SAID = ("打", "双", "对", "达不溜")
+_MAGNITUDES_SAID = ("打", "双", "雙", "对", "對", "达不溜", "達不溜")
 # Tenths, multiples and discounts as they are said in Chinese. 成交 only shares
 # a character with them: it means a deal was done.
-_SHARES_SAID = ("成", "倍", "折", "层")
+_SHARES_SAID = ("成", "倍", "折", "层", "層")
 _A_DEAL_DONE = "成交"
 # Words that make the number a fraction or a multiple of something.
 _SHARE_WORDS = frozenset(
@@ -624,7 +625,9 @@ def _word_doubt(word: str) -> Doubt | None:
     The piece is judged by what it can be taken apart into, not by whether it
     is on a list as a whole.
     """
-    if len(word) == 1 and word != "u":
+    if (len(word) == 1 and word != "u") or _LETTER_MULTIPLIERS.keys() >= set(word):
+        # A single letter, or nothing but the letters this program applies as
+        # multipliers ("kkk").
         return Doubt.UNCLEAR_MULTIPLIER
     kind = _kind(word)
     if kind is not None:

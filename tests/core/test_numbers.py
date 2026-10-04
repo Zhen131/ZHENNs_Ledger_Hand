@@ -1475,6 +1475,28 @@ def test_word_that_changes_the_number_is_seen_wherever_it_stands_in_a_unit(
     assert read_number(text) == Unsure(reason)
 
 
+@pytest.mark.parametrize(
+    ("text", "reason"),
+    [
+        # Nothing but the letters this program applies as multipliers.
+        ("5 kkk", Doubt.UNCLEAR_MULTIPLIER),
+        ("5 KKKK", Doubt.UNCLEAR_MULTIPLIER),
+        ("5 ww", Doubt.UNCLEAR_MULTIPLIER),
+        ("5 wk", Doubt.UNCLEAR_MULTIPLIER),
+        ("5个kkw", Doubt.UNCLEAR_MULTIPLIER),
+        # The traditional forms of the Chinese words listed.
+        ("3 達不溜", Doubt.UNCLEAR_MULTIPLIER),
+        ("3個雙", Doubt.UNCLEAR_MULTIPLIER),
+        ("3 對", Doubt.UNCLEAR_MULTIPLIER),
+        ("3層", Doubt.HALF_OR_SHARE),
+        ("100聰", Doubt.SMALLER_UNIT),
+        ("5釐", Doubt.SMALLER_UNIT),
+    ],
+)
+def test_further_forms_of_listed_words_are_seen_too(text: str, reason: Doubt) -> None:
+    assert read_number(text) == Unsure(reason)
+
+
 def test_a_deal_done_is_still_not_a_share() -> None:
     assert recognised("3个成交").unit == "个成交"
     assert recognised("8万 成交").unit == "成交"
@@ -1482,9 +1504,9 @@ def test_a_deal_done_is_still_not_a_share() -> None:
 
 NUMBER_CHARACTERS = (
     "零〇一二三四五六七八九十百千万亿兆京垓秭穰沟涧正载极"
-    "两俩仨廿卅卌半几幺点"
-    "壹贰叁肆伍陆柒捌玖拾佰仟陌阡"
-    "萬億兩倆貳參叄陸溝澗載極點幾壱弐"
+    "两俩仨廿卅卌皕半几幺点"
+    "壹贰叁肆伍陆柒捌玖拾佰仟陌阡弌弍弎"
+    "萬億兩倆貳參叄参陸溝澗載極點幾壱弐"
 )
 
 PLACES_FOR_A_NUMBER_CHARACTER = [
