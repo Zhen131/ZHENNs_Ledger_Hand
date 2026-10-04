@@ -491,6 +491,25 @@ def test_allowed_name_of_two_words_never_matches_because_a_block_is_one_word() -
     assert recognised_with("5 Bitcoin Cash", "Bitcoin", "Cash").unit == "Bitcoin Cash"
 
 
+@pytest.mark.parametrize(
+    ("text", "extra"),
+    [
+        ("3兆", "兆"),
+        ("3 京", "京"),
+        ("3萬", "萬"),
+        ("3个亿", "个亿"),
+        ("3个 亿", "亿"),
+        ("5 仨", "仨"),
+        ("5块五", "块五"),
+        ("0.5个 二饼", "二饼"),
+    ],
+)
+def test_word_holding_a_number_character_is_no_unit_even_when_the_caller_allows_it(
+    text: str, extra: str
+) -> None:
+    assert read_number(text, extra_units=[extra]) == NotANumber()
+
+
 def test_allowed_units_given_as_one_string_are_refused() -> None:
     with pytest.raises(TypeError, match="collection"):
         read_number("500 BONK", extra_units="BONK")
