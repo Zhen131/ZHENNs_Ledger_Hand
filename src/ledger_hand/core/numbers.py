@@ -34,15 +34,21 @@ and the answer is a ``Doubt``, never the number without that piece applied:
   out or shortened, in English, in pinyin or in another common form ("k",
   "w", "m", "million", "thousands", "mln", "wan", "lakh"), and 打, 双, 对
   for a dozen and a pair;
-- such a letter or word glued to the front of a currency word or a coin this
-  program knows ("wu", "kusdt", "musd"), and a long magnitude word at the
-  front of anything ("millionen");
+- such a letter or word glued to the front or the back of a currency word or
+  a coin this program knows ("wu", "kusdt", "musd", "USDTk"), and a long
+  magnitude word at the front or the back of anything ("millionen"). Glued
+  to a word this program does not know, a short one cannot be told from
+  part of a name, and the unit is handed back whole;
 - any single letter other than "u": single letters are how multipliers and
   small units are abbreviated, and nothing here can tell which one is meant;
 - a smaller unit of money (毛, 角, 分, 厘, 聪, cents, pence, sats, gwei and
   the like): "5毛" is half a yuan, not five. An amount that runs on past its
   unit ("三块五") is the same case;
-- a word for a fraction or a multiple ("tenths", "bps", "times").
+- a word for a fraction or a multiple ("tenths", "bps", "times", 成, 倍).
+
+A word for a smaller unit, a fraction or a multiple counts wherever it stands
+by itself in the text, and when it is glued to a currency word or a known
+coin ("BTCsats").
 
 The lists of such words are tables that can grow. What they do not hold is
 handed back as part of the unit, which is why whoever receives a unit must
@@ -220,8 +226,8 @@ _MAGNITUDE_WORDS = frozenset(
     | {"ezer", "millió", "millio", "milliárd", "mille", "mila", "тыс", "млн", "млрд"}
     | {"millon", "millón", "tausend"}
 )
-# A magnitude word at least this long at the front of a longer word still says
-# what the word is about: "millionen", "thousandish".
+# A magnitude word at least this long at the front or the back of a longer word
+# still says what the word is about: "millionen", "thousandish".
 _LONG_MAGNITUDE_WORD = 6
 
 # Units of money, and of coins, that are a fraction of the unit an amount is
@@ -238,6 +244,10 @@ _SMALLER_UNIT_WORDS = frozenset(
 # the letter W as it is sometimes spelled out, anywhere in one.
 _COUNTED_IN_SETS = ("打", "双", "对")
 _W_SPELLED_OUT = "达不溜"
+# Tenths, multiples and discounts as they are said in Chinese. 成交 only starts
+# with the same character: it means a deal was done.
+_SHARES_SAID = ("成", "倍", "折", "层")
+_A_DEAL_DONE = "成交"
 # Words that make the number a fraction or a multiple of something.
 _SHARE_WORDS = frozenset(
     {"half", "halves", "quarter", "third", "tenth", "hundredth", "thousandth", "millionth"}
@@ -308,7 +318,7 @@ _WORDING_HINTS: tuple[tuple[Doubt, re.Pattern[str]], ...] = (
     (
         Doubt.HALF_OR_SHARE,
         re.compile(
-            rf"半|[%‰]|分之|部分|[{_IN_NUMBER}]\s*[成倍折层](?!交)|[0-9]\s*/\s*[0-9]"
+            rf"半|[%‰]|分之|部分|[{_IN_NUMBER}]\s*(?:{'|'.join(_SHARES_SAID)})(?!交)|[0-9]\s*/\s*[0-9]"
             rf"|(?<![{_LATIN}])(?:{'|'.join(sorted(_SHARE_WORDS))})s?(?![{_LATIN}])",
             re.IGNORECASE,
         ),
@@ -517,34 +527,57 @@ def _script(character: str) -> _Script | None:
 
 def _word_doubt(word: str) -> Doubt | None:
     """Why a piece written in letters that have capitals is not part of a plain unit."""
-    forms = {word, word.removesuffix("s")}
-    if not forms.isdisjoint(_MAGNITUDE_WORDS) or (len(word) == 1 and word != "u"):
+    forms = (word, word.removesuffix("s"))
+    if not _MAGNITUDE_WORDS.isdisjoint(forms) or (len(word) == 1 and word != "u"):
         return Doubt.UNCLEAR_MULTIPLIER
-    if _has_a_magnitude_glued_on(word):
-        return Doubt.UNCLEAR_MULTIPLIER
+    if any(map(_names_money_or_a_coin, forms)):
+        # "usdt" is a word of its own, not "usd" with a t for a trillion.
+        return None
+    for form in forms:
+        if _has_a_magnitude_glued_on(form):
+            return Doubt.UNCLEAR_MULTIPLIER
+        if _is_glued_to_a_unit(form, _SMALLER_UNIT_WORDS):
+            return Doubt.SMALLER_UNIT
+        if _is_glued_to_a_unit(form, _SHARE_WORDS):
+            return Doubt.HALF_OR_SHARE
     return None
 
 
-def _has_a_magnitude_glued_on(word: str) -> bool:
-    """Whether ``word`` starts with a magnitude that changes the number.
+def _names_money_or_a_coin(word: str) -> bool:
+    return means_usdt(word) or BUILT_IN_TABLE.find(word) is not None
 
-    That is a magnitude letter or word glued to the front of a currency word
-    or a coin ("wu" after a gap is ten thousand u as readily as "3wu" is), or
-    a long magnitude word at the front of anything.
+
+def _has_a_magnitude_glued_on(word: str) -> bool:
+    """Whether ``word`` has a magnitude at its front or back that changes the number.
+
+    That is a magnitude letter or word glued to a currency word or a coin
+    ("wu" after a gap is ten thousand u as readily as "3wu" is), or a long
+    magnitude word at the front or the back of anything.
     """
     for magnitude in _MAGNITUDE_WORDS:
-        rest = word.removeprefix(magnitude)
-        if rest == word:
-            continue
-        if len(magnitude) >= _LONG_MAGNITUDE_WORD or means_usdt(rest):
+        is_long = len(magnitude) >= _LONG_MAGNITUDE_WORD
+        if is_long and (word.startswith(magnitude) or word.endswith(magnitude)):
             return True
-        # In front of a coin, a single letter this program does not itself
-        # apply as a multiplier is as likely part of the name of another
-        # coin ("mSOL", "tBTC"), and such a unit is handed back whole.
+        # Next to a coin, a single letter this program does not itself apply
+        # as a multiplier is as likely part of the name of another coin
+        # ("mSOL", "tBTC"), and such a unit is handed back whole.
         applies = len(magnitude) > 1 or magnitude in _LETTER_MULTIPLIERS
-        if applies and BUILT_IN_TABLE.find(rest) is not None:
-            return True
+        for rest in (word.removeprefix(magnitude), word.removesuffix(magnitude)):
+            if rest == word:
+                continue
+            if means_usdt(rest) or (applies and BUILT_IN_TABLE.find(rest) is not None):
+                return True
     return False
+
+
+def _is_glued_to_a_unit(word: str, parts: frozenset[str]) -> bool:
+    """Whether ``word`` is one of ``parts``, or its plural, glued to a currency word or a coin."""
+    return any(
+        rest != word and _names_money_or_a_coin(rest)
+        for part in parts
+        for form in (part, part + "s")
+        for rest in (word.removeprefix(form), word.removesuffix(form))
+    )
 
 
 def _character_doubt(piece: str) -> Doubt | None:
@@ -553,6 +586,8 @@ def _character_doubt(piece: str) -> Doubt | None:
         return Doubt.SMALLER_UNIT
     if piece.startswith(_COUNTED_IN_SETS) or _W_SPELLED_OUT in piece:
         return Doubt.UNCLEAR_MULTIPLIER
+    if piece.startswith(_SHARES_SAID) and not piece.startswith(_A_DEAL_DONE):
+        return Doubt.HALF_OR_SHARE
     return None
 
 

@@ -1035,12 +1035,15 @@ def test_multiplier_letter_inside_a_unit_is_never_handed_back_as_a_unit(text: st
         "3 tausend",
         "3个达不溜",
         "3 达不溜",
-        # A long magnitude word at the front of a longer word.
+        # A long magnitude word at the front or the back of a longer word.
         "3 millionen",
         "3 milliarden",
         "3 thousandish",
         "3 milliontokens",
         "3 hundredfold",
+        "3 dogethousand",
+        "3 pepemillions",
+        "3个XYZmillion",
         # A magnitude letter or word glued to the front of a currency word.
         "3 mu",
         "3 mU",
@@ -1055,6 +1058,18 @@ def test_multiplier_letter_inside_a_unit_is_never_handed_back_as_a_unit(text: st
         "5 kilobtc",
         "5 megaeth",
         "2 kdoge",
+        # The same glued to the back.
+        "3 Uk",
+        "3 uw",
+        "3 USDTk",
+        "3 usdtw",
+        "3 usdm",
+        "3 USDTwan",
+        "3 btck",
+        "3 BTCmln",
+        "3 BTCthousand",
+        "3 BTCthousands",
+        "3个Uk",
         # With more around it than one unit.
         "$5 mln",
         "5 mln usdt in cash",
@@ -1143,6 +1158,14 @@ def test_amount_in_a_smaller_unit_of_money_is_never_handed_back_as_that_many_who
         "5 centavos",
         "5 centimes",
         "5 kopeks",
+        # Glued to a currency word or a coin.
+        "5 centBTC",
+        "5 BTCcent",
+        "5 BTCcents",
+        "5 satsBTC",
+        "5 BTCsats",
+        "5 Ucents",
+        "5个BTCsats",
     ],
 )
 def test_small_units_of_other_money_and_of_coins_are_doubted_too(text: str) -> None:
@@ -1177,6 +1200,14 @@ def test_dozen_or_pair_said_in_chinese_is_a_multiplier_too(text: str) -> None:
         "5 bps",
         "5bps",
         "25 bips",
+        # Behind a unit, or glued to one.
+        "3 BTC倍",
+        "3 U成",
+        "3 U 成",
+        "3 USDT折",
+        "3 USDTpct",
+        "3 pctUSDT",
+        "3 btcbps",
     ],
 )
 def test_word_for_a_fraction_or_a_multiple_is_never_handed_back_as_a_unit(text: str) -> None:
@@ -1201,6 +1232,12 @@ def test_word_for_a_fraction_or_a_multiple_is_never_handed_back_as_a_unit(text: 
         ("5 tether", "5", "tether"),
         ("5 milk", "5", "milk"),
         ("5 gigachad", "5", "gigachad"),
+        ("3 bitcoin", "3", "bitcoin"),
+        ("3 bitcoins", "3", "bitcoins"),
+        ("3 btcs", "3", "btcs"),
+        ("3 usdc", "3", "usdc"),
+        ("3 USDT", "3", "USDT"),
+        ("3 kg", "3", "kg"),
         ("5 millennium", "5", "millennium"),
         ("3 gas", "3", "gas"),
         ("2 tokens", "2", "tokens"),
