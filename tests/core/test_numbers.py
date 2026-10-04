@@ -2245,6 +2245,8 @@ def test_common_words_put_together_never_leave_the_bare_number_in_any_place_or_c
         ("5 btcmk", Doubt.UNCLEAR_MULTIPLIER),
         ("5 millikbtc", Doubt.UNCLEAR_MULTIPLIER),
         ("100 satskm", Doubt.SMALLER_UNIT),
+        ("$3 times", Doubt.HALF_OR_SHARE),
+        ("5 tenths of one btc", Doubt.HALF_OR_SHARE),
         ("5 kusdts", Doubt.UNCLEAR_MULTIPLIER),
         ("5 kbtcs", Doubt.UNCLEAR_MULTIPLIER),
         ("5 pico", Doubt.HALF_OR_SHARE),
