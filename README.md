@@ -14,11 +14,23 @@ only hands over a file.
 
 ## Where it stands
 
-**Skeleton only.** The repository has its Python environment, one command
-that runs every check, and two guardrails that keep the code base in shape
-(the layering check and the hygiene scan). There is no product code yet:
-`src/ledger_hand/core/` is an empty package whose rules are written down and
-already enforced.
+**The rules of one trade.** `src/ledger_hand/core/` knows what a trade looks
+like and which rules it has to keep. Hand it a draft, the coin table and the
+current moment, and `check_draft` returns either a finished record or two
+lists: what is still missing, and what breaks a rule. A draft that names two
+of quantity, price and total gets the third calculated; an unknown coin has
+to be confirmed first; the fee has to be stated even when it is zero; nothing
+dated in the future is accepted. The limits of the ledger (digits, lengths,
+tolerance) are copied into one file and applied the way the ledger applies
+them.
+
+All of this is pure computation. There is no language model, no storage and
+no interface yet, and spoken numbers and times ("23k", "last Friday 3pm") are
+not converted yet: a draft already holds exact decimals and a definite time.
+
+The repository also has its Python environment, one command that runs every
+check, and two guardrails that keep the code base in shape (the layering
+check and the hygiene scan).
 
 ## What is where
 
@@ -26,9 +38,9 @@ already enforced.
 | --- | --- |
 | `pyproject.toml` | Package metadata and the configuration of every tool (pytest, ruff, mypy). |
 | `requirements.txt` | Exact versions of the development tools, so the environment can be rebuilt identically. |
-| `src/ledger_hand/` | The package. Today it holds only its version and the empty `core/`. |
-| `src/ledger_hand/core/` | Core rules: pure computation, no network, files, database, user interface or clock. |
-| `tests/` | The tests. |
+| `src/ledger_hand/` | The package. Today it holds its version and `core/`. |
+| `src/ledger_hand/core/` | Core rules: pure computation, no network, files, database, user interface or clock. Holds the shapes of a trade (`trade.py`), the coin table (`coins.py`), the ledger's limits (`ledger_limits.py`) and the check of a draft (`validation.py`). |
+| `tests/` | The tests. `tests/core/` has one test module per core module. |
 | `tests/guardrails/` | The layering check and the hygiene scan, the tests that prove they catch what they should, and the two gate tests that apply them to this repository. |
 | `scripts/check.sh` | One command that runs all checks. |
 | `docs/architecture.md` | How the layers are divided, who may import whom, the house rules, and where new features go. |

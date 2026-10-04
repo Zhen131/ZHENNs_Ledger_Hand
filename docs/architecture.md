@@ -28,12 +28,13 @@ docs/                     documentation                                         
 scripts/                  the check script; later, other scripts outside the package  (exists)
 data/                     run-time output and the local database; never in Git
 src/ledger_hand/
-    core/                 core rules: no network, database or user interface          (exists, empty)
-        trade.py              what one trade looks like; drafts may have blanks
-        coins.py              a small table of common coins
+    core/                 core rules: no network, database or user interface          (exists)
+        ledger_limits.py      the ledger's limits, and its way of measuring them      (exists)
+        trade.py              what one trade looks like; drafts may have blanks       (exists)
+        coins.py              a small table of common coins                           (exists)
         numbers.py            number phrases to exact decimals
         timeparse.py          time phrases to exact moments ("now" is passed in)
-        validation.py         validation; which fields are still missing
+        validation.py         validation; which fields are still missing              (exists)
         followup.py           what to ask when something is missing
     ports.py              the two ports: model and storage
     extraction/           a passage of text to drafts
