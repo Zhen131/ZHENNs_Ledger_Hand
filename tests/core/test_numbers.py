@@ -5,9 +5,18 @@ Every amount here is invented. Each kind of wording has a section of its own.
 
 from __future__ import annotations
 
+from decimal import Decimal
+
 import pytest
 
-from ledger_hand.core.numbers import NotANumber, Recognised, read_number
+from ledger_hand.core.numbers import (
+    Caution,
+    Doubt,
+    NotANumber,
+    Recognised,
+    Unsure,
+    read_number,
+)
 
 
 def recognised(text: str) -> Recognised:
@@ -40,7 +49,10 @@ def written(text: str) -> str:
     ],
 )
 def test_ordinary_number_is_read_exactly_as_written(text: str) -> None:
-    assert written(text) == text
+    reading = recognised(text)
+
+    assert format(reading.value, "f") == text
+    assert reading.cautions == ()
 
 
 @pytest.mark.parametrize(
@@ -55,6 +67,93 @@ def test_ordinary_number_is_read_exactly_as_written(text: str) -> None:
 )
 def test_whitespace_around_a_number_is_ignored(text: str) -> None:
     assert written(text) == "94900"
+
+
+# --- commas between groups of three digits ----------------------------------
+
+
+@pytest.mark.parametrize(
+    ("text", "value"),
+    [
+        ("94,900", "94900"),
+        ("1,234,567.89", "1234567.89"),
+        ("1,000", "1000"),
+        ("12,345", "12345"),
+        ("999,999", "999999"),
+        ("1,000,000,000", "1000000000"),
+        ("1,234.5", "1234.5"),
+        ("1,234.567", "1234.567"),
+        ("100,000.00", "100000.00"),
+    ],
+)
+def test_commas_between_groups_of_three_digits_are_dropped(text: str, value: str) -> None:
+    reading = recognised(text)
+
+    assert format(reading.value, "f") == value
+    assert reading.cautions == ()
+
+
+# --- separators that can be read more than one way --------------------------
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "1,5",
+        "1.234.567",
+        "94.900,50",
+        "0,5",
+        "0,500",
+        "1,23",
+        "1,2345",
+        "1234,567",
+        "12,34,567",
+        "1,234,56",
+        "1.234,567",
+        "1,,234",
+        "1,234.567.8",
+        "94 900",
+        "1 234 567",
+        "94\N{NARROW NO-BREAK SPACE}900",
+        "94, 900",
+        "0.5 0.6",
+    ],
+)
+def test_separators_with_more_than_one_reading_are_not_guessed(text: str) -> None:
+    assert read_number(text) == Unsure(Doubt.AMBIGUOUS_SEPARATOR)
+
+
+# --- a point that may have been meant to group thousands --------------------
+
+
+@pytest.mark.parametrize(
+    ("text", "value"),
+    [
+        ("94.900", "94.900"),
+        ("1.234", "1.234"),
+        ("999.999", "999.999"),
+        ("100.000", "100.000"),
+        ("1.500", "1.500"),
+    ],
+)
+def test_point_before_exactly_three_digits_is_read_as_decimal_with_a_caution(
+    text: str, value: str
+) -> None:
+    reading = recognised(text)
+
+    assert format(reading.value, "f") == value
+    assert reading.cautions == (Caution.POINT_MAY_BE_THOUSANDS_SEPARATOR,)
+
+
+def test_the_decimal_reading_of_such_a_point_is_the_smaller_number() -> None:
+    assert recognised("94.900").value == Decimal("94.9")
+
+
+@pytest.mark.parametrize(
+    "text", ["0.900", "0.123", "1234.567", "94.90", "94.9000", "94900.123", "1,234.567"]
+)
+def test_point_that_cannot_be_grouping_thousands_carries_no_caution(text: str) -> None:
+    assert recognised(text).cautions == ()
 
 
 # --- what is not a number ---------------------------------------------------
@@ -86,6 +185,7 @@ def test_whitespace_around_a_number_is_ignored(text: str) -> None:
         "BTC",
         "007",
         "00.5",
+        "01,234",
         "0x10",
         ".5",
         "5.",
