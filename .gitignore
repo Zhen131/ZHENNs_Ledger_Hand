@@ -1,0 +1,18 @@
+# Local Python environment
+.venv/
+
+# Run-time output, caches and the local database; never committed
+data/
+
+# Tool caches and build leftovers
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+*.egg-info/
+build/
+dist/
+
+# macOS
+.DS_Store

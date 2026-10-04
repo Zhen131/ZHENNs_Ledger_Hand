@@ -1,0 +1,62 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ledger_hand"
+dynamic = ["version"]
+description = "Turns plain-language trade notes into reviewed entries for a local trading ledger."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = []
+
+[project.optional-dependencies]
+# Exact versions are pinned in requirements.txt; these are only lower bounds.
+dev = [
+    "mypy>=2.4",
+    "pytest>=9.1",
+    "ruff>=0.16",
+]
+
+[tool.setuptools.dynamic]
+version = { attr = "ledger_hand.__version__" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = ["-ra", "--strict-markers", "--strict-config"]
+xfail_strict = true
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+src = ["src", "."]
+
+[tool.ruff.lint]
+select = [
+    "E",       # pycodestyle errors
+    "W",       # pycodestyle warnings
+    "F",       # pyflakes: undefined names, unused imports and variables
+    "I",       # import order
+    "N",       # naming
+    "B",       # bugbear: common pitfalls
+    "SIM",     # constructs that can be written more simply
+    "FBT",     # boolean flag parameters
+    "C901",    # too many branches in one function
+    "PLR0915", # too many statements in one function
+]
+
+[tool.ruff.lint.pylint]
+# "A function fits on one screen": ruff counts statements, not lines.
+max-statements = 30
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+# Only the core is type-checked; the ports file joins this list when it exists.
+files = ["src/ledger_hand/core"]
