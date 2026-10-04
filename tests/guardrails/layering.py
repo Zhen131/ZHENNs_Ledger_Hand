@@ -2,8 +2,9 @@
 
 Given the directory of a package, reads every Python file in it and reports
 each import the layering table below does not allow. For ``core/`` it also
-reports reads of the clock or of the machine's time zone, builtins that reach
-outside the program, and floating-point numbers.
+reports reads of the clock or of the machine's time zone, and builtins that
+reach outside the program.
+In ``core/`` it reports floating-point numbers as well.
 
 It only reads source text; it never imports or runs the package under check,
 and it judges nothing outside the directory it is given. Parts of the package
