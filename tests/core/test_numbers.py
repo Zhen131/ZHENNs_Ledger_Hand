@@ -52,6 +52,7 @@ def test_ordinary_number_is_read_exactly_as_written(text: str) -> None:
     reading = recognised(text)
 
     assert format(reading.value, "f") == text
+    assert reading.unit is None
     assert reading.cautions == ()
 
 
@@ -183,6 +184,91 @@ def test_full_width_separators_are_judged_like_ordinary_ones() -> None:
 @pytest.mark.parametrize("text", ["－５", "１ｅ５", "１＿０００", "ＮａＮ", "０。５", "００７"])
 def test_full_width_spelling_does_not_let_a_refused_form_through(text: str) -> None:
     assert read_number(text) == NotANumber()
+
+
+# --- units and currency words -----------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("text", "value", "unit"),
+    [
+        ("50美金", "50", "美金"),
+        ("0.5个", "0.5", "个"),
+        ("2 USDT", "2", "USDT"),
+        ("$50", "50", "$"),
+        ("50u", "50", "u"),
+        ("50U", "50", "U"),
+        ("0.02BTC", "0.02", "BTC"),
+        ("0.02 btc", "0.02", "btc"),
+        ("100 dollars", "100", "dollars"),
+        ("94,900刀", "94900", "刀"),
+        ("3个比特币", "3", "个比特币"),
+        ("50$", "50", "$"),
+        ("50 €", "50", "€"),
+        ("¥700", "700", "¥"),
+        ("£5", "5", "£"),
+        ("$ 50", "50", "$"),
+        (" 2  USDT ", "2", "USDT"),
+        ("50\N{IDEOGRAPHIC SPACE}美金", "50", "美金"),
+    ],
+)
+def test_unit_or_currency_word_is_split_off_and_handed_back(
+    text: str, value: str, unit: str
+) -> None:
+    reading = recognised(text)
+
+    assert format(reading.value, "f") == value
+    assert reading.unit == unit
+
+
+@pytest.mark.parametrize(
+    ("text", "unit"),
+    [("＄５０", "＄"), ("５０Ｕ", "Ｕ"), ("５０ｕｓｄｔ", "ｕｓｄｔ"), ("￥７００", "￥")],
+)
+def test_unit_is_handed_back_exactly_as_it_was_written(text: str, unit: str) -> None:
+    assert recognised(text).unit == unit
+
+
+def test_caution_survives_next_to_a_unit() -> None:
+    reading = recognised("94.900刀")
+
+    assert reading.unit == "刀"
+    assert reading.cautions == (Caution.POINT_MAY_BE_THOUSANDS_SEPARATOR,)
+
+
+def test_doubt_about_the_number_is_reported_whatever_its_unit() -> None:
+    assert read_number("1,5个") == Unsure(Doubt.AMBIGUOUS_SEPARATOR)
+    assert read_number("$1.234.567") == Unsure(Doubt.AMBIGUOUS_SEPARATOR)
+    assert read_number("50 1INCH") == Unsure(Doubt.AMBIGUOUS_SEPARATOR)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "$",
+        "USDT",
+        "个",
+        "$50u",
+        "$50 USDT",
+        "$$50",
+        "50$$",
+        "50 US dollars",
+        "50u5",
+        "50#",
+        "50_",
+        "50-",
+        "u50",
+        "美金50",
+    ],
+)
+def test_anything_beyond_one_number_and_one_unit_is_not_a_number(text: str) -> None:
+    assert read_number(text) == NotANumber()
+
+
+@pytest.mark.parametrize("text", ["3个亿", "0.5个二饼", "3仟", "5块3", "2佰", "3萬", "5点", "2俩"])
+def test_word_holding_a_number_word_is_never_taken_for_a_unit(text: str) -> None:
+    # Taking "个亿" for a unit would turn three hundred million into three.
+    assert not isinstance(read_number(text), Recognised)
 
 
 # --- what is not a number ---------------------------------------------------
