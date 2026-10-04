@@ -295,6 +295,13 @@ ONE_WORD_NAMES_OF_COINS = sorted(
     if " " not in form and form != "二饼"
 )
 
+NAMES_OF_SEVERAL_WORDS = sorted(
+    form
+    for coin in BUILT_IN_COINS
+    for form in (coin.symbol, coin.name, *coin.aliases)
+    if " " in form
+)
+
 COUNTERS = ["个", "個", "枚", "颗", "顆", "coin", "coins", "token", "tokens"]
 
 
@@ -314,6 +321,81 @@ def test_every_one_word_name_of_a_built_in_coin_is_a_unit_this_program_knows(nam
 
         assert reading.value == 5
         assert reading.unit == written_as
+
+
+def test_the_built_in_table_has_names_of_several_words() -> None:
+    assert "Bitcoin Cash" in NAMES_OF_SEVERAL_WORDS
+    assert len(NAMES_OF_SEVERAL_WORDS) >= 5
+
+
+@pytest.mark.parametrize("name", NAMES_OF_SEVERAL_WORDS)
+def test_every_name_of_several_words_of_a_built_in_coin_is_a_unit_as_a_whole(name: str) -> None:
+    for written_as in (name, name.lower(), name.upper()):
+        reading = recognised(f"5 {written_as}")
+
+        assert reading.value == 5
+        assert reading.unit == written_as
+
+
+@pytest.mark.parametrize(
+    ("text", "value", "unit"),
+    [
+        ("5 Bitcoin Cash", "5", "Bitcoin Cash"),
+        ("0.02 Ethereum Classic", "0.02", "Ethereum Classic"),
+        ("5 NEAR Protocol", "5", "NEAR Protocol"),
+        ("两万三 Shiba Inu", "23000", "Shiba Inu"),
+        ("1.2k Bitcoin Cash", "1200", "Bitcoin Cash"),
+        ("5Bitcoin Cash", "5", "Bitcoin Cash"),
+        ("5 Bitcoin  Cash", "5", "Bitcoin  Cash"),
+        (
+            "5 Ｂｉｔｃｏｉｎ\N{IDEOGRAPHIC SPACE}Ｃａｓｈ",
+            "5",
+            "Ｂｉｔｃｏｉｎ\N{IDEOGRAPHIC SPACE}Ｃａｓｈ",
+        ),
+    ],
+)
+def test_name_of_several_words_is_handed_back_whole_and_as_written(
+    text: str, value: str, unit: str
+) -> None:
+    reading = recognised(text)
+
+    assert format(reading.value, "f") == value
+    assert reading.unit == unit
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        # Only part of a name, or a name with something added.
+        "5 Cash",
+        "5 Inu",
+        "5 Classic",
+        "5 Protocol",
+        "5 Cash Bitcoin",
+        "5 Bitcoin Cashs",
+        "5 Bitcoin Cashk",
+        "5 kBitcoin Cash",
+        "5 Shiba Inus",
+        "5 Ethereum Classics",
+        "5 BitcoinCash",
+        "0.5个Bitcoin Cash",
+        "5 Bitcoin Cash个",
+        # A known word and a word that is not known.
+        "5 Bitcoin Gold",
+        "5 Bitcoin SV",
+        "5 Ethereum PoW",
+        "5 Bitcoin Foo",
+    ],
+)
+def test_part_of_a_name_or_a_known_word_with_an_unknown_one_is_not_a_known_unit(
+    text: str,
+) -> None:
+    assert read_number(text) == Unsure(Doubt.UNKNOWN_UNIT)
+
+
+@pytest.mark.parametrize("text", ["5 Bitcoin Cash coins", "5 个 Bitcoin Cash", "5 Shiba Inu USDT"])
+def test_name_of_several_words_with_a_further_word_is_not_a_number(text: str) -> None:
+    assert read_number(text) == NotANumber()
 
 
 @pytest.mark.parametrize("counter", COUNTERS)
@@ -371,11 +453,6 @@ def test_unit_made_of_known_blocks_is_handed_back_as_written(
         "5 kBONK",
         "5个币",
         "5 个 BONK",
-        # Two-word names of coins: each word is a block of its own.
-        "5 Bitcoin Cash",
-        "5 Shiba Inu",
-        "5 Ethereum Classic",
-        "5 NEAR Protocol",
         # Other money, and words that are not money at all.
         "50 €",
         "¥700",
@@ -579,11 +656,56 @@ def test_unit_allowed_for_one_call_is_not_remembered_for_the_next() -> None:
     assert read_number("500 BONK") == Unsure(Doubt.UNKNOWN_UNIT)
 
 
-def test_allowed_name_of_two_words_never_matches_because_a_block_is_one_word() -> None:
-    assert read_number("5 Bitcoin Cash", extra_units=("Bitcoin Cash",)) == Unsure(
-        Doubt.UNKNOWN_UNIT
-    )
-    assert recognised_with("5 Bitcoin Cash", "Bitcoin", "Cash").unit == "Bitcoin Cash"
+def test_allowed_name_of_several_words_is_a_unit_as_a_whole() -> None:
+    assert read_number("500 Baby Doge") == Unsure(Doubt.UNKNOWN_UNIT)
+
+    assert recognised_with("500 Baby Doge", "Baby Doge") == Recognised(Decimal("500"), "Baby Doge")
+    assert recognised_with("500 baby  doge", "BABY DOGE").unit == "baby  doge"
+    assert recognised_with("500Baby Doge", "Baby Doge").unit == "Baby Doge"
+    assert recognised_with("5k Baby Doge", "Baby Doge").value == 5000
+    assert recognised_with("500 Book of Meme", "Book of Meme").unit == "Book of Meme"
+    assert recognised_with("500 BONK币", "BONK币").unit == "BONK币"
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "500 Baby",
+        "500 Doge Baby",
+        "500 Baby Doges",
+        "500 kBaby Doge",
+        "500 BabyDoge",
+        "500 个Baby Doge",
+        "500 Book of",
+        "500 of Meme",
+    ],
+)
+def test_part_of_an_allowed_name_of_several_words_is_not_a_unit(text: str) -> None:
+    extra_units = ["Baby Doge", "Book of Meme"]
+
+    assert read_number(text, extra_units=extra_units) == Unsure(Doubt.UNKNOWN_UNIT)
+
+
+@pytest.mark.parametrize(
+    "text",
+    ["500 Baby Doge coins", "500 个 Baby Doge", "500 Book of Memes", "500 Book of Meme coin"],
+)
+def test_more_than_two_words_that_are_not_one_allowed_name_are_not_a_number(text: str) -> None:
+    extra_units = ["Baby Doge", "Book of Meme"]
+
+    assert read_number(text, extra_units=extra_units) == NotANumber()
+
+
+def test_allowed_name_that_starts_like_a_multiplier_is_read_when_nothing_else_fits() -> None:
+    assert read_number("5Wrapped Bitcoin") == Unsure(Doubt.UNCLEAR_MULTIPLIER)
+
+    allowed = recognised_with("5Wrapped Bitcoin", "Wrapped Bitcoin")
+
+    assert allowed == Recognised(Decimal("5"), "Wrapped Bitcoin")
+    # With "rapped Bitcoin" allowed as well, the w may be a multiplier.
+    assert read_number(
+        "5Wrapped Bitcoin", extra_units=["Wrapped Bitcoin", "rapped Bitcoin"]
+    ) == Unsure(Doubt.UNCLEAR_MULTIPLIER)
 
 
 @pytest.mark.parametrize(
@@ -597,6 +719,8 @@ def test_allowed_name_of_two_words_never_matches_because_a_block_is_one_word() -
         ("5 仨", "仨"),
         ("5块五", "块五"),
         ("0.5个 二饼", "二饼"),
+        ("5 Baby 兆", "Baby 兆"),
+        ("5 two 萬 coins", "two 萬 coins"),
     ],
 )
 def test_word_holding_a_number_character_is_no_unit_even_when_the_caller_allows_it(
@@ -700,6 +824,8 @@ KNOWN_WORDS_FOR_RANDOM_TEXTS = [
     "颗",
     "coins",
     "Token",
+    "Bitcoin Cash",
+    "shiba inu",
 ]
 UNKNOWN_WORDS_FOR_RANDOM_TEXTS = [
     "k",
@@ -754,19 +880,26 @@ UNKNOWN_WORDS_FOR_RANDOM_TEXTS = [
     "kas",
     "手",
     "张",
+    "Cash",
+    "Inu",
+    "Baby",
+    "们",
 ]
-WORDS_A_CALLER_MAY_ALLOW = ["BONK", "wif", "KAS", "手", "张"]
+WORDS_A_CALLER_MAY_ALLOW = ["BONK", "wif", "KAS", "手", "张", "Baby Doge"]
 GAPS_FOR_RANDOM_TEXTS = ["", "", " ", "\N{IDEOGRAPHIC SPACE}"]
 
 
 def blocks_outside(unit: str, allowed: frozenset[str]) -> list[str]:
     """The blocks of ``unit`` that are neither known to this program nor in ``allowed``.
 
-    A block of Chinese characters is also inside when it is known words one
-    after another. That is asked of a pattern made of those words, not of the
-    way the module under test cuts such a block.
+    There are none when the whole unit is one known or allowed name. A block
+    of Chinese characters is also inside when it is known words one after
+    another. That is asked of a pattern made of those words, not of the way
+    the module under test cuts such a block.
     """
     known = EVERY_UNIT_WORD_THIS_PROGRAM_KNOWS | allowed
+    if " ".join(unicodedata.normalize("NFKC", unit).upper().split()) in known:
+        return []
     chinese_words = sorted(word for word in known if CHINESE_CHARACTERS.fullmatch(word))
     row_of_known_words = "(?:" + "|".join(map(re.escape, chinese_words)) + ")+"
     return [
@@ -792,6 +925,13 @@ def test_the_rule_used_to_judge_units_cuts_them_at_gaps_and_between_scripts() ->
     assert blocks_outside("个币 BTC", nothing) == ["个币"]
     assert blocks_outside("个邦克", frozenset({"邦克"})) == []
     assert blocks_outside("BTCUSDT", nothing) == ["BTCUSDT"]
+    assert blocks_outside("Bitcoin Cash", nothing) == []
+    assert blocks_outside("bitcoin  cash", nothing) == []
+    assert blocks_outside("Bitcoin Cashs", nothing) == ["Cashs"]
+    assert blocks_outside("Cash", nothing) == ["Cash"]
+    assert blocks_outside("Baby Doge", nothing) == ["Baby"]
+    assert blocks_outside("Baby Doge", frozenset({"BABY DOGE"})) == []
+    assert blocks_outside("Baby", frozenset({"BABY DOGE"})) == ["Baby"]
     assert blocks_outside("kBONK 个", frozenset({"BONK"})) == ["kBONK"]
     assert blocks_outside("BONK 个", frozenset({"BONK"})) == []
 

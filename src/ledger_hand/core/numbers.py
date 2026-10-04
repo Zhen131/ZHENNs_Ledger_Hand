@@ -37,6 +37,11 @@ these, letter case and character width aside:
 - a word the caller passes in for this one call (``extra_units``), such as the
   name of a coin outside the table.
 
+Before any cutting, the unit as a whole is looked up among the same names: a
+name of several words ("Bitcoin Cash", or one the caller allows) is known
+only as a whole. "5 Bitcoin Cash" is five of that coin; "5 Cash" and
+"5 Bitcoin Cashs" are not, because "Cash" alone is no known word.
+
 A unit with any other block in it is a ``Doubt``: an unknown unit. That is
 the whole rule, and it is why no list of words that change a number is kept
 here: "5 mBTC", "100 ksats", "3个w", "2 thousands" and "5 BTCks" are all
@@ -48,17 +53,19 @@ Two things are settled before the blocks are looked at. A word that holds a
 Chinese number character is never a unit, so "3兆" and "三块五" are not
 numbers with a unit: those characters are a closed set, listed once below.
 And what follows the number must have the shape of a unit at all: one
-currency sign, or at most two words of letters, no longer together than the
-longest coin symbol the ledger allows.
+currency sign, or words of letters no longer together than the longest coin
+symbol the ledger allows; more than two words only when together they are
+one known name.
 
 Written digits may be followed by a multiplier: the letter "k" (thousand) or
 "w" (ten thousand, from 万) directly after the last digit, or one of the words
 千, 万, 十万, 百万, 千万, 亿, 十亿, 百亿, 千亿, 万亿. The letter "m" is not
 read as a multiplier: it is a million to some and a thousandth (as in mBTC) to
-others. A multiplier is applied only where its place leaves no doubt: letters
-that go on after the "k" or the "w" are a unit only when they are one known
-word as a whole and are not a multiplier with a known word behind it. "50u"
-is fifty u; "1ku", which may be a thousand u, is a ``Doubt``.
+others. A multiplier is applied only where its place leaves no doubt: where
+letters go on after the "k" or the "w", what follows the digits is a unit
+only when it is a known unit as it stands and is not a multiplier with a
+known unit behind it. "50u" is fifty u; "1ku", which may be a thousand u, is
+a ``Doubt``.
 
 A number may be said in Chinese number words ("九万四千九", "零点五"). Two
 habits of speech are read:
@@ -458,50 +465,58 @@ def _tail(shape: re.Match[str], original: str, allowed: frozenset[str]) -> _Tail
     letters = shape["letters"].lower()
     power = _LETTER_MULTIPLIERS.get(letters, 0)
     if not power and letters[:1] in _LETTER_MULTIPLIERS:
-        # "5ku" may be five thousand u or five of a coin called ku. Only letters
-        # that are a known word as a whole, and are not a multiplier with a
-        # known word behind it, are a unit.
-        is_one_word = _is_known_word(letters, allowed)
-        is_multiplier_and_word = _is_known_word(letters[1:], allowed)
-        if is_multiplier_and_word or not is_one_word:
+        # "5ku" may be five thousand u or five of a coin called ku. What follows
+        # the digits is a unit only when it is a known unit as it stands, and
+        # is not a multiplier with a known unit behind it.
+        after_digits = shape.string[shape.start("letters") :].strip()
+        is_unit_as_it_stands = _is_known_unit(after_digits, allowed)
+        is_multiplier_and_unit = _is_known_unit(after_digits[1:].strip(), allowed)
+        if is_multiplier_and_unit or not is_unit_as_it_stands:
             return Doubt.UNCLEAR_MULTIPLIER
     start = shape.end("letters") if power else shape.start("letters")
     unit = shape.string[start:].strip()
     if not unit:
         return _Tail(power, unit=None)
-    if _is_unit(unit):
+    if _is_unit(unit, allowed):
         return _Tail(power, unit=original[start:].strip())
     return None
 
 
-def _is_unit(text: str) -> bool:
+def _is_unit(text: str, allowed: frozenset[str]) -> bool:
     """Whether ``text`` is a currency sign, or one or two short words of letters.
 
-    No word may hold a number word.
+    No word may hold a number word. More than two words are a unit only when
+    together they are one name this program knows or the caller allows.
     """
     if len(text) == 1 and text in _CURRENCY_SIGNS:
         return True
     words = text.split()
     letters = "".join(words)
-    return (
-        len(words) <= 2
-        and len(text) <= SYMBOL_MAX_LENGTH
-        and all(letter.isalpha() and letter not in _NUMBER_WORDS for letter in letters)
-    )
+    if len(text) > SYMBOL_MAX_LENGTH:
+        return False
+    if not all(letter.isalpha() and letter not in _NUMBER_WORDS for letter in letters):
+        return False
+    return len(words) <= 2 or _is_known_word(text, allowed)
 
 
 def _is_known_unit(unit: str, allowed: frozenset[str]) -> bool:
-    """Whether every block of ``unit`` is a unit word this program knows or the caller allows.
+    """Whether ``unit`` is one this program knows or the caller allows.
 
-    The blocks are what is left when the unit is cut at gaps, and wherever
+    It is when the whole of it is one known name, which may have several
+    words ("Bitcoin Cash"), or when every block of it is a known word. The
+    blocks are what is left when the unit is cut at gaps, and wherever
     letters that have capitals meet characters that have none. Chinese is
     written without gaps, so a block of characters without capitals also
     counts when it is known words one after another, from end to end.
     """
-    blocks = [(kind, "".join(run)) for kind, run in itertools.groupby(unit, key=_script) if kind]
-    if not blocks:
-        return _is_known_word(unit, allowed)
-    return all(
+    if _is_known_word(unit, allowed):
+        return True
+    blocks = [
+        (kind, "".join(run))
+        for word in unit.split()
+        for kind, run in itertools.groupby(word, key=_script)
+    ]
+    return bool(blocks) and all(
         _is_known_word(block, allowed)
         or (kind is _Script.UNCASED and _is_run_of_known_words(block, allowed))
         for kind, block in blocks
@@ -519,7 +534,10 @@ def _is_run_of_known_words(run: str, allowed: frozenset[str]) -> bool:
 
 
 def _is_known_word(text: str, allowed: frozenset[str]) -> bool:
-    """Whether ``text`` is a word for USDT, a name in the coin table, a counter or allowed."""
+    """Whether ``text`` is a word for USDT, a name in the coin table, a counter or allowed.
+
+    A name may have several words; the gaps between them may be of any width.
+    """
     word = spoken_key(text)
     if word in _COUNTERS or word in allowed or means_usdt(text):
         return True
