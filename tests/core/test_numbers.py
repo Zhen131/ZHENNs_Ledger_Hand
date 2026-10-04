@@ -369,7 +369,6 @@ def test_unit_made_of_known_blocks_is_handed_back_as_written(
         "5 BTCs",
         "5 USDTs",
         "5 kBONK",
-        "3个比特币",
         "5个币",
         "5 个 BONK",
         # Two-word names of coins: each word is a block of its own.
@@ -433,6 +432,102 @@ def test_unit_made_of_known_blocks_is_handed_back_as_written(
 )
 def test_unit_with_a_block_this_program_does_not_know_is_not_handed_back(text: str) -> None:
     assert read_number(text) == Unsure(Doubt.UNKNOWN_UNIT)
+
+
+# --- Chinese characters written without gaps --------------------------------
+
+
+@pytest.mark.parametrize(
+    ("text", "value", "unit"),
+    [
+        ("3个比特币", "3", "个比特币"),
+        ("0.5个以太坊", "0.5", "个以太坊"),
+        ("100个狗狗币", "100", "个狗狗币"),
+        ("两万三枚比特币", "23000", "枚比特币"),
+        ("3千个比特币", "3000", "个比特币"),
+        ("3 个比特币", "3", "个比特币"),
+        ("5个刀", "5", "个刀"),
+        ("5个美金", "5", "个美金"),
+        # 以太 is a name too, and so is 比特币: the longer names are found all the same.
+        ("3个以太币", "3", "个以太币"),
+        ("0.5个比特币现金", "0.5", "个比特币现金"),
+        ("0.5个比特现金", "0.5", "个比特现金"),
+        ("2颗大饼", "2", "颗大饼"),
+        ("0.5個以太坊", "0.5", "個以太坊"),
+        ("0.5个以太坊ETH", "0.5", "个以太坊ETH"),
+        ("2 BTC个比特币", "2", "BTC个比特币"),
+    ],
+)
+def test_run_of_chinese_characters_made_of_known_words_is_a_known_unit(
+    text: str, value: str, unit: str
+) -> None:
+    reading = recognised(text)
+
+    assert format(reading.value, "f") == value
+    assert reading.unit == unit
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        # A character is left over at the end, at the start or in the middle.
+        "3个比特",
+        "3个比特币们",
+        "3个比特币的",
+        "3们个比特币",
+        "3个的比特币",
+        "5个比特币现",
+        "3个以太坊币",
+        "3个币",
+        "3个比特币币",
+        # A known word next to one that would change the number.
+        "5个聪",
+        "5个毛",
+        "3个打比特币",
+        "3个比特币对",
+        "3双比特币",
+        "5个比特币手",
+        # Known words in letters are not put together the same way.
+        "5 BTCUSDT",
+        "5 个btcusdt",
+    ],
+)
+def test_run_of_chinese_characters_with_a_character_left_over_is_not_a_known_unit(
+    text: str,
+) -> None:
+    assert read_number(text) == Unsure(Doubt.UNKNOWN_UNIT)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "3个亿",
+        "3个万",
+        "3个千比特币",
+        "3个比特币万",
+        "3个兆比特币",
+        "3个比特币京",
+        "3个萬比特币",
+        "3个比特币两",
+        "3个比特币仨",
+        "0.5个二饼",
+    ],
+)
+def test_run_of_chinese_characters_holding_a_number_character_is_never_cut(text: str) -> None:
+    assert read_number(text) == NotANumber()
+
+
+def test_word_the_caller_allows_counts_in_a_run_of_chinese_characters() -> None:
+    assert read_number("500个邦克") == Unsure(Doubt.UNKNOWN_UNIT)
+    assert recognised_with("500个邦克", "邦克") == Recognised(Decimal("500"), "个邦克")
+    assert recognised_with("500枚邦克比特币", "邦克").unit == "枚邦克比特币"
+    assert read_number("500个邦克们", extra_units=["邦克"]) == Unsure(Doubt.UNKNOWN_UNIT)
+    assert read_number("500个邦", extra_units=["邦克"]) == Unsure(Doubt.UNKNOWN_UNIT)
+
+
+def test_long_run_of_one_known_word_after_another_is_read_without_delay() -> None:
+    assert recognised("5" + "个" * 32).unit == "个" * 32
+    assert read_number("5" + "个" * 31 + "们", extra_units=["个个"]) == Unsure(Doubt.UNKNOWN_UNIT)
 
 
 # --- units the caller allows for one call -----------------------------------
@@ -563,6 +658,7 @@ EVERY_UNIT_WORD_THIS_PROGRAM_KNOWS = frozenset(
     )
 )
 BLOCK_OF_A_UNIT = re.compile(r"[\u3400-\u9fff]+|[^\s\u3400-\u9fff]+")
+CHINESE_CHARACTERS = re.compile(r"[\u3400-\u9fff]+")
 
 NUMBERS_FOR_RANDOM_TEXTS = [
     "5",
@@ -664,13 +760,20 @@ GAPS_FOR_RANDOM_TEXTS = ["", "", " ", "\N{IDEOGRAPHIC SPACE}"]
 
 
 def blocks_outside(unit: str, allowed: frozenset[str]) -> list[str]:
-    """The blocks of ``unit`` that are neither known to this program nor in ``allowed``."""
-    blocks = BLOCK_OF_A_UNIT.findall(unit)
+    """The blocks of ``unit`` that are neither known to this program nor in ``allowed``.
+
+    A block of Chinese characters is also inside when it is known words one
+    after another. That is asked of a pattern made of those words, not of the
+    way the module under test cuts such a block.
+    """
+    known = EVERY_UNIT_WORD_THIS_PROGRAM_KNOWS | allowed
+    chinese_words = sorted(word for word in known if CHINESE_CHARACTERS.fullmatch(word))
+    row_of_known_words = "(?:" + "|".join(map(re.escape, chinese_words)) + ")+"
     return [
         block
-        for block in blocks
-        if unicodedata.normalize("NFKC", block).upper() not in EVERY_UNIT_WORD_THIS_PROGRAM_KNOWS
-        and unicodedata.normalize("NFKC", block).upper() not in allowed
+        for block in BLOCK_OF_A_UNIT.findall(unit)
+        if unicodedata.normalize("NFKC", block).upper() not in known
+        and not (CHINESE_CHARACTERS.fullmatch(block) and re.fullmatch(row_of_known_words, block))
     ]
 
 
@@ -682,7 +785,13 @@ def test_the_rule_used_to_judge_units_cuts_them_at_gaps_and_between_scripts() ->
     assert blocks_outside("＄", nothing) == []
     assert blocks_outside("个w刀", nothing) == ["w"]
     assert blocks_outside("BTCks", nothing) == ["BTCks"]
-    assert blocks_outside("个比特币", nothing) == ["个比特币"]
+    assert blocks_outside("个比特币", nothing) == []
+    assert blocks_outside("个比特币现金", nothing) == []
+    assert blocks_outside("个比特", nothing) == ["个比特"]
+    assert blocks_outside("个比特币们", nothing) == ["个比特币们"]
+    assert blocks_outside("个币 BTC", nothing) == ["个币"]
+    assert blocks_outside("个邦克", frozenset({"邦克"})) == []
+    assert blocks_outside("BTCUSDT", nothing) == ["BTCUSDT"]
     assert blocks_outside("kBONK 个", frozenset({"BONK"})) == ["kBONK"]
     assert blocks_outside("BONK 个", frozenset({"BONK"})) == []
 

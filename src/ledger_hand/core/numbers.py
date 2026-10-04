@@ -24,8 +24,11 @@ back exactly as it was written and is not interpreted here.
 
 Only a unit this program knows is handed back. The unit is cut into blocks at
 gaps, and wherever letters that have capitals meet characters that have none,
-so that "个BTC" is 个 and BTC. Every block must be one of these, letter case
-and character width aside:
+so that "个BTC" is 个 and BTC. Chinese is written without gaps, so a block of
+Chinese characters is cut once more, into known words that follow each other
+with no character left over: "个比特币" is 个 and 比特币, while "个比特" and
+"个币" cannot be cut that way and stay one block. Every block must be one of
+these, letter case and character width aside:
 
 - a word for USDT ("u", "刀", "美金", "$"): the list in ``coins``;
 - the symbol or a name of a coin in the coin table ("BTC", "比特币");
@@ -458,8 +461,8 @@ def _tail(shape: re.Match[str], original: str, allowed: frozenset[str]) -> _Tail
         # "5ku" may be five thousand u or five of a coin called ku. Only letters
         # that are a known word as a whole, and are not a multiplier with a
         # known word behind it, are a unit.
-        is_one_word = _is_known_block(letters, allowed)
-        is_multiplier_and_word = _is_known_block(letters[1:], allowed)
+        is_one_word = _is_known_word(letters, allowed)
+        is_multiplier_and_word = _is_known_word(letters[1:], allowed)
         if is_multiplier_and_word or not is_one_word:
             return Doubt.UNCLEAR_MULTIPLIER
     start = shape.end("letters") if power else shape.start("letters")
@@ -491,18 +494,36 @@ def _is_known_unit(unit: str, allowed: frozenset[str]) -> bool:
     """Whether every block of ``unit`` is a unit word this program knows or the caller allows.
 
     The blocks are what is left when the unit is cut at gaps, and wherever
-    letters that have capitals meet characters that have none.
+    letters that have capitals meet characters that have none. Chinese is
+    written without gaps, so a block of characters without capitals also
+    counts when it is known words one after another, from end to end.
     """
-    blocks = ["".join(run) for kind, run in itertools.groupby(unit, key=_script) if kind]
-    return all(_is_known_block(block, allowed) for block in blocks or [unit])
+    blocks = [(kind, "".join(run)) for kind, run in itertools.groupby(unit, key=_script) if kind]
+    if not blocks:
+        return _is_known_word(unit, allowed)
+    return all(
+        _is_known_word(block, allowed)
+        or (kind is _Script.UNCASED and _is_run_of_known_words(block, allowed))
+        for kind, block in blocks
+    )
 
 
-def _is_known_block(block: str, allowed: frozenset[str]) -> bool:
-    """Whether ``block`` is a word for USDT, a name in the coin table, a counter or allowed."""
-    word = spoken_key(block)
-    if word in _COUNTERS or word in allowed or means_usdt(block):
+def _is_run_of_known_words(run: str, allowed: frozenset[str]) -> bool:
+    """Whether ``run`` can be cut into known words with no character left over."""
+    # The places in the run that a row of known words, begun at its start, can end at.
+    ends = {0}
+    for end in range(1, len(run) + 1):
+        if any(_is_known_word(run[start:end], allowed) for start in ends):
+            ends.add(end)
+    return len(run) in ends
+
+
+def _is_known_word(text: str, allowed: frozenset[str]) -> bool:
+    """Whether ``text`` is a word for USDT, a name in the coin table, a counter or allowed."""
+    word = spoken_key(text)
+    if word in _COUNTERS or word in allowed or means_usdt(text):
         return True
-    return BUILT_IN_TABLE.find(block) is not None
+    return BUILT_IN_TABLE.find(text) is not None
 
 
 def _script(character: str) -> _Script | None:
