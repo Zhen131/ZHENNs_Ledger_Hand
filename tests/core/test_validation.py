@@ -790,9 +790,10 @@ def test_now_given_in_utc_works_the_same() -> None:
     assert violations(complete(occurred=at(12, 2)), now=now_utc) == (Violation.IN_THE_FUTURE,)
 
 
-def test_now_without_an_offset_is_a_mistake_by_the_caller() -> None:
+@pytest.mark.parametrize("draft", [complete(), complete(occurred=None), TradeDraft()])
+def test_now_without_an_offset_is_a_mistake_by_the_caller(draft: TradeDraft) -> None:
     with pytest.raises(ValueError, match="offset"):
-        check(complete(), now=datetime(2026, 10, 4, 12, 0))
+        check(draft, now=datetime(2026, 10, 4, 12, 0))
 
 
 # --- free text --------------------------------------------------------------
