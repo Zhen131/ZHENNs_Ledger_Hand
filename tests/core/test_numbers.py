@@ -1484,6 +1484,8 @@ def test_word_that_changes_the_number_is_seen_wherever_it_stands_in_a_unit(
         ("5 ww", Doubt.UNCLEAR_MULTIPLIER),
         ("5 wk", Doubt.UNCLEAR_MULTIPLIER),
         ("5个kkw", Doubt.UNCLEAR_MULTIPLIER),
+        ("$5 kk", Doubt.UNCLEAR_MULTIPLIER),
+        ("$5 kw", Doubt.UNCLEAR_MULTIPLIER),
         # The traditional forms of the Chinese words listed.
         ("3 達不溜", Doubt.UNCLEAR_MULTIPLIER),
         ("3個雙", Doubt.UNCLEAR_MULTIPLIER),
