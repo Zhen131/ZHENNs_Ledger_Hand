@@ -38,7 +38,9 @@ and the answer is a ``Doubt``, never the number without that piece applied:
   a coin this program knows ("wu", "kusdt", "musd", "USDTk"), and a long
   magnitude word at the front or the back of anything ("millionen"). Glued
   to a word this program does not know, a short one cannot be told from
-  part of a name, and the unit is handed back whole;
+  part of a name, and the unit is handed back whole. So is a coin with a
+  single letter other than "k" or "w" next to it, which is as likely the
+  name of another coin ("mSOL", "tBTC");
 - any single letter other than "u": single letters are how multipliers and
   small units are abbreviated, and nothing here can tell which one is meant;
 - a smaller unit of money (毛, 角, 分, 厘, 聪, cents, pence, sats, gwei and
