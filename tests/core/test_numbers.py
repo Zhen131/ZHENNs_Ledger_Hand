@@ -1028,6 +1028,8 @@ def test_multiplier_letter_inside_a_unit_is_never_handed_back_as_a_unit(text: st
         "5 млрд",
         "3 Gs",
         "3 gs",
+        "3 ts",
+        "$3 t",
         "3 large",
         "3 shi",
         "3 millón",
