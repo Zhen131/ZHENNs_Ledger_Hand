@@ -487,8 +487,19 @@ def test_importing_an_area_outside_the_table_is_reported(tmp_path: Path, line: s
     assert reasons(tmp_path, files) == [Reason.INTERNAL_IMPORT, Reason.UNKNOWN_AREA]
 
 
-def test_relative_import_climbing_out_of_the_package_is_reported(tmp_path: Path) -> None:
-    assert reasons(tmp_path, {"ports.py": "from .. import other"}) == [Reason.INTERNAL_IMPORT]
+@pytest.mark.parametrize(
+    ("relative", "line"),
+    [
+        ("ports.py", "from .. import other"),
+        ("ports.py", "from ..other import thing"),
+        ("llm/client.py", "from ... import other"),
+        ("llm/client.py", "from ...other import thing"),
+    ],
+)
+def test_relative_import_climbing_out_of_the_package_is_reported(
+    tmp_path: Path, relative: str, line: str
+) -> None:
+    assert reasons(tmp_path, {relative: line}) == [Reason.INTERNAL_IMPORT]
 
 
 # --- what the check is given ------------------------------------------------
