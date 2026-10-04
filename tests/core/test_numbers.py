@@ -1119,7 +1119,10 @@ def test_small_units_of_other_money_and_of_coins_are_doubted_too(text: str) -> N
     assert read_number(text) == Unsure(Doubt.SMALLER_UNIT)
 
 
-@pytest.mark.parametrize("text", ["3打", "三打", "3 打", "3打币", "5双", "5 双", "5对", "5 对"])
+@pytest.mark.parametrize(
+    "text",
+    ["3打", "三打", "3 打", "3打币", "5双", "5 双", "5对", "5 对", "3 个 打", "3 u 打", "3 U 双"],
+)
 def test_dozen_or_pair_said_in_chinese_is_a_multiplier_too(text: str) -> None:
     assert read_number(text) == Unsure(Doubt.UNCLEAR_MULTIPLIER)
 
@@ -1195,6 +1198,84 @@ def test_unit_with_nothing_in_it_that_changes_the_number_is_still_handed_back(
 
     assert format(reading.value, "f") == value
     assert reading.unit == unit
+
+
+MAGNITUDE_WORDS_IN_MANY_FORMS = [
+    *("k", "K", "w", "W", "m", "M", "b", "B", "t", "g", "kk", "kw", "mm", "bn", "mn"),
+    *("mil", "mill", "mln", "MLN", "mio", "mrd", "bln", "tsd", "wan", "WAN", "yi", "qian"),
+    *("hundred", "hundreds", "thousand", "thousands", "Thousand", "million", "millions"),
+    *("billion", "billions", "trillion", "grand", "grands", "dozen", "dozens", "lakh", "crore"),
+]
+
+PLACES_FOR_A_WORD_AWAY_FROM_THE_DIGITS = [
+    "3 {}",
+    "3个{}",
+    "3 个{}",
+    "3 个 {}",
+    "三个{}",
+    "两个{}",
+    "1.5个{}",
+    "３个{}",
+    "3 {}刀",
+    "3个{}刀",
+    "3 {} USDT",
+    "3 USDT {}",
+    "3个{} U",
+    "3刀{}",
+    "3 {} 个",
+    "$3 {}",
+]
+
+PLACES_FOR_A_WORD_RIGHT_AFTER_THE_DIGITS = ["3{}", "3{}刀", "3{} USDT", "3{}个", "$3{}"]
+
+SMALLER_UNITS_IN_MANY_FORMS = [
+    *("毛", "角", "分", "厘", "毫", "仙", "毛钱", "分钱"),
+    *("cent", "cents", "Cents", "pence", "sat", "sats", "SATS", "satoshi", "satoshis"),
+    *("gwei", "wei", "lamports", "mao", "fen"),
+]
+
+PLACES_FOR_A_SMALLER_UNIT = [
+    "5{}",
+    "5 {}",
+    "五{}",
+    "$5 {}",
+    "5 {} BTC",
+    "5 BTC {}",
+    "5k{}",
+    "5 个{}",
+]
+
+
+@pytest.mark.parametrize("place", PLACES_FOR_A_WORD_AWAY_FROM_THE_DIGITS)
+@pytest.mark.parametrize("word", MAGNITUDE_WORDS_IN_MANY_FORMS)
+def test_magnitude_word_anywhere_in_a_unit_never_yields_a_number(word: str, place: str) -> None:
+    assert not isinstance(read_number(place.format(word)), Recognised)
+
+
+@pytest.mark.parametrize("place", PLACES_FOR_A_WORD_RIGHT_AFTER_THE_DIGITS)
+@pytest.mark.parametrize("word", MAGNITUDE_WORDS_IN_MANY_FORMS)
+def test_magnitude_word_right_after_the_digits_is_applied_or_doubted_never_dropped(
+    word: str, place: str
+) -> None:
+    reading = read_number(place.format(word))
+
+    assert not (isinstance(reading, Recognised) and reading.value == 3)
+
+
+def test_only_k_and_w_right_after_the_digits_are_applied() -> None:
+    applied = {
+        word: recognised(f"3{word}").value
+        for word in MAGNITUDE_WORDS_IN_MANY_FORMS
+        if isinstance(read_number(f"3{word}"), Recognised)
+    }
+
+    assert applied == {"k": 3000, "K": 3000, "w": 30000, "W": 30000}
+
+
+@pytest.mark.parametrize("place", PLACES_FOR_A_SMALLER_UNIT)
+@pytest.mark.parametrize("unit", SMALLER_UNITS_IN_MANY_FORMS)
+def test_smaller_unit_anywhere_in_a_unit_never_yields_a_number(unit: str, place: str) -> None:
+    assert not isinstance(read_number(place.format(unit)), Recognised)
 
 
 # --- what is not a number ---------------------------------------------------

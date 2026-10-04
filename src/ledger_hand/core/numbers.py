@@ -327,7 +327,8 @@ _WORDING_HINTS: tuple[tuple[Doubt, re.Pattern[str]], ...] = (
     (
         Doubt.SMALLER_UNIT,
         re.compile(
-            rf"[{_IN_NUMBER}]\s*[块元刀]\s*[{_IN_NUMBER}]|[{_IN_NUMBER}]\s*[毛角分厘毫仙]"
+            rf"[{_IN_NUMBER}]\s*[块元刀]\s*[{_IN_NUMBER}]"
+            rf"|[{_IN_NUMBER}]\s*[{''.join(sorted(_SMALLER_UNIT_CHARACTERS))}]"
             rf"|(?<![{_LATIN}])(?:{'|'.join(sorted(_SMALLER_UNIT_WORDS))})s?(?![{_LATIN}])",
             re.IGNORECASE,
         ),
@@ -514,10 +515,6 @@ def _word_doubt(word: str) -> Doubt | None:
         return Doubt.UNCLEAR_MULTIPLIER
     if _has_a_magnitude_glued_on(word):
         return Doubt.UNCLEAR_MULTIPLIER
-    if not forms.isdisjoint(_SMALLER_UNIT_WORDS):
-        return Doubt.SMALLER_UNIT
-    if not forms.isdisjoint(_SHARE_WORDS):
-        return Doubt.HALF_OR_SHARE
     return None
 
 
