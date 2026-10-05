@@ -806,6 +806,12 @@ def test_a_name_that_is_no_time_zone_is_a_mistake_of_the_caller(zone: str) -> No
         read_time("昨天", NOW, zone)
 
 
+@pytest.mark.parametrize("zone", ["Factory", "posixrules"])
+def test_zone_database_files_that_are_no_zone_are_a_mistake_of_the_caller(zone: str) -> None:
+    with pytest.raises(ValueError, match=f"not a time zone name: '{zone}'"):
+        read_time("昨天", NOW, zone)
+
+
 def test_a_negative_grace_is_a_mistake_of_the_caller() -> None:
     with pytest.raises(ValueError, match="grace"):
         read_time("昨天", NOW, SHANGHAI, grace=timedelta(seconds=-1))

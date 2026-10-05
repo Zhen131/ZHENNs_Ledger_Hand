@@ -10,6 +10,7 @@ from zoneinfo import ZoneInfo
 import pytest
 
 from ledger_hand.core.trade import (
+    NOT_ZONE_NAMES,
     Amount,
     OccurredTime,
     Side,
@@ -150,6 +151,21 @@ def test_moment_without_an_offset_is_refused() -> None:
 def test_unknown_time_zone_name_is_refused(name: str) -> None:
     with pytest.raises(ValueError, match="time zone"):
         OccurredTime(date(2026, 10, 3), TimePrecision.DAY, name)
+
+
+@pytest.mark.parametrize("name", ["Factory", "posixrules"])
+def test_zone_database_files_that_are_no_zone_are_refused(name: str) -> None:
+    # Python's zone database loads both; the ledger's runtime knows neither.
+    for value, precision in (
+        (date(2026, 10, 3), TimePrecision.DAY),
+        (datetime(2026, 10, 3, 9, 40, tzinfo=timezone.utc), TimePrecision.MINUTE),
+    ):
+        with pytest.raises(ValueError, match=f"not a time zone name: '{name}'"):
+            OccurredTime(value, precision, name)
+
+
+def test_the_names_that_are_no_zone_are_exactly_these() -> None:
+    assert frozenset({"localtime", "Factory", "posixrules"}) == NOT_ZONE_NAMES
 
 
 def test_offset_that_disagrees_with_the_zone_is_refused() -> None:

@@ -24,7 +24,7 @@ at all. The rules of a trade are in ``validation``. Record identifiers,
 creation times and the export format are not handled here.
 
 Names defined here: ``Side``, ``TimePrecision``, ``Amount``, ``OccurredTime``,
-``TradeDraft`` and ``TradeRecord``.
+``TradeDraft``, ``TradeRecord`` and ``NOT_ZONE_NAMES``.
 """
 
 from __future__ import annotations
@@ -114,11 +114,18 @@ class OccurredTime:
         return self.value > now.astimezone(_zone_named(self.time_zone)).date()
 
 
+# Names that Python's zone database may load but that are not the time zone
+# of any place, so a time is never recorded in one. On some systems
+# "localtime" loads the machine's own zone, which the core must never read.
+# "Factory" and "posixrules" are files of the zone database rather than
+# zones; the ledger's runtime does not know them, and refuses a trade that
+# names one.
+NOT_ZONE_NAMES = frozenset({"localtime", "Factory", "posixrules"})
+
+
 def _zone_named(name: str) -> ZoneInfo:
-    # On some systems this name loads the machine's own zone, which the core
-    # must never read.
-    if name == "localtime":
-        raise ValueError("not a time zone name: 'localtime'")
+    if name in NOT_ZONE_NAMES:
+        raise ValueError(f"not a time zone name: {name!r}")
     try:
         return ZoneInfo(name)
     except (KeyError, ValueError, OSError) as error:

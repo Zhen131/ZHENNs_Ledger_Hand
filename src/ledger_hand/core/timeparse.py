@@ -86,7 +86,7 @@ from ledger_hand.core.time_wording import (
     WeekReckoning,
     read_phrase,
 )
-from ledger_hand.core.trade import OccurredTime, TimePrecision
+from ledger_hand.core.trade import NOT_ZONE_NAMES, OccurredTime, TimePrecision
 from ledger_hand.core.validation import DEFAULT_FUTURE_GRACE
 
 __all__ = [
@@ -192,10 +192,9 @@ def write_time(occurred: OccurredTime) -> str:
 
 
 def _zone_named(name: str) -> ZoneInfo:
-    # On some systems this name loads the machine's own zone, which the core
-    # must never read.
-    if name == "localtime":
-        raise ValueError("not a time zone name: 'localtime'")
+    # The same names are refused as for the time of a trade; see NOT_ZONE_NAMES.
+    if name in NOT_ZONE_NAMES:
+        raise ValueError(f"not a time zone name: {name!r}")
     try:
         return ZoneInfo(name)
     except (KeyError, ValueError, OSError) as error:
