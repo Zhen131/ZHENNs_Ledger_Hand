@@ -28,10 +28,12 @@ gaps, and wherever Chinese characters meet anything else, so that "个BTC" is
 is cut once more, into known words that follow each other with no character
 left over: "个比特币" is 个 and 比特币, while "个比特" and "个币" cannot be
 cut that way and stay one block. Which characters are Chinese is listed
-below, block by block as Unicode lists them. Everything else is on the side
-of the letters and is never cut, whatever it looks like: "BTCUSDT" is one
-block whether its letters are ordinary or mathematical bold ones, and so is
-a word in kana or in Cyrillic.
+below: the one block of Unicode that holds the characters in use. Everything
+else is on the side of the letters and is never cut, whatever it looks like:
+"BTCUSDT" is one block whether its letters are ordinary or mathematical bold
+ones, and so is a word in kana or in Cyrillic. A rare Chinese character from
+another block, or a compatibility copy of one, is neither cut nor let into a
+block: a unit that holds one is known only when the whole of it is a name.
 
 Every block must be one of the following. Letter case does not count, and
 each character is taken in its ordinary form, the way a name is looked up in
@@ -204,23 +206,20 @@ _FOLDED.update({0xFFE5: 0xA5, 0xFFE1: 0xA3})
 
 _CURRENCY_SIGNS = "$¥€£"
 
-# The blocks of Unicode that hold Chinese characters and nothing else. Only a
-# run of these is cut into known words. Nothing is taken for Chinese because
-# of what it is not: kana, Hangul, the letters of every alphabet, and the
-# mathematical, superscript and subscript forms of Latin letters, which have
-# no capitals either, all stay on the side of the letters.
-_CHINESE_CHARACTER_BLOCKS: Sequence[tuple[int, int]] = (
-    (0x3400, 0x4DBF),  # extension A
-    (0x4E00, 0x9FFF),  # the characters in everyday use
-    (0x20000, 0x2A6DF),  # extension B
-    (0x2A700, 0x2B73F),  # extension C
-    (0x2B740, 0x2B81F),  # extension D
-    (0x2B820, 0x2CEAF),  # extension E
-    (0x2CEB0, 0x2EBEF),  # extension F
-    (0x2EBF0, 0x2EE5F),  # extension I
-    (0x30000, 0x3134F),  # extension G
-    (0x31350, 0x323AF),  # extension H
-)
+# The Chinese characters: the block Unicode calls "CJK Unified Ideographs",
+# which holds the characters in use. Only a run of these is cut into known
+# words. Nothing is taken for Chinese because of what it is not: kana, Hangul,
+# the letters of every alphabet, and the mathematical, superscript and
+# subscript forms of Latin letters, which have no capitals either, all stay
+# on the side of the letters.
+_FIRST_CHINESE_CHARACTER = "\u4e00"
+_LAST_CHINESE_CHARACTER = "\u9fff"
+# Chinese characters that Unicode keeps elsewhere: the rare ones of the
+# extension blocks, and the copies kept for compatibility. Whether these count
+# as Chinese characters for cutting is drawn differently by different people,
+# so this program takes neither side: a unit that holds one is known only as
+# a whole, never block by block.
+_NAMES_OF_OTHER_IDEOGRAPHS = ("CJK UNIFIED IDEOGRAPH-", "CJK COMPATIBILITY IDEOGRAPH-")
 
 # The counters: words that say "this many of them" and nothing about how much
 # one of them is, each with the reason it leaves the number as it is. Together
@@ -561,7 +560,8 @@ def _is_known_unit(unit: str, allowed: frozenset[str]) -> bool:
     characters meet anything else. Chinese is written without gaps, so a
     block of Chinese characters also counts when it is known words one after
     another, from end to end. A block of anything else is one word, whatever
-    it holds.
+    it holds. A unit that holds a Chinese character from outside the listed
+    block is not judged block by block at all.
     """
     if len(unit) > SYMBOL_MAX_LENGTH:
         # Asked first: nothing below is done to a text of any length.
@@ -576,6 +576,8 @@ def _is_known_unit(unit: str, allowed: frozenset[str]) -> bool:
         return False
     if _is_known_word(" ".join(words), allowed):
         return True
+    if any(map(_is_ideograph_kept_elsewhere, unit)):
+        return False
     blocks = [
         (is_chinese, "".join(run))
         for word in words
@@ -612,9 +614,15 @@ def _is_known_word(text: str, allowed: frozenset[str]) -> bool:
 
 
 def _is_chinese(character: str) -> bool:
-    """Whether ``character`` is a Chinese character, by the blocks listed for them."""
-    code = ord(character)
-    return any(first <= code <= last for first, last in _CHINESE_CHARACTER_BLOCKS)
+    """Whether ``character`` is a Chinese character of the block listed for them."""
+    return _FIRST_CHINESE_CHARACTER <= character <= _LAST_CHINESE_CHARACTER
+
+
+def _is_ideograph_kept_elsewhere(character: str) -> bool:
+    """Whether ``character`` is a Chinese character outside that block, by its Unicode name."""
+    return not _is_chinese(character) and unicodedata.name(character, "").startswith(
+        _NAMES_OF_OTHER_IDEOGRAPHS
+    )
 
 
 def _plain(text: str) -> str:

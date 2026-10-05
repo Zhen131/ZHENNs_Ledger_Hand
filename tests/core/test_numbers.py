@@ -798,7 +798,7 @@ def every_character_that_is_not_ordinary(*, letters: bool) -> list[str]:
         for character in map(chr, range(0x80, sys.maxunicode + 1))
         if character.isalpha() == letters
         and not character.isspace()
-        and not is_a_chinese_character(character)
+        and not is_an_ideograph(character)
         and unicodedata.category(character) not in {"Co", "Cs", "Cn"}
     ]
 
@@ -883,9 +883,9 @@ def test_only_a_chinese_character_is_cut_from_its_neighbour_when_the_caller_allo
     for character in map(chr, range(0x80, sys.maxunicode + 1)):
         if not character.isalpha():
             continue
-        # One Chinese character in sixteen, and every one at the edges of a block.
+        # One ideograph in sixteen, and every one at the edges of the block in use.
         if (
-            is_a_chinese_character(character)
+            is_an_ideograph(character)
             and ord(character) % 16
             and all(is_a_chinese_character(chr(ord(character) + step)) for step in (-1, 1))
         ):
@@ -898,20 +898,54 @@ def test_only_a_chinese_character_is_cut_from_its_neighbour_when_the_caller_allo
         else:
             others_left_whole += 1
 
-    # Nothing is cut but Chinese characters, or copies of them in the compatibility blocks.
-    assert [
-        character
-        for character in cut
-        if not all(map(is_a_chinese_character, in_ordinary_characters(character)))
-    ] == []
+    # Nothing is cut but the Chinese characters of the one block listed for them.
+    assert [character for character in cut if not is_a_chinese_character(character)] == []
     # A Chinese character is cut unless it says a number, or makes the amount a vague one.
     assert [
         character
         for character, reading in chinese_left_whole
         if reading == Unsure(Doubt.UNKNOWN_UNIT)
     ] == []
-    assert len(cut) > 5_000
+    assert len(cut) > 1_000
     assert others_left_whole > 30_000
+
+
+RARE_AND_COMPATIBILITY_IDEOGRAPHS = [
+    "\N{CJK UNIFIED IDEOGRAPH-3400}",
+    "\N{CJK UNIFIED IDEOGRAPH-4DBF}",
+    "\N{CJK UNIFIED IDEOGRAPH-20000}",
+    "\N{CJK UNIFIED IDEOGRAPH-2A6DF}",
+    "\N{CJK UNIFIED IDEOGRAPH-2B740}",
+    "\N{CJK UNIFIED IDEOGRAPH-30000}",
+    "\N{CJK UNIFIED IDEOGRAPH-323AF}",
+    "\N{CJK COMPATIBILITY IDEOGRAPH-F90A}",  # a copy of 金
+    "\N{CJK COMPATIBILITY IDEOGRAPH-FA0E}",
+    "\N{CJK COMPATIBILITY IDEOGRAPH-2F800}",
+]
+
+
+@pytest.mark.parametrize("character", RARE_AND_COMPATIBILITY_IDEOGRAPHS)
+def test_rare_chinese_character_is_known_only_as_a_whole_unit(character: str) -> None:
+    assert is_an_ideograph(character)
+    assert not is_a_chinese_character(character)
+
+    # Allowed by the caller, it is a unit when it is the whole unit ...
+    assert recognised_with(f"5 {character}", character) == Recognised(Decimal("5"), character)
+    assert recognised_with(f"5 {character}个", f"{character}个").unit == f"{character}个"
+    # ... and neither a block next to others nor a word in a run of Chinese.
+    for text in (
+        f"5 个{character}",
+        f"5 {character}个",
+        f"5 {character}{character}",
+        f"5 {character} BTC",
+        f"5 BTC {character}",
+        f"5 BTC{character}",
+        f"5 个{character}个",
+    ):
+        assert read_number(text, extra_units=[character]) == Unsure(Doubt.UNKNOWN_UNIT)
+    assert read_number(f"5k{character}", extra_units=[character]) != Recognised(
+        Decimal("5"), f"k{character}"
+    )
 
 
 # --- units the caller allows for one call -----------------------------------
@@ -1162,8 +1196,14 @@ EVERY_UNIT_WORD_THIS_PROGRAM_KNOWS = frozenset(
 
 
 def is_a_chinese_character(character: str) -> bool:
-    """Whether Unicode itself names ``character`` a Chinese character."""
-    return unicodedata.name(character, "").startswith("CJK UNIFIED IDEOGRAPH-")
+    """Whether ``character`` is in the block of the Chinese characters in use."""
+    return "\N{CJK UNIFIED IDEOGRAPH-4E00}" <= character <= "\N{CJK UNIFIED IDEOGRAPH-9FFF}"
+
+
+def is_an_ideograph(character: str) -> bool:
+    """Whether Unicode names ``character`` an ideograph: the rare ones and the copies as well."""
+    name = unicodedata.name(character, "")
+    return name.startswith(("CJK UNIFIED IDEOGRAPH-", "CJK COMPATIBILITY IDEOGRAPH-"))
 
 
 def in_ordinary_characters(text: str) -> str:
@@ -1171,13 +1211,26 @@ def in_ordinary_characters(text: str) -> str:
     return unicodedata.normalize("NFKC", text)
 
 
-def blocks_of(unit: str) -> list[str]:
-    """The unit in ordinary characters, cut at gaps and wherever Chinese meets anything else."""
-    return [
-        "".join(run)
-        for word in in_ordinary_characters(unit).split()
-        for _, run in itertools.groupby(word, key=is_a_chinese_character)
+def blocks_of(unit: str) -> list[tuple[bool, str]]:
+    """The blocks of the unit, each in ordinary characters and marked Chinese or not.
+
+    The unit is cut at gaps, and wherever Chinese meets anything else. Where
+    the line around "a Chinese character" lies can be drawn narrowly or
+    widely, so the unit is cut both ways and the blocks of both are given:
+    first as written with only the characters in use counted as Chinese, then
+    in ordinary characters with every ideograph counted.
+    """
+    narrowly = [
+        (is_chinese, in_ordinary_characters("".join(run)))
+        for word in unit.split()
+        for is_chinese, run in itertools.groupby(word, key=is_a_chinese_character)
     ]
+    widely = [
+        (is_chinese, "".join(run))
+        for word in in_ordinary_characters(unit).split()
+        for is_chinese, run in itertools.groupby(word, key=is_an_ideograph)
+    ]
+    return narrowly + widely
 
 
 NUMBERS_FOR_RANDOM_TEXTS = [
@@ -1311,14 +1364,15 @@ def blocks_outside(unit: str, allowed: frozenset[str]) -> list[str]:
     known = EVERY_UNIT_WORD_THIS_PROGRAM_KNOWS | allowed
     if " ".join(in_ordinary_characters(unit).upper().split()) in known:
         return []
-    chinese_words = sorted(word for word in known if all(map(is_a_chinese_character, word)))
+    chinese_words = sorted(word for word in known if all(map(is_an_ideograph, word)))
     row_of_known_words = "(?:" + "|".join(map(re.escape, chinese_words)) + ")+"
-    return [
+    outside = [
         block
-        for block in blocks_of(unit)
+        for is_chinese, block in blocks_of(unit)
         if block.upper() not in known
-        and not (is_a_chinese_character(block[0]) and re.fullmatch(row_of_known_words, block))
+        and not (is_chinese and re.fullmatch(row_of_known_words, block))
     ]
+    return list(dict.fromkeys(outside))
 
 
 def test_the_rule_used_to_judge_units_cuts_them_at_gaps_and_between_scripts() -> None:
@@ -1349,11 +1403,23 @@ def test_the_rule_used_to_judge_units_cuts_them_at_gaps_and_between_scripts() ->
     assert blocks_outside(in_bold("BTCUSDT"), nothing) == ["BTCUSDT"]
     assert blocks_outside("BTC" + in_bold("U"), nothing) == ["BTCU"]
     assert blocks_outside(in_bold("UU"), nothing) == ["UU"]
-    assert blocks_outside("\N{KATAKANA LETTER DO}\N{KATAKANA LETTER RU}个", nothing) == [
-        "\N{KATAKANA LETTER DO}\N{KATAKANA LETTER RU}"
-    ]
     assert blocks_outside("kBONK 个", frozenset({"BONK"})) == ["kBONK"]
     assert blocks_outside("BONK 个", frozenset({"BONK"})) == []
+
+
+def test_the_rule_used_to_judge_units_holds_however_rare_characters_are_counted() -> None:
+    nothing = frozenset[str]()
+    doru = "\N{KATAKANA LETTER DO}\N{KATAKANA LETTER RU}"
+    rare = "\N{CJK UNIFIED IDEOGRAPH-3400}"
+
+    assert set(blocks_outside(f"{doru}个", nothing)) == {doru}
+    # A rare Chinese character is Chinese to some and a letter to others;
+    # the unit is cut both ways, and every block of both must be known.
+    assert blocks_outside(f"个{rare}", frozenset({rare})) == []
+    assert set(blocks_outside(f"{rare}{rare}", frozenset({rare}))) == {f"{rare}{rare}"}
+    # Counted as a letter, the rare character makes one known word with the x;
+    # counted as Chinese, it is cut from the x and neither half is known.
+    assert set(blocks_outside(f"个{rare}x", frozenset({f"{rare}X"}))) == {f"个{rare}", "x"}
 
 
 def test_every_unit_handed_back_for_a_random_text_is_made_of_known_or_allowed_words() -> None:
@@ -1387,7 +1453,7 @@ def test_every_unit_handed_back_for_a_random_text_is_made_of_known_or_allowed_wo
         elif reading.unit is not None:
             with_a_unit += 1
             with_an_allowed_word += any(
-                block.upper() in allowed for block in blocks_of(reading.unit)
+                block.upper() in allowed for _, block in blocks_of(reading.unit)
             )
             if blocks_outside(reading.unit, allowed):
                 offending.append((text, extra_units, reading.unit))
