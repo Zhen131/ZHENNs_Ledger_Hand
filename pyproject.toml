@@ -8,10 +8,13 @@ dynamic = ["version"]
 description = "Turns plain-language trade notes into reviewed entries for a local trading ledger."
 readme = "README.md"
 requires-python = ">=3.12"
-# Exact versions are pinned in requirements.txt; this is only a lower bound.
+# Exact versions are pinned in requirements.txt; these are only lower bounds.
 # httpx talks to the model server; only llm/ may import it.
+# tzlocal reads the name of the machine's time zone; only scripts outside the
+# package may import it.
 dependencies = [
     "httpx>=0.28",
+    "tzlocal>=5.4",
 ]
 
 [project.optional-dependencies]

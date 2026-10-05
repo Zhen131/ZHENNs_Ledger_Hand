@@ -113,7 +113,7 @@ check and the hygiene scan).
 | Path | What it is |
 | --- | --- |
 | `pyproject.toml` | Package metadata and the configuration of every tool (pytest, ruff, mypy). |
-| `requirements.txt` | Exact versions of the run-time dependency (httpx) and the development tools, so the environment can be rebuilt identically. |
+| `requirements.txt` | Exact versions of the run-time dependencies (httpx, tzlocal) and the development tools, so the environment can be rebuilt identically. |
 | `src/ledger_hand/` | The package. Today it holds its version, `core/`, `export/`, the ports file, the settings and `llm/`. |
 | `src/ledger_hand/core/` | Core rules: pure computation, no network, files, database, user interface or clock. Holds the shapes of a trade (`trade.py`), the coin table (`coins.py`), the ledger's limits (`ledger_limits.py`), exact decimal arithmetic (`arithmetic.py`), the reading and writing of numbers (`numbers.py`), the reading and writing of times (`timeparse.py`, with the wording of a time phrase in `time_wording.py`) and the check of a draft (`validation.py`), a saved trade (`stored.py`) and which time zone names are taken (`zones.py`). |
 | `src/ledger_hand/export/` | The ledger's backup format: the whole file (`backup.py`), one trade (`trade_entry.py`), one coin (`coin_card.py`), bookkeeping moments (`moments.py`) and the file's name (`file_name.py`). Writes no file itself. |
@@ -151,8 +151,8 @@ python3.12 -m venv .venv
 .venv/bin/python -m pip install --no-deps -e .
 ```
 
-The second command installs the pinned run-time dependency (httpx) and
-development tools. The third installs
+The second command installs the pinned run-time dependencies (httpx and
+tzlocal) and development tools. The third installs
 this package in editable mode, so the tests import the code in `src/`
 directly. Both need network access; the third also fetches the build backend
 (setuptools) into a temporary build environment.
