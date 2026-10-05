@@ -58,8 +58,7 @@ import re
 from collections import Counter
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
-from datetime import datetime, time, timedelta, timezone
-from zoneinfo import ZoneInfo
+from datetime import datetime, time, timedelta
 
 from ledger_hand.core.coins import CoinTable
 from ledger_hand.core.ledger_limits import (
@@ -70,6 +69,7 @@ from ledger_hand.core.ledger_limits import (
     trim,
 )
 from ledger_hand.core.stored import StoredTrade
+from ledger_hand.core.zones import zone_named
 from ledger_hand.export.coin_card import coin_card, coin_card_id
 from ledger_hand.export.moments import write_moment
 from ledger_hand.export.trade_entry import trade_entry
@@ -223,14 +223,23 @@ def _refusal(issues: list[ExportIssue]) -> ExportRefused:
     return ExportRefused(tuple(ordered))
 
 
-def _order(trade: StoredTrade) -> tuple[datetime, str]:
-    """When ``trade`` happened, as an instant in UTC, and then its identifier."""
+def _order(trade: StoredTrade) -> tuple[timedelta, str]:
+    """When ``trade`` happened, as a span since the first moment there is, then its identifier.
+
+    The span is worked out from the wall clock and the offset, never by
+    moving a time to UTC: the start of 1 January of the year 1 east of UTC,
+    or of 31 December 9999 west of it, lies outside the years a ``datetime``
+    can hold, and a span has room for both.
+    """
     occurred = trade.record.occurred
-    if isinstance(occurred.value, datetime):
-        start = occurred.value
+    value = occurred.value
+    if isinstance(value, datetime):
+        wall = value.replace(tzinfo=None)
+        offset = value.utcoffset()
     else:
-        start = datetime.combine(occurred.value, time(), tzinfo=ZoneInfo(occurred.time_zone))
-    return start.astimezone(timezone.utc), trade.id
+        wall = datetime.combine(value, time())
+        offset = zone_named(occurred.time_zone).utcoffset(wall)
+    return wall - datetime.min - (offset or timedelta(0)), trade.id
 
 
 def _as_text(document: dict[str, object]) -> str:

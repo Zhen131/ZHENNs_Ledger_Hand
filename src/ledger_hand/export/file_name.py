@@ -27,6 +27,9 @@ def backup_file_name(exported_at: datetime) -> str:
     """
     if exported_at.utcoffset() is None:
         raise ValueError("the export moment needs a time zone offset")
-    at = exported_at.astimezone(timezone.utc)
+    try:
+        at = exported_at.astimezone(timezone.utc)
+    except OverflowError as error:
+        raise ValueError(f"{exported_at.isoformat()} cannot be written in UTC") from error
     stamp = f"{at.year:04}{at.month:02}{at.day:02}-{at.hour:02}{at.minute:02}{at.second:02}Z"
     return f"ledger-hand-incremental-backup-v{BACKUP_FORMAT_VERSION}-{stamp}.json"
