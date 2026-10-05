@@ -93,9 +93,10 @@ check and the hygiene scan).
 | `tests/export/samples.py`, `tests/export/attack.py`, `tests/export/golden/` | Invented trades to export, batches of edge cases made to find where this program and the ledger part ways, both shared with the ledger tier, and the golden sample. A golden sample is never edited once committed; a new format version gets one of its own. |
 | `tests/guardrails/` | The layering check and the hygiene scan, the tests that prove they catch what they should, and the two gate tests that apply them to this repository. |
 | `scripts/check.sh` | One command that runs all checks. |
-| `scripts/ledger_check.py`, `scripts/ledger_validate.ts` | The ledger tier of the checks: sample files judged by the ledger's own validator. |
+| `scripts/ledger_check.py`, `scripts/ledger_validate.ts`, `scripts/ledger_offsets.ts` | The ledger tier of the checks: sample files judged by the ledger's own validator, and the ledger's offsets compared with ours. |
 | `tests/ledger_check/` | What the ledger tier checks (`cases.py`), tests of the tier's own logic, and the one sample for it written by hand. |
 | `docs/architecture.md` | How the layers are divided, who may import whom, the house rules, and where new features go. |
+| `docs/known-gaps.md` | Known gaps between what this program accepts and what the ledger accepts, each waiting for a decision. |
 | `data/` | Not in Git. Run-time output, caches and, later, the local database. Created when first needed. |
 | `.venv/` | Not in Git. The local Python environment. |
 
@@ -173,8 +174,15 @@ runs inside the ledger checkout: started with the checkout's own `tsx`, it
 imports the ledger's `parseBackupJson` and prints what it says about each
 file. Each sample is expected to be accepted with no error, refused only for
 selling more than is held (this program cannot know what the ledger holds), or
-refused with exactly the errors planted in it. The output lists every error
-the ledger reported for every sample.
+refused with exactly the errors planted in it. Two samples, which hold a
+trade in every time zone, are expected to be accepted except for one known
+gap: where the ledger's time zone database gives a zone another offset than
+ours, the ledger refuses the trade's offset. Which zones and moments those
+are is worked out each run by asking both sides
+(`scripts/ledger_offsets.ts`); such refusals are announced in a notice marked
+`!!!` and not counted as a failure, and any other refusal is. The gap is
+described in `docs/known-gaps.md`. The output lists every error the ledger
+reported for every sample.
 
 What is checked is listed in `tests/ledger_check/cases.py`: the golden sample,
 edge cases, batches of awkward trades (every time zone, the first and last
