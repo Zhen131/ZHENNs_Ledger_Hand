@@ -57,6 +57,14 @@ RAW_TEXT_MAX_LENGTH = 16_384
 ID_MAX_LENGTH = 128
 APP_VERSION_MAX_LENGTH = 128
 
+# How much one file may hold: coins, trades, and its text in bytes of UTF-8,
+# the way the ledger counts a file before it reads it. In the ledger these are
+# DEFAULT_LEDGER_RESOURCE_LIMITS (assets, trades, fileBytes) in
+# src/core/validation/resourcePolicy.ts.
+MAX_COINS_PER_FILE = 500
+MAX_TRADES_PER_FILE = 250_000
+MAX_FILE_BYTES = 128 * 1024 * 1024
+
 # What the ledger's runtime strips from the ends of a text: its white-space
 # and line-terminator characters. Python's own notion differs at the edges.
 _WHITESPACE = "".join(

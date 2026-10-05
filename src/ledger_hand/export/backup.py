@@ -37,6 +37,11 @@ It is refused, with nothing written, when:
 - a trade's date, in its own time zone, is after the today handed in. The
   ledger refuses a trade dated after its own today, and it compares the date
   on the trade's own wall clock, not the instant.
+- there are more trades, or more coins, than one ledger file may hold, or the
+  text would be larger than one file may be (its UTF-8 bytes, counted the way
+  the ledger counts them). These limits are the ledger's; ``ExportLimits``
+  may lower them, never raise them. The size is known only once the text is
+  written, so it is looked at only when nothing else stands in the way.
 
 The same trades, in any order, with the same coin table, moment, name and
 version, always give the same text, byte for byte. It is laid out the way the
@@ -50,7 +55,8 @@ checked again. Neither are holdings: this program does not know what the
 ledger already holds.
 
 Names defined here: ``export_backup``, ``ExportProblem``, ``ExportIssue``,
-``ExportRefused``, ``BACKUP_FORMAT_VERSION`` and ``LEDGER_SCHEMA_VERSION``.
+``ExportRefused``, ``ExportLimits``, ``LEDGER_LIMITS``,
+``BACKUP_FORMAT_VERSION`` and ``LEDGER_SCHEMA_VERSION``.
 """
 
 from __future__ import annotations
@@ -67,6 +73,9 @@ from ledger_hand.core.coins import CoinTable
 from ledger_hand.core.ledger_limits import (
     APP_VERSION_MAX_LENGTH,
     ID_MAX_LENGTH,
+    MAX_COINS_PER_FILE,
+    MAX_FILE_BYTES,
+    MAX_TRADES_PER_FILE,
     QUOTE_CURRENCY,
     text_length,
     trim,
@@ -101,11 +110,18 @@ class ExportProblem(enum.Enum):
         "a trade's time has an offset from UTC that is not a whole number of minutes"
     )
     DATED_AFTER_TODAY = "a trade's date, in its own time zone, is after today"
+    TOO_MANY_COINS = "the trades use more coins than one ledger file may hold"
+    TOO_MANY_TRADES = "there are more trades than one ledger file may hold"
+    FILE_TOO_LARGE = "the file would be larger than the ledger reads"
 
 
 @dataclass(frozen=True)
 class ExportIssue:
-    """One reason for a refusal; ``subject`` is the identifier or coin symbol concerned."""
+    """One reason for a refusal.
+
+    ``subject`` is the identifier or coin symbol concerned; for a limit, the
+    number found (coins, trades or bytes); for no trades at all, empty.
+    """
 
     problem: ExportProblem
     subject: str
@@ -118,6 +134,28 @@ class ExportRefused:
     issues: tuple[ExportIssue, ...]
 
 
+@dataclass(frozen=True, kw_only=True)
+class ExportLimits:
+    """How much one file may hold. Each may be lowered, never raised above the ledger's."""
+
+    max_coins: int = MAX_COINS_PER_FILE
+    max_trades: int = MAX_TRADES_PER_FILE
+    max_bytes: int = MAX_FILE_BYTES
+
+    def __post_init__(self) -> None:
+        for name, ceiling in (
+            ("max_coins", MAX_COINS_PER_FILE),
+            ("max_trades", MAX_TRADES_PER_FILE),
+            ("max_bytes", MAX_FILE_BYTES),
+        ):
+            value = getattr(self, name)
+            if isinstance(value, bool) or not isinstance(value, int) or not 1 <= value <= ceiling:
+                raise ValueError(f"{name} must be a whole number from 1 to {ceiling}")
+
+
+LEDGER_LIMITS = ExportLimits()
+
+
 def export_backup(
     trades: Iterable[StoredTrade],
     coins: CoinTable,
@@ -126,6 +164,7 @@ def export_backup(
     today: date,
     app_name: str,
     app_version: str,
+    limits: ExportLimits = LEDGER_LIMITS,
 ) -> str | ExportRefused:
     """The text of a backup file holding ``trades``, or why it cannot be written.
 
@@ -141,6 +180,8 @@ def export_backup(
     compares exactly that date with its own today, and a file it would read as
     holding a trade from the future is never written. A ``datetime``, or
     anything else that is not a plain date, raises ``TypeError``.
+
+    ``limits`` are the ledger's own unless lower ones are handed in.
 
     ``trades`` may be any collection, or a generator: it is read once.
     """
@@ -159,6 +200,7 @@ def export_backup(
     _check_identifiers(trades, symbols, issues)
     _check_offsets(trades, issues)
     _check_dates(trades, today, issues)
+    _check_counts(len(trades), len(symbols), limits, issues)
     if issues:
         return _refusal(issues)
     document = {
@@ -176,7 +218,11 @@ def export_backup(
             "feeRules": [],
         },
     }
-    return _as_text(document)
+    text = _as_text(document)
+    size = len(text.encode("utf-8"))
+    if size > limits.max_bytes:
+        return ExportRefused((ExportIssue(ExportProblem.FILE_TOO_LARGE, str(size)),))
+    return text
 
 
 def _app_text(name: str, version: str) -> str:
@@ -235,6 +281,13 @@ def _check_dates(trades: Sequence[StoredTrade], today: date, issues: list[Export
     for trade in trades:
         if trade.record.occurred.calendar_date > today:
             issues.append(ExportIssue(ExportProblem.DATED_AFTER_TODAY, trade.id))
+
+
+def _check_counts(trades: int, coins: int, limits: ExportLimits, issues: list[ExportIssue]) -> None:
+    if coins > limits.max_coins:
+        issues.append(ExportIssue(ExportProblem.TOO_MANY_COINS, str(coins)))
+    if trades > limits.max_trades:
+        issues.append(ExportIssue(ExportProblem.TOO_MANY_TRADES, str(trades)))
 
 
 def _refusal(issues: list[ExportIssue]) -> ExportRefused:

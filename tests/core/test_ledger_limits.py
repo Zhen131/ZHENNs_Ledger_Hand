@@ -42,6 +42,12 @@ def test_identifier_and_program_version_limits_match_the_ledger() -> None:
     assert ledger_limits.APP_VERSION_MAX_LENGTH == 128
 
 
+def test_the_limits_of_one_file_match_the_ledger() -> None:
+    assert ledger_limits.MAX_COINS_PER_FILE == 500
+    assert ledger_limits.MAX_TRADES_PER_FILE == 250_000
+    assert ledger_limits.MAX_FILE_BYTES == 134_217_728
+
+
 # --- text length ------------------------------------------------------------
 
 

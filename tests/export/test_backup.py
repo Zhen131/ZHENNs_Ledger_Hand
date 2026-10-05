@@ -16,8 +16,10 @@ from ledger_hand.core.stored import StoredTrade
 from ledger_hand.core.trade import OccurredTime, Side, TimePrecision, TradeDraft
 from ledger_hand.export.backup import (
     BACKUP_FORMAT_VERSION,
+    LEDGER_LIMITS,
     LEDGER_SCHEMA_VERSION,
     ExportIssue,
+    ExportLimits,
     ExportProblem,
     ExportRefused,
     export_backup,
@@ -417,6 +419,103 @@ def test_old_times_with_whole_minute_offsets_and_old_days_are_exported() -> None
         "budapest-1950": "1950-06-01T12:00:00+01:00",
         "kolkata-1950": "1950-06-01T12:00:00+05:30",
     }
+
+
+# --- how much one file may hold --------------------------------------------
+
+
+def export_within(
+    trades: list[StoredTrade], limits: ExportLimits, coins: CoinTable = BUILT_IN_TABLE
+) -> str | ExportRefused:
+    return export_backup(
+        trades,
+        coins,
+        exported_at=EXPORTED_AT,
+        today=TODAY,
+        app_name=APP_NAME,
+        app_version=APP_VERSION,
+        limits=limits,
+    )
+
+
+def test_the_limits_are_the_ledger_s_unless_lower_ones_are_handed_in() -> None:
+    assert ExportLimits(max_coins=500, max_trades=250_000, max_bytes=134_217_728) == LEDGER_LIMITS
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"max_coins": 501},
+        {"max_trades": 250_001},
+        {"max_bytes": 134_217_729},
+        {"max_coins": 0},
+        {"max_trades": -1},
+        {"max_bytes": True},
+        {"max_coins": 2.0},
+    ],
+)
+def test_a_limit_above_the_ledger_s_or_not_a_positive_whole_number_is_refused(
+    changes: dict[str, object],
+) -> None:
+    with pytest.raises(ValueError, match="must be a whole number from 1 to"):
+        ExportLimits(**changes)  # type: ignore[arg-type]
+
+
+def test_as_many_coins_as_the_limit_are_exported_and_one_more_is_refused() -> None:
+    trades = [
+        trade("t1", coin="BTC"),
+        trade("t2", coin="ETH", fee=Decimal("0.01"), fee_coin="BNB"),
+    ]
+
+    assert isinstance(export_within(trades, ExportLimits(max_coins=3)), str)
+    assert export_within(trades, ExportLimits(max_coins=2)) == ExportRefused(
+        (ExportIssue(ExportProblem.TOO_MANY_COINS, "3"),)
+    )
+
+
+def test_as_many_trades_as_the_limit_are_exported_and_one_more_is_refused() -> None:
+    trades = [trade("t1"), trade("t2"), trade("t3")]
+
+    assert isinstance(export_within(trades, ExportLimits(max_trades=3)), str)
+    assert export_within(trades, ExportLimits(max_trades=2)) == ExportRefused(
+        (ExportIssue(ExportProblem.TOO_MANY_TRADES, "3"),)
+    )
+
+
+def test_a_file_as_large_as_the_limit_is_exported_and_one_byte_more_is_refused() -> None:
+    trades = [trade("t1", raw_text="买了 0.01 BTC \N{GRINNING FACE}，95000", note="Ä")]
+    text = export_within(trades, LEDGER_LIMITS)
+    assert isinstance(text, str)
+    size = len(text.encode("utf-8"))
+    assert size > len(text)
+
+    assert export_within(trades, ExportLimits(max_bytes=size)) == text
+    assert export_within(trades, ExportLimits(max_bytes=size - 1)) == ExportRefused(
+        (ExportIssue(ExportProblem.FILE_TOO_LARGE, str(size)),)
+    )
+
+
+def test_the_size_is_looked_at_only_when_nothing_else_stands_in_the_way() -> None:
+    trades = [trade("dup"), trade("dup", occurred=on(2))]
+
+    assert export_within(trades, ExportLimits(max_bytes=1, max_trades=1)) == ExportRefused(
+        (
+            ExportIssue(ExportProblem.ID_USED_TWICE, "dup"),
+            ExportIssue(ExportProblem.TOO_MANY_TRADES, "2"),
+        )
+    )
+
+
+def test_one_coin_more_than_the_ledger_holds_is_refused_with_the_ledger_s_own_limit() -> None:
+    coins = BUILT_IN_TABLE
+    for number in range(501):
+        coins = coins.with_confirmed(f"COIN{number}")
+    trades = [trade(f"t{number}", coins, coin=f"COIN{number}") for number in range(501)]
+
+    assert export_within(trades, LEDGER_LIMITS, coins) == ExportRefused(
+        (ExportIssue(ExportProblem.TOO_MANY_COINS, "501"),)
+    )
+    assert isinstance(export_within(trades[:500], LEDGER_LIMITS, coins), str)
 
 
 # --- today -------------------------------------------------------------------
