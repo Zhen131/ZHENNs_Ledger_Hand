@@ -291,7 +291,7 @@ of these, because a misspelt name would otherwise be ignored without a word.
 | `LEDGER_HAND_MODEL_TEMPERATURE` | `0` | How adventurous the model is; 0 gives the same answer to the same text, which extraction needs. 0 or more. |
 | `LEDGER_HAND_MODEL_TOP_P` | `1` | Keeps only the likeliest words whose chances add up to this; 1 keeps all of them, so the temperature alone decides. Above 0, at most 1. |
 | `LEDGER_HAND_MODEL_MAX_REPLY_TOKENS` | `1024` | The longest reply, in tokens; room for a JSON list of about ten trades. A reply that reaches it is marked as cut off. |
-| `LEDGER_HAND_MODEL_CONTEXT_TOKENS` | `8192` | How much the model reads at once, in tokens. Ollama's own default is shorter, and it drops the start of a prompt that does not fit without saying so. |
+| `LEDGER_HAND_MODEL_CONTEXT_TOKENS` | `16384` | How much the model reads at once, in tokens: room for the extraction prompt (about 1,700 tokens with qwen2.5:7b), the longest passage the ledger keeps and a full reply. Ollama's own default is shorter, and it drops the start of a prompt that does not fit without saying so. |
 | `LEDGER_HAND_MODEL_TIMEOUT_SECONDS` | `120` | How long to wait for the whole reply. Leaves room for loading the model on the first call. Not sent to the model. |
 | `LEDGER_HAND_MODEL_RETRIES` | `2` | How many times a call that timed out, was rate limited or met a server error is tried again. 0 to 10. |
 | `LEDGER_HAND_MODEL_RETRY_WAIT_SECONDS` | `1` | The wait before the first retry; each later wait is twice the one before. |
