@@ -125,8 +125,18 @@ passes the current moment and the zone in as arguments. The check reports:
 - the `time` module (it is not on the allow-list);
 - `astimezone()` and `fromtimestamp()` without an explicit zone, and
   `ZoneInfo("localtime")`, all of which silently use the machine's zone;
+- the same name given by keyword (`ZoneInfo(key="localtime")`) or to the
+  uncached constructor (`ZoneInfo.no_cache("localtime")`), `from_file()`,
+  which is how the machine's own zone file is loaded, and any call to
+  `.timestamp()`, which takes a time without a zone to be in the machine's
+  zone;
 - the builtins that reach outside the program: `open`, `input`, `print`,
   `breakpoint`, `eval`, `exec`, `compile`.
+
+It cannot see `astimezone(zone)` called on a time without a zone, which also
+takes that time to be in the machine's zone. The core therefore only ever
+handles moments that carry an offset; a current moment without one is refused
+where it comes in.
 
 `core/` does not use floating-point numbers either: an amount is an exact
 decimal built from text. The check reports:

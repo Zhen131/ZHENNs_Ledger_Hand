@@ -140,6 +140,8 @@ _OUTSIDE_WORLD_BUILTINS = frozenset(
     {"open", "input", "print", "breakpoint", "eval", "exec", "compile"}
 )
 _DYNAMIC_IMPORTERS = frozenset({"__import__", "import_module"})
+# The two ways of building a zone from its name: the cached constructor and the uncached one.
+_ZONE_CONSTRUCTORS = frozenset({"ZoneInfo", "no_cache"})
 _FLOAT_MAKERS = frozenset({"float", "complex", "__float__", "__complex__", "from_float"})
 
 _Found = tuple[int, Reason, str]
@@ -295,16 +297,25 @@ def _local_zone_findings(tree: ast.AST) -> Iterator[_Found]:
     for node in ast.walk(tree):
         if not isinstance(node, ast.Call):
             continue
-        name = _called_name(node)
-        if name == "astimezone" and _zone_argument(node, position=0) is None:
-            detail = "astimezone() without a zone uses the machine's zone"
-        elif name == "fromtimestamp" and _zone_argument(node, position=1) is None:
-            detail = "fromtimestamp() without a zone uses the machine's zone"
-        elif name == "ZoneInfo" and _first_argument_is(node, "localtime"):
-            detail = 'ZoneInfo("localtime") is the machine\'s zone'
-        else:
-            continue
-        yield node.lineno, Reason.LOCAL_ZONE_READ, detail
+        detail = _local_zone_detail(node)
+        if detail is not None:
+            yield node.lineno, Reason.LOCAL_ZONE_READ, detail
+
+
+def _local_zone_detail(call: ast.Call) -> str | None:
+    """Why ``call`` reaches the machine's time zone; ``None`` when it does not."""
+    name = _called_name(call)
+    if name == "astimezone" and _zone_argument(call, position=0) is None:
+        return "astimezone() without a zone uses the machine's zone"
+    if name == "fromtimestamp" and _zone_argument(call, position=1) is None:
+        return "fromtimestamp() without a zone uses the machine's zone"
+    if name in _ZONE_CONSTRUCTORS and _zone_key_is(call, "localtime"):
+        return f'{name}("localtime") is the machine\'s zone'
+    if name == "from_file":
+        return "from_file() loads a zone from a file, which is how the machine's zone is read"
+    if name == "timestamp":
+        return "timestamp() takes a time without a zone to be in the machine's zone"
+    return None
 
 
 def _outside_world_findings(tree: ast.AST) -> Iterator[_Found]:
@@ -369,8 +380,7 @@ def _zone_argument(call: ast.Call, *, position: int) -> ast.expr | None:
     return zone
 
 
-def _first_argument_is(call: ast.Call, text: str) -> bool:
-    if not call.args:
-        return False
-    first = call.args[0]
-    return isinstance(first, ast.Constant) and first.value == text
+def _zone_key_is(call: ast.Call, text: str) -> bool:
+    """Whether the zone's name, given first or by the keyword ``key``, is ``text``."""
+    given = [*call.args[:1], *(keyword.value for keyword in call.keywords if keyword.arg == "key")]
+    return any(isinstance(key, ast.Constant) and key.value == text for key in given)

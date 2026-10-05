@@ -430,6 +430,64 @@ def test_clock_and_zone_rules_apply_to_core_only(tmp_path: Path, source: str) ->
     assert check(tmp_path, {"flows/record.py": source}) == []
 
 
+# More ways of reaching the machine's zone: the zone's name given by keyword or
+# to the uncached constructor, a zone loaded from a file (which is how the
+# machine's own zone file is read), and a moment's timestamp (which takes a
+# time without a zone to be in the machine's zone).
+MORE_LOCAL_ZONE_READS = [
+    pytest.param(
+        lines("from zoneinfo import ZoneInfo", 'zone = ZoneInfo(key="localtime")'),
+        id="name-by-keyword",
+    ),
+    pytest.param(
+        lines("from zoneinfo import ZoneInfo", 'zone = ZoneInfo.no_cache("localtime")'),
+        id="uncached",
+    ),
+    pytest.param(
+        lines("import zoneinfo", 'zone = zoneinfo.ZoneInfo.no_cache(key="localtime")'),
+        id="uncached-name-by-keyword",
+    ),
+    pytest.param(
+        lines(
+            "from zoneinfo import ZoneInfo",
+            "def load(handle):",
+            "    return ZoneInfo.from_file(handle)",
+        ),
+        id="from-a-file",
+    ),
+    pytest.param(
+        lines("def seconds(moment):", "    return moment.timestamp()"),
+        id="timestamp",
+    ),
+]
+
+MORE_PURE_ZONE_CODE = [
+    pytest.param(
+        lines("from zoneinfo import ZoneInfo", 'zone = ZoneInfo(key="Europe/Budapest")'),
+        id="named-zone-by-keyword",
+    ),
+    pytest.param(
+        lines("from zoneinfo import ZoneInfo", 'zone = ZoneInfo.no_cache("Asia/Shanghai")'),
+        id="named-zone-uncached",
+    ),
+]
+
+
+@pytest.mark.parametrize("source", MORE_LOCAL_ZONE_READS)
+def test_core_reaching_the_local_zone_another_way_is_reported(tmp_path: Path, source: str) -> None:
+    assert reasons(tmp_path, {"core/rules.py": source}) == [Reason.LOCAL_ZONE_READ]
+
+
+@pytest.mark.parametrize("source", MORE_PURE_ZONE_CODE)
+def test_core_naming_a_zone_another_way_passes(tmp_path: Path, source: str) -> None:
+    assert check(tmp_path, {"core/rules.py": source}) == []
+
+
+@pytest.mark.parametrize("source", MORE_LOCAL_ZONE_READS)
+def test_more_zone_rules_apply_to_core_only(tmp_path: Path, source: str) -> None:
+    assert check(tmp_path, {"flows/record.py": source}) == []
+
+
 # --- core: builtins that reach outside --------------------------------------
 
 OUTSIDE_WORLD_CALLS = [
