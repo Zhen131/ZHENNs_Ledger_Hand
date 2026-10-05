@@ -8,7 +8,8 @@ from __future__ import annotations
 
 import pytest
 
-from ledger_hand.extraction.passage_numbers import number_spans
+from ledger_hand.core.numbers import Recognised, read_number
+from ledger_hand.extraction.passage_numbers import CHINESE_DIGITS, number_spans
 
 
 def numbers_in(text: str) -> list[str]:
@@ -114,3 +115,84 @@ def test_a_long_text_is_read_in_one_pass() -> None:
 
     assert len(numbers_in(text)) == 2000
     assert numbers_in("9" * 100_000) == ["9" * 100_000]
+
+
+# --- a decimal digit and a Chinese digit never stand side by side in one number ----
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("3000一个", ["3000", "一"]),
+        ("13.2一个", ["13.2", "一"]),
+        ("150一枚", ["150", "一"]),
+        ("94900一个BTC", ["94900", "一"]),
+        ("0.42一个", ["0.42", "一"]),
+        ("2 USDT一笔", ["2", "一"]),
+        ("1,234两个", ["1,234", "两"]),
+        ("3零5", ["3", "零", "5"]),
+        ("两万三0", ["两万三", "0"]),
+        ("第一3000", ["一", "3000"]),
+        ("3000壹", ["3000", "壹"]),
+    ],
+)
+def test_a_decimal_digit_and_a_chinese_digit_side_by_side_are_two_numbers(
+    text: str, expected: list[str]
+) -> None:
+    assert numbers_in(text) == expected
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "9万4",
+        "30万一",
+        "5十",
+        "3十5",
+        "3点五",
+        "三点5",
+        "1亿5000万",
+        "3万五",
+        "9千9",
+        "12万3",
+        "2拾",
+    ],
+)
+def test_the_two_writings_still_join_through_a_place_or_a_point(text: str) -> None:
+    assert numbers_in(text) == [text]
+
+
+@pytest.mark.parametrize(
+    "text", ["两三千", "一亿五千", "三四十", "九万四千九", "零点五", "二〇二六"]
+)
+def test_a_run_of_chinese_number_characters_alone_stays_one_number(text: str) -> None:
+    assert numbers_in(text) == [text]
+
+
+@pytest.mark.parametrize("text", ["94900", "94,900", "1.25", "1,234", "1,5", "94.900", "1.2k"])
+def test_a_run_of_decimal_digits_alone_stays_one_number(text: str) -> None:
+    assert numbers_in(text) == [text]
+
+
+# The rule above follows the number reader of the core. If the reader ever
+# reads a decimal digit and a Chinese digit side by side as one number, this
+# test fails, and the rule in passage_numbers has to follow it.
+DIGITS_WRITTEN = ["0", "5", "12", "3000", "13.2", "1,234", "0.42", "94900", "1.25"]
+AROUND = ["", "个", "十", "百", "千", "万", "亿", "点五", "一个"]
+
+
+@pytest.mark.parametrize("digits", DIGITS_WRITTEN)
+def test_the_core_reads_no_decimal_digit_beside_a_chinese_digit_as_one_number(digits: str) -> None:
+    read_as_one = []
+    for chinese in CHINESE_DIGITS:
+        for around in AROUND:
+            for text in (
+                digits + chinese + around,
+                chinese + digits + around,
+                around + chinese + digits,
+                around + digits + chinese,
+            ):
+                if isinstance(read_number(text), Recognised):
+                    read_as_one.append(text)
+
+    assert read_as_one == []

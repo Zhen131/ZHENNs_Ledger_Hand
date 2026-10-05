@@ -178,3 +178,63 @@ def test_a_phrase_looked_up_twice_gives_the_same_answer() -> None:
 
     assert passage.find("比特币") is passage.find(" 比特币 ")
     assert passage.find("btc") is passage.find("btc")
+
+
+@pytest.mark.parametrize(
+    ("passage", "phrase"),
+    [
+        ("ETH 3000一个，买了 2 个", "3000"),
+        ("13.2一个买了 10 个 SOL", "13.2"),
+        ("150一枚，卖了 3 枚", "150"),
+        ("0.42 一个", "0.42"),
+        ("0.42一个", "0.42"),
+        ("价格 94900一个BTC", "94900"),
+        ("手续费 2 USDT一笔", "2 USDT"),
+        ("3000 each", "3000"),
+        ("3000 apiece", "3000"),
+        ("第一3000一个", "3000"),
+        ("3000一个", "一个"),
+    ],
+)
+def test_a_number_followed_or_led_by_a_chinese_digit_is_whole(passage: str, phrase: str) -> None:
+    assert piece(passage, phrase).text == phrase
+
+
+@pytest.mark.parametrize(
+    ("passage", "phrase"),
+    [
+        ("94900", "9490"),
+        ("94900", "4900"),
+        ("3万5", "3万"),
+        ("九万四千九", "九万四"),
+        ("1.25", "1.2"),
+        ("1,234", "1,23"),
+        ("两三千", "两"),
+        ("两三千", "三千"),
+        ("一亿五千", "一亿五"),
+        ("一亿五千", "五千"),
+        ("三四十个", "三"),
+        ("1,5", "1"),
+        ("9万4", "9万"),
+        ("5十个", "5"),
+    ],
+)
+def test_a_number_written_in_one_kind_of_writing_is_still_not_cut(
+    passage: str, phrase: str
+) -> None:
+    assert miss(passage, phrase) is PieceMiss.CUTS_A_NUMBER
+
+
+def test_a_leading_point_is_not_a_piece_of_a_number() -> None:
+    # ".02" cuts "0.02" between the zero and the point.
+    assert miss("0.02 BTC", ".02") is PieceMiss.CUTS_A_NUMBER
+
+
+def test_a_place_followed_by_one_still_reads_as_one_number_a_known_limit() -> None:
+    # The core reads "30万一" as 301000, so "30万" is taken as cutting it.
+    assert miss("30万一个", "30万") is PieceMiss.CUTS_A_NUMBER
+
+
+def test_the_numbers_inside_a_piece_follow_the_two_writings_apart() -> None:
+    assert piece("3000一个", "3000一个").numbers == ("3000", "一")
+    assert piece("ETH 3000一个", "3000").numbers == ("3000",)

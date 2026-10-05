@@ -724,3 +724,31 @@ def _record(finish: FinishReason = FinishReason.STOPPED) -> ReplyRecord:
 
 def _reply() -> ModelReply:
     return ModelReply(text="", record=_record())
+
+
+# --- "so much a piece": a number followed by 一个 ----------------------------------
+
+
+@pytest.mark.parametrize(
+    ("passage", "price", "expected"),
+    [
+        ("ETH 3000一个，买了 2 个", "3000", Decimal("3000")),
+        ("ETH 13.2一个，买了 2 个", "13.2", Decimal("13.2")),
+        ("ETH 150一枚，买了 2 个", "150", Decimal("150")),
+        ("ETH 0.42 一个，买了 2 个", "0.42", Decimal("0.42")),
+        ("ETH 94900一个，买了 2 个", "94900", Decimal("94900")),
+    ],
+)
+def test_a_price_said_as_so_much_a_piece_is_kept(
+    passage: str, price: str, expected: Decimal
+) -> None:
+    reply = table(row(side="buy", coin="ETH", quantity="2 个", price=price))
+
+    result = extracted(passage, reply)
+
+    assert result.drafts[0].price == expected
+    assert result.drafts[0].quantity == Decimal("2")
+    assert issues_of(result, IssueKind.CUTS_A_NUMBER) == []
+    assert issues_of(result, IssueKind.NUMBERS_LEFT_OVER) == [
+        Issue(kind=IssueKind.NUMBERS_LEFT_OVER, numbers=("一",))
+    ]
