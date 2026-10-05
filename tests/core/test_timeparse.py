@@ -15,7 +15,7 @@ checked in sections of their own.
 
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date, datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -478,3 +478,161 @@ def test_a_date_without_the_year_in_front_written_with_marks_is_ambiguous(text: 
 @pytest.mark.parametrize("text", ["九点五", "9点5", "9点0"])
 def test_a_single_digit_minute_without_fen_is_ambiguous(text: str) -> None:
     assert outcome(text) == "AMBIGUOUS"
+
+
+# --- turning a month, a year, and a leap day ---------------------------------
+
+TURNS_OF_THE_CALENDAR = [
+    # today, then 昨天, 前天, 上周五, 3 天前
+    (date(2026, 10, 1), "2026-09-30", "2026-09-29", "2026-09-25", "2026-09-28"),
+    (date(2027, 1, 1), "2026-12-31", "2026-12-30", "2026-12-25", "2026-12-29"),
+    (date(2028, 3, 1), "2028-02-29", "2028-02-28", "2028-02-25", "2028-02-27"),
+    (date(2028, 3, 2), "2028-03-01", "2028-02-29", "2028-02-25", "2028-02-28"),
+    (date(2027, 3, 1), "2027-02-28", "2027-02-27", "2027-02-26", "2027-02-26"),
+]
+
+
+@pytest.mark.parametrize("zone", [BUDAPEST, SHANGHAI])
+@pytest.mark.parametrize("row", TURNS_OF_THE_CALENDAR, ids=lambda row: row[0].isoformat())
+def test_counting_back_across_a_month_a_year_and_a_leap_day(
+    row: tuple[date | str, ...], zone: str
+) -> None:
+    today, yesterday, day_before, friday_of_last_week, three_days_ago = row
+    assert isinstance(today, date)
+    now = local(zone, today.year, today.month, today.day, 10, 0)
+
+    assert outcome("昨天", now, zone) == f"{yesterday} day"
+    assert outcome("yesterday", now, zone) == f"{yesterday} day"
+    assert outcome("前天", now, zone) == f"{day_before} day"
+    assert outcome("上周五", now, zone) == f"{friday_of_last_week} day"
+    assert outcome("3 天前", now, zone) == f"{three_days_ago} day"
+    assert outcome("3 days ago", now, zone) == f"{three_days_ago} day"
+
+
+def test_a_leap_day_without_a_year_is_the_latest_one_not_after_today() -> None:
+    now = local(SHANGHAI, 2028, 3, 1, 10, 0)
+
+    assert outcome("2月29号", now) == "2028-02-29 day"
+    assert outcome("Feb 29", local(SHANGHAI, 2028, 2, 28, 10, 0)) == "2024-02-29 day"
+
+
+# --- summer time: the days the clocks change ---------------------------------
+
+
+def clock_changes(zone: str, year: int) -> list[tuple[datetime, timedelta, timedelta]]:
+    """Each instant in ``year`` at which the offset of ``zone`` changes, from the zone data.
+
+    Each comes with the offset before it and the offset after it. Nothing
+    about which days these are is written into the tests by hand.
+    """
+    info = ZoneInfo(zone)
+    instant = datetime(year, 1, 1, tzinfo=timezone.utc)
+    before = instant.astimezone(info).utcoffset()
+    changes: list[tuple[datetime, timedelta, timedelta]] = []
+    while instant.year == year:
+        instant += timedelta(minutes=15)
+        after = instant.astimezone(info).utcoffset()
+        if after != before:
+            assert before is not None and after is not None
+            changes.append((instant, before, after))
+            before = after
+    return changes
+
+
+def wall_reading(instant: datetime, offset: timedelta) -> datetime:
+    """What a clock running at ``offset`` showed at ``instant``, without a zone."""
+    return instant.astimezone(timezone(offset)).replace(tzinfo=None)
+
+
+YEARS = [2025, 2026, 2027, 2030]
+
+
+@pytest.mark.parametrize("year", YEARS)
+def test_the_zone_with_summer_time_changes_its_clocks_twice_a_year(year: int) -> None:
+    changes = clock_changes(BUDAPEST, year)
+
+    assert [after > before for _, before, after in changes] == [True, False]
+    assert clock_changes(SHANGHAI, year) == []
+
+
+@pytest.mark.parametrize("year", YEARS)
+def test_a_clock_time_the_clocks_skipped_does_not_exist(year: int) -> None:
+    instant, before, after = clock_changes(BUDAPEST, year)[0]
+    skipped = wall_reading(instant, before) + (after - before) / 2
+    now = local(BUDAPEST, skipped.year, skipped.month, skipped.day, 12, 0)
+    clock = f"{skipped.hour}:{skipped.minute:02d}"
+
+    assert outcome(clock, now, BUDAPEST) == "DOES_NOT_EXIST"
+    assert outcome(f"{skipped.date().isoformat()} {clock}", now, BUDAPEST) == "DOES_NOT_EXIST"
+    assert outcome(f"今天凌晨{skipped.hour}点{skipped.minute}分", now, BUDAPEST) == "DOES_NOT_EXIST"
+    # The minute before the gap and the first one after it exist.
+    first_after = wall_reading(instant, after)
+    last_before = wall_reading(instant, before) - timedelta(minutes=1)
+    for wall in (last_before, first_after):
+        expected = f"{wall.isoformat()}{'+01:00' if wall < skipped else '+02:00'} minute"
+        assert outcome(f"{wall.hour}:{wall.minute:02d}", now, BUDAPEST) == expected
+
+
+@pytest.mark.parametrize("year", YEARS)
+def test_a_clock_time_shown_twice_gives_both_moments_the_earlier_first(year: int) -> None:
+    instant, before, after = clock_changes(BUDAPEST, year)[1]
+    repeated = wall_reading(instant, after) + (before - after) / 2
+    now = local(BUDAPEST, repeated.year, repeated.month, repeated.day, 12, 0)
+
+    reading = read_time(f"{repeated.hour}:{repeated.minute:02d}", now, BUDAPEST)
+
+    assert isinstance(reading, TwoCandidates)
+    assert reading.earlier.value.utcoffset() == before
+    assert reading.later.value.utcoffset() == after
+    for candidate in (reading.earlier, reading.later):
+        assert isinstance(candidate.value, datetime)
+        assert candidate.value.replace(tzinfo=None) == repeated
+    assert reading.later.value - reading.earlier.value == before - after
+    assert reading.cautions == (TimeCaution.NO_HALF_OF_DAY,)
+
+
+@pytest.mark.parametrize("year", YEARS)
+def test_when_the_second_showing_is_still_to_come_the_first_is_the_only_one(year: int) -> None:
+    instant, before, after = clock_changes(BUDAPEST, year)[1]
+    start = wall_reading(instant, after)
+    # During the second showing of the hour, ten minutes into it.
+    now = (instant + timedelta(minutes=10)).astimezone(ZoneInfo(BUDAPEST))
+    said = start + timedelta(minutes=40)
+
+    reading = read_time(f"{said.hour}:{said.minute:02d}", now, BUDAPEST)
+
+    assert isinstance(reading, TimeRecognised)
+    assert reading.time.value.utcoffset() == before
+    assert TimeCaution.OTHER_PASS_TO_COME in reading.cautions
+    # During the first showing, a time later in the hour is simply in the future.
+    first_showing = (instant - timedelta(minutes=50)).astimezone(ZoneInfo(BUDAPEST))
+    assert outcome(f"{said.hour}:{said.minute:02d}", first_showing, BUDAPEST) == "IN_THE_FUTURE"
+
+
+@pytest.mark.parametrize("year", YEARS)
+@pytest.mark.parametrize("change", [0, 1], ids=["clocks forward", "clocks back"])
+def test_hours_back_across_a_change_count_real_time(year: int, change: int) -> None:
+    instant, _, _ = clock_changes(BUDAPEST, year)[change]
+    now = (instant + timedelta(hours=1, minutes=20)).astimezone(ZoneInfo(BUDAPEST))
+    expected = (instant - timedelta(hours=1, minutes=40)).astimezone(ZoneInfo(BUDAPEST))
+
+    reading = read_time("3 小时前", now, BUDAPEST)
+
+    assert isinstance(reading, TimeRecognised)
+    assert reading.time.value == expected
+    assert reading.time.value.utcoffset() == expected.utcoffset()
+    assert read_time("3 hours ago", now, BUDAPEST) == reading
+    # On the wall clock the gap is not three hours: that is the point.
+    wall_gap = now.replace(tzinfo=None) - expected.replace(tzinfo=None)
+    assert wall_gap != timedelta(hours=3)
+
+
+@pytest.mark.parametrize("year", YEARS)
+def test_the_zone_without_summer_time_has_one_moment_for_every_clock_time(year: int) -> None:
+    for instant, _, _ in clock_changes(BUDAPEST, year):
+        day = instant.date()
+        now = local(SHANGHAI, day.year, day.month, day.day, 12, 0)
+        for hour in range(12):
+            assert outcome(f"{hour}:30", now, SHANGHAI) == (
+                f"{day.isoformat()}T{hour:02d}:30:00+08:00 minute"
+            )
