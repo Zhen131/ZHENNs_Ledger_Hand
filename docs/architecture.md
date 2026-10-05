@@ -25,7 +25,7 @@ placeholder files.
 pyproject.toml            dependencies and tool configuration, all in this one file   (exists)
 README.md                                                                             (exists)
 docs/                     documentation                                               (exists)
-scripts/                  the check script; later, other scripts outside the package  (exists)
+scripts/                  the check script and the ledger tier; scripts outside the package (exists)
 data/                     run-time output and the local database; never in Git
 src/ledger_hand/
     core/                 core rules: no network, database or user interface          (exists)
@@ -37,6 +37,7 @@ src/ledger_hand/
         time_wording.py       which known parts a time phrase is made of              (exists)
         timeparse.py          time phrases to exact moments ("now" is passed in)      (exists)
         validation.py         validation; which fields are still missing              (exists)
+        stored.py             a saved trade: record, identifier, two moments          (exists)
         followup.py           what to ask when something is missing
     ports.py              the two ports: model and storage
     extraction/           a passage of text to drafts
@@ -45,7 +46,12 @@ src/ledger_hand/
         extractor.py
     llm/                  plugs for the model port: a local model server; later a cloud one
     storage/              plug for the storage port: SQLite, with numbered upgrade scripts
-    export/               writes the ledger's JSON import format
+    export/               writes the ledger's backup format as text                   (exists)
+        backup.py             the whole file; refuses what the ledger would refuse    (exists)
+        trade_entry.py        one saved trade in the ledger's fields                  (exists)
+        coin_card.py          one coin in the ledger's fields                         (exists)
+        moments.py            creation, change and export moments, in UTC             (exists)
+        file_name.py          the name of an export file                              (exists)
     flows/                strings the parts into one task: record a trade, export
     settings.py           the only place that reads settings
     ui/                   the user interface; the only place that may use Streamlit

@@ -50,8 +50,24 @@ that time, or it lies in the future, the answer says so, never a guess; on
 the night the clocks go back, a time shown twice comes back as two candidates. `write_time` writes a time the way the ledger takes
 it: a date, or a moment with its seconds and offset.
 
-All of this is pure computation. There is no language model, no storage and
-no interface yet.
+**A file the ledger accepts.** `export_backup` in `src/ledger_hand/export/`
+writes saved trades as the text of a backup file in the ledger's own format
+(backup format 3, ledger schema 5): the trades, in the order they happened,
+and a card for every coin they use, with its full name and Binance market
+taken from the coin table. A saved trade (`core/stored.py`) is a finished
+record with the identifier and the creation and change moments that saving
+gives it. The same trades always give the same bytes. Nothing is written when
+there is no trade, an identifier is empty, too long or used twice, or a coin
+is missing from the coin table; the answer lists every such issue instead.
+`backup_file_name` names the file, with the word `incremental` in it: the
+ledger's present import replaces the whole ledger, and a file of a few new
+trades must never be taken for a full backup. A golden sample, a committed
+export that the export must reproduce byte for byte, records what this format
+looks like, and the ledger tier of the checks has the ledger's own validator
+judge it (see below).
+
+All of this is pure computation: nothing is written to disk yet. There is no
+language model, no storage and no interface yet.
 
 The repository also has its Python environment, one command that runs every
 check, and two guardrails that keep the code base in shape (the layering
@@ -63,9 +79,11 @@ check and the hygiene scan).
 | --- | --- |
 | `pyproject.toml` | Package metadata and the configuration of every tool (pytest, ruff, mypy). |
 | `requirements.txt` | Exact versions of the development tools, so the environment can be rebuilt identically. |
-| `src/ledger_hand/` | The package. Today it holds its version and `core/`. |
-| `src/ledger_hand/core/` | Core rules: pure computation, no network, files, database, user interface or clock. Holds the shapes of a trade (`trade.py`), the coin table (`coins.py`), the ledger's limits (`ledger_limits.py`), exact decimal arithmetic (`arithmetic.py`), the reading and writing of numbers (`numbers.py`), the reading and writing of times (`timeparse.py`, with the wording of a time phrase in `time_wording.py`) and the check of a draft (`validation.py`). |
-| `tests/` | The tests. `tests/core/` has one test module per core module. |
+| `src/ledger_hand/` | The package. Today it holds its version, `core/` and `export/`. |
+| `src/ledger_hand/core/` | Core rules: pure computation, no network, files, database, user interface or clock. Holds the shapes of a trade (`trade.py`), the coin table (`coins.py`), the ledger's limits (`ledger_limits.py`), exact decimal arithmetic (`arithmetic.py`), the reading and writing of numbers (`numbers.py`), the reading and writing of times (`timeparse.py`, with the wording of a time phrase in `time_wording.py`) and the check of a draft (`validation.py`) and a saved trade (`stored.py`). |
+| `src/ledger_hand/export/` | The ledger's backup format: the whole file (`backup.py`), one trade (`trade_entry.py`), one coin (`coin_card.py`), bookkeeping moments (`moments.py`) and the file's name (`file_name.py`). Writes no file itself. |
+| `tests/` | The tests. `tests/core/` and `tests/export/` have one test module per module. |
+| `tests/export/samples.py`, `tests/export/golden/` | Invented trades to export, shared with the ledger tier, and the golden sample. A golden sample is never edited once committed; a new format version gets one of its own. |
 | `tests/guardrails/` | The layering check and the hygiene scan, the tests that prove they catch what they should, and the two gate tests that apply them to this repository. |
 | `scripts/check.sh` | One command that runs all checks. |
 | `scripts/ledger_check.py`, `scripts/ledger_validate.ts` | The ledger tier of the checks: sample files judged by the ledger's own validator. |
@@ -74,8 +92,8 @@ check and the hygiene scan).
 | `data/` | Not in Git. Run-time output, caches and, later, the local database. Created when first needed. |
 | `.venv/` | Not in Git. The local Python environment. |
 
-Directories for later parts (extraction, export, model client, storage,
-flows, user interface) are created by the change that first needs them; see
+Directories for later parts (extraction, model client, storage, flows, user
+interface) are created by the change that first needs them; see
 `docs/architecture.md` for the planned layout.
 
 ## Setting up from scratch
