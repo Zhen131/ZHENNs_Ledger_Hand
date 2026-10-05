@@ -368,8 +368,8 @@ HALVES_OF_THE_DAY = [
     own("上午 12 点", "AMBIGUOUS"),
     own("晚上 1 点", "AMBIGUOUS"),
     own("早上 9pm", "AMBIGUOUS"),
-    own("昨天晚上", "AMBIGUOUS"),
-    own("last night", "AMBIGUOUS"),
+    own("昨天晚上", "2026-10-06 day"),
+    own("last night", "2026-10-06 day"),
     own("半夜两点", "AMBIGUOUS"),
 ]
 
@@ -377,6 +377,82 @@ HALVES_OF_THE_DAY = [
 @pytest.mark.parametrize(("text", "expected"), HALVES_OF_THE_DAY)
 def test_halves_of_the_day(text: str, expected: str) -> None:
     assert outcome(text) == expected
+
+
+# A day with a half of it and no clock time gives the day, with a caution.
+DAYS_WITH_A_HALF = [
+    own("昨天晚上", "2026-10-06 day"),
+    own("昨晚", "2026-10-06 day"),
+    own("前天晚上", "2026-10-05 day"),
+    own("昨天凌晨", "2026-10-06 day"),
+    own("上周五晚上", "2026-10-02 day"),
+    own("周日下午", "2026-10-04 day"),
+    own("10 月 2 号上午", "2026-10-02 day"),
+    own("十月二日傍晚", "2026-10-02 day"),
+    own("last night", "2026-10-06 day"),
+    own("yesterday morning", "2026-10-06 day"),
+    own("yesterday evening", "2026-10-06 day"),
+    own("Friday night", "2026-10-02 day"),
+    own("on Sunday afternoon", "2026-10-04 day"),
+    own("Oct 2 evening", "2026-10-02 day"),
+    own("this morning", "2026-10-07 day"),
+    own("今天下午", "2026-10-07 day"),
+]
+
+
+@pytest.mark.parametrize(("text", "expected"), DAYS_WITH_A_HALF)
+def test_a_day_with_a_half_of_it_and_no_clock_time_gives_the_day_with_a_caution(
+    text: str, expected: str
+) -> None:
+    assert outcome(text) == expected
+    assert cautions(text) == (TimeCaution.ONLY_A_HALF_OF_DAY,)
+
+
+LATE_EVENING = datetime(2026, 10, 7, 22, 0, tzinfo=ZoneInfo(SHANGHAI))
+JUST_AFTER_MIDNIGHT = datetime(2026, 10, 8, 0, 30, tzinfo=ZoneInfo(SHANGHAI))
+
+
+@pytest.mark.parametrize(
+    "text", ["今天晚上", "今晚", "tonight", "this evening", "晚上", "in the evening", "evening"]
+)
+def test_this_evening_is_today_once_it_has_begun_and_in_the_future_before(text: str) -> None:
+    assert outcome(text, LATE_EVENING) == "2026-10-07 day"
+    assert cautions(text, LATE_EVENING) == (TimeCaution.ONLY_A_HALF_OF_DAY,)
+    assert outcome(text, NOW) == "IN_THE_FUTURE"
+    # Just after midnight the evening of the new day is still to come; it is
+    # never moved back to the evening before.
+    assert outcome(text, JUST_AFTER_MIDNIGHT) == "IN_THE_FUTURE"
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("下午", "2026-10-07 day"),
+        ("in the afternoon", "2026-10-07 day"),
+        ("凌晨", "2026-10-07 day"),
+        ("morning", "2026-10-07 day"),
+        ("傍晚", "IN_THE_FUTURE"),
+    ],
+)
+def test_a_half_of_the_day_alone_is_a_half_of_today(text: str, expected: str) -> None:
+    assert outcome(text) == expected
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "昨天半夜",
+        "昨天深夜",
+        "午夜",
+        "昨天晚上 12 点",
+        "last night at midnight",
+        "上周五晚上12点",
+        "this morning in the evening",
+        "昨晚上午",
+    ],
+)
+def test_midnight_and_contradicting_halves_stay_ambiguous(text: str) -> None:
+    assert outcome(text) == "AMBIGUOUS"
 
 
 # --- combinations -----------------------------------------------------------

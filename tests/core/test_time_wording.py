@@ -28,6 +28,7 @@ from ledger_hand.core.time_wording import (
 )
 
 NO_HALF = (TimeCaution.NO_HALF_OF_DAY,)
+ONLY_A_HALF = (TimeCaution.ONLY_A_HALF_OF_DAY,)
 
 
 @pytest.mark.parametrize(
@@ -48,7 +49,7 @@ NO_HALF = (TimeCaution.NO_HALF_OF_DAY,)
         ("9点40", OnADay(DaysBack(0), Clock(9, 40), cautions=NO_HALF)),
         ("晚上9点40", OnADay(DaysBack(0), Clock(21, 40))),
         ("15:05:30", OnADay(DaysBack(0), Clock(15, 5, 30))),
-        ("this afternoon", OnADay(DaysBack(0), not_before=time(12))),
+        ("this afternoon", OnADay(DaysBack(0), not_before=time(12), cautions=ONLY_A_HALF)),
         ("昨天晚上9点40", OnADay(DaysBack(1), Clock(21, 40))),
     ],
 )

@@ -45,8 +45,10 @@ date and the moment:
 - In the future means what it means to ``OccurredTime.is_in_the_future``:
   for a moment, later than the current moment plus the grace; for a day,
   after today's date. A date after today is in the future whatever clock time
-  comes with it. A half of the day said without a clock time ("今天下午")
-  may not begin after the current moment either.
+  comes with it. A half of the day said without a clock time ("昨天晚上",
+  "今天下午") gives the day, with a caution; it may not begin after the
+  current moment either, so "今天晚上" said in the afternoon is in the
+  future, and so is "晚上" alone.
 - The present moment and a span back are cut to the whole minute, never
   rounded. A clock time has no seconds unless they were said.
 - A clock time the clocks skipped that day does not exist. One they showed

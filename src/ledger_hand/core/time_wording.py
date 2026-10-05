@@ -43,9 +43,14 @@ What this module decides from the words alone:
   hour is 12 or less, a ``TimeCaution`` says that no half was said.
 - A clock time that may fall on either side of midnight is ambiguous:
   midnight itself ("晚上 12 点", "midnight", "12am", "24:00"), an evening
-  word with an hour after midnight ("晚上 1 点"), and an evening word without
-  any clock time ("昨天晚上", "last night"), because a night runs on past
-  midnight into the next date.
+  word with an hour after midnight ("晚上 1 点"), and the words for the dead
+  of night ("半夜", "深夜", "午夜"), with or without an hour.
+- A half of the day without a clock time ("昨天晚上", "Friday night", "10 月
+  2 号上午") says nothing more than the day, which is all that is kept, with
+  a ``TimeCaution`` that only a half of the day was said. Without a day
+  ("晚上", "in the evening") it is a half of today, as a clock time without a
+  day is a time of today; ``not_before`` then lets ``timeparse`` tell
+  whether that half has begun yet.
 - A half of the day that does not fit the hour ("早上 9pm", "下午 12 点") is
   ambiguous; so is a single-digit minute said without 分 ("九点五" may be
   9:05 or 9:50).
@@ -90,6 +95,9 @@ class TimeCaution(enum.Enum):
     """Something to keep in mind about a time that was recognised."""
 
     NO_HALF_OF_DAY = "no half of the day was said, so the hour was read on a 24-hour clock"
+    ONLY_A_HALF_OF_DAY = (
+        "only a half of the day was said and no clock time, so only the day is kept"
+    )
     OTHER_PASS_TO_COME = (
         "the clocks showed this time twice that day; the second time is still to come"
     )
@@ -380,15 +388,17 @@ _HOURS_IN_HALF: Mapping[Half, Mapping[int, int]] = {
     Half.PM: {**{hour: hour + 12 for hour in range(1, 12)}, 12: 12},
 }
 
-# The earliest time of each half that may be said without a clock time. The
-# evening is missing on purpose: a night runs on past midnight, so a date
-# with an evening word and no clock time may be meant as the next date.
+# The earliest time of each half that may be said without a clock time: the
+# earliest hour it puts a clock time at, or the start of the day. A half of
+# today that has not begun yet is still to come. (The a.m. and p.m. are only
+# ever said with a clock time.)
 _EARLIEST_IN_HALF: Mapping[Half, time] = {
     Half.SMALL_HOURS: time(0),
     Half.MORNING: time(0),
     Half.NOON: time(11),
     Half.AFTERNOON: time(12),
     Half.DUSK: time(16),
+    Half.EVENING: time(17),
 }
 
 _WEEKDAYS: Mapping[str, int] = {
@@ -541,7 +551,12 @@ def _phrase(parts: Sequence[_Part]) -> Phrase | Refusal:
 
 
 def _without_clock(day: DaySpec, halves: Sequence[Half]) -> OnADay | Refusal:
-    """A day, perhaps with a half of it, and no clock time."""
+    """A day, perhaps with a half of it, and no clock time.
+
+    The half does not change which day it is, so only the day is kept, with a
+    caution. Two different halves ("this morning in the evening") contradict
+    each other.
+    """
     if not halves:
         return OnADay(day)
     if len(set(halves)) > 1:
@@ -549,7 +564,7 @@ def _without_clock(day: DaySpec, halves: Sequence[Half]) -> OnADay | Refusal:
     earliest = _EARLIEST_IN_HALF.get(halves[0])
     if earliest is None:
         return Refusal.AMBIGUOUS
-    return OnADay(day, not_before=earliest)
+    return OnADay(day, not_before=earliest, cautions=(TimeCaution.ONLY_A_HALF_OF_DAY,))
 
 
 def _with_clock(day: DaySpec, halves: Sequence[Half], said: _SaidClock) -> OnADay | Refusal:
