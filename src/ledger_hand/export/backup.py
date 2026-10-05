@@ -27,7 +27,8 @@ It is refused, with nothing written, when:
   ledger allows;
 - an identifier is used twice. The ledger requires every identifier in a file
   to be different, the coins' included, so a trade may not use a coin card's
-  identifier either;
+  identifier either. Identifiers are compared as the ledger compares them, by
+  their UTF-16 code units;
 - a trade names a coin the coin table does not hold, so that its card cannot
   be written;
 - a trade's time is a moment whose offset from UTC is not a whole number of
@@ -258,15 +259,24 @@ def _coin_cards(
 def _check_identifiers(
     trades: Sequence[StoredTrade], symbols: Sequence[str], issues: list[ExportIssue]
 ) -> None:
-    counts = Counter(trade.id for trade in trades)
-    card_ids = {coin_card_id(symbol) for symbol in symbols}
-    for identifier, count in sorted(counts.items()):
+    # Identifiers are compared as the ledger compares them, as UTF-16 code
+    # units: a face held as one character and the same face held as its two
+    # halves are different texts here and one identifier there.
+    counts = Counter(_as_the_ledger_sees_it(trade.id) for trade in trades)
+    card_ids = {_as_the_ledger_sees_it(coin_card_id(symbol)) for symbol in symbols}
+    for identifier in sorted({trade.id for trade in trades}):
+        seen = _as_the_ledger_sees_it(identifier)
         if not identifier or trim(identifier) != identifier:
             issues.append(ExportIssue(ExportProblem.ID_EMPTY_OR_PADDED, identifier))
         if text_length(identifier) > ID_MAX_LENGTH:
             issues.append(ExportIssue(ExportProblem.ID_TOO_LONG, identifier))
-        if count > 1 or identifier in card_ids:
+        if counts[seen] > 1 or seen in card_ids:
             issues.append(ExportIssue(ExportProblem.ID_USED_TWICE, identifier))
+
+
+def _as_the_ledger_sees_it(text: str) -> bytes:
+    """``text`` as UTF-16 code units, which is how the ledger holds and compares text."""
+    return text.encode("utf-16-le", "surrogatepass")
 
 
 def _check_offsets(trades: Sequence[StoredTrade], issues: list[ExportIssue]) -> None:

@@ -295,6 +295,25 @@ def test_a_trade_may_not_use_the_identifier_of_a_fee_coin_s_card() -> None:
     assert refusal(trades) == (ExportIssue(ExportProblem.ID_USED_TWICE, "asset-hand-bnb"),)
 
 
+def test_identifiers_that_are_one_identifier_to_the_ledger_are_used_twice() -> None:
+    # A face held as one character, and as its two halves: different texts
+    # in Python, one and the same identifier once the ledger reads the file.
+    whole = "t-\N{GRINNING FACE}"
+    halves = "t-\ud83d\ude00"
+    assert whole != halves
+
+    assert refusal([trade(whole), trade(halves, occurred=on(2))]) == (
+        ExportIssue(ExportProblem.ID_USED_TWICE, halves),
+        ExportIssue(ExportProblem.ID_USED_TWICE, whole),
+    )
+
+
+def test_identifiers_that_differ_in_utf16_are_different() -> None:
+    trades = [trade("t-\ud83d"), trade("t-\ude00", occurred=on(2)), trade("t-x", occurred=on(3))]
+
+    assert isinstance(export(trades), str)
+
+
 def test_the_identifier_of_a_coin_that_is_not_in_the_file_is_free_to_use() -> None:
     trades = [trade("asset-hand-eth", coin="BTC"), trade("asset-hand-usdt", coin="BTC")]
 
