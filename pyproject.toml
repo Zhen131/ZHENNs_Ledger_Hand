@@ -62,5 +62,5 @@ max-complexity = 10
 [tool.mypy]
 python_version = "3.12"
 strict = true
-# Only the core is type-checked; the ports file joins this list when it exists.
-files = ["src/ledger_hand/core"]
+# Only the core and the ports file are type-checked.
+files = ["src/ledger_hand/core", "src/ledger_hand/ports.py"]
