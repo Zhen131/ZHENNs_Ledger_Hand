@@ -5,6 +5,7 @@ each import the layering table below does not allow. For ``core/`` it also
 reports reads of the clock or of the machine's time zone, and builtins that
 reach outside the program.
 In ``core/`` it reports floating-point numbers as well.
+Everywhere but ``settings.py`` it reports reads of environment variables.
 
 It only reads source text; it never imports or runs the package under check,
 and it judges nothing outside the directory it is given. Parts of the package
@@ -51,6 +52,7 @@ class Reason(enum.Enum):
     LOCAL_ZONE_READ = "reads the machine's time zone"
     OUTSIDE_WORLD_BUILTIN = "calls a builtin that reaches outside the program"
     FLOAT_USE = "uses a floating-point number"
+    ENVIRONMENT_READ = "touches environment variables outside the settings module"
 
 
 @dataclass(frozen=True)
@@ -143,6 +145,13 @@ _DYNAMIC_IMPORTERS = frozenset({"__import__", "import_module"})
 # The two ways of building a zone from its name: the cached constructor and the uncached one.
 _ZONE_CONSTRUCTORS = frozenset({"ZoneInfo", "no_cache"})
 _FLOAT_MAKERS = frozenset({"float", "complex", "__float__", "__complex__", "from_float"})
+# Settings are read in one place: only that area may touch the environment.
+ENVIRONMENT_AREAS = frozenset({Area.SETTINGS})
+# How Python code reaches environment variables: the mapping, its bytes twin,
+# and the functions that read, set or remove one variable.
+_ENVIRONMENT_NAMES = frozenset({"environ", "environb", "getenv", "getenvb", "putenv", "unsetenv"})
+# The modules that offer them: ``os`` and the platform modules behind it.
+_ENVIRONMENT_MODULES = frozenset({"os", "posix", "nt"})
 
 _Found = tuple[int, Reason, str]
 
@@ -190,6 +199,8 @@ def _check_file(package_dir: Path, relative: Path) -> list[Violation]:
         return [Violation(shown, 1, Reason.UNPARSEABLE_FILE, str(error))]
     file = _SourceFile(package_dir, relative, area)
     found = [*_import_findings(file, tree), *_dynamic_import_findings(tree)]
+    if area not in ENVIRONMENT_AREAS:
+        found.extend(_environment_findings(tree))
     if area is Area.CORE:
         found.extend(_clock_findings(tree))
         found.extend(_local_zone_findings(tree))
@@ -279,6 +290,30 @@ def _dynamic_import_findings(tree: ast.AST) -> Iterator[_Found]:
     for node in ast.walk(tree):
         if isinstance(node, ast.Call) and _called_name(node) in _DYNAMIC_IMPORTERS:
             yield node.lineno, Reason.DYNAMIC_IMPORT, f"{_called_name(node)}() hides an import"
+
+
+def _environment_findings(tree: ast.AST) -> Iterator[_Found]:
+    """``os.environ``, ``os.getenv()`` and the like in any spelling: as an
+    attribute of anything, imported by name, or fetched with ``getattr``."""
+    for node in ast.walk(tree):
+        name = _environment_name(node)
+        if name is not None:
+            detail = f"{name} reads the environment; read settings through the settings module"
+            yield getattr(node, "lineno", 1), Reason.ENVIRONMENT_READ, detail
+
+
+def _environment_name(node: ast.AST) -> str | None:
+    if isinstance(node, ast.Attribute) and node.attr in _ENVIRONMENT_NAMES:
+        return node.attr
+    if isinstance(node, ast.ImportFrom) and (node.module or "") in _ENVIRONMENT_MODULES:
+        for alias in node.names:
+            if alias.name in _ENVIRONMENT_NAMES or alias.name == "*":
+                return f"from {node.module} import {alias.name}"
+    if isinstance(node, ast.Call) and _called_name(node) == "getattr" and len(node.args) >= 2:
+        named = node.args[1]
+        if isinstance(named, ast.Constant) and named.value in _ENVIRONMENT_NAMES:
+            return f"getattr(..., {named.value!r})"
+    return None
 
 
 def _clock_findings(tree: ast.AST) -> Iterator[_Found]:

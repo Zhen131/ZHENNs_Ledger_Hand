@@ -743,3 +743,63 @@ def test_violations_come_back_in_file_and_line_order(tmp_path: Path) -> None:
         (f"{PACKAGE}/core/rules.py", 3),
         (f"{PACKAGE}/ui/app.py", 1),
     ]
+
+
+# --- environment variables ---------------------------------------------------
+
+# Written out by hand: the only area that may touch the environment.
+READS_THE_ENVIRONMENT = {"settings"}
+
+ENVIRONMENT_READS = [
+    lines("import os", 'value = os.environ["NAME"]'),
+    lines("import os", 'value = os.environ.get("NAME")'),
+    lines("import os", 'value = os.getenv("NAME")'),
+    lines("import os", 'value = os.environb[b"NAME"]'),
+    lines("import os", 'value = os.getenvb(b"NAME")'),
+    lines("import os", 'os.putenv("NAME", "x")'),
+    lines("import os", 'os.unsetenv("NAME")'),
+    lines("import os as system", "everything = dict(system.environ)"),
+    "from os import environ",
+    "from os import getenv as read",
+    "from os import path, environ",
+    "from os import *",
+    lines("import posix", "everything = posix.environ"),
+    lines("import os", 'everything = getattr(os, "environ")'),
+    lines("def setting():", "    import os", '    return os.environ.get("NAME")'),
+]
+
+NOT_ENVIRONMENT_READS = [
+    "from os import path",
+    lines("import os", "here = os.sep"),
+    lines("from collections.abc import Mapping", "def load(environ: Mapping[str, str]): ..."),
+    'note = "os.environ is read in one place"',
+]
+
+
+@pytest.mark.parametrize("source", ENVIRONMENT_READS)
+@pytest.mark.parametrize("area", sorted(set(AREAS) - READS_THE_ENVIRONMENT))
+def test_reading_the_environment_outside_settings_is_reported(
+    tmp_path: Path, area: str, source: str
+) -> None:
+    assert Reason.ENVIRONMENT_READ in reasons(tmp_path, {AREA_FILE[area]: source})
+
+
+@pytest.mark.parametrize("source", ENVIRONMENT_READS)
+@pytest.mark.parametrize("area", sorted(READS_THE_ENVIRONMENT))
+def test_settings_may_read_the_environment(tmp_path: Path, area: str, source: str) -> None:
+    assert check(tmp_path, {AREA_FILE[area]: source}) == []
+
+
+@pytest.mark.parametrize("source", NOT_ENVIRONMENT_READS)
+@pytest.mark.parametrize("area", ["llm", "extraction", "flows", "ui"])
+def test_other_uses_of_os_are_not_environment_reads(tmp_path: Path, area: str, source: str) -> None:
+    assert Reason.ENVIRONMENT_READ not in reasons(tmp_path, {AREA_FILE[area]: source})
+
+
+def test_an_environment_read_names_the_line(tmp_path: Path) -> None:
+    source = lines("import os", "", 'value = os.getenv("NAME")')
+
+    (violation,) = check(tmp_path, {"llm/client.py": source})
+
+    assert violation.reason is Reason.ENVIRONMENT_READ
+    assert violation.line == 3
