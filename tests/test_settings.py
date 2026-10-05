@@ -7,6 +7,8 @@ them has set; one test checks that the real environment is read by default.
 
 from __future__ import annotations
 
+import os
+
 import pytest
 
 from ledger_hand.settings import (
@@ -112,8 +114,10 @@ def test_blanks_around_a_value_are_dropped() -> None:
 def test_the_real_environment_is_read_when_no_mapping_is_given(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    for variable in Variable:
-        monkeypatch.delenv(variable.value, raising=False)
+    # Whatever the shell running the tests has set with the prefix is cleared first.
+    for name in list(os.environ):
+        if name.startswith(ENV_PREFIX):
+            monkeypatch.delenv(name)
     monkeypatch.setenv(Variable.RETRIES.value, "7")
 
     assert load_model_settings().retries == 7
