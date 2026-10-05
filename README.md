@@ -57,8 +57,10 @@ and a card for every coin they use, with its full name and Binance market
 taken from the coin table. A saved trade (`core/stored.py`) is a finished
 record with the identifier and the creation and change moments that saving
 gives it. The same trades always give the same bytes. Nothing is written when
-there is no trade, an identifier is empty, too long or used twice, or a coin
-is missing from the coin table; the answer lists every such issue instead.
+there is no trade, an identifier is empty, too long or used twice, a coin is
+missing from the coin table, or a trade's time has an offset from UTC with
+seconds in it (some zones had one before the 1970s, and the ledger cannot
+write it); the answer lists every such issue instead.
 `backup_file_name` names the file, with the word `incremental` in it: the
 ledger's present import replaces the whole ledger, and a file of a few new
 trades must never be taken for a full backup. A golden sample, a committed
