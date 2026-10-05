@@ -296,8 +296,10 @@ _UNIT_BELOW: Mapping[str, str] = {"百": "十", "千": "百", "万": "千", "亿
 _DIGIT = "一二两三四五六七八九1-9"
 _SCALE = "十百千万亿"
 _SAID = f"零{_DIGIT}{_SCALE}点"
+# Nowhere in these patterns do two stretches of optional gaps stand side by
+# side: a long run of spaces would be shared out between them in every way.
 _SHAPE = re.compile(
-    rf"\s*(?P<sign>[{_CURRENCY_SIGNS}]?)\s*"
+    rf"\s*(?:(?P<sign>[{_CURRENCY_SIGNS}])\s*)?"
     rf"(?P<body>[0-9{_SAID}](?:[0-9.,\s{_SAID}]*[0-9{_SAID}])?)"
     r"(?P<letters>[A-Za-z]*)(?P<rest>.*)",
     re.DOTALL,
@@ -344,9 +346,9 @@ _WORDING_HINTS: tuple[tuple[Doubt, re.Pattern[str]], ...] = (
     (
         Doubt.RANGE,
         re.compile(
-            rf"[{_IN_NUMBER}]\s*[^\W\d_]{{0,8}}\s*"
+            rf"[{_IN_NUMBER}]\s*(?:[^\W\d_]{{1,8}}\s*)?"
             rf"(?:[到至~〜\-–—]|(?<![{_LATIN}])to(?![{_LATIN}]))"
-            rf"\s*[{_CURRENCY_SIGNS}]?\s*[{_IN_NUMBER}]",
+            rf"\s*(?:[{_CURRENCY_SIGNS}]\s*)?[{_IN_NUMBER}]",
             re.IGNORECASE,
         ),
     ),
@@ -385,9 +387,10 @@ class _Place:
 
     ``top`` and ``bottom`` are the powers of ten of its highest digit and of
     its lowest digit that is not zero; for a single digit they are the same.
+    ``digits`` are the digits from the one to the other.
     """
 
-    amount: int
+    digits: str
     top: int
     bottom: int
     after_zero: bool
@@ -463,7 +466,7 @@ def _strictly_read(folded: str, original: str, allowed: frozenset[str]) -> Readi
     tail = _tail(shape, original, allowed)
     if isinstance(tail, Doubt):
         return Unsure(tail)
-    sign = original[shape.start("sign") : shape.end("sign")]
+    sign = original[shape.start("sign") : shape.end("sign")] if shape["sign"] else ""
     if tail is None or (sign and tail.unit):
         return None
     amount = _amount(shape["body"], tail.power)
@@ -513,12 +516,12 @@ def _is_unit(text: str, allowed: frozenset[str]) -> bool:
     No word may hold a number word. More than two words are a unit only when
     together they are one name this program knows or the caller allows.
     """
+    if len(text) > SYMBOL_MAX_LENGTH:
+        return False
     if len(text) == 1 and text in _CURRENCY_SIGNS:
         return True
     words = text.split()
     letters = "".join(words)
-    if len(text) > SYMBOL_MAX_LENGTH:
-        return False
     if not all(letter.isalpha() for letter in letters):
         return False
     # A number character is one in whatever form it is written.
@@ -539,6 +542,9 @@ def _is_known_unit(unit: str, allowed: frozenset[str]) -> bool:
     another, from end to end. A block of anything else is one word, whatever
     it holds.
     """
+    if len(unit) > SYMBOL_MAX_LENGTH:
+        # Asked first: nothing below is done to a text of any length.
+        return False
     words = [_plain(word) for word in unit.split()]
     if len(words) == 1 and words[0] in _CURRENCY_SIGNS:
         return _is_known_word(words[0], allowed)
@@ -562,10 +568,13 @@ def _is_known_unit(unit: str, allowed: frozenset[str]) -> bool:
 
 def _is_run_of_known_words(run: str, allowed: frozenset[str]) -> bool:
     """Whether ``run`` can be cut into known words with no character left over."""
-    # The places in the run that a row of known words, begun at its start, can end at.
+    # The places in the run that a row of known words, begun at its start, can
+    # end at. No word is longer than a unit may be, so each place looks back
+    # over a fixed stretch only, and the work grows no faster than the run.
     ends = {0}
     for end in range(1, len(run) + 1):
-        if any(_is_known_word(run[start:end], allowed) for start in ends):
+        starts = range(max(0, end - SYMBOL_MAX_LENGTH), end)
+        if any(start in ends and _is_known_word(run[start:end], allowed) for start in starts):
             ends.add(end)
     return len(run) in ends
 
@@ -630,22 +639,22 @@ def _written(digits: str, power: int) -> _Amount | Doubt | None:
     return Doubt.AMBIGUOUS_SEPARATOR
 
 
-def _said(numeral: str) -> _Amount | None:
+def _said(numeral: str) -> _Amount | Doubt | None:
     """Read a number said in number words; ``None`` when they have no single reading."""
     decimal = _SAID_DECIMAL.fullmatch(numeral)
     if decimal is None:
         whole = _said_whole(numeral)
-        return None if whole is None else _Amount(Decimal(whole))
+        return whole if whole is None or isinstance(whole, Doubt) else _Amount(Decimal(whole))
     if decimal["scale"] not in _SCALE_WORDS or _is_shortened(decimal["whole"]):
         return None
     whole = _said_whole(decimal["whole"])
-    if whole is None:
-        return None
+    if whole is None or isinstance(whole, Doubt):
+        return whole
     fraction = "".join(str(_SAID_DIGITS[digit]) for digit in decimal["fraction"])
     return _Amount(Decimal(f"{whole}.{fraction}"), _SCALE_WORDS[decimal["scale"]])
 
 
-def _said_whole(numeral: str) -> int | None:
+def _said_whole(numeral: str) -> int | Doubt | None:
     """The whole number said by ``numeral``; ``None`` when it has no single reading."""
     if numeral == "零":
         return 0
@@ -659,7 +668,14 @@ def _said_whole(numeral: str) -> int | None:
     if _is_shortened(numeral) and places[-2].bottom - places[-1].top > 2:
         # "一百万五" may end in five thousand or in five hundred thousand.
         return None
-    return sum(place.amount for place in places)
+    if places[0].top - places[-1].bottom >= MAX_SIGNIFICANT_DIGITS:
+        # The places lie one below the other, so the number has a digit at the
+        # top of the first and at the bottom of the last. It is not added up:
+        # a count of thousands of digits would take long, and Python refuses
+        # to turn more than a few thousand digits into a whole number.
+        return Doubt.TOO_MANY_DIGITS
+    whole: int = sum(int(place.digits) * 10**place.bottom for place in places)
+    return whole
 
 
 def _all_places(numeral: str) -> list[_Place] | None:
@@ -719,16 +735,17 @@ def _places(words: str, base: int) -> list[_Place]:
     places: list[_Place] = []
     for zero, digit, unit in _TERM.findall(words):
         rank = base + _SMALL_UNITS.get(unit, 0)
-        places.append(_Place(_SAID_DIGITS[digit] * 10**rank, rank, rank, after_zero=bool(zero)))
+        places.append(_Place(str(_SAID_DIGITS[digit]), rank, rank, after_zero=bool(zero)))
     return places
 
 
 def _counted(count: str, base: int) -> _Place:
     """A whole section written as digits, like the 12 of "12万" or the 4900 of "9万4900"."""
+    digits = count.rstrip("0")
     return _Place(
-        int(count) * 10**base,
+        digits,
         top=base + len(count) - 1,
-        bottom=base + len(count) - len(count.rstrip("0")),
+        bottom=base + len(count) - len(digits),
         after_zero=False,
     )
 

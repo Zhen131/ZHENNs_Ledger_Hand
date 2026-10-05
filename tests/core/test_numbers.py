@@ -10,6 +10,7 @@ import itertools
 import random
 import re
 import sys
+import time
 import unicodedata
 from decimal import Decimal
 
@@ -2876,6 +2877,146 @@ def test_no_text_makes_the_reader_raise(text: str) -> None:
 @pytest.mark.parametrize("text", TEXT_THAT_IS_NOT_AN_AMOUNT)
 def test_text_that_is_not_an_amount_never_becomes_a_number(text: str) -> None:
     assert not isinstance(read_number(text), Recognised)
+
+
+# Python refuses to turn more than a few thousand digits into a whole number.
+MORE_DIGITS_THAN_PYTHON_TURNS_INTO_A_WHOLE_NUMBER = "4" * (sys.get_int_max_str_digits() + 700)
+
+
+@pytest.mark.parametrize(
+    ("place", "reason"),
+    [
+        ("9万{}", Doubt.UNCLEAR_WORDING),
+        ("一万{}", Doubt.UNCLEAR_WORDING),
+        ("1亿{}万", Doubt.UNCLEAR_WORDING),
+        ("{}万三", Doubt.TOO_MANY_DIGITS),
+        ("{}亿5000万", Doubt.TOO_MANY_DIGITS),
+        ("{}万零五", Doubt.TOO_MANY_DIGITS),
+        ("{}", Doubt.TOO_MANY_DIGITS),
+        ("{}万", Doubt.TOO_MANY_DIGITS),
+        ("0.{}", Doubt.TOO_MANY_DIGITS),
+    ],
+)
+def test_count_of_thousands_of_digits_is_a_doubt_and_not_an_error(
+    place: str, reason: Doubt
+) -> None:
+    text = place.format(MORE_DIGITS_THAN_PYTHON_TURNS_INTO_A_WHOLE_NUMBER)
+
+    assert read_number(text) == Unsure(reason)
+
+
+@pytest.mark.parametrize(
+    ("text", "value"),
+    [
+        ("5" * 36 + "万三", "5" * 36 + "3000"),
+        ("12345万3", "123453000"),
+        ("1亿12345678", "112345678"),
+        ("1" + "0" * 35 + "万零五", "1" + "0" * 38 + "5"),
+    ],
+)
+def test_long_count_that_the_ledger_can_hold_is_still_added_up(text: str, value: str) -> None:
+    assert written(text) == value
+
+
+@pytest.mark.parametrize(
+    "text",
+    ["5" * 37 + "万三", "5" * 41 + "万三", "1" + "0" * 45 + "万零五", "1" + "0" * 40 + "万零三"],
+)
+def test_long_count_that_the_ledger_cannot_hold_has_too_many_digits(text: str) -> None:
+    assert read_number(text) == Unsure(Doubt.TOO_MANY_DIGITS)
+
+
+VERY_LONG = 50_000
+
+# What each very long text is read as. None of them may take long: where the
+# work grows with the length of the text these take a few hundredths of a
+# second, and where it grows with its square or its cube, minutes or hours.
+VERY_LONG_TEXTS: dict[str, tuple[str, type]] = {
+    "counters after letters that may hold a multiplier": ("5ku" + "个" * VERY_LONG, Unsure),
+    "counters after a multiplier letter": ("5k" + "个" * VERY_LONG, NotANumber),
+    "counters after a gap": ("5 " + "个" * VERY_LONG, NotANumber),
+    "counters right after the number": ("5" + "个" * VERY_LONG, NotANumber),
+    "known names one after another": ("5个" + "比特币现金" * (VERY_LONG // 5), NotANumber),
+    "names that begin like other names": ("5w" + "以太坊以太" * (VERY_LONG // 5), NotANumber),
+    "names with one character left over": ("5个" + "以太" * (VERY_LONG // 2) + "们", NotANumber),
+    "letters after a multiplier letter": ("5k" + "u" * VERY_LONG, Unsure),
+    "mathematical letters after a multiplier letter": (
+        "5k" + in_bold("u") * VERY_LONG,
+        Unsure,
+    ),
+    "mathematical letters": ("5 " + in_bold("u") * VERY_LONG, NotANumber),
+    "letters and Chinese characters in turn": ("5ku" + "个u" * (VERY_LONG // 2), Unsure),
+    "words": ("5 " + "u " * (VERY_LONG // 2), NotANumber),
+    "gaps before a unit": ("5" + " " * VERY_LONG + "u", Recognised),
+    "wide gaps before a unit": ("5" + "\N{IDEOGRAPHIC SPACE}" * VERY_LONG + "u", Recognised),
+    "tabs and line breaks before a unit": ("5" + "\t\n" * (VERY_LONG // 2) + "u", Recognised),
+    "gaps after the number": ("5" + " " * VERY_LONG, Recognised),
+    "gaps before the number": (" " * VERY_LONG + "5", Recognised),
+    "gaps and no number": (" " * VERY_LONG + "x", NotANumber),
+    "gaps around a sign and no number": (
+        " " * VERY_LONG + "$" + " " * VERY_LONG + "x",
+        NotANumber,
+    ),
+    "gaps before something that is no unit": ("5" + " " * VERY_LONG + "#", NotANumber),
+    "gaps around a word for a range": (
+        "5" + " " * VERY_LONG + "to" + " " * VERY_LONG + "x",
+        NotANumber,
+    ),
+    "gaps around a dash and a sign": (
+        "5" + " " * VERY_LONG + "-" + " " * VERY_LONG + "$" + " " * VERY_LONG + "x",
+        NotANumber,
+    ),
+    "gaps around a slash": ("5" + " " * VERY_LONG + "/" + " " * VERY_LONG + "x", NotANumber),
+    "gaps before a share": ("5" + " " * VERY_LONG + "x成", Unsure),
+    "numbers with gaps after each": (("5" + " " * 200) * (VERY_LONG // 201) + "x", Unsure),
+    "number words with gaps after each": (
+        ("五" + " " * 300) * (VERY_LONG // 301) + "#",
+        NotANumber,
+    ),
+    "digits": ("5" * VERY_LONG, Unsure),
+    "decimal places": ("0." + "5" * VERY_LONG, Unsure),
+    "digits in groups of three": ("1" + ",000" * (VERY_LONG // 4), Unsure),
+    "digits and a multiplier letter": ("5" * VERY_LONG + "k u", Unsure),
+    "a count inside a number said in words": ("9万" + "4" * VERY_LONG, Unsure),
+    "a count before a number said in words": ("5" * VERY_LONG + "万三", Unsure),
+    "a count between 亿 and 万": ("1亿" + "5" * VERY_LONG + "万", Unsure),
+    "the same number word": ("一" * VERY_LONG, Unsure),
+    "thousands said again and again": ("九千" * (VERY_LONG // 2), Unsure),
+    "a number said in full again and again": ("一万二千三百四十五" * (VERY_LONG // 9), Unsure),
+    "zeros said": ("一" + "零" * VERY_LONG + "五", Unsure),
+    "decimal places said": ("一点" + "五" * VERY_LONG, Unsure),
+    "commas": ("5," * (VERY_LONG // 2), NotANumber),
+    "ranges": ("5到" * (VERY_LONG // 2), Unsure),
+    "vague words": ("大概" * (VERY_LONG // 2) + "5", Unsure),
+    "marks on a letter": ("5 u" + "\N{COMBINING ACUTE ACCENT}" * VERY_LONG, NotANumber),
+    "characters that are not seen": ("5" + "\N{ZERO WIDTH SPACE}" * VERY_LONG + "u", NotANumber),
+    "letters that come apart into words": (
+        "5 " + "\N{ARABIC LIGATURE SALLALLAHOU ALAYHE WASALLAM}" * VERY_LONG,
+        NotANumber,
+    ),
+}
+
+
+@pytest.mark.parametrize("name", VERY_LONG_TEXTS)
+def test_very_long_text_is_answered_at_once(name: str) -> None:
+    text, kind = VERY_LONG_TEXTS[name]
+    started = time.perf_counter()
+
+    reading = read_number(text)
+
+    seconds = time.perf_counter() - started
+    assert isinstance(reading, kind)
+    assert seconds < 2
+
+
+def test_long_run_of_known_chinese_words_is_cut_in_time_that_grows_with_its_length() -> None:
+    # Thirty-two characters is all a unit may have, so this asks the words
+    # the caller allows: a hundred of them, each a beginning of the next.
+    words = ["邦" * size for size in range(1, 33)]
+
+    assert recognised_with("5" + "邦" * 32, *words).unit == "邦" * 32
+    assert read_number("5" + "邦" * 31 + "们", extra_units=words) == Unsure(Doubt.UNKNOWN_UNIT)
+    assert read_number("5" + "邦" * 33, extra_units=words) == NotANumber()
 
 
 def test_every_short_string_of_number_characters_gets_a_sound_reading() -> None:
