@@ -73,8 +73,36 @@ export that the export must reproduce byte for byte, records what this format
 looks like, and the ledger tier of the checks has the ledger's own validator
 judge it (see below).
 
-All of this is pure computation: nothing is written to disk yet. There is no
-language model, no storage and no interface yet.
+**Talking to a language model.** The rest of the program will only ever
+talk to the model port in `src/ledger_hand/ports.py`: send a list of
+messages, optionally a JSON schema the reply has to follow, and the sampling
+parameters; get back the reply's text and a short record of the call (which
+model answered, how long it took, how many tokens it read and wrote, and
+whether it stopped by itself or was cut off at the length limit). The one
+plug today, in `src/ledger_hand/llm/`, talks to a local Ollama server
+through its own chat endpoint and waits for the whole reply.
+`connect_local_model(load_model_settings())` builds it. Every failure is one
+`ModelError` with one of six kinds: `unreachable` (nothing answers at the
+address: the server is not running, or the name does not resolve),
+`timed_out`, `model_not_found`, `rate_limited`, `server_error` (also for
+anything no other kind fits, with the raw status and the start of the
+answer attached) and `malformed_reply` (not JSON, a field missing, empty
+text, too long, not valid text). No odd answer makes the plug raise
+anything else or wait without end. Timed out, rate limited and server error
+are tried again a few times, with waits that double each time. What the
+reply's text says is not checked here: a model reply is untrusted input, and
+whoever asked checks it. A small function asks the server for its version
+and the model's fingerprint, for the records of an experiment. No prompt is
+written yet.
+
+Where the model is, which one, its key and the default parameters are
+settings read from environment variables (see "Model settings" below);
+`src/ledger_hand/settings.py` is the only place in the package that reads
+them. A key is never printed and never appears in an error.
+
+Apart from asking the model, all of this is pure computation: nothing is
+written to disk yet, and nothing that is said is recorded. There is no
+prompt, no storage and no interface yet.
 
 The repository also has its Python environment, one command that runs every
 check, and two guardrails that keep the code base in shape (the layering
@@ -85,11 +113,17 @@ check and the hygiene scan).
 | Path | What it is |
 | --- | --- |
 | `pyproject.toml` | Package metadata and the configuration of every tool (pytest, ruff, mypy). |
-| `requirements.txt` | Exact versions of the development tools, so the environment can be rebuilt identically. |
-| `src/ledger_hand/` | The package. Today it holds its version, `core/` and `export/`. |
+| `requirements.txt` | Exact versions of the run-time dependency (httpx) and the development tools, so the environment can be rebuilt identically. |
+| `src/ledger_hand/` | The package. Today it holds its version, `core/`, `export/`, the ports file, the settings and `llm/`. |
 | `src/ledger_hand/core/` | Core rules: pure computation, no network, files, database, user interface or clock. Holds the shapes of a trade (`trade.py`), the coin table (`coins.py`), the ledger's limits (`ledger_limits.py`), exact decimal arithmetic (`arithmetic.py`), the reading and writing of numbers (`numbers.py`), the reading and writing of times (`timeparse.py`, with the wording of a time phrase in `time_wording.py`) and the check of a draft (`validation.py`), a saved trade (`stored.py`) and which time zone names are taken (`zones.py`). |
 | `src/ledger_hand/export/` | The ledger's backup format: the whole file (`backup.py`), one trade (`trade_entry.py`), one coin (`coin_card.py`), bookkeeping moments (`moments.py`) and the file's name (`file_name.py`). Writes no file itself. |
-| `tests/` | The tests. `tests/core/` and `tests/export/` have one test module per module. |
+| `src/ledger_hand/ports.py` | The model port: messages, parameters, the reply and its record, and the error with its six kinds. Only shapes; it sends nothing. |
+| `src/ledger_hand/settings.py` | The only place in the package that reads environment variables: the model settings, their defaults and their checks. |
+| `src/ledger_hand/llm/` | The local plug for the model port: the plug itself (`ollama.py`), what is sent (`ollama_request.py`) and how what comes back is read (`ollama_reply.py`), one HTTP exchange and how its failures are sorted (`exchange.py`), making a server's words safe to show (`error_text.py`), trying again (`retry.py`), the assembled local model (`local.py`), and the server's version and the model's fingerprint (`ollama_identity.py`). The only part that may import httpx. |
+| `tests/` | The tests. `tests/core/`, `tests/export/` and `tests/llm/` have one test module per module; `tests/llm/` also has a fake Ollama server and a batch of attacks on the plug. |
+| `tests/conftest.py` | Stops every test that is not marked `live_model` from reaching the network. |
+| `tests/fakes/` | Stand-ins for the outside world: a scripted model that plays back replies and errors in order and records what it was asked. |
+| `tests/live/` | The live check, which talks to a real model, and the small schema check it uses. |
 | `tests/export/samples.py`, `tests/export/attack.py`, `tests/export/golden/` | Invented trades to export, batches of edge cases made to find where this program and the ledger part ways, both shared with the ledger tier, and the golden sample. A golden sample is never edited once committed; a new format version gets one of its own. |
 | `tests/guardrails/` | The layering check and the hygiene scan, the tests that prove they catch what they should, and the two gate tests that apply them to this repository. |
 | `scripts/check.sh` | One command that runs all checks. |
@@ -100,9 +134,9 @@ check and the hygiene scan).
 | `data/` | Not in Git. Run-time output, caches and, later, the local database. Created when first needed. |
 | `.venv/` | Not in Git. The local Python environment. |
 
-Directories for later parts (extraction, model client, storage, flows, user
-interface) are created by the change that first needs them; see
-`docs/architecture.md` for the planned layout.
+Directories for later parts (extraction, storage, flows, user interface)
+are created by the change that first needs them; see `docs/architecture.md`
+for the planned layout.
 
 ## Setting up from scratch
 
@@ -117,7 +151,8 @@ python3.12 -m venv .venv
 .venv/bin/python -m pip install --no-deps -e .
 ```
 
-The second command installs the pinned development tools. The third installs
+The second command installs the pinned run-time dependency (httpx) and
+development tools. The third installs
 this package in editable mode, so the tests import the code in `src/`
 directly. Both need network access; the third also fetches the build backend
 (setuptools) into a temporary build environment.
@@ -136,7 +171,8 @@ The last line should read `quick: all checks passed`.
 scripts/check.sh          # the same as: scripts/check.sh quick
 ```
 
-The script takes one argument, the tier: `quick` (the default) or `ledger`.
+The script takes one argument, the tier: `quick` (the default), `ledger` or
+`live`.
 
 `quick` needs no network and no running model, and runs these steps in order:
 
@@ -144,10 +180,10 @@ The script takes one argument, the tier: `quick` (the default) or `ledger`.
 | --- | --- | --- |
 | `format` | `ruff format --check .` | Formatting is left to the tool. |
 | `lint` | `ruff check .` | Basic errors, import order, naming, common pitfalls, needless complexity, boolean flag parameters, overlong functions. |
-| `types` | `mypy` | Strict type checking of `core/`. |
-| `layering` | `pytest tests/guardrails/test_repo_layering.py` | Each part of the package imports only what the layering table allows; `core/` reads no clock and uses no floating-point number. |
+| `types` | `mypy` | Strict type checking of `core/` and `ports.py`. |
+| `layering` | `pytest tests/guardrails/test_repo_layering.py` | Each part of the package imports only what the layering table allows; `core/` reads no clock and uses no floating-point number; only `settings.py` reads environment variables. |
 | `hygiene` | `pytest tests/guardrails/test_repo_hygiene.py` | No machine-specific paths, private work-log identifiers or tool-attribution text in any file Git tracks or would add. |
-| `tests` | `pytest` | Every test, including the tests of the two guardrails themselves. |
+| `tests` | `pytest` | Every test except the live ones, including the tests of the two guardrails themselves. No test reaches the network: the model plug is tested against a fake transport, and a test that tries to connect fails on the spot. |
 
 The script stops at the first step that fails and ends with `FAILED: <step>`,
 so the last line always says where to look. Exit status: `0` when every step
@@ -208,10 +244,27 @@ When no checkout is named, the named one is missing, or `tsx`, Node.js or Git
 is missing, the tier is skipped: it prints why and ends with exit status `3`,
 which is neither a pass nor a failure. `quick` never depends on it.
 
-One more tier is planned and will be added to the same script: `live` will
-talk to a real model. It needs a local model server running and is only ever
-run by hand. Until it exists, asking for it is an error, like any other
-unknown tier.
+### The live tier
+
+```sh
+scripts/check.sh live
+```
+
+`live` talks to a real model, so it is only ever run by hand. It needs the
+model server named in the settings running, with the model there: by
+default Ollama on this machine with `qwen2.5:7b`. It runs the tests marked
+`live_model` in `tests/live/`, with the settings read from the environment
+as the program reads them. It asks the server for its version and the
+model's fingerprint, then hands the model an invented question with a small
+table (a JSON schema) and checks that the reply is valid JSON that follows
+the table. It prints the table, the reply, how long the call took and the
+token counts. When the server cannot be reached, it fails with a message
+that starts with `unreachable`.
+
+To see what happens when no model server is running, do not stop the one you
+have: point the address at a port nothing listens on instead, for example
+`LEDGER_HAND_MODEL_URL=http://127.0.0.1:59999 scripts/check.sh live`.
+`quick` gives the same result either way, because it never talks to a model.
 
 To let the tool fix formatting instead of only reporting it:
 
@@ -221,6 +274,41 @@ To let the tool fix formatting instead of only reporting it:
 
 `scripts/check.sh` uses the Python in `.venv/`. Set `LEDGER_HAND_PYTHON` to
 the path of another interpreter to use that one instead.
+
+## Model settings
+
+The model settings are read from these environment variables. A variable
+that is not set, or is blank, takes its default. A value in the wrong form
+or out of range stops the program with a message that names the variable,
+and so does a variable that starts with `LEDGER_HAND_MODEL_` but is not one
+of these, because a misspelt name would otherwise be ignored without a word.
+
+| Variable | Default | What it sets |
+| --- | --- | --- |
+| `LEDGER_HAND_MODEL_URL` | `http://127.0.0.1:11434` | Where the model server is: Ollama on this machine. An `http` or `https` address, with no user name, password, query or fragment. |
+| `LEDGER_HAND_MODEL_NAME` | `qwen2.5:7b` | Which model to ask. |
+| `LEDGER_HAND_MODEL_KEY` | (none) | A key, sent as a bearer token, for a server that needs one. The local Ollama does not. Never printed. |
+| `LEDGER_HAND_MODEL_TEMPERATURE` | `0` | How adventurous the model is; 0 gives the same answer to the same text, which extraction needs. 0 or more. |
+| `LEDGER_HAND_MODEL_TOP_P` | `1` | Keeps only the likeliest words whose chances add up to this; 1 keeps all of them, so the temperature alone decides. Above 0, at most 1. |
+| `LEDGER_HAND_MODEL_MAX_REPLY_TOKENS` | `1024` | The longest reply, in tokens; room for a JSON list of about ten trades. A reply that reaches it is marked as cut off. |
+| `LEDGER_HAND_MODEL_CONTEXT_TOKENS` | `8192` | How much the model reads at once, in tokens. Ollama's own default is shorter, and it drops the start of a prompt that does not fit without saying so. |
+| `LEDGER_HAND_MODEL_TIMEOUT_SECONDS` | `120` | How long to wait for the whole reply. Leaves room for loading the model on the first call. Not sent to the model. |
+| `LEDGER_HAND_MODEL_RETRIES` | `2` | How many times a call that timed out, was rate limited or met a server error is tried again. 0 to 10. |
+| `LEDGER_HAND_MODEL_RETRY_WAIT_SECONDS` | `1` | The wait before the first retry; each later wait is twice the one before. |
+
+Numbers are written with plain digits and at most one point (`0.7`, `45`),
+with no sign or exponent. The defaults are named constants in
+`src/ledger_hand/settings.py`, each with the reason for its value.
+
+The time allowed is counted from sending. Connecting, sending and each wait
+for the next piece of the reply are each cut off at the time allowed, and a
+reply still arriving once that time has passed is abandoned at its next
+piece. So a server that keeps trickling bytes cannot keep a call open for
+long past the time allowed.
+
+The plug ignores the proxy settings of the environment (`HTTP_PROXY` and the
+like), so a request for the model on this machine never leaves it through a
+proxy.
 
 ## Changing the development tools
 

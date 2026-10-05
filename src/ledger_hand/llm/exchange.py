@@ -13,9 +13,10 @@ what is recognised:
   the answer, the server spoke broken HTTP, too many redirects...): it fits
   no kind, so it is ``SERVER_ERROR``, with the raw error in the message.
 
-The time allowed is counted from sending. No single wait is longer than it,
-and an answer that is not complete once it has passed is abandoned, however
-steadily its pieces keep arriving.
+The time allowed is counted from sending. Connecting, sending and each wait
+for the next piece of the answer are each cut off at the time allowed, and
+an answer still arriving once that time has passed is abandoned at its next
+piece, however steadily its pieces keep coming.
 
 A body longer than ``MAX_ANSWER_BYTES`` does not raise here: the answer
 says so, and what that means depends on the status. Bodies are never

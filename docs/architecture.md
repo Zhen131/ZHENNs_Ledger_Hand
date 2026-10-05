@@ -40,12 +40,20 @@ src/ledger_hand/
         zones.py              which time zone names are taken                         (exists)
         stored.py             a saved trade: record, identifier, two moments          (exists)
         followup.py           what to ask when something is missing
-    ports.py              the two ports: model and storage
+    ports.py              the two ports: model, and later storage                     (exists)
     extraction/           a passage of text to drafts
         prompts/              prompt versions, one file per version
         reply_parser.py       turns a model reply into drafts; survives a garbled reply
         extractor.py
-    llm/                  plugs for the model port: a local model server; later a cloud one
+    llm/                  plugs for the model port: a local model server; later a cloud one (exists)
+        ollama.py             the local plug: one chat call to Ollama, one try        (exists)
+        ollama_request.py     what is sent: the body of one chat request              (exists)
+        ollama_reply.py       what comes back: the reply, or the kind of failure      (exists)
+        exchange.py           one HTTP exchange; sorts failed connections and statuses (exists)
+        error_text.py         a server's words made safe to show, the key hidden      (exists)
+        retry.py              tries again after failures that may pass on their own   (exists)
+        local.py              the local plug assembled from the settings, with retries (exists)
+        ollama_identity.py    the server's version and the model's fingerprint        (exists)
     storage/              plug for the storage port: SQLite, with numbered upgrade scripts
     export/               writes the ledger's backup format as text                   (exists)
         backup.py             the whole file; refuses what the ledger would refuse    (exists)
@@ -54,10 +62,12 @@ src/ledger_hand/
         moments.py            creation, change and export moments, in UTC             (exists)
         file_name.py          the name of an export file                              (exists)
     flows/                strings the parts into one task: record a trade, export
-    settings.py           the only place that reads settings
+    settings.py           the only place that reads settings                          (exists)
     ui/                   the user interface; the only place that may use Streamlit
 evals/                    prompt experiments: test sentences, scoring script, results
 tests/                    mirrors src; also holds the guardrails, fakes and golden samples  (exists)
+    fakes/                stand-ins for the outside world: a scripted model           (exists)
+    live/                 the live check against a real model, run by hand only       (exists)
 ```
 
 A **port** is an interface that the inner code talks to ("ask the model",
@@ -92,6 +102,7 @@ How the check reads this table:
   added for it.
 - Importing by name at run time (`importlib.import_module`, `__import__`) is
   refused everywhere, because it hides the import from the check.
+- Only `settings.py` may touch environment variables (see below).
 
 ### Reserved modules
 
@@ -104,6 +115,23 @@ How the check reads this table:
 
 Any other third-party import is refused in every part. A new run-time
 dependency is a design decision, not a routine edit.
+
+### Environment variables
+
+Settings are read in one place. Only `settings.py` may touch environment
+variables; everywhere else in the package the check reports:
+
+- `environ`, `environb`, `getenv`, `getenvb`, `putenv` and `unsetenv` used
+  as an attribute of anything (`os.environ`, `os.getenv(...)`, an alias of
+  `os`, `posix.environ`);
+- importing any of them from `os`, `posix` or `nt`, and `from os import *`;
+- fetching one of them with `getattr` by its name.
+
+Scripts and tests outside the package are free to read the environment. A
+second gate, `tests/guardrails/test_repo_model_boundaries.py`, checks the real
+package straight from its source, without the table: only `llm/` imports
+httpx, the ports file imports only the standard library and the core, and
+only `settings.py` reads the environment.
 
 ### The core allow-list
 
@@ -197,13 +225,51 @@ How the rules are applied in practice:
   committed is never edited afterwards.
 - **Create on first use.** A file or folder appears in the change that first
   needs it.
-- **Type checking is strict where it matters most:** `core/`, and `ports.py`
-  once it exists. The rest is not type-checked.
+- **Type checking is strict where it matters most:** `core/` and `ports.py`.
+  The rest is not type-checked.
 - **Everything in the repository is written in English:** documentation, code
   comments, error messages and interface text. Inputs inside tests may be in
   Chinese, because they are the data under test.
 - **All test data is invented.** No real trade and no real ledger export ever
   enters the repository.
+
+## The model port
+
+The model port in `ports.py` is a `ModelPort` with one method, `chat`:
+messages in (each with a role and its text), optionally a JSON schema the
+reply has to follow and a set of `ModelParameters`; a `ModelReply` out (the
+text and a `ReplyRecord`). Without parameters the plug uses the defaults it
+was built with from the settings. Every failure is a `ModelError` whose
+`kind` is one of six (`ModelErrorKind`):
+
+| Kind | Raised when |
+| --- | --- |
+| `UNREACHABLE` | The connection cannot be made (refused, or the name does not resolve), or the address is one httpx cannot use. |
+| `TIMED_OUT` | Connecting, sending or a wait for the answer passed the time allowed, or the answer was not complete once that time had passed. |
+| `MODEL_NOT_FOUND` | Ollama answers 404 with a JSON `error` that says "not found"; or the model is not in the server's list when its fingerprint is asked for. |
+| `RATE_LIMITED` | The server answers 429. |
+| `SERVER_ERROR` | The server answers 500 to 599. Also every failure that fits no other kind, with the raw status, error and start of the answer attached: any other status, a connection that breaks off mid-answer, broken HTTP. |
+| `MALFORMED_REPLY` | Status 200, but the answer is not UTF-8, not JSON, not an object, has no message or no text, has blank text or text that is not valid Unicode, is not marked done, or is longer than the cap. |
+
+Each kind is recognised by what it positively looks like; what is not
+recognised falls to `SERVER_ERROR` (or, for an answer with status 200, to
+`MALFORMED_REPLY`), never to an exception of another type. Errors in the
+program itself (a call in the wrong shape, a bug) are not model failures and
+are not turned into one.
+
+`llm/retry.py` tries a call again after `TIMED_OUT`, `RATE_LIMITED` and
+`SERVER_ERROR`, a limited number of times, each wait twice the one before.
+The other three are raised at once: waiting does not mend them, and on this
+machine `UNREACHABLE` means the server is not running, which the person at
+the keyboard should hear straight away.
+
+Whether a reply's text is valid JSON that follows the schema is not checked
+by the plug. A model reply is untrusted input (rule 6), and the code that
+asked checks it.
+
+`tests/fakes/scripted_model.py` is the port's stand-in for tests: it plays
+back a script of replies and errors in order, records every call, and fails
+the test when the script runs out.
 
 ## Deliberately left out
 
