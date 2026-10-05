@@ -2735,6 +2735,21 @@ def test_number_character_in_a_unit_never_leaves_the_bare_number(
     assert not (isinstance(reading, Recognised) and reading.value == 3)
 
 
+# The second written form of 廿, twenty. It is tried on its own, and with the
+# caller allowing it as a word, so that the list above stays as it was.
+SECOND_FORM_OF_TWENTY = "卄"
+
+
+@pytest.mark.parametrize("place", PLACES_FOR_A_NUMBER_CHARACTER)
+@pytest.mark.parametrize("allowed", [(), (SECOND_FORM_OF_TWENTY,)])
+def test_second_form_of_twenty_is_a_number_character_and_never_a_unit(
+    place: str, allowed: tuple[str, ...]
+) -> None:
+    reading = read_number(place.format(SECOND_FORM_OF_TWENTY), extra_units=allowed)
+
+    assert not isinstance(reading, Recognised)
+
+
 MAGNITUDE_WORDS_IN_MANY_FORMS = [
     *("k", "K", "w", "W", "m", "M", "b", "B", "t", "g", "kk", "kw", "mm", "bn", "mn"),
     *("mil", "mill", "mln", "MLN", "mio", "mrd", "bln", "tsd", "wan", "WAN", "yi", "qian"),

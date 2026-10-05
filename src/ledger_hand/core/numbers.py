@@ -256,9 +256,9 @@ _NUMBER_WORDS = frozenset(
     "零〇一二三四五六七八九十百千万亿"
     # the places after 亿
     "兆京垓秭穰沟涧正载极"
-    # two, a pair, three of something, twenty, thirty, forty, two hundred,
-    # the spoken "one", and the decimal point
-    "两俩仨廿卅卌皕幺点"
+    # two, a pair, three of something, twenty (in two forms), thirty, forty,
+    # two hundred, the spoken "one", and the decimal point
+    "两俩仨廿卄卅卌皕幺点"
     # the formal forms used on cheques and contracts, and their old variants
     "壹贰叁肆伍陆柒捌玖拾佰仟陌阡弌弍弎壱弐"
     # the traditional forms of all of the above
