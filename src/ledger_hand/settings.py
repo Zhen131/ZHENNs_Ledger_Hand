@@ -68,10 +68,10 @@ DEFAULT_MAX_REPLY_TOKENS = 1024
 # for a prompt with examples and a schema, and Ollama drops the start of a
 # prompt that does not fit, without an error. qwen2.5:7b reads up to 32768;
 # a longer window costs memory. Measured with qwen2.5:7b: the first prompt
-# with its examples is about 1,700 tokens, and Chinese text about 0.7 tokens
+# with its examples is about 1,750 tokens, and Chinese text about 0.7 tokens
 # a character (English about 0.3). So the longest passage the ledger keeps,
 # 16,384 characters of Chinese, comes to about 11,600 tokens; with the prompt
-# and a full reply that is about 14,300, which leaves some 2,000 to spare.
+# and a full reply that is about 14,400, which leaves some 2,000 to spare.
 DEFAULT_CONTEXT_TOKENS = 16384
 # Leaves room for loading the model into memory on the first call (a cold
 # start takes seconds to tens of seconds) and then writing a full-length reply.
