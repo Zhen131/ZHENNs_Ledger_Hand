@@ -43,7 +43,9 @@ is the letter it stands for.
 - a counter that says how many and nothing about how much one of them is
   ("个", "枚"): the short list in this module, each with its reason;
 - a word the caller passes in for this one call (``extra_units``), such as the
-  name of a coin outside the table.
+  name of a coin outside the table. A word this program itself reads as part
+  of the number is not taken from the caller: a number character, and "k" or
+  "w" standing as a word of its own.
 
 Before any cutting, the unit as a whole is looked up among the same names: a
 name of several words ("Bitcoin Cash", or one the caller allows) is known
@@ -401,12 +403,15 @@ def read_number(text: str, extra_units: Iterable[str] = ()) -> Reading:
 
     ``extra_units`` are unit words the caller allows for this one call, on top
     of the ones this program knows: the name of a coin outside the table, for
-    instance. A block of the unit must equal one of them, letter case and
-    character width aside.
+    instance. The whole unit or a block of it must equal one of them, letter
+    case aside and with every character in its ordinary form. A word this
+    program itself reads as part of the number is not taken, as if it had not
+    been passed: one that holds a number character, and one in which "k" or
+    "w" stands as a word of its own.
     """
     if isinstance(extra_units, str):
         raise TypeError("pass the extra unit words as a collection, not as one string")
-    allowed = frozenset(map(spoken_key, extra_units))
+    allowed = frozenset(word for word in map(spoken_key, extra_units) if _may_be_allowed(word))
     folded = text.translate(_FOLDED)
     if _EXPONENT.search(folded):
         return NotANumber()
@@ -443,6 +448,22 @@ def write_number(value: Decimal) -> str:
     # Python's own text for a decimal switches to an exponent for small
     # numbers, and writes a zero that carries a sign with that sign.
     return format(value.copy_abs(), "f")
+
+
+def _may_be_allowed(word: str) -> bool:
+    """Whether ``word``, in the form names are looked up in, may be a unit the caller allows.
+
+    Not when this program reads it as part of the number. "5k" is five
+    thousand, so "5 k" must not be five of something called k; and a number
+    character is never a unit. A name that only holds such a letter ("kBONK")
+    is a name like any other.
+    """
+    if any(character in _NUMBER_WORDS for character in word):
+        return False
+    blocks = (
+        "".join(run) for part in word.split() for _, run in itertools.groupby(part, key=_is_chinese)
+    )
+    return not any(block.lower() in _LETTER_MULTIPLIERS for block in blocks)
 
 
 def _wording_doubt(folded: str) -> Doubt | None:

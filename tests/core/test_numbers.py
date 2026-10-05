@@ -1036,6 +1036,77 @@ def test_word_holding_a_number_character_is_no_unit_even_when_the_caller_allows_
     assert read_number(text, extra_units=[extra]) == NotANumber()
 
 
+MULTIPLIERS_OF_THIS_PROGRAM_AS_A_CALLER_MIGHT_PASS_THEM = [
+    "k",
+    "K",
+    "w",
+    "W",
+    " k ",
+    "\N{FULLWIDTH LATIN SMALL LETTER K}",
+    "\N{KELVIN SIGN}",
+    "\N{MODIFIER LETTER SMALL K}",
+    in_bold("k"),
+    in_bold("W"),
+    "k BONK",
+    "BONK k",
+    "个k",
+    "w个",
+    "千",
+    "万",
+    "十万",
+    "亿",
+    "个亿",
+    "兩",
+    "\N{CJK COMPATIBILITY IDEOGRAPH-F978}",
+]
+
+
+@pytest.mark.parametrize("word", MULTIPLIERS_OF_THIS_PROGRAM_AS_A_CALLER_MIGHT_PASS_THEM)
+def test_multiplier_of_this_program_is_not_taken_from_a_caller_as_a_unit(word: str) -> None:
+    plain = " ".join(in_ordinary_characters(word).split())
+    texts = [
+        f"5 {plain}",
+        f"5{plain}",
+        f"5 {word}",
+        f"5 {plain} BTC",
+        f"5 BTC {plain}",
+        f"5 个{plain}",
+        "5 k",
+        "5 w",
+        "5 K BTC",
+        "5 BONK k",
+        "5 k BONK",
+        "5个万",
+        "5 千",
+        "5k",
+        "3w",
+        "500 BONK",
+    ]
+
+    for text in texts:
+        assert read_number(text, extra_units=[word]) == read_number(text)
+        assert read_number(text, extra_units=[word, "BONK"]) == read_number(
+            text, extra_units=["BONK"]
+        )
+
+
+def test_multiplier_letter_is_applied_or_doubted_the_same_whatever_the_caller_allows() -> None:
+    assert read_number("5 k", extra_units=["k"]) == Unsure(Doubt.UNKNOWN_UNIT)
+    assert read_number("5 k BTC", extra_units=["k"]) == Unsure(Doubt.UNKNOWN_UNIT)
+    assert read_number("5 w", extra_units=["W"]) == Unsure(Doubt.UNKNOWN_UNIT)
+    assert recognised_with("5k", "k") == Recognised(Decimal("5000"))
+    assert recognised_with("3w", "w") == Recognised(Decimal("30000"))
+    assert recognised_with("5k BONK", "k", "BONK") == Recognised(Decimal("5000"), "BONK")
+    assert read_number("5 kBTC", extra_units=["k"]) == Unsure(Doubt.UNKNOWN_UNIT)
+
+
+def test_name_that_only_holds_a_multiplier_letter_is_still_taken_from_a_caller() -> None:
+    assert recognised_with("5 kBONK", "kBONK") == Recognised(Decimal("5"), "kBONK")
+    assert recognised_with("5 wif", "wif") == Recognised(Decimal("5"), "wif")
+    assert recognised_with("5 ks", "ks") == Recognised(Decimal("5"), "ks")
+    assert recognised_with("5 kk", "kk") == Recognised(Decimal("5"), "kk")
+
+
 def test_allowed_units_given_as_one_string_are_refused() -> None:
     with pytest.raises(TypeError, match="collection"):
         read_number("500 BONK", extra_units="BONK")
@@ -1224,6 +1295,8 @@ UNKNOWN_WORDS_FOR_RANDOM_TEXTS = [
     "\N{CJK COMPATIBILITY IDEOGRAPH-F978}",
 ]
 WORDS_A_CALLER_MAY_ALLOW = ["BONK", "wif", "KAS", "手", "张", "Baby Doge"]
+# Words this program reads as part of the number, and so does not take from a caller.
+WORDS_NOT_TAKEN_FROM_A_CALLER = ["k", "W", "万"]
 GAPS_FOR_RANDOM_TEXTS = ["", "", " ", "\N{IDEOGRAPHIC SPACE}"]
 
 
@@ -1304,6 +1377,8 @@ def test_every_unit_handed_back_for_a_random_text_is_made_of_known_or_allowed_wo
         )
         extra_units = dice.sample(WORDS_A_CALLER_MAY_ALLOW, dice.randint(0, 2))
         allowed = frozenset(word.upper() for word in extra_units)
+        # Passed along with the rest, and expected to make no difference.
+        extra_units += dice.sample(WORDS_NOT_TAKEN_FROM_A_CALLER, dice.randint(0, 1))
 
         reading = read_number(text, extra_units=extra_units)
 
