@@ -37,6 +37,11 @@ def test_limits_match_the_ledger() -> None:
     assert ledger_limits.RAW_TEXT_MAX_LENGTH == 16384
 
 
+def test_identifier_and_program_version_limits_match_the_ledger() -> None:
+    assert ledger_limits.ID_MAX_LENGTH == 128
+    assert ledger_limits.APP_VERSION_MAX_LENGTH == 128
+
+
 # --- text length ------------------------------------------------------------
 
 

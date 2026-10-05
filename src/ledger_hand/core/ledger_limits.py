@@ -51,6 +51,12 @@ PLATFORM_MAX_LENGTH = 128
 NOTE_MAX_LENGTH = 4_096
 RAW_TEXT_MAX_LENGTH = 16_384
 
+# The identifier of a trade or of a coin in a file, and the name and version
+# of the program that wrote the file. Both may not have surrounding
+# whitespace either.
+ID_MAX_LENGTH = 128
+APP_VERSION_MAX_LENGTH = 128
+
 # What the ledger's runtime strips from the ends of a text: its white-space
 # and line-terminator characters. Python's own notion differs at the edges.
 _WHITESPACE = "".join(
