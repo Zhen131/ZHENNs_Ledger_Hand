@@ -36,9 +36,22 @@ has more digits than the ledger holds or carries any other unit ("3个w",
 a guess. `write_number` goes the other way and writes an exact decimal the
 way the ledger accepts it.
 
+**Times as people say them.** `read_time` turns a short piece of text into a
+definite time, given the current moment and the time zone, both handed in by
+the caller: "刚才", "3 小时前", "昨天晚上 9 点 40", "上周五下午三点", "last
+Friday 3pm", "Oct 2", "15:05:30". Only a date said gives a day; a clock time
+gives the minute, or the second when seconds were said. Spans back from now
+count real elapsed time, so they stay right when the clocks change; day words,
+weekdays and dates count calendar days. Every part of the text must be one the
+program knows. When the text can mean more than one time ("10/2", "晚上 12
+点", "last Monday" on most days of the week, "昨天晚上" without a clock
+time), the clocks skipped that time, or it lies in the future, the answer says
+so, never a guess; on the night the clocks go back, a time shown twice comes
+back as two candidates. `write_time` writes a time the way the ledger takes
+it: a date, or a moment with its seconds and offset.
+
 All of this is pure computation. There is no language model, no storage and
-no interface yet, and spoken times ("last Friday 3pm") are not converted yet:
-a draft already holds a definite time.
+no interface yet.
 
 The repository also has its Python environment, one command that runs every
 check, and two guardrails that keep the code base in shape (the layering
@@ -51,7 +64,7 @@ check and the hygiene scan).
 | `pyproject.toml` | Package metadata and the configuration of every tool (pytest, ruff, mypy). |
 | `requirements.txt` | Exact versions of the development tools, so the environment can be rebuilt identically. |
 | `src/ledger_hand/` | The package. Today it holds its version and `core/`. |
-| `src/ledger_hand/core/` | Core rules: pure computation, no network, files, database, user interface or clock. Holds the shapes of a trade (`trade.py`), the coin table (`coins.py`), the ledger's limits (`ledger_limits.py`), exact decimal arithmetic (`arithmetic.py`), the reading and writing of numbers (`numbers.py`) and the check of a draft (`validation.py`). |
+| `src/ledger_hand/core/` | Core rules: pure computation, no network, files, database, user interface or clock. Holds the shapes of a trade (`trade.py`), the coin table (`coins.py`), the ledger's limits (`ledger_limits.py`), exact decimal arithmetic (`arithmetic.py`), the reading and writing of numbers (`numbers.py`), the reading and writing of times (`timeparse.py`, with the wording of a time phrase in `time_wording.py`) and the check of a draft (`validation.py`). |
 | `tests/` | The tests. `tests/core/` has one test module per core module. |
 | `tests/guardrails/` | The layering check and the hygiene scan, the tests that prove they catch what they should, and the two gate tests that apply them to this repository. |
 | `scripts/check.sh` | One command that runs all checks. |

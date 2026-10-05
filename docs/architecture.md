@@ -34,7 +34,8 @@ src/ledger_hand/
         trade.py              what one trade looks like; drafts may have blanks       (exists)
         coins.py              a small table of common coins                           (exists)
         numbers.py            reads number phrases; writes numbers for the ledger     (exists)
-        timeparse.py          time phrases to exact moments ("now" is passed in)
+        time_wording.py       which known parts a time phrase is made of              (exists)
+        timeparse.py          time phrases to exact moments ("now" is passed in)      (exists)
         validation.py         validation; which fields are still missing              (exists)
         followup.py           what to ask when something is missing
     ports.py              the two ports: model and storage
