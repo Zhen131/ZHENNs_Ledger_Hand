@@ -38,7 +38,9 @@ block: a unit that holds one is known only when the whole of it is a name.
 Every block must be one of the following. Letter case does not count, and
 each character is taken in its ordinary form, the way a name is looked up in
 the coin table: a full-width, superscript, subscript or mathematical letter
-is the letter it stands for.
+is the letter it stands for. A block of letters must be in one kind of
+letters, all with capitals or all without: ordinary letters with raised or
+mathematical ones among them are two pieces of writing run together.
 
 - a word for USDT ("u", "刀", "美金", "$"): the list in ``coins``;
 - the symbol or a name of a coin in the coin table ("BTC", "比特币");
@@ -77,7 +79,9 @@ others. A multiplier is applied only where its place leaves no doubt: where
 letters go on after the "k" or the "w", what follows the digits is a unit
 only when it is a known unit as it stands and is not a multiplier with a
 known unit behind it. "50u" is fifty u; "1ku", which may be a thousand u, is
-a ``Doubt``.
+a ``Doubt``. Letters in another form or another alphabet go on a word just
+as ordinary ones do: "5k" with a mathematical u behind it is the same doubt.
+A "k" or "w" that is itself written in such a form is not a multiplier.
 
 A number may be said in Chinese number words ("九万四千九", "零点五"). Two
 habits of speech are read:
@@ -114,6 +118,10 @@ unknown unit, never as a number.
 A number with more decimal places or more digits than the ledger holds is a
 ``Doubt`` as well: it is never rounded or cut to fit. The limits apply to the
 number after its multiplier.
+
+A text of any length gets its answer in time that grows no faster than the
+text: a unit is measured before anything is looked up in it, and a count of
+thousands of digits is weighed by its length, not added up.
 
 ``write_number`` goes the other way: an exact decimal becomes the text the
 ledger accepts for a number, which is plain digits with no exponent, no sign
