@@ -29,7 +29,11 @@ It is refused, with nothing written, when:
   to be different, the coins' included, so a trade may not use a coin card's
   identifier either;
 - a trade names a coin the coin table does not hold, so that its card cannot
-  be written.
+  be written;
+- a trade's time is a moment whose offset from UTC is not a whole number of
+  minutes, which some zones had before the 1970s. The ledger's way of writing
+  a time cannot hold such an offset. The check of a draft does not refuse one
+  yet, so the export refuses it instead of failing while it writes.
 
 The same trades, in any order, with the same coin table, moment, name and
 version, always give the same text, byte for byte. It is laid out the way the
@@ -54,7 +58,7 @@ import re
 from collections import Counter
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
-from datetime import datetime, time, timezone
+from datetime import datetime, time, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 from ledger_hand.core.coins import CoinTable
@@ -75,6 +79,8 @@ from ledger_hand.export.trade_entry import trade_entry
 BACKUP_FORMAT_VERSION = 3
 LEDGER_SCHEMA_VERSION = 5
 
+_ONE_MINUTE = timedelta(minutes=1)
+
 # Characters that are half of a surrogate pair. In a Python string they can
 # only stand alone, since a whole pair is held as one character.
 _SURROGATE_HALF = re.compile("[\ud800-\udfff]")
@@ -88,6 +94,9 @@ class ExportProblem(enum.Enum):
     ID_TOO_LONG = "an identifier is longer than the ledger allows"
     ID_USED_TWICE = "an identifier is used twice, by two trades or by a trade and a coin"
     COIN_NOT_IN_TABLE = "a trade names a coin the coin table does not hold"
+    OFFSET_NOT_WHOLE_MINUTES = (
+        "a trade's time has an offset from UTC that is not a whole number of minutes"
+    )
 
 
 @dataclass(frozen=True)
@@ -135,6 +144,7 @@ def export_backup(
     symbols = _coins_used(trades)
     cards = _coin_cards(symbols, coins, issues)
     _check_identifiers(trades, symbols, issues)
+    _check_offsets(trades, issues)
     if issues:
         return _refusal(issues)
     document = {
@@ -197,6 +207,14 @@ def _check_identifiers(
             issues.append(ExportIssue(ExportProblem.ID_TOO_LONG, identifier))
         if count > 1 or identifier in card_ids:
             issues.append(ExportIssue(ExportProblem.ID_USED_TWICE, identifier))
+
+
+def _check_offsets(trades: Sequence[StoredTrade], issues: list[ExportIssue]) -> None:
+    for trade in trades:
+        value = trade.record.occurred.value
+        offset = value.utcoffset() if isinstance(value, datetime) else None
+        if offset is not None and offset % _ONE_MINUTE:
+            issues.append(ExportIssue(ExportProblem.OFFSET_NOT_WHOLE_MINUTES, trade.id))
 
 
 def _refusal(issues: list[ExportIssue]) -> ExportRefused:

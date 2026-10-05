@@ -335,6 +335,73 @@ def test_every_issue_is_listed_at_once_in_a_fixed_order() -> None:
     )
 
 
+def old_moment(zone: str, year: int, month: int = 6, day: int = 1) -> OccurredTime:
+    """Noon on an old day, on the wall clock of ``zone`` as it was then."""
+    moment = datetime(year, month, day, 12, 0, tzinfo=ZoneInfo(zone))
+    return OccurredTime(moment, TimePrecision.MINUTE, zone)
+
+
+@pytest.mark.parametrize(
+    ("zone", "year", "offset"),
+    [
+        (BUDAPEST, 1890, "+01:16:20"),
+        ("Asia/Shanghai", 1900, "+08:05:43"),
+        ("America/New_York", 1880, "-04:56:02"),
+    ],
+)
+def test_a_time_whose_offset_has_seconds_is_refused_not_failed_on(
+    zone: str, year: int, offset: str
+) -> None:
+    occurred = old_moment(zone, year)
+    assert occurred.value.isoformat().endswith(offset)
+    old = trade("old", occurred=occurred)
+
+    assert refusal([old]) == (ExportIssue(ExportProblem.OFFSET_NOT_WHOLE_MINUTES, "old"),)
+
+
+def test_only_the_trades_whose_offset_has_seconds_are_named() -> None:
+    trades = [
+        trade("fine", occurred=minute(2, 10, 0)),
+        trade("old-shanghai", occurred=old_moment("Asia/Shanghai", 1900)),
+        trade("old-budapest", occurred=old_moment(BUDAPEST, 1890)),
+    ]
+
+    assert refusal(trades) == (
+        ExportIssue(ExportProblem.OFFSET_NOT_WHOLE_MINUTES, "old-budapest"),
+        ExportIssue(ExportProblem.OFFSET_NOT_WHOLE_MINUTES, "old-shanghai"),
+    )
+
+
+def test_an_offset_with_seconds_is_listed_after_the_other_issues() -> None:
+    trades = [trade("dup"), trade("dup", occurred=old_moment(BUDAPEST, 1890))]
+
+    assert refusal(trades) == (
+        ExportIssue(ExportProblem.ID_USED_TWICE, "dup"),
+        ExportIssue(ExportProblem.OFFSET_NOT_WHOLE_MINUTES, "dup"),
+    )
+
+
+def test_old_times_with_whole_minute_offsets_and_old_days_are_exported() -> None:
+    trades = [
+        trade("budapest-1950", occurred=old_moment(BUDAPEST, 1950)),
+        trade("kolkata-1950", occurred=old_moment("Asia/Kolkata", 1950)),
+        trade(
+            "budapest-1890-day",
+            occurred=OccurredTime(date(1890, 6, 1), TimePrecision.DAY, BUDAPEST),
+        ),
+    ]
+
+    written = {
+        entry["id"]: entry["occurredAt"] for entry in document(trades)["ledgerData"]["trades"]
+    }
+
+    assert written == {
+        "budapest-1890-day": "1890-06-01",
+        "budapest-1950": "1950-06-01T12:00:00+01:00",
+        "kolkata-1950": "1950-06-01T12:00:00+05:30",
+    }
+
+
 # --- mistakes of the calling code -------------------------------------------
 
 
