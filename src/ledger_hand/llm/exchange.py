@@ -17,9 +17,12 @@ The time allowed is counted from sending. No single wait is longer than it,
 and an answer that is not complete once it has passed is abandoned, however
 steadily its pieces keep arriving.
 
-A body that cannot be read (longer than ``MAX_ANSWER_BYTES``, or with broken
-compression) does not raise here: the answer says why, and what that means
-depends on the status. ``failure_for_status`` sorts an answer whose status
+A body longer than ``MAX_ANSWER_BYTES`` does not raise here: the answer
+says so, and what that means depends on the status. Bodies are never
+expanded: the request asks for no compression, and a body compressed anyway
+is kept as the bytes that came, which are then not JSON. So a small
+compressed body cannot swell into a huge one in memory before the cap sees
+it. ``failure_for_status`` sorts an answer whose status
 is not the success the caller expected: 429 is ``RATE_LIMITED``, 500 to 599
 is ``SERVER_ERROR``, and any other status is ``SERVER_ERROR`` with the raw
 status and the start of the body. ``malformed`` builds the error for an
@@ -138,7 +141,11 @@ def _client(endpoint: Endpoint, timeout_seconds: float) -> httpx.Client:
 
 
 def _headers(endpoint: Endpoint) -> dict[str, str]:
-    headers = {"Accept": "application/json", "Content-Type": "application/json"}
+    headers = {
+        "Accept": "application/json",
+        "Accept-Encoding": "identity",
+        "Content-Type": "application/json",
+    }
     if endpoint.api_key is not None:
         headers["Authorization"] = f"Bearer {endpoint.api_key.reveal()}"
     return headers
@@ -150,16 +157,13 @@ def _read(
     status = response.status_code
     pieces: list[bytes] = []
     size = 0
-    try:
-        for piece in response.iter_bytes():
-            size += len(piece)
-            if size > MAX_ANSWER_BYTES:
-                return Answer(status, b"", f"is longer than {MAX_ANSWER_BYTES} bytes")
-            pieces.append(piece)
-            if endpoint.clock() > deadline:
-                raise _timed_out(endpoint, timeout_seconds)
-    except httpx.DecodingError as error:
-        return Answer(status, b"", f"cannot be decoded: {_said(error, endpoint)}")
+    for piece in response.iter_raw():
+        size += len(piece)
+        if size > MAX_ANSWER_BYTES:
+            return Answer(status, b"", f"is longer than {MAX_ANSWER_BYTES} bytes")
+        pieces.append(piece)
+        if endpoint.clock() > deadline:
+            raise _timed_out(endpoint, timeout_seconds)
     if endpoint.clock() > deadline:
         raise _timed_out(endpoint, timeout_seconds)
     return Answer(status, b"".join(pieces))

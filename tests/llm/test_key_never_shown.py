@@ -16,7 +16,7 @@ from ledger_hand.llm.ollama import OllamaModel
 from ledger_hand.llm.ollama_identity import ask_identity
 from ledger_hand.ports import Message, ModelError, ModelErrorKind, Role
 from ledger_hand.settings import ModelSettings, Secret, Variable, load_model_settings
-from tests.llm.fake_server import Pieces
+from tests.llm.fake_server import Pieces, mock_transport
 
 KEY = "sk-invented-9f8e7d6c5b4a39281706"
 SETTINGS = ModelSettings(api_key=Secret(KEY), retries=0, retry_wait_seconds=0.0)
@@ -45,7 +45,7 @@ def echoing(kind: ModelErrorKind) -> httpx.MockTransport:
             return httpx.Response(404, content=body)
         return httpx.Response(statuses[kind], content=long_echo)
 
-    return httpx.MockTransport(answer)
+    return mock_transport(answer)
 
 
 def every_text_of(error: ModelError) -> list[str]:
@@ -60,7 +60,7 @@ def test_the_key_is_really_sent() -> None:
         return httpx.Response(500)
 
     with pytest.raises(ModelError):
-        OllamaModel(SETTINGS, transport=httpx.MockTransport(answer)).chat(HELLO)
+        OllamaModel(SETTINGS, transport=mock_transport(answer)).chat(HELLO)
     assert seen == [f"Bearer {KEY}"]
 
 
@@ -89,7 +89,7 @@ def test_a_connection_that_breaks_off_while_echoing_the_key_does_not_show_it() -
         return httpx.Response(200, stream=broken)
 
     with pytest.raises(ModelError) as caught:
-        OllamaModel(SETTINGS, transport=httpx.MockTransport(answer)).chat(HELLO)
+        OllamaModel(SETTINGS, transport=mock_transport(answer)).chat(HELLO)
 
     assert all(KEY not in text for text in every_text_of(caught.value))
 

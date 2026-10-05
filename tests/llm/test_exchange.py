@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import gzip
+
 import httpx
 import pytest
 
@@ -136,17 +138,23 @@ def test_a_body_exactly_at_the_cap_is_taken() -> None:
     assert send(FakeServer([httpx.Response(200, content=body)])).body == body
 
 
-def test_a_body_with_broken_compression_says_so() -> None:
-    broken = httpx.Response(
-        200, stream=Pieces([b"not gzip at all"]), headers={"Content-Encoding": "gzip"}
-    )
+def test_a_compressed_body_is_kept_as_it_came_and_never_expanded() -> None:
+    bomb = gzip.compress(b"0" * (MAX_ANSWER_BYTES * 4))
+    compressed = httpx.Response(200, stream=Pieces([bomb]), headers={"Content-Encoding": "gzip"})
 
-    answer = send(FakeServer([broken]))
+    answer = send(FakeServer([compressed]))
 
-    assert answer.status == 200
-    assert answer.body == b""
-    assert answer.body_problem is not None
-    assert "cannot be decoded" in answer.body_problem
+    assert answer.body == bomb
+    assert len(answer.body) < MAX_ANSWER_BYTES
+    assert answer.body_problem is None
+
+
+def test_the_request_asks_for_no_compression() -> None:
+    server = FakeServer([httpx.Response(200, content=b"{}")])
+
+    send(server)
+
+    assert server.requests[0].headers["accept-encoding"] == "identity"
 
 
 def test_a_body_still_arriving_after_the_deadline_is_abandoned() -> None:

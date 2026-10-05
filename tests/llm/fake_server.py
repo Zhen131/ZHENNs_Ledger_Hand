@@ -6,18 +6,23 @@ would. It records every request it was sent. Its ``transport`` is handed to
 the plug in place of the network, so no port is opened and nothing leaves
 the process.
 
+``mock_transport`` is httpx's mock transport with one change: a response
+built from ready content (which httpx reads at once) is handed back as an
+unread stream, the way the network hands responses back. The plug reads
+bodies as they arrive, so it needs them unread.
+
 The rest are pieces for building answers: the body of a normal chat reply,
 response bodies that break off, trickle or never end, and a clock that
 moves only when it is read.
 
 Names defined here: ``SETTINGS``, ``chat_reply``, ``json_response``,
-``FakeServer``, ``Pieces``, ``Endless``, ``FakeClock``.
+``mock_transport``, ``FakeServer``, ``Pieces``, ``Endless``, ``FakeClock``.
 """
 
 from __future__ import annotations
 
 import json
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
 
 import httpx
@@ -50,6 +55,22 @@ def json_response(status: int, data: object) -> httpx.Response:
     return httpx.Response(status, content=json.dumps(data).encode("utf-8"))
 
 
+def mock_transport(answer: Callable[[httpx.Request], httpx.Response]) -> httpx.MockTransport:
+    """httpx's mock transport, handing every response back unread, as the network does."""
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        response = answer(request)
+        if not response.is_stream_consumed:
+            return response
+        return httpx.Response(
+            response.status_code,
+            headers=response.headers,
+            stream=httpx.ByteStream(response.content),
+        )
+
+    return httpx.MockTransport(handle)
+
+
 @dataclass
 class FakeServer:
     """Answers request number N with step number N, and records the requests."""
@@ -59,7 +80,7 @@ class FakeServer:
 
     @property
     def transport(self) -> httpx.MockTransport:
-        return httpx.MockTransport(self._answer)
+        return mock_transport(self._answer)
 
     def sent_json(self, number: int = 0) -> object:
         """The body of request ``number``, read back as JSON."""
