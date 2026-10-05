@@ -2,7 +2,7 @@
 
 What the ledger itself says is checked by the tier (``scripts/check.sh ledger``),
 not here. These tests pin down how the tier judges a verdict, when it skips,
-and how it reads the Git files of a checkout.
+how it reads the Git files of a checkout, and which samples it hands over.
 """
 
 from __future__ import annotations
@@ -26,6 +26,7 @@ from scripts.ledger_check import (
     judge,
     locate_ledger,
 )
+from tests.export.samples import GOLDEN_FILE, broken_texts, golden_text
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -316,3 +317,53 @@ def test_a_directory_git_cannot_read_is_not_clean(tmp_path: Path) -> None:
 
     assert not state.clean
     assert state.shown.startswith("git could not tell:")
+
+
+# --- the samples ------------------------------------------------------------
+
+
+def test_every_sample_has_a_name_of_its_own_and_the_golden_one_is_read_from_its_file() -> None:
+    chosen = ledger_check.samples()
+    names = [sample.name for sample in chosen]
+
+    assert len(set(names)) == len(names)
+    golden = next(sample for sample in chosen if sample.name == GOLDEN_FILE.name)
+    assert golden.text.encode("utf-8") == GOLDEN_FILE.read_bytes()
+    assert golden.expected == Accepted()
+
+
+def test_the_samples_cover_each_kind_of_expectation() -> None:
+    kinds = {type(sample.expected) for sample in ledger_check.samples()}
+
+    assert kinds == {Accepted, HoldingsOnly, Refused}
+
+
+def _changed_paths(before: object, after: object, path: str = "") -> list[str]:
+    if isinstance(before, dict) and isinstance(after, dict):
+        keys = sorted(set(before) | set(after))
+        return [
+            changed
+            for key in keys
+            for changed in _changed_paths(before.get(key), after.get(key), f"{path}.{key}")
+        ]
+    if isinstance(before, list) and isinstance(after, list) and len(before) == len(after):
+        return [
+            changed
+            for index, (one, other) in enumerate(zip(before, after, strict=True))
+            for changed in _changed_paths(one, other, f"{path}[{index}]")
+        ]
+    return [] if before == after else [path]
+
+
+def test_each_planted_mistake_changes_exactly_one_field_of_the_golden_sample() -> None:
+    golden = json.loads(golden_text())
+
+    changed = {
+        name: _changed_paths(golden, json.loads(text)) for name, text in broken_texts().items()
+    }
+
+    assert changed == {
+        "total-off": [".ledgerData.trades[0].totalValue"],
+        "fee-coin-missing": [".ledgerData.trades[0].feeCurrency"],
+        "zone-disagrees": [".ledgerData.trades[2].occurredTimeZone"],
+    }

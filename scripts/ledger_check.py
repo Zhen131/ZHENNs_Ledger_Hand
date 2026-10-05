@@ -13,6 +13,14 @@ what the sample is expected to get. A sample is expected to be one of:
   cannot know: it does not see what the ledger already holds;
 - refused with exactly the errors that were planted in it, one for one.
 
+The samples: one file written by hand from the ledger's documented format;
+the committed golden sample; and files exported now from the invented trades
+in ``tests/export/samples.py``: trades at the edges of what this program
+accepts, a fee paid in a third coin, a sale with nothing bought before it, and
+copies of the golden sample with one mistake planted in each. The tier also
+fails when the ledger's format versions are no longer the ones this program
+writes.
+
 Where the ledger is comes from ``--ledger PATH`` or else from the environment
 variable ``LEDGER_HAND_LEDGER_DIR``. Nothing in this repository names a path
 on any machine.
@@ -39,10 +47,13 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 import tempfile
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
+
+from ledger_hand.export.backup import BACKUP_FORMAT_VERSION, LEDGER_SCHEMA_VERSION
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 LEDGER_ENV = "LEDGER_HAND_LEDGER_DIR"
@@ -214,8 +225,61 @@ def _unmatched(planted: Sequence[PlantedError], reported: Sequence[LedgerError])
 
 def samples() -> list[Sample]:
     """Every sample the ledger is asked to judge, in the order they are reported."""
-    hand_written = HAND_WRITTEN_EXAMPLE.read_text(encoding="utf-8")
-    return [Sample("hand-written-example.json", hand_written, Accepted())]
+    # The invented trades live with the tests; this script runs from its own
+    # directory, so the repository has to be put on the path to reach them.
+    if str(REPO_ROOT) not in sys.path:
+        sys.path.insert(0, str(REPO_ROOT))
+    from tests.export import samples as invented
+
+    broken = invented.broken_texts()
+    return [
+        Sample("hand-written-example.json", _read(HAND_WRITTEN_EXAMPLE), Accepted()),
+        Sample(invented.GOLDEN_FILE.name, _read(invented.GOLDEN_FILE), Accepted()),
+        Sample("edges.json", invented.edge_text(), Accepted()),
+        Sample("third-coin-fee.json", invented.third_coin_fee_text(), Accepted()),
+        Sample("sell-only.json", invented.sell_only_text(), HoldingsOnly()),
+        Sample(
+            "broken-total-off.json",
+            broken["total-off"],
+            Refused(
+                (
+                    PlantedError(
+                        "LEDGER_DATA_INVALID_ENTITY", "trades[0].totalValue", "TOTAL_VALUE_MISMATCH"
+                    ),
+                )
+            ),
+        ),
+        Sample(
+            "broken-fee-coin-missing.json",
+            broken["fee-coin-missing"],
+            Refused(
+                (
+                    PlantedError(
+                        "LEDGER_DATA_INVALID_REFERENCE",
+                        "trades[0].feeCurrency",
+                        "Unknown fee asset: BNB",
+                    ),
+                )
+            ),
+        ),
+        Sample(
+            "broken-zone-disagrees.json",
+            broken["zone-disagrees"],
+            Refused(
+                (
+                    PlantedError(
+                        "LEDGER_DATA_INVALID_ENTITY",
+                        "trades[2].occurredAt",
+                        "offset must match occurredTimeZone",
+                    ),
+                )
+            ),
+        ),
+    ]
+
+
+def _read(path: Path) -> str:
+    return path.read_text(encoding="utf-8")
 
 
 # --- finding the ledger -----------------------------------------------------
@@ -353,12 +417,20 @@ def run(ledger: Path, chosen: Sequence[Sample]) -> Outcome:
     if isinstance(report, str):
         print(report)
         return Outcome.FAILED
-    print(
-        "ledger format versions: backup format"
-        f" {report.backup_format_version}, ledger schema {report.ledger_schema_version}"
-    )
+    versions_match = _reported_versions(report)
     all_as_expected = _reported_verdicts(chosen, report.verdicts)
-    return Outcome.PASSED if all_as_expected and clean_after else Outcome.FAILED
+    return Outcome.PASSED if all_as_expected and versions_match and clean_after else Outcome.FAILED
+
+
+def _reported_versions(report: ValidatorReport) -> bool:
+    found = (report.backup_format_version, report.ledger_schema_version)
+    written = (BACKUP_FORMAT_VERSION, LEDGER_SCHEMA_VERSION)
+    print(f"ledger format versions: backup format {found[0]}, ledger schema {found[1]}")
+    if found != written:
+        print(
+            f"NOT the versions this program writes: backup format {written[0]}, schema {written[1]}"
+        )
+    return found == written
 
 
 def _reported_clean(ledger: Path, when: str) -> bool:
