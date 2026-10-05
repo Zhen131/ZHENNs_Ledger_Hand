@@ -11,12 +11,18 @@ gives back a JSON value with:
 - every field that came out wrong, sorted into its kind, with the reasons
   the program gave for the fields it left empty;
 - the half copies: where the model copied part of what the person wrote;
+- every field the program left empty with a reason, one by one, marked
+  where the model's phrase was exactly the gold phrase (after tidying): the
+  model copied what the gold answer says, and the program still left the
+  field empty;
 - every wrong value that reached a draft with no issue about it, one by
   one: a ``WRONG_SILENT`` field, or a ``MADE_UP`` one with no issue;
 - the sentences of the ``not_to_record`` group, which are scored by none of
   the above: how many drafts each gave, and what the check of a draft says
   of each (the rules that stop it, or that none does);
-- one row per sentence.
+- one row per sentence;
+- the conditions of the run, as its first line records them, and how long
+  it took.
 
 ``markdown`` writes that summary as the tables of the results record.
 
@@ -29,7 +35,7 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from fractions import Fraction
 
-from evals.cells import CellOutcome, CellResult, EmptyReason
+from evals.cells import CellOutcome, CellResult, EmptyReason, tidy_text
 from evals.gold import Group, Language, Sentence, Split
 from evals.records import Results, produced_from_line, sentence_from_line
 from evals.scoring import Produced, Scores, SentenceScore, add_up, score_sentence
@@ -106,6 +112,45 @@ def _cells(scored: Iterable[Scored]) -> Iterable[tuple[Sentence, int, CellResult
         for pair in score.pairs:
             for cell in pair.cells:
                 yield sentence, pair.draft_at, cell
+
+
+def _left_empty(scored: Sequence[Scored]) -> list[dict[str, object]]:
+    found: list[dict[str, object]] = []
+    for sentence, _, score in scored:
+        for pair in score.pairs:
+            gold = sentence.trades[pair.gold_at]
+            for cell in pair.cells:
+                if cell.outcome is not CellOutcome.LEFT_EMPTY_WITH_REASON:
+                    continue
+                phrase = gold.cell(cell.field).phrase
+                exact = None not in (cell.copied, phrase) and tidy_text(
+                    str(cell.copied)
+                ) == tidy_text(str(phrase))
+                found.append(
+                    {
+                        "id": sentence.id,
+                        "draft": pair.draft_at + 1,
+                        "field": cell.field.value,
+                        "copied": cell.copied,
+                        "gold_phrase": phrase,
+                        "reason": None if cell.reason is None else cell.reason.name,
+                        "copied_the_gold_phrase": exact,
+                    }
+                )
+    return found
+
+
+def _timing(results: Results) -> dict[str, object]:
+    seconds = [float(str(line.get("seconds", 0))) for line in results.sentences]
+    end = results.end or {}
+    return {
+        "sentences": len(seconds),
+        "sum_of_sentence_seconds": round(sum(seconds), 3),
+        "first_sentence_seconds": seconds[0] if seconds else None,
+        "longest_sentence_seconds": max(seconds) if seconds else None,
+        "finished_at": end.get("finished_at"),
+        "seconds_of_the_last_session": end.get("seconds_this_session"),
+    }
 
 
 def _silent_wrong(scored: Sequence[Scored]) -> list[dict[str, object]]:
@@ -212,14 +257,14 @@ def summarize(results: Results) -> dict[str, object]:
         for name in GROUP_ORDER
     }
     return {
-        "results_file_run": {
-            key: results.run.get(key) for key in ("set", "prompt", "model", "started_at")
-        },
+        "run": dict(results.run),
+        "timing": _timing(results),
         "finished": results.end is not None,
         "groups": groups,
         "made_up_with_an_issue": _made_up_with_issue(scored),
         "wrong_values_with_no_issue": _silent_wrong(scored),
         "half_copies": _half_copies(scored),
+        "left_empty_by_the_program": _left_empty(scored),
         "not_to_record": _not_to_record(apart),
         "sentences": _sentence_rows(scored),
     }
@@ -342,6 +387,37 @@ def _sentence_table(rows: Sequence[Mapping[str, object]]) -> list[str]:
     return lines
 
 
+def _run_table(run: Mapping[str, object], timing: Mapping[str, object]) -> list[str]:
+    lines = ["| Condition | Value |", "| --- | --- |"]
+    for key, value in run.items():
+        if key == "record":
+            continue
+        if key == "prompt_files" and isinstance(value, list):
+            for entry in value:
+                lines.append(f"| prompt file {entry['path']} | sha256 {entry['sha256']} |")
+        elif key == "parameters" and isinstance(value, dict):
+            lines += [f"| parameter {name} | {number} |" for name, number in value.items()]
+        else:
+            lines.append(f"| {key} | {_cell_text(value)} |")
+    lines += [f"| {key} | {_cell_text(value)} |" for key, value in timing.items()]
+    return lines
+
+
+def _left_empty_table(rows: Sequence[Mapping[str, object]]) -> list[str]:
+    lines = [
+        "| Sentence | Draft | Field | Model copied | Gold phrase | Reason "
+        "| Model copied exactly the gold phrase |",
+        "| --- | --- | --- | --- | --- | --- | --- |",
+    ]
+    for row in rows:
+        exact = "yes" if row["copied_the_gold_phrase"] else "no"
+        lines.append(
+            f"| {row['id']} | {row['draft']} | {row['field']} | {_cell_text(row['copied'])} "
+            f"| {_cell_text(row['gold_phrase'])} | {row['reason']} | {exact} |"
+        )
+    return lines
+
+
 def markdown(summary: Mapping[str, object]) -> str:
     """The summary as the Markdown tables of the results record."""
     groups = summary["groups"]
@@ -353,7 +429,15 @@ def markdown(summary: Mapping[str, object]) -> str:
     rows = summary["sentences"]
     assert isinstance(silent, list) and isinstance(halves, list)
     assert isinstance(apart, list) and isinstance(rows, list)
+    run = summary["run"]
+    timing = summary["timing"]
+    blocked = summary["left_empty_by_the_program"]
+    assert isinstance(run, dict) and isinstance(timing, dict) and isinstance(blocked, list)
+    exact = sum(1 for row in blocked if row["copied_the_gold_phrase"])
     parts = [
+        "#### Run",
+        *_run_table(run, timing),
+        "",
         "#### Scores by group",
         *_group_table(groups),
         "",
@@ -368,6 +452,10 @@ def markdown(summary: Mapping[str, object]) -> str:
         "",
         f"#### Half copies: the model copied part of the gold phrase ({len(halves)})",
         *_listing(halves, _id_only),
+        "",
+        f"#### Fields the program left empty ({len(blocked)}; the model's phrase was exactly "
+        f"the gold phrase in {exact})",
+        *_left_empty_table(blocked),
         "",
         "#### Passages not to record (not in any score above)",
         *_not_to_record_table(apart),
