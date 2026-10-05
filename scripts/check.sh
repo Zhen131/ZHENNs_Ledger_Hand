@@ -6,12 +6,15 @@
 # Tiers:
 #   quick   format, lint, types, layering, hygiene, tests. The default.
 #           Needs no network and no running model.
+#   ledger  sample export files checked by the ledger's own validator
+#           (scripts/ledger_check.py). Needs a checkout of the ledger, named
+#           by LEDGER_HAND_LEDGER_DIR; skipped, and says why, without one.
 #
 # Steps run in order. The script stops at the first step that fails and names
 # it, so the last line always says where to look.
 #
 # Exit status: 0 every step passed; 1 a step failed; 2 the script could not
-# start (unknown tier, or no Python environment).
+# start (unknown tier, or no Python environment); 3 the tier was skipped.
 #
 # LEDGER_HAND_PYTHON overrides which Python runs the tools; the default is the
 # one in .venv/.
@@ -20,7 +23,7 @@ set -u
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PYTHON="${LEDGER_HAND_PYTHON:-$ROOT/.venv/bin/python}"
-TIERS="quick"
+TIERS="quick ledger"
 
 run_step() {
     local name="$1"
@@ -41,6 +44,20 @@ quick() {
     run_step tests "$PYTHON" -m pytest -q
 }
 
+ledger() {
+    printf '\n== %s ==\n' ledger
+    "$PYTHON" scripts/ledger_check.py
+    local status=$?
+    if [ "$status" -eq 3 ]; then
+        printf '\nSKIPPED: ledger\n' >&2
+        exit 3
+    fi
+    if [ "$status" -ne 0 ]; then
+        printf '\nFAILED: ledger\n' >&2
+        exit 1
+    fi
+}
+
 if [ "$#" -gt 1 ]; then
     echo "usage: scripts/check.sh [tier]   (tiers: $TIERS)" >&2
     exit 2
@@ -48,7 +65,7 @@ fi
 
 tier="${1:-quick}"
 case "$tier" in
-    quick) ;;
+    quick | ledger) ;;
     *)
         echo "unknown tier: $tier   (tiers: $TIERS)" >&2
         exit 2

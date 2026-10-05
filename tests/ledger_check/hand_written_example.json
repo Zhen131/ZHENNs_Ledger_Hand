@@ -1,0 +1,44 @@
+{
+  "backupFormatVersion": 3,
+  "appVersion": "ledger-hand-0.1.0",
+  "exportedAt": "2026-10-04T08:00:00Z",
+  "ledgerSchemaVersion": 5,
+  "ledgerData": {
+    "schemaVersion": 5,
+    "assets": [
+      {
+        "id": "asset-hand-btc",
+        "symbol": "BTC",
+        "name": "Bitcoin",
+        "quoteCurrency": "USDT",
+        "binanceMapping": { "provider": "binance", "symbol": "BTCUSDT", "baseAsset": "BTC", "quoteAsset": "USDT" },
+        "createdAt": "2026-10-04T07:41:00Z",
+        "updatedAt": "2026-10-04T07:41:00Z"
+      }
+    ],
+    "trades": [
+      {
+        "id": "hand-trade-0001",
+        "occurredAt": "2026-10-04T09:40:00+02:00",
+        "occurredTimeZone": "Europe/Budapest",
+        "timePrecision": "minute",
+        "type": "buy",
+        "assetSymbol": "BTC",
+        "quantity": "0.02",
+        "price": "94900",
+        "totalValue": "1898",
+        "currency": "USDT",
+        "fee": "2",
+        "feeCurrency": "USDT",
+        "note": "我觉得要涨",
+        "rawText": "今天 9:40 买了 0.02 BTC，94900，手续费 2 USDT，我觉得要涨",
+        "createdAt": "2026-10-04T07:41:00Z",
+        "updatedAt": "2026-10-04T07:41:00Z"
+      }
+    ],
+    "cashEvents": [],
+    "assetTransfers": [],
+    "priceSnapshots": [],
+    "feeRules": []
+  }
+}

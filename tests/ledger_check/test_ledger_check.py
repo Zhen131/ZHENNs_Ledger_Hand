@@ -1,0 +1,318 @@
+"""Tests of the ledger tier's own logic, with no ledger checkout and no validator run.
+
+What the ledger itself says is checked by the tier (``scripts/check.sh ledger``),
+not here. These tests pin down how the tier judges a verdict, when it skips,
+and how it reads the Git files of a checkout.
+"""
+
+from __future__ import annotations
+
+import json
+import subprocess
+import sys
+from pathlib import Path
+
+import pytest
+
+from scripts import ledger_check
+from scripts.ledger_check import (
+    Accepted,
+    HoldingsOnly,
+    LedgerError,
+    PlantedError,
+    Refused,
+    Verdict,
+    is_holdings_shortfall,
+    judge,
+    locate_ledger,
+)
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+
+SHORTFALL = LedgerError(
+    "LEDGER_DATA_INVALID_TRADE_TIMELINE", "trades", "Cannot sell more SOL than current position"
+)
+ZERO_POSITION = LedgerError(
+    "LEDGER_DATA_INVALID_TRADE_TIMELINE", "trades", "Cannot sell SOL with zero current position"
+)
+TOTAL_OFF = LedgerError(
+    "LEDGER_DATA_INVALID_ENTITY",
+    "trades[0].totalValue",
+    "TOTAL_VALUE_MISMATCH: quantity × price is 1898, but totalValue is 1899",
+)
+
+
+def refused(*errors: LedgerError) -> Verdict:
+    return Verdict(accepted=False, errors=errors)
+
+
+ACCEPTED = Verdict(accepted=True, errors=())
+
+
+# --- telling a holdings shortfall from everything else ----------------------
+
+
+@pytest.mark.parametrize("error", [SHORTFALL, ZERO_POSITION])
+def test_both_wordings_of_selling_more_than_is_held_count(error: LedgerError) -> None:
+    assert is_holdings_shortfall(error)
+
+
+@pytest.mark.parametrize(
+    "error",
+    [
+        # Same code, other errors.
+        LedgerError(
+            "LEDGER_DATA_INVALID_TRADE_TIMELINE",
+            "trades",
+            "A BTC buy fee must be less than the bought quantity",
+        ),
+        LedgerError(
+            "LEDGER_DATA_INVALID_TRADE_TIMELINE",
+            "trades",
+            "Cannot sell more BTC from exchange than available",
+        ),
+        LedgerError(
+            "LEDGER_DATA_INVALID_TRADE_TIMELINE", "trades", "Mixed currencies are not supported"
+        ),
+        # Same wording, another code.
+        LedgerError("LEDGER_DATA_INVALID_ENTITY", "trades[0].quantity", SHORTFALL.message),
+        TOTAL_OFF,
+    ],
+)
+def test_nothing_else_counts_as_selling_more_than_is_held(error: LedgerError) -> None:
+    assert not is_holdings_shortfall(error)
+
+
+# --- judging a verdict ------------------------------------------------------
+
+
+def test_an_accepted_file_with_no_error_is_as_expected() -> None:
+    assert judge(Accepted(), ACCEPTED) == []
+
+
+def test_a_refused_file_is_not_accepted() -> None:
+    problems = judge(Accepted(), refused(TOTAL_OFF))
+
+    assert len(problems) == 1
+    assert "TOTAL_VALUE_MISMATCH" in problems[0]
+
+
+def test_only_holdings_errors_are_as_expected_when_only_those_are_allowed() -> None:
+    assert judge(HoldingsOnly(), refused(SHORTFALL, ZERO_POSITION)) == []
+
+
+def test_any_other_error_beside_the_holdings_is_reported() -> None:
+    problems = judge(HoldingsOnly(), refused(SHORTFALL, TOTAL_OFF))
+
+    assert len(problems) == 1
+    assert "TOTAL_VALUE_MISMATCH" in problems[0]
+
+
+@pytest.mark.parametrize("expected", [HoldingsOnly(), Refused((PlantedError("X", "y", "z"),))])
+def test_a_file_meant_to_be_refused_must_be_refused(
+    expected: HoldingsOnly | Refused,
+) -> None:
+    assert judge(expected, ACCEPTED) != []
+    assert judge(expected, refused()) != []
+
+
+def test_planted_errors_match_one_for_one() -> None:
+    planted = PlantedError("LEDGER_DATA_INVALID_ENTITY", "trades[0].totalValue", "MISMATCH")
+
+    assert judge(Refused((planted,)), refused(TOTAL_OFF)) == []
+
+
+def test_a_planted_error_must_match_in_code_path_and_message() -> None:
+    for planted in (
+        PlantedError("LEDGER_DATA_INVALID_REFERENCE", "trades[0].totalValue", "MISMATCH"),
+        PlantedError("LEDGER_DATA_INVALID_ENTITY", "trades[1].totalValue", "MISMATCH"),
+        PlantedError("LEDGER_DATA_INVALID_ENTITY", "trades[0].totalValue", "Unknown fee"),
+    ):
+        problems = judge(Refused((planted,)), refused(TOTAL_OFF))
+
+        assert any("not reported" in problem for problem in problems), planted
+        assert any("not planted" in problem for problem in problems), planted
+
+
+def test_an_error_beside_the_planted_ones_is_reported() -> None:
+    planted = PlantedError("LEDGER_DATA_INVALID_ENTITY", "trades[0].totalValue", "MISMATCH")
+
+    problems = judge(Refused((planted,)), refused(TOTAL_OFF, SHORTFALL))
+
+    assert problems == [f"reported but not planted: {SHORTFALL}"]
+
+
+def test_one_reported_error_cannot_stand_for_two_planted_ones() -> None:
+    planted = PlantedError("LEDGER_DATA_INVALID_ENTITY", "trades[0].totalValue", "MISMATCH")
+
+    problems = judge(Refused((planted, planted)), refused(TOTAL_OFF))
+
+    assert len(problems) == 1
+    assert "not reported" in problems[0]
+
+
+@pytest.mark.parametrize("expected", [Accepted(), HoldingsOnly(), Refused(())])
+def test_a_check_that_threw_is_never_as_expected(
+    expected: Accepted | HoldingsOnly | Refused,
+) -> None:
+    verdict = Verdict(accepted=False, errors=(), thrown="RangeError: no offset")
+
+    assert judge(expected, verdict) == [
+        "the validator threw instead of answering: RangeError: no offset"
+    ]
+
+
+# --- reading what the validator printed -------------------------------------
+
+
+def test_the_validator_report_is_read_into_typed_values() -> None:
+    text = json.dumps(
+        {
+            "backupFormatVersion": 3,
+            "ledgerSchemaVersion": 5,
+            "results": [
+                {"file": "a.json", "ok": True, "errors": []},
+                {"file": "b.json", "ok": False, "errors": [vars(SHORTFALL)]},
+                {"file": "c.json", "ok": False, "errors": [], "thrown": "Error: boom"},
+            ],
+        }
+    )
+
+    report = ledger_check.parse_report(text)
+
+    assert report.backup_format_version == 3
+    assert report.ledger_schema_version == 5
+    thrown = Verdict(accepted=False, errors=(), thrown="Error: boom")
+    assert report.verdicts == (ACCEPTED, refused(SHORTFALL), thrown)
+
+
+# --- when the tier is skipped -----------------------------------------------
+
+
+def test_without_a_ledger_named_the_tier_is_skipped_and_says_how_to_name_one() -> None:
+    reason = locate_ledger(None, {})
+
+    assert isinstance(reason, str)
+    assert ledger_check.LEDGER_ENV in reason
+
+
+def test_the_argument_comes_before_the_environment(tmp_path: Path) -> None:
+    reason = locate_ledger(str(tmp_path / "given"), {ledger_check.LEDGER_ENV: str(tmp_path)})
+
+    assert isinstance(reason, str)
+    assert "given" in reason
+
+
+@pytest.mark.parametrize(
+    ("present", "named_in_reason"),
+    [
+        ((), str(ledger_check.LEDGER_ENTRY)),
+        ((ledger_check.LEDGER_ENTRY,), str(ledger_check.LEDGER_TSX)),
+    ],
+)
+def test_a_directory_that_lacks_the_validator_or_its_tool_is_skipped(
+    tmp_path: Path, present: tuple[Path, ...], named_in_reason: str
+) -> None:
+    for relative in present:
+        (tmp_path / relative).parent.mkdir(parents=True, exist_ok=True)
+        (tmp_path / relative).write_text("", encoding="utf-8")
+
+    reason = locate_ledger(None, {ledger_check.LEDGER_ENV: str(tmp_path)})
+
+    assert isinstance(reason, str)
+    assert named_in_reason in reason
+
+
+def test_a_missing_ledger_skips_the_script_with_its_own_exit_status(tmp_path: Path) -> None:
+    script = REPO_ROOT / "scripts" / "ledger_check.py"
+    missing = tmp_path / "no-ledger-here"
+
+    done = subprocess.run(
+        [sys.executable, str(script), "--ledger", str(missing)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert done.returncode == ledger_check.Outcome.SKIPPED.value
+    assert done.returncode not in (ledger_check.Outcome.PASSED.value, 1, 2)
+    assert done.stdout == f"skipped: there is no directory at {missing}\n"
+
+
+def test_a_missing_ledger_skips_the_ledger_tier_of_the_check_script(tmp_path: Path) -> None:
+    missing = tmp_path / "no-ledger-here"
+    environment = {"PATH": "/usr/bin:/bin", ledger_check.LEDGER_ENV: str(missing)}
+    environment["LEDGER_HAND_PYTHON"] = sys.executable
+
+    done = subprocess.run(
+        ["bash", str(REPO_ROOT / "scripts" / "check.sh"), "ledger"],
+        capture_output=True,
+        text=True,
+        env=environment,
+        check=False,
+    )
+
+    assert done.returncode == 3
+    assert f"skipped: there is no directory at {missing}" in done.stdout
+    assert done.stderr.strip().splitlines()[-1] == "SKIPPED: ledger"
+
+
+# --- reading the checkout's Git files ---------------------------------------
+
+
+def test_the_commit_is_read_from_a_branch_reference(tmp_path: Path) -> None:
+    git = tmp_path / ".git"
+    (git / "refs" / "heads").mkdir(parents=True)
+    (git / "HEAD").write_text("ref: refs/heads/main\n", encoding="utf-8")
+    (git / "refs" / "heads" / "main").write_text("abc123\n", encoding="utf-8")
+
+    assert ledger_check.ledger_commit(tmp_path) == "abc123 (refs/heads/main)"
+
+
+def test_the_commit_is_read_from_packed_references(tmp_path: Path) -> None:
+    git = tmp_path / ".git"
+    git.mkdir()
+    (git / "HEAD").write_text("ref: refs/heads/main\n", encoding="utf-8")
+    packed = "# pack-refs with: peeled\ndef456 refs/heads/main\n"
+    (git / "packed-refs").write_text(packed, encoding="utf-8")
+
+    assert ledger_check.ledger_commit(tmp_path) == "def456 (refs/heads/main)"
+
+
+def test_a_detached_head_is_its_own_commit(tmp_path: Path) -> None:
+    (tmp_path / ".git").mkdir()
+    (tmp_path / ".git" / "HEAD").write_text("0123abcd\n", encoding="utf-8")
+
+    assert ledger_check.ledger_commit(tmp_path) == "0123abcd"
+
+
+def test_an_unreadable_checkout_has_an_unknown_commit(tmp_path: Path) -> None:
+    assert ledger_check.ledger_commit(tmp_path) == "unknown"
+
+
+# --- asking whether a checkout is clean -------------------------------------
+
+
+def _git(directory: Path, *arguments: str) -> None:
+    subprocess.run(["git", "-C", str(directory), *arguments], check=True, capture_output=True)
+
+
+def test_a_checkout_with_no_change_is_clean_and_one_with_a_new_file_is_not(
+    tmp_path: Path,
+) -> None:
+    _git(tmp_path, "init", "--quiet")
+
+    assert ledger_check.checkout_state(tmp_path).clean
+
+    (tmp_path / "new.txt").write_text("x\n", encoding="utf-8")
+    state = ledger_check.checkout_state(tmp_path)
+
+    assert not state.clean
+    assert state.shown == "?? new.txt"
+
+
+def test_a_directory_git_cannot_read_is_not_clean(tmp_path: Path) -> None:
+    state = ledger_check.checkout_state(tmp_path / "missing")
+
+    assert not state.clean
+    assert state.shown.startswith("git could not tell:")

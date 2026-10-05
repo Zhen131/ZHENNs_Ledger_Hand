@@ -68,6 +68,8 @@ check and the hygiene scan).
 | `tests/` | The tests. `tests/core/` has one test module per core module. |
 | `tests/guardrails/` | The layering check and the hygiene scan, the tests that prove they catch what they should, and the two gate tests that apply them to this repository. |
 | `scripts/check.sh` | One command that runs all checks. |
+| `scripts/ledger_check.py`, `scripts/ledger_validate.ts` | The ledger tier of the checks: sample files judged by the ledger's own validator. |
+| `tests/ledger_check/` | Tests of the ledger tier's own logic, and the one sample for it written by hand. |
 | `docs/architecture.md` | How the layers are divided, who may import whom, the house rules, and where new features go. |
 | `data/` | Not in Git. Run-time output, caches and, later, the local database. Created when first needed. |
 | `.venv/` | Not in Git. The local Python environment. |
@@ -108,9 +110,9 @@ The last line should read `quick: all checks passed`.
 scripts/check.sh          # the same as: scripts/check.sh quick
 ```
 
-The script takes one argument, the tier. `quick` is the default and the only
-tier so far. It needs no network and no running model, and runs these steps
-in order:
+The script takes one argument, the tier: `quick` (the default) or `ledger`.
+
+`quick` needs no network and no running model, and runs these steps in order:
 
 | Step | What it runs | What it guards |
 | --- | --- | --- |
@@ -124,16 +126,46 @@ in order:
 The script stops at the first step that fails and ends with `FAILED: <step>`,
 so the last line always says where to look. Exit status: `0` when every step
 passed, `1` when a step failed, `2` when the script could not start (unknown
-tier, or no Python environment).
+tier, or no Python environment), `3` when the tier was skipped.
 
-Two more tiers are planned and will be added to the same script:
+### The ledger tier
 
-- `ledger` will validate exported files with the ledger's own validator. It
-  needs a checkout of the ledger on the same machine.
-- `live` will talk to a real model. It needs a local model server running and
-  is only ever run by hand.
+```sh
+LEDGER_HAND_LEDGER_DIR=path/to/LocalFirstTradingLedger scripts/check.sh ledger
+```
 
-Until they exist, asking for them is an error, like any other unknown tier.
+`ledger` asks the ledger itself whether it accepts the files this program
+writes. It needs a checkout of the Local-First Trading Ledger on the same
+machine with its packages installed (`npm install` there), and Node.js on the
+`PATH`. The checkout is named by the environment variable
+`LEDGER_HAND_LEDGER_DIR`; `scripts/ledger_check.py --ledger PATH` takes it as
+an argument instead.
+
+It is two scripts. `scripts/ledger_check.py` (Python) writes the sample files
+into a fresh temporary directory, runs the ledger's validator on them and
+judges each answer. `scripts/ledger_validate.ts` (TypeScript) is the part that
+runs inside the ledger checkout: started with the checkout's own `tsx`, it
+imports the ledger's `parseBackupJson` and prints what it says about each
+file. Each sample is expected to be accepted with no error, refused only for
+selling more than is held (this program cannot know what the ledger holds), or
+refused with exactly the errors planted in it. The output lists every error
+the ledger reported for every sample.
+
+The ledger checkout is only read. Before and after, the tier asks Git whether
+the checkout is clean, with `git --no-optional-locks status --porcelain`,
+which writes nothing into it, and fails when it is not. `tsx` runs with
+`--no-cache`, and the configuration file it needs (one that extends the
+ledger's own, because it has to name the checkout) is generated in the
+temporary directory.
+
+When no checkout is named, the named one is missing, or `tsx`, Node.js or Git
+is missing, the tier is skipped: it prints why and ends with exit status `3`,
+which is neither a pass nor a failure. `quick` never depends on it.
+
+One more tier is planned and will be added to the same script: `live` will
+talk to a real model. It needs a local model server running and is only ever
+run by hand. Until it exists, asking for it is an error, like any other
+unknown tier.
 
 To let the tool fix formatting instead of only reporting it:
 
