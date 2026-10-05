@@ -15,6 +15,7 @@ checked in sections of their own.
 
 from __future__ import annotations
 
+import re
 import time as stopwatch
 from datetime import date, datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
@@ -31,7 +32,7 @@ from ledger_hand.core.timeparse import (
     read_time,
     write_time,
 )
-from ledger_hand.core.trade import TimePrecision
+from ledger_hand.core.trade import OccurredTime, TimePrecision
 
 BUDAPEST = "Europe/Budapest"
 SHANGHAI = "Asia/Shanghai"
@@ -810,3 +811,96 @@ def test_a_time_whose_offset_has_seconds_cannot_be_written_and_is_not_read() -> 
     # Before 1901 Shanghai kept its local mean time, eight hours and some seconds ahead.
     assert outcome("1890年1月1日上午9点") == "UNKNOWN_WORDING"
     assert outcome("1890年1月1日") == "1890-01-01 day"
+
+
+# --- writing a time for the ledger --------------------------------------------
+
+# The two ways the ledger writes a time: a date, or a moment with seconds and offset.
+LEDGER_DATE = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}")
+LEDGER_MOMENT = re.compile(
+    r"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}[+-][0-9]{2}:[0-9]{2}"
+)
+
+
+def follows_the_ledger_s_rules(written: str, occurred: OccurredTime) -> bool:
+    """Whether ``written`` is in the ledger's form, with the offset of the zone at that moment."""
+    if occurred.precision is TimePrecision.DAY:
+        return LEDGER_DATE.fullmatch(written) is not None
+    if LEDGER_MOMENT.fullmatch(written) is None:
+        return False
+    moment = datetime.fromisoformat(written)
+    return moment.utcoffset() == moment.astimezone(ZoneInfo(occurred.time_zone)).utcoffset()
+
+
+@pytest.mark.parametrize(
+    ("text", "now", "zone"),
+    [
+        ("昨天", NOW, SHANGHAI),
+        ("刚才", NOW, SHANGHAI),
+        ("15:05:30", NOW, SHANGHAI),
+        ("昨天晚上9点40", NOW_IN_BUDAPEST, BUDAPEST),
+        ("2026年1月15日下午3点", NOW_IN_BUDAPEST, BUDAPEST),
+        ("2026-03-29 1:30", NOW_IN_BUDAPEST, BUDAPEST),
+        ("2026-03-29 3:30", NOW_IN_BUDAPEST, BUDAPEST),
+        ("Oct 2", NOW_IN_BUDAPEST, BUDAPEST),
+        ("3 hours ago", NOW_IN_BUDAPEST, BUDAPEST),
+        ("07:00:59", NOW, "UTC"),
+    ],
+)
+def test_every_time_read_is_written_the_way_the_ledger_takes_it(
+    text: str, now: datetime, zone: str
+) -> None:
+    reading = read_time(text, now, zone)
+    assert isinstance(reading, TimeRecognised)
+
+    assert follows_the_ledger_s_rules(write_time(reading.time), reading.time)
+
+
+@pytest.mark.parametrize(
+    ("occurred", "written"),
+    [
+        (OccurredTime(date(2026, 10, 3), TimePrecision.DAY, BUDAPEST), "2026-10-03"),
+        (
+            OccurredTime(local(BUDAPEST, 2026, 10, 4, 9, 40), TimePrecision.MINUTE, BUDAPEST),
+            "2026-10-04T09:40:00+02:00",
+        ),
+        (
+            OccurredTime(local(BUDAPEST, 2026, 1, 4, 9, 40, 5), TimePrecision.SECOND, BUDAPEST),
+            "2026-01-04T09:40:05+01:00",
+        ),
+        (
+            OccurredTime(local(SHANGHAI, 2026, 10, 4, 21, 0), TimePrecision.MINUTE, SHANGHAI),
+            "2026-10-04T21:00:00+08:00",
+        ),
+        (
+            OccurredTime(local("UTC", 2026, 10, 4, 0, 0), TimePrecision.MINUTE, "UTC"),
+            "2026-10-04T00:00:00+00:00",
+        ),
+        (
+            OccurredTime(
+                local(BUDAPEST, 2026, 10, 25, 2, 30, fold=1), TimePrecision.MINUTE, BUDAPEST
+            ),
+            "2026-10-25T02:30:00+01:00",
+        ),
+        (
+            OccurredTime(
+                local("America/St_Johns", 2026, 1, 4, 9, 40),
+                TimePrecision.MINUTE,
+                "America/St_Johns",
+            ),
+            "2026-01-04T09:40:00-03:30",
+        ),
+    ],
+)
+def test_a_time_is_written_as_a_date_or_with_seconds_and_offset(
+    occurred: OccurredTime, written: str
+) -> None:
+    assert write_time(occurred) == written
+    assert follows_the_ledger_s_rules(written, occurred)
+
+
+def test_a_moment_whose_offset_has_seconds_cannot_be_written() -> None:
+    occurred = OccurredTime(local(SHANGHAI, 1890, 1, 1, 9, 0), TimePrecision.MINUTE, SHANGHAI)
+
+    with pytest.raises(ValueError, match="whole number of minutes"):
+        write_time(occurred)
