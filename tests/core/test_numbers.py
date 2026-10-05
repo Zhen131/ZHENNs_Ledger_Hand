@@ -1124,6 +1124,37 @@ def test_multiplier_of_this_program_is_not_taken_from_a_caller_as_a_unit(word: s
         )
 
 
+@pytest.mark.parametrize(
+    "word",
+    ["万", "千", "个亿", "ku万", "u万", "兩", "\N{CJK COMPATIBILITY IDEOGRAPH-F978}", "Baby 兆"],
+)
+def test_word_holding_a_number_character_is_as_good_as_not_passed(word: str) -> None:
+    texts = [f"5 {word}", f"5{word}", f"5 个{word}", "5ku万", "5ku", "5 万", "5个万", "5 Baby 兆"]
+
+    for text in texts:
+        assert read_number(text, extra_units=[word]) == read_number(text)
+
+
+@pytest.mark.parametrize(
+    "letter",
+    [
+        "\N{GREEK YPOGEGRAMMENI}",
+        "\N{ARABIC FATHA ISOLATED FORM}",
+        "\N{ARABIC LIGATURE SHADDA WITH DAMMATAN ISOLATED FORM}",
+        "\N{ARABIC LIGATURE SALLALLAHOU ALAYHE WASALLAM}",
+    ],
+)
+def test_letter_that_comes_apart_into_gaps_and_marks_is_no_unit_even_when_allowed(
+    letter: str,
+) -> None:
+    # In ordinary characters each of these is a gap and a mark, or several words.
+    assert letter.isalpha()
+    assert not in_ordinary_characters(letter).isalpha()
+
+    for text in (f"5 {letter}", f"5 {letter}{letter}", f"5 个{letter}", f"5 {letter} BTC"):
+        assert read_number(text, extra_units=[letter]) == Unsure(Doubt.UNKNOWN_UNIT)
+
+
 def test_multiplier_letter_is_applied_or_doubted_the_same_whatever_the_caller_allows() -> None:
     assert read_number("5 k", extra_units=["k"]) == Unsure(Doubt.UNKNOWN_UNIT)
     assert read_number("5 k BTC", extra_units=["k"]) == Unsure(Doubt.UNKNOWN_UNIT)
