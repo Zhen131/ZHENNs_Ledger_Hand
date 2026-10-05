@@ -71,11 +71,22 @@ src/ledger_hand/
     flows/                strings the parts into one task: record a trade, export
     settings.py           the only place that reads settings                          (exists)
     ui/                   the user interface; the only place that may use Streamlit
-evals/                    prompt experiments: test sentences, scoring script, results
+evals/                    prompt experiments: test sentences, scoring, runner, results (exists)
+    sets/                 the test sentences with gold answers: debug and final   (exists)
+    gold.py               the shapes of a sentence and its gold answer             (exists)
+    coverage.py           what the sentences cover                                 (exists)
+    cells.py              one field judged against the gold answer                 (exists)
+    matching.py           drafts paired with gold trades, in any order             (exists)
+    scoring.py            the scores of one sentence and of many                   (exists)
+    records.py            the results file, line by line                           (exists)
+    tables.py             the summary of a run and its tables                      (exists)
+    run.py                the runner                                               (exists)
+    summarize.py          the summary worked out again from a results file         (exists)
 tests/                    mirrors src; also holds the guardrails, fakes and golden samples  (exists)
     fakes/                stand-ins for the outside world: a scripted model           (exists)
     live/                 the live check against a real model, run by hand only       (exists)
     extraction/           tests of extraction against the scripted model              (exists)
+    evals/                tests of the experiment kit and the test sentences          (exists)
 ```
 
 A **port** is an interface that the inner code talks to ("ask the model",

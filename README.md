@@ -119,8 +119,20 @@ allows; a failure of the model port is handed back as it was raised. An
 empty passage, or one longer than the ledger keeps, is never sent. The
 prompt (`extraction/prompts/first.py`) is its first version, with its
 invented examples in a file beside it. `scripts/try_extraction.py` tries it
-by hand with the real model. Whether the model reads passages well is not
-measured yet.
+by hand with the real model.
+
+**Measuring how well the model reads.** `evals/` holds the yardstick: 50
+invented test sentences with gold answers (30 to tune against, 20 kept back
+for the last run of an experiment), the scoring and a runner. The gold
+answer says what the drafts of extraction should hold, field by field. The
+runner sends every sentence of a set through extraction, with the
+sentence's own fixed moment and zone, saves each result the moment it is
+done, and scores the run: how often the reply could be read at all, each
+field, whole trades right (the main score), trades missed and extra, values
+made up, and passages with no trade. Every field that came out wrong is
+sorted into its kind: left empty by the program with a reason, left empty
+because the model gave nothing, a wrong value with or without an issue about
+it, or a value made up.
 
 Apart from asking the model, all of this is pure computation: nothing is
 written to disk yet, and nothing that is said is recorded. There is no
@@ -144,13 +156,14 @@ check and the hygiene scan).
 | `src/ledger_hand/settings.py` | The only place in the package that reads environment variables: the model settings, their defaults and their checks. |
 | `src/ledger_hand/llm/` | The local plug for the model port: the plug itself (`ollama.py`), what is sent (`ollama_request.py`) and how what comes back is read (`ollama_reply.py`), one HTTP exchange and how its failures are sorted (`exchange.py`), making a server's words safe to show (`error_text.py`), trying again (`retry.py`), the assembled local model (`local.py`), and the server's version and the model's fingerprint (`ollama_identity.py`). The only part that may import httpx. |
 | `src/ledger_hand/extraction/` | A passage to drafts: the entry point (`extractor.py`), the table the model fills (`reply_table.py`) and how its reply is read (`reply_parser.py`), finding a copied phrase in the passage (`passage.py`) and the numbers written in a text (`passage_numbers.py`), one row to one draft (`row_draft.py`), which currency a unit names (`unit_currency.py`), the issues (`issues.py`), the messages a prompt version makes (`prompting.py`), and the prompt versions with their examples (`prompts/`). Reads no clock, no zone of the machine and no environment variable. |
-| `tests/` | The tests. `tests/core/`, `tests/export/`, `tests/llm/` and `tests/extraction/` have one test module per module; `tests/llm/` also has a fake Ollama server and a batch of attacks on the plug, and `tests/extraction/` a batch of attacks on extraction. |
+| `tests/` | The tests. `tests/core/`, `tests/export/`, `tests/llm/` and `tests/extraction/` have one test module per module; `tests/llm/` also has a fake Ollama server and a batch of attacks on the plug, and `tests/extraction/` a batch of attacks on extraction. `tests/evals/` tests the experiment kit and the test sentences. |
 | `tests/conftest.py` | Stops every test that is not marked `live_model` from reaching the network. |
 | `tests/fakes/` | Stand-ins for the outside world: a scripted model that plays back replies and errors in order and records what it was asked. |
 | `tests/live/` | The live check, which talks to a real model, the small schema check it uses, and the smoke test of extraction. |
 | `tests/export/samples.py`, `tests/export/attack.py`, `tests/export/golden/` | Invented trades to export, batches of edge cases made to find where this program and the ledger part ways, both shared with the ledger tier, and the golden sample. A golden sample is never edited once committed; a new format version gets one of its own. |
 | `tests/guardrails/` | The layering check and the hygiene scan, the tests that prove they catch what they should, and the two gate tests that apply them to this repository. |
 | `scripts/check.sh` | One command that runs all checks. |
+| `evals/` | The experiment kit, outside the package: the test sentences and their gold answers (`sets/debug.json`, `sets/final.json`, read by `gold.py`), what they cover (`coverage.py`), judging one field (`cells.py`), pairing drafts with gold trades (`matching.py`), the scores (`scoring.py`), the results file (`records.py`), the summary and its tables (`tables.py`), the runner (`run.py`) and the summary worked out again (`summarize.py`). |
 | `scripts/try_extraction.py` | Try extraction by hand: a passage in, the drafts, the issues and a record of each call to the model out (see "Trying extraction by hand" below). |
 | `scripts/ledger_check.py`, `scripts/ledger_validate.ts`, `scripts/ledger_offsets.ts` | The ledger tier of the checks: sample files judged by the ledger's own validator, and the ledger's offsets compared with ours. |
 | `tests/ledger_check/` | What the ledger tier checks (`cases.py`), tests of the tier's own logic, and the one sample for it written by hand. |
@@ -313,6 +326,39 @@ program does not take as it stands stops the script instead of being
 replaced. Nothing is written to disk. Exit status: `0` the passage was read
 (even with no trade in it), `1` it was not (refused, no readable reply, or
 the model failed), `2` the script could not start (a setting or the zone).
+
+### Running an experiment
+
+```sh
+.venv/bin/python -m evals.run                    # the debug set, prompt "first", the model the settings name
+.venv/bin/python -m evals.run --model qwen2.5:7b --prompt first
+.venv/bin/python -m evals.run --resume evals/results/<file>.jsonl
+.venv/bin/python -m evals.summarize evals/results/<file>.jsonl [--check]
+```
+
+Run these from the top of the repository, with the model server running.
+The runner takes the debug set. The final set is run only with
+`--final-exam`, and its results file says so; it is meant for the last run
+of an experiment, once the prompt is settled, so that the scores are not
+tuned to it. `--only` runs some sentences of the set by their ids.
+
+The first line of the results file records the conditions: the set and
+its fingerprint, the prompt version with its files and their fingerprints,
+the commit and whether the work tree was clean, the model, its fingerprint
+and the server's version, every parameter (temperature included, as the
+settings give it) and when the run began. Each sentence's line is added the
+moment it is done: the model's raw replies, the drafts, the issues, the
+phrases the model copied, the scores and how long it took. A run cut short
+can be carried on with `--resume`, under the same conditions only. The
+summary is saved beside the results file and printed as tables;
+`evals.summarize` works it out again from the file alone, and `--check`
+compares it with the saved one. The first sentence of a run includes loading
+the model, which takes several seconds more than the sentences after it.
+
+The quick tier tests the scoring against cases worked out by hand and the
+test sentences (coverage, no repeat of a prompt example, every gold answer
+kept by the core's rules), and reads the final set only: no test sends a
+test sentence to a model.
 
 To let the tool fix formatting instead of only reporting it:
 
