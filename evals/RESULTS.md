@@ -86,10 +86,12 @@ right, 0 missed, 0 extra.
 - 0 wrong values with an issue, 0 wrong values with no issue among the
   fields whose gold value is not empty.
 
-**Half copies.** 0. In the sentences written the ways extraction is known
-to find hard, the model copied the whole phrase each time: `100 万 SHIB`
-and `0.000012` out of `0.000012一个` (d09), `94 900` (d10), `0.02` and
-`94900` (d11), `3 w DOGE` (d12), `1 万个 DOGE` (d19). `94 900` and
+**Half copies.** 0. In the sentences with a number written so much a
+piece, with a gap before the multiplier, with a space between thousands or
+next to another number one space away, the model copied the whole phrase
+each time: `100 万 SHIB` and `0.000012` out of `0.000012一个` (d09),
+`94 900` (d10), `0.02` and `94900` (d11), `3 w DOGE` (d12), `1 万个 DOGE`
+(d19). `94 900` and
 `3 w DOGE` are numbers the core is unsure of, so the gold answer and the
 draft both leave those fields empty.
 
