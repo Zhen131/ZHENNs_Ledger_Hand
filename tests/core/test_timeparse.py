@@ -15,15 +15,18 @@ checked in sections of their own.
 
 from __future__ import annotations
 
+import time as stopwatch
 from datetime import date, datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 import pytest
 
 from ledger_hand.core.timeparse import (
+    Refusal,
     TimeCaution,
     TimeReading,
     TimeRecognised,
+    TimeRefused,
     TwoCandidates,
     read_time,
     write_time,
@@ -636,3 +639,174 @@ def test_the_zone_without_summer_time_has_one_moment_for_every_clock_time(year: 
             assert outcome(f"{hour}:30", now, SHANGHAI) == (
                 f"{day.isoformat()}T{hour:02d}:30:00+08:00 minute"
             )
+
+
+# --- in the future ----------------------------------------------------------
+
+MORNING = datetime(2026, 10, 7, 10, 0, tzinfo=ZoneInfo(SHANGHAI))
+FRIDAY_MORNING = datetime(2026, 10, 9, 10, 0, tzinfo=ZoneInfo(SHANGHAI))
+
+
+@pytest.mark.parametrize(
+    ("text", "now"),
+    [
+        ("今天晚上 9 点", MORNING),
+        ("tonight at 9", MORNING),
+        ("晚上 9 点", MORNING),
+        ("9pm", MORNING),
+        ("10月7号晚上9点", MORNING),
+        ("2026年10月7日21:00", MORNING),
+        ("Oct 7 at 9pm", MORNING),
+        ("今天下午", MORNING),
+        ("中午", MORNING),
+        ("周五下午三点", FRIDAY_MORNING),
+        ("Friday at 3pm", FRIDAY_MORNING),
+        ("星期五 15:00", FRIDAY_MORNING),
+    ],
+)
+def test_a_time_later_than_now_is_in_the_future_and_never_moved_back(
+    text: str, now: datetime
+) -> None:
+    assert outcome(text, now) == "IN_THE_FUTURE"
+
+
+def test_today_s_date_alone_is_not_in_the_future_however_late_it_is() -> None:
+    assert outcome("10月7号", MORNING) == "2026-10-07 day"
+    assert outcome("today", MORNING) == "2026-10-07 day"
+
+
+@pytest.mark.parametrize("zone", [BUDAPEST, SHANGHAI])
+def test_the_grace_allows_a_little_and_no_more(zone: str) -> None:
+    now = local(zone, 2026, 10, 7, 10, 0, 0)
+
+    assert outcome("10:00:30", now, zone).endswith("second")
+    assert outcome("10:01", now, zone).endswith("minute")
+    assert outcome("10:01:01", now, zone) == "IN_THE_FUTURE"
+    assert described(read_time("10:00:30", now, zone, grace=timedelta(0))) == "IN_THE_FUTURE"
+    assert described(read_time("10:05", now, zone, grace=timedelta(minutes=5))).endswith("minute")
+
+
+def test_a_date_after_today_is_in_the_future_even_within_the_grace() -> None:
+    almost_midnight = datetime(2026, 10, 7, 23, 59, 50, tzinfo=ZoneInfo(SHANGHAI))
+
+    assert outcome("明天 0:00", almost_midnight) == "IN_THE_FUTURE"
+
+
+# --- the current moment and the zone ------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "now",
+    [
+        NOW,
+        NOW.astimezone(timezone.utc),
+        NOW.astimezone(ZoneInfo(BUDAPEST)),
+        NOW.astimezone(timezone(timedelta(hours=-5))),
+    ],
+    ids=["in the zone", "in UTC", "in another zone", "at a fixed offset"],
+)
+def test_a_current_moment_in_another_zone_is_moved_to_the_zone_handed_in(now: datetime) -> None:
+    assert outcome("刚才", now) == "2026-10-07T15:30:00+08:00 minute"
+    assert outcome("昨天晚上9点", now) == "2026-10-06T21:00:00+08:00 minute"
+
+
+def test_today_is_the_date_in_the_zone_handed_in() -> None:
+    # 01:00 in Shanghai is still the evening before in Budapest.
+    now = datetime(2026, 10, 7, 1, 0, tzinfo=ZoneInfo(SHANGHAI))
+
+    assert outcome("今天", now, SHANGHAI) == "2026-10-07 day"
+    assert outcome("今天", now, BUDAPEST) == "2026-10-06 day"
+
+
+def test_a_current_moment_without_an_offset_is_a_mistake_of_the_caller() -> None:
+    with pytest.raises(ValueError, match="offset"):
+        read_time("昨天", datetime(2026, 10, 7, 15, 30), SHANGHAI)
+
+
+@pytest.mark.parametrize("zone", ["localtime", "Mars/Olympus_Mons", "", "../etc"])
+def test_a_name_that_is_no_time_zone_is_a_mistake_of_the_caller(zone: str) -> None:
+    with pytest.raises(ValueError, match="time zone"):
+        read_time("昨天", NOW, zone)
+
+
+def test_a_negative_grace_is_a_mistake_of_the_caller() -> None:
+    with pytest.raises(ValueError, match="grace"):
+        read_time("昨天", NOW, SHANGHAI, grace=timedelta(seconds=-1))
+
+
+# --- texts that are no time ---------------------------------------------------
+
+NO_TIME_AT_ALL = [
+    "",
+    "   ",
+    "12345",
+    "9",
+    "买了比特币",
+    "hello",
+    "昨天 blah",
+    "昨天晚上9点40买的",
+    "yesterday at 9:40pm please",
+    "yesterday yesterday",
+    "9点9点",
+    "现在 9点",
+    "大概昨天",
+    "上午10点左右",
+    "around 3pm",
+    "3 weeks ago",
+    "两周前",
+    "半天前",
+    "上上个周五",
+    "this Friday",
+    "next Friday",
+    "1.5 hours ago",
+    "0 天前",
+    "昨天\n9点",
+    "​昨天",
+    "昨天​",
+    "\N{MATHEMATICAL BOLD SMALL Y}esterday",
+    "la\N{LATIN SMALL LETTER LONG S}t friday",
+    "\N{KELVIN SIGN}",
+    "\N{ARABIC-INDIC DIGIT THREE} days ago",
+    "\N{SUPERSCRIPT THREE} days ago",
+    "\x00",
+    "on yesterday",
+    "pm",
+    "at",
+]
+
+
+@pytest.mark.parametrize("text", NO_TIME_AT_ALL)
+def test_a_text_that_is_no_known_time_phrase_is_refused_without_raising(text: str) -> None:
+    reading = read_time(text, NOW, SHANGHAI)
+
+    assert reading == TimeRefused(Refusal.UNKNOWN_WORDING)
+
+
+@pytest.mark.parametrize(
+    "text",
+    ["x" * 100_000, "昨天" * 50_000, "9" * 100_000, "1:" * 50_000, " " * 100_000 + "昨天"],
+    ids=["letters", "day words", "digits", "colons", "gaps"],
+)
+def test_a_very_long_text_is_refused_at_once(text: str) -> None:
+    started = stopwatch.perf_counter()
+
+    reading = read_time(text, NOW, SHANGHAI)
+
+    assert reading == TimeRefused(Refusal.UNKNOWN_WORDING)
+    assert stopwatch.perf_counter() - started < 1
+
+
+def test_a_text_of_every_short_length_from_known_parts_never_raises() -> None:
+    pieces = ["昨天", "晚上", "9", "点", "40", "pm", " ", "at", "10/2", ":", "号", "周五", "last"]
+    texts = [a + b + c for a in pieces for b in pieces for c in pieces]
+
+    for text in texts:
+        assert isinstance(
+            read_time(text, NOW, SHANGHAI), TimeRecognised | TwoCandidates | TimeRefused
+        )
+
+
+def test_a_time_whose_offset_has_seconds_cannot_be_written_and_is_not_read() -> None:
+    # Before 1901 Shanghai kept its local mean time, eight hours and some seconds ahead.
+    assert outcome("1890年1月1日上午9点") == "UNKNOWN_WORDING"
+    assert outcome("1890年1月1日") == "1890-01-01 day"
