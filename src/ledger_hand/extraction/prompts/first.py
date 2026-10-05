@@ -54,14 +54,17 @@ names it apart from those numbers.
 there is one.
 - fee_currency: the currency the fee was paid in, only when the passage names \
 it apart from the fee's number.
-- time: when the trade happened: only the words that say the day and the time.
+- time: when the trade happened: only the words that say the day and the time, \
+in the passage's own words ("last night", "昨天晚上 9 点 40", "Oct 2 at 14:05").
 - platform: the exchange or app the trade was made on.
 - opinion: the person's own view, reason or feeling about the trade.
 
 Rules:
 1. Copy, never rewrite. Keep every digit, comma, point, letter, unit and word \
-exactly as the passage writes it. Do not turn Chinese numbers into digits or \
-digits into words, and never drop a "k", a "w" or a "万" from a number.
+exactly as the passage writes it. Never translate: what you copy from English \
+words stays English, and what you copy from Chinese words stays Chinese. Do not \
+turn Chinese numbers into digits or digits into words, and never drop a "k", a \
+"w" or a "万" from a number.
 2. Leave a field "" when the passage does not say it. Never fill in a market \
 price, a date, a fee or a currency the passage does not write.
 3. Each field is one unbroken piece of the passage.

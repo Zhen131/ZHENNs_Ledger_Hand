@@ -41,13 +41,14 @@ FIRST_EXAMPLES: tuple[Example, ...] = (
         ),
     ),
     Example(
-        "Sold 150 SOL at 182.4 on Kraken, taking some profit",
+        "Sold 150 SOL at 182.4 on Kraken last night, taking some profit",
         (
             _row(
                 side="sell",
                 coin="SOL",
                 quantity="150 SOL",
                 price="182.4",
+                time="last night",
                 platform="Kraken",
                 opinion="taking some profit",
             ),

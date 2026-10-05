@@ -73,7 +73,7 @@ def main(
         if model is None:
             return 2
     result = extract(passage, model, now=now or datetime.now(timezone.utc), zone=zone)
-    _show(result, passage, zone, out)
+    show_result(result, passage, zone, out)
     return 0 if isinstance(result, Extracted) else 1
 
 
@@ -94,7 +94,8 @@ def _local_model(out: TextIO) -> ModelPort | None:
         return None
 
 
-def _show(result: Extraction, passage: str, zone: str, out: TextIO) -> None:
+def show_result(result: Extraction, passage: str, zone: str, out: TextIO) -> None:
+    """Print what extraction gave for ``passage``: the drafts, the issues and the calls."""
     print(f"passage: {passage!r}", file=out)
     print(f"zone:    {zone}", file=out)
     if isinstance(result, PassageRefused):
