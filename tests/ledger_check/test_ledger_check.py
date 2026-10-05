@@ -14,6 +14,7 @@ from pathlib import Path
 
 import pytest
 
+from ledger_hand.core.trade import NOT_ZONE_NAMES
 from scripts import ledger_check
 from scripts.ledger_check import (
     Accepted,
@@ -26,7 +27,13 @@ from scripts.ledger_check import (
     judge,
     locate_ledger,
 )
-from tests.export.samples import GOLDEN_FILE, broken_texts, golden_text
+from tests.export.samples import (
+    GOLDEN_FILE,
+    broken_texts,
+    golden_text,
+    zone_candidates,
+    zones_taken,
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -367,3 +374,13 @@ def test_each_planted_mistake_changes_exactly_one_field_of_the_golden_sample() -
         "fee-coin-missing": [".ledgerData.trades[0].feeCurrency"],
         "zone-disagrees": [".ledgerData.trades[2].occurredTimeZone"],
     }
+
+
+def test_every_zone_name_the_machine_knows_is_taken_except_the_names_that_are_no_zone() -> None:
+    candidates = set(zone_candidates())
+    taken = set(zones_taken())
+
+    assert candidates - taken <= NOT_ZONE_NAMES
+    assert "Europe/Budapest" in taken
+    assert "UTC" in taken
+    assert len(taken) > 300

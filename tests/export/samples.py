@@ -19,6 +19,9 @@ on the day the tests run.
   for selling more than is held.
 - ``broken_texts``: the golden sample's text with one mistake planted in each
   copy, which the ledger must refuse for exactly that mistake.
+- ``every_zone_trades``: one trade recorded in each time zone this machine's
+  zone database knows and a trade's time may be recorded in, to show that the
+  ledger knows every such zone too.
 """
 
 from __future__ import annotations
@@ -28,7 +31,7 @@ from collections.abc import Callable
 from datetime import date, datetime, timezone
 from decimal import Decimal
 from pathlib import Path
-from zoneinfo import ZoneInfo
+from zoneinfo import ZoneInfo, available_timezones
 
 from ledger_hand.core.coins import BUILT_IN_TABLE, CoinTable
 from ledger_hand.core.stored import StoredTrade
@@ -476,3 +479,49 @@ def broken_texts() -> dict[str, str]:
         "fee-coin-missing": _with_change(golden, fee_coin_missing),
         "zone-disagrees": _with_change(golden, zone_disagrees),
     }
+
+
+# --- every time zone --------------------------------------------------------
+
+
+def zone_candidates() -> list[str]:
+    """Every zone name this machine's zone database lists, and one it loads without listing it."""
+    return sorted(available_timezones() | {"posixrules"})
+
+
+def zones_taken() -> list[str]:
+    """The candidates that a trade's time may be recorded in."""
+    taken = []
+    for name in zone_candidates():
+        try:
+            OccurredTime(date(2026, 9, 1), TimePrecision.DAY, name)
+        except ValueError:
+            continue
+        taken.append(name)
+    return taken
+
+
+def every_zone_trades() -> list[StoredTrade]:
+    """One buy in each zone a trade may be recorded in, all at the same instant."""
+    instant = datetime(2026, 9, 1, 12, 0, tzinfo=timezone.utc)
+    return [
+        saved(
+            f"zone-{place:04d}",
+            TradeDraft(
+                side=Side.BUY,
+                coin="BTC",
+                quantity=number("1"),
+                price=number("1"),
+                fee=number("0"),
+                occurred=OccurredTime(
+                    instant.astimezone(ZoneInfo(name)), TimePrecision.MINUTE, name
+                ),
+                raw_text=f"1 BTC at 1 USDT, recorded in {name}",
+            ),
+        )
+        for place, name in enumerate(zones_taken(), start=1)
+    ]
+
+
+def every_zone_text() -> str:
+    return exported(every_zone_trades())

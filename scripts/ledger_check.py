@@ -16,8 +16,9 @@ what the sample is expected to get. A sample is expected to be one of:
 The samples: one file written by hand from the ledger's documented format;
 the committed golden sample; and files exported now from the invented trades
 in ``tests/export/samples.py``: trades at the edges of what this program
-accepts, a fee paid in a third coin, a sale with nothing bought before it, and
-copies of the golden sample with one mistake planted in each. The tier also
+accepts, a fee paid in a third coin, one trade in each time zone a trade may
+be recorded in, a sale with nothing bought before it, and copies of the golden
+sample with one mistake planted in each. The tier also
 fails when the ledger's format versions are no longer the ones this program
 writes.
 
@@ -237,6 +238,7 @@ def samples() -> list[Sample]:
         Sample(invented.GOLDEN_FILE.name, _read(invented.GOLDEN_FILE), Accepted()),
         Sample("edges.json", invented.edge_text(), Accepted()),
         Sample("third-coin-fee.json", invented.third_coin_fee_text(), Accepted()),
+        Sample("every-zone.json", invented.every_zone_text(), Accepted()),
         Sample("sell-only.json", invented.sell_only_text(), HoldingsOnly()),
         Sample(
             "broken-total-off.json",
