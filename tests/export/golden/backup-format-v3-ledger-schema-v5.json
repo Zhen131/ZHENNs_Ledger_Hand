@@ -1,0 +1,126 @@
+{
+  "backupFormatVersion": 3,
+  "appVersion": "ledger-hand-0.1.0",
+  "exportedAt": "2026-10-04T08:00:00Z",
+  "ledgerSchemaVersion": 5,
+  "ledgerData": {
+    "schemaVersion": 5,
+    "assets": [
+      {
+        "id": "asset-hand-btc",
+        "symbol": "BTC",
+        "name": "Bitcoin",
+        "quoteCurrency": "USDT",
+        "binanceMapping": {
+          "provider": "binance",
+          "symbol": "BTCUSDT",
+          "baseAsset": "BTC",
+          "quoteAsset": "USDT"
+        },
+        "createdAt": "2026-10-04T00:00:00Z",
+        "updatedAt": "2026-10-04T00:00:00Z"
+      },
+      {
+        "id": "asset-hand-eth",
+        "symbol": "ETH",
+        "name": "Ethereum",
+        "quoteCurrency": "USDT",
+        "binanceMapping": {
+          "provider": "binance",
+          "symbol": "ETHUSDT",
+          "baseAsset": "ETH",
+          "quoteAsset": "USDT"
+        },
+        "createdAt": "2026-10-04T00:00:00Z",
+        "updatedAt": "2026-10-04T00:00:00Z"
+      },
+      {
+        "id": "asset-hand-xmr",
+        "symbol": "XMR",
+        "name": "Monero",
+        "quoteCurrency": "USDT",
+        "binanceMapping": null,
+        "createdAt": "2026-10-04T00:00:00Z",
+        "updatedAt": "2026-10-04T00:00:00Z"
+      }
+    ],
+    "trades": [
+      {
+        "id": "hand-trade-0004",
+        "occurredAt": "2026-10-01T14:05:00+08:00",
+        "occurredTimeZone": "Asia/Shanghai",
+        "timePrecision": "minute",
+        "type": "buy",
+        "assetSymbol": "XMR",
+        "quantity": "3",
+        "price": "160.5",
+        "totalValue": "481.5",
+        "currency": "USDT",
+        "fee": "0.003",
+        "feeCurrency": "XMR",
+        "note": "长期拿着",
+        "rawText": "10/1 下午两点零五买了 3 个门罗，160.5 一个，手续费 0.003 XMR，长期拿着",
+        "createdAt": "2026-10-04T07:44:00Z",
+        "updatedAt": "2026-10-04T07:44:00Z"
+      },
+      {
+        "id": "hand-trade-0003",
+        "occurredAt": "2026-10-02",
+        "occurredTimeZone": "Europe/Budapest",
+        "timePrecision": "day",
+        "type": "buy",
+        "assetSymbol": "ETH",
+        "quantity": "0.4",
+        "price": "2500",
+        "totalValue": "1000",
+        "currency": "USDT",
+        "fee": "0",
+        "feeCurrency": "USDT",
+        "platform": "OKX",
+        "rawText": "10月2日在 OKX 花 1000 刀买了以太，价格 2500，没有手续费",
+        "createdAt": "2026-10-04T07:43:00Z",
+        "updatedAt": "2026-10-04T07:43:00Z"
+      },
+      {
+        "id": "hand-trade-0001",
+        "occurredAt": "2026-10-03T21:40:00+02:00",
+        "occurredTimeZone": "Europe/Budapest",
+        "timePrecision": "minute",
+        "type": "buy",
+        "assetSymbol": "BTC",
+        "quantity": "0.02",
+        "price": "94900",
+        "totalValue": "1898",
+        "currency": "USDT",
+        "fee": "2",
+        "feeCurrency": "USDT",
+        "platform": "Binance",
+        "note": "我觉得要涨",
+        "rawText": "昨天晚上 9 点 40 在币安买了 0.02 BTC，94900，手续费 2 USDT，我觉得要涨",
+        "createdAt": "2026-10-04T07:41:00Z",
+        "updatedAt": "2026-10-04T07:41:00Z"
+      },
+      {
+        "id": "hand-trade-0002",
+        "occurredAt": "2026-10-04T09:15:30+02:00",
+        "occurredTimeZone": "Europe/Budapest",
+        "timePrecision": "second",
+        "type": "sell",
+        "assetSymbol": "BTC",
+        "quantity": "0.01",
+        "price": "96000",
+        "totalValue": "960",
+        "currency": "USDT",
+        "fee": "0.00001",
+        "feeCurrency": "BTC",
+        "rawText": "sold 0.01 BTC at 96,000 at 9:15:30, fee 0.00001 BTC",
+        "createdAt": "2026-10-04T07:42:10Z",
+        "updatedAt": "2026-10-04T07:45:12Z"
+      }
+    ],
+    "cashEvents": [],
+    "assetTransfers": [],
+    "priceSnapshots": [],
+    "feeRules": []
+  }
+}
