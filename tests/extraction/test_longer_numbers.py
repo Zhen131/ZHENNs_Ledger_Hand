@@ -5,6 +5,9 @@ Every passage below is invented.
 
 from __future__ import annotations
 
+import random
+import time
+
 import pytest
 
 from ledger_hand.extraction import longer_numbers
@@ -158,3 +161,25 @@ def test_once_the_readings_are_used_up_every_question_is_answered_cut(
     passage = Passage("1 2 3 4 5")
 
     assert passage.find_number("3") is PieceMiss.CUTS_A_NUMBER
+
+
+def test_a_long_passage_of_nothing_but_numbers_and_gaps_is_judged_quickly() -> None:
+    draw = random.Random(67)
+    text = " ".join(f"{draw.randint(0, 9999)}.{draw.randint(0, 99)}" for _ in range(3000))[:16_000]
+    phrases = sorted(set(text.split()))[:1000]
+    passage = Passage(text)
+    started = time.monotonic()
+
+    found = [passage.find_number(phrase, ("BTC",)) for phrase in phrases]
+
+    assert time.monotonic() - started < 5.0
+    assert all(isinstance(result, Piece | PieceMiss) for result in found)
+
+
+def test_one_number_in_parts_repeated_through_a_long_passage_is_judged_quickly() -> None:
+    passage = Passage(("9万 4900 买了；" * 2000)[:16_000])
+    started = time.monotonic()
+
+    assert passage.find_number("4900") is PieceMiss.CUTS_A_NUMBER
+    assert isinstance(passage.find_number("9万 4900"), Piece)
+    assert time.monotonic() - started < 5.0
