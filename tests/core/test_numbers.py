@@ -2750,6 +2750,25 @@ def test_second_form_of_twenty_is_a_number_character_and_never_a_unit(
     assert not isinstance(reading, Recognised)
 
 
+# Further written forms of number characters: 丗 for 卅 (thirty), the circle
+# written for 〇 (zero), 貮 for 貳 (two), and the Japanese forms 両 of 兩 and
+# 穣 of 穰. Tried the same way, so that the lists above stay as they were.
+MORE_FORMS_OF_NUMBER_CHARACTERS = ("丗", "\N{WHITE CIRCLE}", "貮", "両", "穣")
+
+
+@pytest.mark.parametrize("place", PLACES_FOR_A_NUMBER_CHARACTER)
+@pytest.mark.parametrize("character", MORE_FORMS_OF_NUMBER_CHARACTERS)
+@pytest.mark.parametrize("allowing", ["nothing", "the character"])
+def test_more_forms_of_number_characters_are_never_a_unit(
+    character: str, place: str, allowing: str
+) -> None:
+    allowed = (character,) if allowing == "the character" else ()
+
+    reading = read_number(place.format(character), extra_units=allowed)
+
+    assert not isinstance(reading, Recognised)
+
+
 MAGNITUDE_WORDS_IN_MANY_FORMS = [
     *("k", "K", "w", "W", "m", "M", "b", "B", "t", "g", "kk", "kw", "mm", "bn", "mn"),
     *("mil", "mill", "mln", "MLN", "mio", "mrd", "bln", "tsd", "wan", "WAN", "yi", "qian"),
