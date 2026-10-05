@@ -2,7 +2,9 @@
 
 A ``Passage`` is built once from the text the user typed. ``find`` takes a
 phrase the model copied and gives back the ``Piece`` of the passage it is,
-or a ``PieceMiss`` saying why it is not one.
+or a ``PieceMiss`` saying why it is not one. ``find_number`` does the same
+for a phrase that is to be read as a number (a quantity, a price, a total, a
+fee), and judges it once more, see below.
 
 A phrase is compared with the passage after the same tidying on both sides,
 and the tidying never changes what a character says:
@@ -32,6 +34,14 @@ phrase end there but not begin there: "3000" copied out of "3000一个" is a
 piece, while "一" or "一个" copied out of it is still taken as cutting the
 run "3000一". Only the number before "一个" is let go; nothing else is.
 
+A number phrase must also not be part of a longer number of another value,
+as the number reader of the core reads the passage around it
+(``longer_numbers``): "4900" is not a piece of "9万 4900", which the reader
+reads as 94900, nor "100" of "100 万". ``find_number`` takes the unit words
+the later conversion is given, and passes them to the reader, so that both
+read the same way. A place that fails either test is passed over; when no
+place passes both, the phrase is taken as cutting a number.
+
 A phrase is looked for in at most ``MAX_PLACES_TRIED`` places. One that
 stands in the passage more often than that, each time as part of a longer
 number, is taken as cutting a number: looking further would let one reply
@@ -40,7 +50,7 @@ cost work without bound, and leaving the field empty is the safe side.
 A ``Piece`` holds the text exactly as the passage has it there, so what goes
 on into a draft is always the user's own writing, never the model's copy of
 it. It also holds the numbers written inside it, which tell which numbers of
-the passage some trade has used.
+the passage some trade has used, and where it stands in the passage.
 
 Names defined here: ``Passage``, ``Piece``, ``PieceMiss`` and ``MAX_PLACES_TRIED``.
 """
@@ -53,6 +63,7 @@ import unicodedata
 from collections.abc import Mapping
 from dataclasses import dataclass
 
+from ledger_hand.extraction.longer_numbers import LongerNumbers
 from ledger_hand.extraction.passage_numbers import number_runs, number_spans
 
 # Far more places than a phrase of a real passage stands in as part of other
@@ -72,11 +83,14 @@ class Piece:
     """A phrase found in the passage.
 
     ``text`` is the passage's own text there. ``numbers`` are the numbers
-    written inside it, each in the tidied form, in order.
+    written inside it, each in the tidied form, in order. ``start`` and
+    ``end`` say where it stands in the passage's own text.
     """
 
     text: str
     numbers: tuple[str, ...]
+    start: int
+    end: int
 
 
 def _width_pairs() -> Mapping[int, int]:
@@ -137,7 +151,8 @@ class Passage:
         for place in range(len(self._tidy) - 1, -1, -1):
             if self._start_cuts[place]:
                 self._resume[place] = self._resume[place + 1]
-        self._found: dict[str, Piece | PieceMiss] = {}
+        self._longer = LongerNumbers(self._tidy)
+        self._found: dict[tuple[str, tuple[str, ...] | None], Piece | PieceMiss] = {}
 
     @property
     def numbers(self) -> tuple[tuple[str, str], ...]:
@@ -149,13 +164,20 @@ class Passage:
 
     def find(self, phrase: str) -> Piece | PieceMiss:
         """The piece of the passage that ``phrase`` is, or why it is not one."""
-        wanted = _tidied(phrase)[0].strip(" ")
-        if wanted not in self._found:
-            # Remembered: a reply may copy the same phrase into many rows.
-            self._found[wanted] = self._search(wanted)
-        return self._found[wanted]
+        return self._remembered(phrase, None)
 
-    def _search(self, wanted: str) -> Piece | PieceMiss:
+    def find_number(self, phrase: str, allowed: tuple[str, ...] = ()) -> Piece | PieceMiss:
+        """Like ``find``, for a number phrase; ``allowed`` are the unit words for the reader."""
+        return self._remembered(phrase, tuple(allowed))
+
+    def _remembered(self, phrase: str, allowed: tuple[str, ...] | None) -> Piece | PieceMiss:
+        key = (_tidied(phrase)[0].strip(" "), allowed)
+        if key not in self._found:
+            # Remembered: a reply may copy the same phrase into many rows.
+            self._found[key] = self._search(*key)
+        return self._found[key]
+
+    def _search(self, wanted: str, allowed: tuple[str, ...] | None) -> Piece | PieceMiss:
         if not wanted:
             return PieceMiss.NOT_IN_PASSAGE
         start = self._tidy.find(wanted)
@@ -163,7 +185,9 @@ class Passage:
             return PieceMiss.NOT_IN_PASSAGE
         for _ in range(MAX_PLACES_TRIED):
             end = start + len(wanted)
-            if not (self._start_cuts[start] or self._end_cuts[end]):
+            if not (self._start_cuts[start] or self._end_cuts[end]) and (
+                allowed is None or not self._longer.reaches_further(start, end, allowed)
+            ):
                 return self._piece(start, end)
             # A start inside a number is passed over to the number's end.
             start = self._tidy.find(wanted, self._resume[start + 1])
@@ -172,7 +196,7 @@ class Passage:
         return PieceMiss.CUTS_A_NUMBER
 
     def _piece(self, start: int, end: int) -> Piece:
-        text = self.text[self._origins[start] : self._origins[end - 1] + 1]
+        text_start, text_end = self._origins[start], self._origins[end - 1] + 1
         numbers: list[str] = []
         # The numbers lie in order and never overlap, so the ones inside the
         # piece follow each other from the first that begins in it.
@@ -181,4 +205,4 @@ class Passage:
             number_start, number_end = self._numbers[index]
             numbers.append(self._tidy[number_start:number_end])
             index += 1
-        return Piece(text, tuple(numbers))
+        return Piece(self.text[text_start:text_end], tuple(numbers), text_start, text_end)

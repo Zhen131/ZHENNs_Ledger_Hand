@@ -765,3 +765,34 @@ def test_part_of_a_number_the_core_reads_whole_is_still_cut() -> None:
     assert issues_of(result, IssueKind.CUTS_A_NUMBER) == [
         Issue(kind=IssueKind.CUTS_A_NUMBER, draft=0, field=Field.QUANTITY, phrase="5 个")
     ]
+
+
+@pytest.mark.parametrize(
+    "passage",
+    [
+        "BTC 9万 4900一个，买了 0.1 个",
+        "BTC 9万\t4900一个，买了 0.1 个",
+        "BTC 9万\N{IDEOGRAPHIC SPACE}4900一个，买了 0.1 个",
+        "BTC 9万 4900，买了 0.1 个",
+    ],
+)
+def test_the_part_after_a_gap_in_a_price_is_cut(passage: str) -> None:
+    reply = table(row(side="buy", coin="BTC", quantity="0.1 个", price="4900"))
+
+    result = extracted(passage, reply)
+
+    assert result.drafts[0].price is None
+    assert result.drafts[0].quantity == Decimal("0.1")
+    assert issues_of(result, IssueKind.CUTS_A_NUMBER) == [
+        Issue(kind=IssueKind.CUTS_A_NUMBER, draft=0, field=Field.PRICE, phrase="4900")
+    ]
+
+
+def test_the_whole_price_with_its_gap_is_kept() -> None:
+    passage = "BTC 9万 4900一个，买了 0.1 个"
+    reply = table(row(side="buy", coin="BTC", quantity="0.1 个", price="9万 4900"))
+
+    result = extracted(passage, reply)
+
+    assert result.drafts[0].price == Decimal("94900")
+    assert issues_of(result, IssueKind.CUTS_A_NUMBER) == []

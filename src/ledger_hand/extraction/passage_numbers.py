@@ -42,8 +42,8 @@ same.
 The text is expected with full-width digits and letters already in their
 ordinary forms. Nothing here reads a number's value; that is the core's job.
 
-Names defined here: ``number_spans``, ``number_runs`` and
-``CHINESE_COUNTERS``.
+Names defined here: ``number_spans``, ``number_runs``, ``CHINESE_COUNTERS``
+and ``NUMBER_CHARACTERS``.
 """
 
 from __future__ import annotations
@@ -67,6 +67,10 @@ _NUMBER = re.compile(
     rf"|[点點](?=\d|[{_CHINESE_DIGITS}]))*"
     r"(?:(?<=\d)[kKwW](?![A-Za-z]))?"
 )
+
+# Every character other than a decimal digit that can stand inside a number:
+# the Chinese digits and places, 点 in both its forms, the point and the comma.
+NUMBER_CHARACTERS = _CHINESE_DIGITS + _CHINESE_PLACES + "点點.,"
 
 # The counters of the number reader that are written in Chinese characters.
 CHINESE_COUNTERS: tuple[str, ...] = tuple(

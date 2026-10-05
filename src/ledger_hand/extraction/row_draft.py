@@ -9,7 +9,10 @@ Each copied field goes through the same steps:
 
 1. The phrase must be a piece of the passage (``passage``). If it is not,
    the field stays empty and an issue says why. Otherwise the piece, which
-   is the passage's own text, is what goes on.
+   is the passage's own text, is what goes on. A phrase for quantity, price,
+   total or fee must in addition not be part of a longer number of another
+   value as the number reader reads the passage (``Passage.find_number``),
+   and the reader is given the same unit words there as in step 2.
 2. The piece is turned into a value with the core's rules:
 
    - the coin is looked up in the coin table; a coin the table knows goes in
@@ -105,9 +108,7 @@ def draft_from_row(row: ReplyRow, position: int, around: Surroundings) -> RowDra
     work = _Row(position, around)
     pieces = _pieces(row.cells, work)
     work.texts = {name: piece.text for name, piece in pieces.items()}
-    allowed = tuple(
-        work.texts[name] for name in (Field.COIN, Field.FEE_CURRENCY) if name in work.texts
-    )
+    allowed = _allowed_words(work.texts)
     amounts: dict[Field, Decimal | None] = {}
     for name in _NUMBER_FIELDS:
         amounts[name], unit = _number(name, work, allowed)
@@ -131,15 +132,34 @@ def draft_from_row(row: ReplyRow, position: int, around: Surroundings) -> RowDra
     return RowDraft(draft, tuple(work.issues), numbers)
 
 
+def _allowed_words(texts: Mapping[Field, str]) -> tuple[str, ...]:
+    """The unit words the number reader is given: the trade's coin and fee coin, as written."""
+    return tuple(texts[name] for name in (Field.COIN, Field.FEE_CURRENCY) if name in texts)
+
+
 def _pieces(cells: Mapping[Field, str], work: _Row) -> dict[Field, Piece]:
-    """The pieces of the passage the row's phrases are; each phrase that is not one is noted."""
+    """The pieces of the passage the row's phrases are; each phrase that is not one is noted.
+
+    The words first, since the coin and the fee coin are the unit words the
+    number phrases are then judged with.
+    """
+    passage = work.around.passage
+    found: dict[Field, Piece | PieceMiss] = {
+        name: passage.find(phrase) for name, phrase in cells.items() if name not in _NUMBER_FIELDS
+    }
+    allowed = _allowed_words(
+        {name: piece.text for name, piece in found.items() if isinstance(piece, Piece)}
+    )
+    for name in _NUMBER_FIELDS:
+        if name in cells:
+            found[name] = passage.find_number(cells[name], allowed)
     pieces: dict[Field, Piece] = {}
     for name, phrase in cells.items():
-        found = work.around.passage.find(phrase)
-        if isinstance(found, PieceMiss):
-            work.note(_MISSES[found], name, phrase=phrase)
+        result = found[name]
+        if isinstance(result, PieceMiss):
+            work.note(_MISSES[result], name, phrase=phrase)
         else:
-            pieces[name] = found
+            pieces[name] = result
     return pieces
 
 
