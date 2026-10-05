@@ -411,14 +411,15 @@ def read_number(text: str, extra_units: Iterable[str] = ()) -> Reading:
     ``extra_units`` are unit words the caller allows for this one call, on top
     of the ones this program knows: the name of a coin outside the table, for
     instance. The whole unit or a block of it must equal one of them, letter
-    case aside and with every character in its ordinary form. A word this
-    program itself reads as part of the number is not taken, as if it had not
-    been passed: one that holds a number character, and one in which "k" or
-    "w" stands as a word of its own.
+    case aside and with every character in its ordinary form. Only a name
+    made of words of letters is taken, or one currency sign. A word this
+    program itself reads as part of the number is not taken either, as if it
+    had not been passed: one that holds a number character, and one in which
+    "k" or "w" stands as a word of its own.
     """
     if isinstance(extra_units, str):
         raise TypeError("pass the extra unit words as a collection, not as one string")
-    allowed = frozenset(word for word in map(spoken_key, extra_units) if _may_be_allowed(word))
+    allowed = frozenset(spoken_key(word) for word in extra_units if _may_be_allowed(word))
     folded = text.translate(_FOLDED)
     if _EXPONENT.search(folded):
         return NotANumber()
@@ -457,19 +458,24 @@ def write_number(value: Decimal) -> str:
     return format(value.copy_abs(), "f")
 
 
-def _may_be_allowed(word: str) -> bool:
-    """Whether ``word``, in the form names are looked up in, may be a unit the caller allows.
+def _may_be_allowed(name: str) -> bool:
+    """Whether ``name``, as the caller wrote it, may be a unit the caller allows.
 
-    Not when this program reads it as part of the number. "5k" is five
-    thousand, so "5 k" must not be five of something called k; and a number
-    character is never a unit. A name that only holds such a letter ("kBONK")
-    is a name like any other.
+    It must be what a unit can be: one currency sign, or words that are still
+    words of letters once they are in ordinary characters. And this program
+    must not read it as part of the number. "5k" is five thousand, so "5 k"
+    must not be five of something called k; and a number character is never
+    a unit. A name that only holds such a letter ("kBONK") is a name like any
+    other.
     """
-    if any(character in _NUMBER_WORDS for character in word):
+    words = [_plain(word) for word in name.split()]
+    if len(words) == 1 and words[0] in _CURRENCY_SIGNS:
+        return True
+    if not words or not all(word.isalpha() for word in words):
         return False
-    blocks = (
-        "".join(run) for part in word.split() for _, run in itertools.groupby(part, key=_is_chinese)
-    )
+    if any(character in _NUMBER_WORDS for word in words for character in word):
+        return False
+    blocks = ("".join(run) for word in words for _, run in itertools.groupby(word, key=_is_chinese))
     return not any(block.lower() in _LETTER_MULTIPLIERS for block in blocks)
 
 

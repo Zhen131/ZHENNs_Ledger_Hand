@@ -1194,6 +1194,57 @@ def test_letter_that_comes_apart_into_gaps_and_marks_is_no_unit_even_when_allowe
         assert read_number(text, extra_units=[letter]) == Unsure(Doubt.UNKNOWN_UNIT)
 
 
+@pytest.mark.parametrize(
+    "name",
+    [
+        "",
+        "   ",
+        "USD.e",
+        "BTC-PERP",
+        "1000SATS",
+        "u2",
+        "BONK!",
+        "\N{GREEK YPOGEGRAMMENI}",
+        "\N{ARABIC FATHA ISOLATED FORM}",
+        "BTC \N{GREEK YPOGEGRAMMENI}",
+        "\N{COMBINING GREEK YPOGEGRAMMENI}",
+        "\N{ZERO WIDTH SPACE}",
+        "u\N{ZERO WIDTH SPACE}",
+        "\N{CIRCLED LATIN SMALL LETTER U}",
+    ],
+)
+def test_name_that_is_not_made_of_words_of_letters_is_not_taken_from_a_caller(name: str) -> None:
+    iota = "\N{GREEK SMALL LETTER IOTA}"
+    texts = [
+        f"5 {name}",
+        f"5{name}",
+        f"5 个{name}",
+        f"5 {iota}",
+        f"5 {iota.upper()}",
+        f"5 个{iota}",
+        "5 USD",
+        "5 USD e",
+        "5 USDe",
+        "5 u",
+        "5 SATS",
+        "5 BONK",
+        "5 e",
+        "5 2",
+    ]
+
+    for text in texts:
+        assert read_number(text, extra_units=[name]) == read_number(text)
+
+
+def test_currency_sign_is_taken_from_a_caller() -> None:
+    assert read_number("\N{YEN SIGN}700") == Unsure(Doubt.UNKNOWN_UNIT)
+    assert recognised_with("\N{YEN SIGN}700", "\N{YEN SIGN}") == Recognised(
+        Decimal("700"), "\N{YEN SIGN}"
+    )
+    assert recognised_with("\N{FULLWIDTH YEN SIGN}700", "\N{YEN SIGN}").value == 700
+    assert recognised_with("50 \N{EURO SIGN}", " \N{EURO SIGN} ").unit == "\N{EURO SIGN}"
+
+
 def test_multiplier_letter_is_applied_or_doubted_the_same_whatever_the_caller_allows() -> None:
     assert read_number("5 k", extra_units=["k"]) == Unsure(Doubt.UNKNOWN_UNIT)
     assert read_number("5 k BTC", extra_units=["k"]) == Unsure(Doubt.UNKNOWN_UNIT)
