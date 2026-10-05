@@ -745,6 +745,45 @@ def test_multiplier_letter_in_a_form_of_its_own_is_neither_applied_nor_a_unit(te
     assert isinstance(read_number(text), Unsure)
 
 
+RAISED_B_AND_T = "\N{MODIFIER LETTER CAPITAL B}\N{MODIFIER LETTER CAPITAL T}"
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        f"5 u {RAISED_B_AND_T}C",
+        f"5 {RAISED_B_AND_T}C u",
+        f"5 个{RAISED_B_AND_T}C",
+        f"5 {RAISED_B_AND_T}C个",
+        "5 BT" + in_bold("C") + " u",
+        "5 个" + in_bold("B") + "TC",
+        "5 个" + in_bold("us") + "dt",
+        "5 个\N{FEMININE ORDINAL INDICATOR}DA",
+        "5 USDT \N{FEMININE ORDINAL INDICATOR}DA",
+    ],
+)
+def test_block_that_mixes_letters_with_and_without_capitals_is_no_known_word(text: str) -> None:
+    assert read_number(text) == Unsure(Doubt.UNKNOWN_UNIT)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "5 u " + in_bold("BTC"),
+        "5 个" + in_bold("BTC"),
+        "5 个\N{FULLWIDTH LATIN CAPITAL LETTER B}TC",
+        "5 u \N{FULLWIDTH LATIN CAPITAL LETTER B}tc",
+        "5 个" + USDT_IN_SUPERSCRIPT,
+    ],
+)
+def test_block_in_one_kind_of_letters_is_read_like_the_ordinary_word(text: str) -> None:
+    reading = recognised(text)
+    ordinary = recognised(in_ordinary_characters(text))
+
+    assert reading.value == ordinary.value == 5
+    assert in_ordinary_characters(reading.unit or "") == ordinary.unit
+
+
 def test_only_chinese_characters_are_cut_into_known_words_not_other_writing_without_gaps() -> None:
     doru = "\N{KATAKANA LETTER DO}\N{KATAKANA LETTER RU}"
     won = "\N{HANGUL SYLLABLE WEON}"

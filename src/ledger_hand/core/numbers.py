@@ -560,8 +560,9 @@ def _is_known_unit(unit: str, allowed: frozenset[str]) -> bool:
     characters meet anything else. Chinese is written without gaps, so a
     block of Chinese characters also counts when it is known words one after
     another, from end to end. A block of anything else is one word, whatever
-    it holds. A unit that holds a Chinese character from outside the listed
-    block is not judged block by block at all.
+    it holds, and must be in one kind of letters. A unit that holds a Chinese
+    character from outside the listed block is not judged block by block at
+    all.
     """
     if len(unit) > SYMBOL_MAX_LENGTH:
         # Asked first: nothing below is done to a text of any length.
@@ -580,13 +581,25 @@ def _is_known_unit(unit: str, allowed: frozenset[str]) -> bool:
         return False
     blocks = [
         (is_chinese, "".join(run))
-        for word in words
+        for word in unit.split()
         for is_chinese, run in itertools.groupby(word, key=_is_chinese)
     ]
     return all(
-        _is_known_word(block, allowed) or (is_chinese and _is_run_of_known_words(block, allowed))
+        _is_run_of_known_words(block, allowed)
+        if is_chinese
+        else _is_in_one_kind_of_letters(block) and _is_known_word(block, allowed)
         for is_chinese, block in blocks
     )
+
+
+def _is_in_one_kind_of_letters(block: str) -> bool:
+    """Whether the letters of ``block`` all have capitals, or all have none.
+
+    A word is written in one kind of letters. Ordinary letters with
+    superscript or mathematical ones among them ("BT" and a raised "C") are
+    two pieces of writing run together, and no known word as a block.
+    """
+    return len({letter.lower() != letter.upper() for letter in block}) == 1
 
 
 def _is_run_of_known_words(run: str, allowed: frozenset[str]) -> bool:
