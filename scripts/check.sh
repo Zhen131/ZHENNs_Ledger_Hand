@@ -9,6 +9,10 @@
 #   ledger  sample export files checked by the ledger's own validator
 #           (scripts/ledger_check.py). Needs a checkout of the ledger, named
 #           by LEDGER_HAND_LEDGER_DIR; skipped, and says why, without one.
+#   live    one real call to the model the settings name (tests/live/), and
+#           the server's version and the model's fingerprint. Needs the model
+#           server running; run by hand only. Fails, saying "unreachable",
+#           when the server cannot be reached.
 #
 # Steps run in order. The script stops at the first step that fails and names
 # it, so the last line always says where to look.
@@ -23,7 +27,7 @@ set -u
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PYTHON="${LEDGER_HAND_PYTHON:-$ROOT/.venv/bin/python}"
-TIERS="quick ledger"
+TIERS="quick ledger live"
 
 run_step() {
     local name="$1"
@@ -58,6 +62,10 @@ ledger() {
     fi
 }
 
+live() {
+    run_step live "$PYTHON" -m pytest -q -s -m live_model tests/live
+}
+
 if [ "$#" -gt 1 ]; then
     echo "usage: scripts/check.sh [tier]   (tiers: $TIERS)" >&2
     exit 2
@@ -65,7 +73,7 @@ fi
 
 tier="${1:-quick}"
 case "$tier" in
-    quick | ledger) ;;
+    quick | ledger | live) ;;
     *)
         echo "unknown tier: $tier   (tiers: $TIERS)" >&2
         exit 2
