@@ -681,7 +681,6 @@ def test_known_words_run_together_are_no_unit_in_whatever_form_the_letters_are(t
         ("5 " + in_sans_serif("usdt"), "5"),
         ("5 " + USDT_IN_SUPERSCRIPT, "5"),
         ("5 \N{MODIFIER LETTER SMALL U}", "5"),
-        ("5 \N{FEMININE ORDINAL INDICATOR}DA", "5"),
         ("5 个" + in_bold("BTC"), "5"),
         ("5 " + in_bold("BTC") + "个", "5"),
         ("5 " + in_bold("BTC") + " " + in_monospace("usdt"), "5"),
@@ -760,6 +759,13 @@ RAISED_B_AND_T = "\N{MODIFIER LETTER CAPITAL B}\N{MODIFIER LETTER CAPITAL T}"
         "5 个" + in_bold("us") + "dt",
         "5 个\N{FEMININE ORDINAL INDICATOR}DA",
         "5 USDT \N{FEMININE ORDINAL INDICATOR}DA",
+        # The whole unit is such a block.
+        f"5 {RAISED_B_AND_T}C",
+        f"5{RAISED_B_AND_T}C",
+        "5 \N{FEMININE ORDINAL INDICATOR}DA",
+        "5 BT" + in_bold("C"),
+        "5 \N{DOUBLE-STRUCK CAPITAL C}OIN",
+        "5 Bitcoin " + in_bold("C") + "ash",
     ],
 )
 def test_block_that_mixes_letters_with_and_without_capitals_is_no_known_word(text: str) -> None:

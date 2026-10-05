@@ -223,7 +223,6 @@ READ_TO_EXACTLY_THIS = [
     ("5 " + bold("BTC"), "5", bold("BTC")),
     ("5 " + raised("UsDT"), "5", raised("UsDT")),
     ("5 " + raised("u"), "5", raised("u")),
-    ("5 \N{FEMININE ORDINAL INDICATOR}DA", "5", "\N{FEMININE ORDINAL INDICATOR}DA"),
     ("5 万", "50000", None),
     ("5 千", "5000", None),
     ("5 个比特币", "5", "个比特币"),
@@ -1077,6 +1076,8 @@ NEVER_RECOGNISED = [
     "5£",
     "5 ¥",
     "5¥",
+    # A known name with one letter in a form of its own among ordinary ones.
+    "5 \N{FEMININE ORDINAL INDICATOR}DA",
     "5 \N{FEMININE ORDINAL INDICATOR}",
     "5\N{FEMININE ORDINAL INDICATOR}",
     "5 \N{MASCULINE ORDINAL INDICATOR}",
