@@ -82,6 +82,8 @@ evals/                    prompt experiments: test sentences, scoring, runner, r
     tables.py             the summary of a run and its tables                      (exists)
     run.py                the runner                                               (exists)
     summarize.py          the summary worked out again from a results file         (exists)
+    results/              one results file per run, with its summary               (exists)
+    RESULTS.md            the results record                                       (exists)
 tests/                    mirrors src; also holds the guardrails, fakes and golden samples  (exists)
     fakes/                stand-ins for the outside world: a scripted model           (exists)
     live/                 the live check against a real model, run by hand only       (exists)

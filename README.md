@@ -132,7 +132,9 @@ field, whole trades right (the main score), trades missed and extra, values
 made up, and passages with no trade. Every field that came out wrong is
 sorted into its kind: left empty by the program with a reason, left empty
 because the model gave nothing, a wrong value with or without an issue about
-it, or a value made up.
+it, or a value made up. The results of each run are in `evals/results/`,
+and `evals/RESULTS.md` records them; the first is the baseline of the first
+prompt with `qwen2.5:7b` on the debug set.
 
 Apart from asking the model, all of this is pure computation: nothing is
 written to disk yet, and nothing that is said is recorded. There is no
@@ -164,6 +166,8 @@ check and the hygiene scan).
 | `tests/guardrails/` | The layering check and the hygiene scan, the tests that prove they catch what they should, and the two gate tests that apply them to this repository. |
 | `scripts/check.sh` | One command that runs all checks. |
 | `evals/` | The experiment kit, outside the package: the test sentences and their gold answers (`sets/debug.json`, `sets/final.json`, read by `gold.py`), what they cover (`coverage.py`), judging one field (`cells.py`), pairing drafts with gold trades (`matching.py`), the scores (`scoring.py`), the results file (`records.py`), the summary and its tables (`tables.py`), the runner (`run.py`) and the summary worked out again (`summarize.py`). |
+| `evals/results/` | One results file per run (`*.jsonl`) and its summary (`*.summary.json`). In Git: all of it is invented data. |
+| `evals/RESULTS.md` | The results record: what each run measured, with the tables its results file gives. |
 | `scripts/try_extraction.py` | Try extraction by hand: a passage in, the drafts, the issues and a record of each call to the model out (see "Trying extraction by hand" below). |
 | `scripts/ledger_check.py`, `scripts/ledger_validate.ts`, `scripts/ledger_offsets.ts` | The ledger tier of the checks: sample files judged by the ledger's own validator, and the ledger's offsets compared with ours. |
 | `tests/ledger_check/` | What the ledger tier checks (`cases.py`), tests of the tier's own logic, and the one sample for it written by hand. |
@@ -352,13 +356,16 @@ phrases the model copied, the scores and how long it took. A run cut short
 can be carried on with `--resume`, under the same conditions only. The
 summary is saved beside the results file and printed as tables;
 `evals.summarize` works it out again from the file alone, and `--check`
-compares it with the saved one. The first sentence of a run includes loading
-the model, which takes several seconds more than the sentences after it.
+compares it with the saved one. The debug set took about two minutes with
+`qwen2.5:7b` on the machine it was built on, with the model already loaded;
+the first sentence of a run includes loading the model when it is not.
 
 The quick tier tests the scoring against cases worked out by hand and the
 test sentences (coverage, no repeat of a prompt example, every gold answer
 kept by the core's rules), and reads the final set only: no test sends a
-test sentence to a model.
+test sentence to a model. It also checks that every committed run is
+finished, that its saved summary is the one its results file gives, and
+that `evals/RESULTS.md` shows exactly the tables each results file gives.
 
 To let the tool fix formatting instead of only reporting it:
 
