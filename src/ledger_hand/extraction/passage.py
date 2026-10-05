@@ -26,12 +26,17 @@ way, the number would come out as another number. When the phrase stands in
 the passage more than once, the first place where it cuts no number is the
 piece.
 
+A phrase is looked for in at most ``MAX_PLACES_TRIED`` places. One that
+stands in the passage more often than that, each time as part of a longer
+number, is taken as cutting a number: looking further would let one reply
+cost work without bound, and leaving the field empty is the safe side.
+
 A ``Piece`` holds the text exactly as the passage has it there, so what goes
 on into a draft is always the user's own writing, never the model's copy of
 it. It also holds the numbers written inside it, which tell which numbers of
 the passage some trade has used.
 
-Names defined here: ``Passage``, ``Piece`` and ``PieceMiss``.
+Names defined here: ``Passage``, ``Piece``, ``PieceMiss`` and ``MAX_PLACES_TRIED``.
 """
 
 from __future__ import annotations
@@ -43,6 +48,10 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 
 from ledger_hand.extraction.passage_numbers import number_spans
+
+# Far more places than a phrase of a real passage stands in as part of other
+# numbers before it stands alone.
+MAX_PLACES_TRIED = 256
 
 
 class PieceMiss(enum.Enum):
@@ -109,6 +118,13 @@ class Passage:
         for start, end in self._numbers:
             for inside in range(start + 1, end):
                 self._cuts[inside] = True
+        # resume[i]: the first place from i on where a phrase may begin, which
+        # is anywhere but inside a number.
+        self._resume = list(range(len(self._tidy) + 1))
+        for place in range(len(self._tidy) - 1, -1, -1):
+            if self._cuts[place]:
+                self._resume[place] = self._resume[place + 1]
+        self._found: dict[str, Piece | PieceMiss] = {}
 
     @property
     def numbers(self) -> tuple[tuple[str, str], ...]:
@@ -121,27 +137,35 @@ class Passage:
     def find(self, phrase: str) -> Piece | PieceMiss:
         """The piece of the passage that ``phrase`` is, or why it is not one."""
         wanted = _tidied(phrase)[0].strip(" ")
+        if wanted not in self._found:
+            # Remembered: a reply may copy the same phrase into many rows.
+            self._found[wanted] = self._search(wanted)
+        return self._found[wanted]
+
+    def _search(self, wanted: str) -> Piece | PieceMiss:
         if not wanted:
             return PieceMiss.NOT_IN_PASSAGE
-        cut_a_number = False
         start = self._tidy.find(wanted)
-        while start != -1:
+        if start == -1:
+            return PieceMiss.NOT_IN_PASSAGE
+        for _ in range(MAX_PLACES_TRIED):
             end = start + len(wanted)
             if not (self._cuts[start] or self._cuts[end]):
                 return self._piece(start, end)
-            cut_a_number = True
-            start = self._tidy.find(wanted, start + 1)
-        return PieceMiss.CUTS_A_NUMBER if cut_a_number else PieceMiss.NOT_IN_PASSAGE
+            # A start inside a number is passed over to the number's end.
+            start = self._tidy.find(wanted, self._resume[start + 1])
+            if start == -1:
+                break
+        return PieceMiss.CUTS_A_NUMBER
 
     def _piece(self, start: int, end: int) -> Piece:
         text = self.text[self._origins[start] : self._origins[end - 1] + 1]
         numbers: list[str] = []
         # The numbers lie in order and never overlap, so the ones inside the
         # piece follow each other from the first that begins in it.
-        for number_start, number_end in self._numbers[
-            bisect.bisect_left(self._number_starts, start) :
-        ]:
-            if number_end > end:
-                break
+        index = bisect.bisect_left(self._number_starts, start)
+        while index < len(self._numbers) and self._numbers[index][1] <= end:
+            number_start, number_end = self._numbers[index]
             numbers.append(self._tidy[number_start:number_end])
+            index += 1
         return Piece(text, tuple(numbers))

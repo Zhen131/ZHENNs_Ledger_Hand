@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import pytest
 
-from ledger_hand.extraction.passage import Passage, Piece, PieceMiss
+from ledger_hand.extraction.passage import MAX_PLACES_TRIED, Passage, Piece, PieceMiss
 
 PASSAGE = "昨天晚上 9 点 40 在币安买了 0.02 个比特币，价格 94,900，手续费 1.2 USDT，感觉还会涨"
 
@@ -163,3 +163,18 @@ def test_a_long_passage_and_many_phrases_are_found_quickly() -> None:
         assert isinstance(passage.find("0.1 BTC"), Piece)
     assert isinstance(passage.find("买了 0.1 BTC，价格 6万；" * 3), Piece)
     assert Passage("1" * 16_000).find("1") is PieceMiss.CUTS_A_NUMBER
+
+
+def test_a_phrase_is_looked_for_in_a_bounded_number_of_places() -> None:
+    within = "12 " * (MAX_PLACES_TRIED - 1) + "1"
+    beyond = "12 " * (MAX_PLACES_TRIED + 1) + "1"
+
+    assert piece(within, "1").text == "1"
+    assert miss(beyond, "1") is PieceMiss.CUTS_A_NUMBER
+
+
+def test_a_phrase_looked_up_twice_gives_the_same_answer() -> None:
+    passage = Passage(PASSAGE)
+
+    assert passage.find("比特币") is passage.find(" 比特币 ")
+    assert passage.find("btc") is passage.find("btc")

@@ -52,15 +52,17 @@ class CurrencyWord:
 
 def identity_of(word: str, coins: CoinTable, allowed: Iterable[str] = ()) -> str | None:
     """What ``word`` names, or ``None`` when it names no currency this program knows."""
+    return _identity(word, coins, frozenset(spoken_key(other) for other in allowed))
+
+
+def _identity(word: str, coins: CoinTable, allowed_keys: frozenset[str]) -> str | None:
     if means_usdt(word):
         return QUOTE_CURRENCY
     coin = coins.find(word)
     if coin is not None:
         return coin.symbol
     key = spoken_key(word)
-    if key and key in {spoken_key(other) for other in allowed}:
-        return key
-    return None
+    return key if key and key in allowed_keys else None
 
 
 def word_identity(word: str, coins: CoinTable) -> str:
@@ -72,29 +74,33 @@ def currencies_in_unit(
     unit: str, coins: CoinTable, allowed: Iterable[str] = ()
 ) -> tuple[CurrencyWord, ...]:
     """The currencies ``unit`` names, each once, in the order written."""
-    allowed = tuple(allowed)
-    whole = identity_of(unit.strip(), coins, allowed)
+    allowed_keys = frozenset(spoken_key(other) for other in allowed)
+    whole = _identity(unit.strip(), coins, allowed_keys)
     if whole is not None:
         return (CurrencyWord(unit.strip(), whole),)
     found: dict[str, CurrencyWord] = {}
     for word in unit.split():
         for is_chinese, run in itertools.groupby(word, key=_is_chinese):
             text = "".join(run)
-            named = _names_in_chinese(text, coins, allowed) if is_chinese else [text]
+            named = _names_in_chinese(text, coins, allowed_keys) if is_chinese else [text]
             for name in named:
-                identity = identity_of(name, coins, allowed)
+                identity = _identity(name, coins, allowed_keys)
                 if identity is not None and identity not in found:
                     found[identity] = CurrencyWord(name, identity)
     return tuple(found.values())
 
 
-def _names_in_chinese(run: str, coins: CoinTable, allowed: tuple[str, ...]) -> list[str]:
-    """The names in a run of Chinese characters, the longest at each place, left to right."""
+def _names_in_chinese(run: str, coins: CoinTable, allowed_keys: frozenset[str]) -> list[str]:
+    """The names in a run of Chinese characters, the longest at each place, left to right.
+
+    The run comes from a unit the number reader accepted, which is a few
+    dozen characters at most, so trying every stretch costs little.
+    """
     names: list[str] = []
     start = 0
     while start < len(run):
         for end in range(len(run), start, -1):
-            if identity_of(run[start:end], coins, allowed) is not None:
+            if _identity(run[start:end], coins, allowed_keys) is not None:
                 names.append(run[start:end])
                 start = end
                 break
