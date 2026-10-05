@@ -5,6 +5,9 @@ each import the layering table below does not allow. For ``core/`` it also
 reports reads of the clock or of the machine's time zone, and builtins that
 reach outside the program.
 In ``core/`` it reports floating-point numbers as well.
+For ``extraction/`` it reports reads of the clock and of the machine's time
+zone too, including those through the ``time`` module, which ``extraction/``
+may import for other uses.
 Everywhere but ``settings.py`` it reports reads of environment variables.
 
 It only reads source text; it never imports or runs the package under check,
@@ -147,6 +150,36 @@ _ZONE_CONSTRUCTORS = frozenset({"ZoneInfo", "no_cache"})
 _FLOAT_MAKERS = frozenset({"float", "complex", "__float__", "__complex__", "from_float"})
 # Settings are read in one place: only that area may touch the environment.
 ENVIRONMENT_AREAS = frozenset({Area.SETTINGS})
+# Areas that are handed the current moment and the zone and never read them
+# from the machine.
+CLOCK_FREE_AREAS = frozenset({Area.CORE, Area.EXTRACTION})
+# The clock-free areas that may import the time module for other uses, and
+# so are checked for its reads of the clock and the zone. The core may not
+# import the module at all, which is reported as such.
+TIME_MODULE_AREAS = CLOCK_FREE_AREAS - {Area.CORE}
+# What the time module offers that reads the clock, and what reads the
+# machine's time zone.
+_TIME_MODULE_CLOCK = frozenset(
+    {
+        "time",
+        "time_ns",
+        "monotonic",
+        "monotonic_ns",
+        "perf_counter",
+        "perf_counter_ns",
+        "process_time",
+        "process_time_ns",
+        "thread_time",
+        "thread_time_ns",
+        "clock_gettime",
+        "clock_gettime_ns",
+        "gmtime",
+        "asctime",
+    }
+)
+_TIME_MODULE_ZONE = frozenset(
+    {"localtime", "ctime", "mktime", "strftime", "tzname", "timezone", "altzone", "daylight"}
+)
 # How Python code reaches environment variables: the mapping, its bytes twin,
 # and the functions that read, set or remove one variable.
 _ENVIRONMENT_NAMES = frozenset({"environ", "environb", "getenv", "getenvb", "putenv", "unsetenv"})
@@ -201,9 +234,12 @@ def _check_file(package_dir: Path, relative: Path) -> list[Violation]:
     found = [*_import_findings(file, tree), *_dynamic_import_findings(tree)]
     if area not in ENVIRONMENT_AREAS:
         found.extend(_environment_findings(tree))
-    if area is Area.CORE:
+    if area in CLOCK_FREE_AREAS:
         found.extend(_clock_findings(tree))
         found.extend(_local_zone_findings(tree))
+    if area in TIME_MODULE_AREAS:
+        found.extend(_time_module_findings(tree))
+    if area is Area.CORE:
         found.extend(_outside_world_findings(tree))
         found.extend(_float_findings(tree))
     return [Violation(shown, line, reason, detail) for line, reason, detail in found]
@@ -350,6 +386,46 @@ def _local_zone_detail(call: ast.Call) -> str | None:
         return "from_file() loads a zone from a file, which is how the machine's zone is read"
     if name == "timestamp":
         return "timestamp() takes a time without a zone to be in the machine's zone"
+    return None
+
+
+def _time_module_findings(tree: ast.AST) -> Iterator[_Found]:
+    """What reads the clock or the machine's zone through the ``time`` module.
+
+    Its functions used by name after ``from time import ...``, or as an
+    attribute of the module under any name it was imported as.
+    """
+    module_names = {
+        alias.asname or alias.name
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Import)
+        for alias in node.names
+        if alias.name == "time"
+    }
+    for node in ast.walk(tree):
+        names: list[str] = []
+        if isinstance(node, ast.ImportFrom) and node.module == "time" and node.level == 0:
+            names = [alias.name for alias in node.names]
+        elif (
+            isinstance(node, ast.Attribute)
+            and isinstance(node.value, ast.Name)
+            and node.value.id in module_names
+        ):
+            names = [node.attr]
+        for name in names:
+            finding = _time_module_finding(name)
+            if finding is not None:
+                yield node.lineno, *finding
+
+
+def _time_module_finding(name: str) -> tuple[Reason, str] | None:
+    if name in _TIME_MODULE_CLOCK or name == "*":
+        return Reason.CLOCK_READ, f"time.{name} asks the machine; take the moment as an argument"
+    if name in _TIME_MODULE_ZONE:
+        return (
+            Reason.LOCAL_ZONE_READ,
+            f"time.{name} reads the machine's zone; take it as an argument",
+        )
     return None
 
 

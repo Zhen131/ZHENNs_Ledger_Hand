@@ -803,3 +803,113 @@ def test_an_environment_read_names_the_line(tmp_path: Path) -> None:
 
     assert violation.reason is Reason.ENVIRONMENT_READ
     assert violation.line == 3
+
+
+# --- extraction: handed the moment and the zone, never reading them ----------
+
+# Written out by hand: the areas that read neither the clock nor the
+# machine's time zone. The core is checked above; extraction is checked here.
+CLOCK_FREE = {"core", "extraction"}
+EXTRACTION_FILE = AREA_FILE["extraction"]
+
+TIME_MODULE_CLOCK_READS = [
+    lines("import time", "stamp = time.time()"),
+    lines("import time", "started = time.monotonic()"),
+    lines("import time", "started = time.perf_counter_ns()"),
+    lines("import time as clock", "stamp = clock.time()"),
+    lines("import time", "read = time.time"),
+    "from time import time",
+    "from time import perf_counter as tick",
+    "from time import *",
+    lines("import time", "parts = time.gmtime()"),
+]
+
+TIME_MODULE_ZONE_READS = [
+    lines("import time", "parts = time.localtime()"),
+    lines("import time", "names = time.tzname"),
+    lines("import time", "offset = time.timezone"),
+    lines("import time", "text = time.strftime('%H')"),
+    lines("import time", "text = time.ctime()"),
+    "from time import localtime",
+    "from time import altzone, daylight",
+]
+
+TIME_MODULE_HARMLESS = [
+    "import time",
+    lines("import time", "time.sleep(0)"),
+    "from time import sleep",
+    lines("import time", "kind = time.struct_time"),
+]
+
+
+@pytest.mark.parametrize("source", CLOCK_READS)
+def test_extraction_reading_the_clock_is_reported(tmp_path: Path, source: str) -> None:
+    assert reasons(tmp_path, {EXTRACTION_FILE: source}) == [Reason.CLOCK_READ]
+
+
+@pytest.mark.parametrize("source", LOCAL_ZONE_READS + MORE_LOCAL_ZONE_READS)
+def test_extraction_reading_the_local_zone_is_reported(tmp_path: Path, source: str) -> None:
+    assert reasons(tmp_path, {EXTRACTION_FILE: source}) == [Reason.LOCAL_ZONE_READ]
+
+
+@pytest.mark.parametrize("source", TIME_MODULE_CLOCK_READS)
+def test_extraction_reading_the_clock_through_the_time_module_is_reported(
+    tmp_path: Path, source: str
+) -> None:
+    assert reasons(tmp_path, {EXTRACTION_FILE: source}) == [Reason.CLOCK_READ]
+
+
+@pytest.mark.parametrize("source", TIME_MODULE_ZONE_READS)
+def test_extraction_reading_the_local_zone_through_the_time_module_is_reported(
+    tmp_path: Path, source: str
+) -> None:
+    found = reasons(tmp_path, {EXTRACTION_FILE: source})
+
+    assert found and set(found) == {Reason.LOCAL_ZONE_READ}
+
+
+@pytest.mark.parametrize("source", TIME_MODULE_HARMLESS + PURE_TIME_CODE + MORE_PURE_ZONE_CODE)
+def test_extraction_handling_time_passed_in_passes(tmp_path: Path, source: str) -> None:
+    assert check(tmp_path, {EXTRACTION_FILE: source}) == []
+
+
+@pytest.mark.parametrize("source", ENVIRONMENT_READS)
+def test_extraction_reading_the_environment_is_reported(tmp_path: Path, source: str) -> None:
+    assert Reason.ENVIRONMENT_READ in reasons(tmp_path, {EXTRACTION_FILE: source})
+
+
+@pytest.mark.parametrize("module", ["httpx", "tzlocal", "sqlite3", "streamlit"])
+@pytest.mark.parametrize("spelling", ["import {0}", "from {0} import thing", "import {0} as alias"])
+def test_extraction_importing_a_reserved_module_is_reported(
+    tmp_path: Path, module: str, spelling: str
+) -> None:
+    assert reasons(tmp_path, {EXTRACTION_FILE: spelling.format(module)}) == [Reason.RESERVED_MODULE]
+
+
+@pytest.mark.parametrize("target", ["llm", "settings", "storage", "export", "flows", "ui"])
+def test_extraction_importing_the_plugs_or_the_settings_is_reported(
+    tmp_path: Path, target: str
+) -> None:
+    line = import_line("extraction", target, Style.FROM_ABSOLUTE)
+
+    assert reasons(tmp_path, {EXTRACTION_FILE: line}) == [Reason.INTERNAL_IMPORT]
+
+
+@pytest.mark.parametrize("area", sorted(set(AREAS) - CLOCK_FREE))
+@pytest.mark.parametrize("source", TIME_MODULE_CLOCK_READS + TIME_MODULE_ZONE_READS)
+def test_the_time_module_rules_apply_to_extraction_only(
+    tmp_path: Path, area: str, source: str
+) -> None:
+    found = reasons(tmp_path, {AREA_FILE[area]: source})
+
+    assert Reason.CLOCK_READ not in found and Reason.LOCAL_ZONE_READ not in found
+
+
+@pytest.mark.parametrize("area", sorted(set(AREAS) - CLOCK_FREE))
+@pytest.mark.parametrize("source", CLOCK_READS + LOCAL_ZONE_READS)
+def test_the_clock_and_zone_rules_spare_every_area_but_the_clock_free_ones(
+    tmp_path: Path, area: str, source: str
+) -> None:
+    found = reasons(tmp_path, {AREA_FILE[area]: source})
+
+    assert Reason.CLOCK_READ not in found and Reason.LOCAL_ZONE_READ not in found
