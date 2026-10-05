@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Iterable
 from datetime import date, datetime, timezone
 from decimal import Decimal
 from typing import Any
@@ -54,7 +55,7 @@ def on(day: int, zone: str = BUDAPEST) -> OccurredTime:
     return OccurredTime(date(2026, 10, day), TimePrecision.DAY, zone)
 
 
-def export(trades: list[StoredTrade], coins: CoinTable = BUILT_IN_TABLE) -> str | ExportRefused:
+def export(trades: Iterable[StoredTrade], coins: CoinTable = BUILT_IN_TABLE) -> str | ExportRefused:
     return export_backup(
         trades, coins, exported_at=EXPORTED_AT, app_name=APP_NAME, app_version=APP_VERSION
     )
@@ -223,6 +224,20 @@ def test_the_same_trades_in_any_order_give_the_same_bytes() -> None:
         again = export(order)
         assert isinstance(again, str)
         assert again.encode("utf-8") == first.encode("utf-8")
+
+
+def test_a_generator_of_trades_gives_the_same_bytes_as_a_list() -> None:
+    trades = golden_trades()
+
+    assert export(trade for trade in trades) == export(trades)
+
+
+def test_an_empty_generator_means_no_file() -> None:
+    nothing: list[StoredTrade] = []
+
+    assert export(trade for trade in nothing) == ExportRefused(
+        (ExportIssue(ExportProblem.NO_TRADES, ""),)
+    )
 
 
 def test_exporting_does_not_change_the_list_it_was_given() -> None:

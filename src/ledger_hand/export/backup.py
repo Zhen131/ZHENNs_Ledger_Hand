@@ -52,7 +52,7 @@ import enum
 import json
 import re
 from collections import Counter
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from datetime import datetime, time, timezone
 from zoneinfo import ZoneInfo
@@ -106,7 +106,7 @@ class ExportRefused:
 
 
 def export_backup(
-    trades: Sequence[StoredTrade],
+    trades: Iterable[StoredTrade],
     coins: CoinTable,
     *,
     exported_at: datetime,
@@ -121,9 +121,14 @@ def export_backup(
     (``ledger-hand-0.1.0``). A moment without an offset, or a name or version
     the ledger would refuse, is a mistake of the calling code and raises
     ``ValueError``.
+
+    ``trades`` may be any collection, or a generator: it is read once.
     """
     app = _app_text(app_name, app_version)
     moment = write_moment(exported_at)
+    # Read once into a tuple: a generator would look non-empty when it is
+    # empty, and would be used up after the first of the passes below.
+    trades = tuple(trades)
     if not trades:
         return ExportRefused((ExportIssue(ExportProblem.NO_TRADES, ""),))
     issues: list[ExportIssue] = []
