@@ -192,11 +192,12 @@ def test_a_phrase_looked_up_twice_gives_the_same_answer() -> None:
         ("手续费 2 USDT一笔", "2 USDT"),
         ("3000 each", "3000"),
         ("3000 apiece", "3000"),
-        ("第一3000一个", "3000"),
-        ("3000一个", "一个"),
+        ("3点5一个", "3点5"),
+        ("1,234一个", "1,234"),
+        ("买了 1千零5一个", "1千零5"),
     ],
 )
-def test_a_number_followed_or_led_by_a_chinese_digit_is_whole(passage: str, phrase: str) -> None:
+def test_a_number_then_so_much_a_piece_is_whole(passage: str, phrase: str) -> None:
     assert piece(passage, phrase).text == phrase
 
 
@@ -235,6 +236,37 @@ def test_a_place_followed_by_one_still_reads_as_one_number_a_known_limit() -> No
     assert miss("30万一个", "30万") is PieceMiss.CUTS_A_NUMBER
 
 
-def test_the_numbers_inside_a_piece_follow_the_two_writings_apart() -> None:
+@pytest.mark.parametrize(
+    ("passage", "phrase"),
+    [
+        ("1千零5", "5"),
+        ("买了 1千零5 个 DOGE", "5 个"),
+        ("2万零3百", "3百"),
+        ("1亿零5万", "5万"),
+        ("3万零5", "5"),
+        ("两千零5", "5"),
+        ("一万零5", "5"),
+        ("1千〇5", "5"),
+        ("2三千", "三千"),
+        ("2三千", "2"),
+        ("3四十个", "四十个"),
+        ("3四十个", "3"),
+        ("两3千", "3千"),
+        ("两3千", "两"),
+        ("3零5", "5"),
+        ("3零5", "3"),
+        ("第一3000一个", "3000"),
+        ("3000一个", "一个"),
+        ("3000一个", "一"),
+        ("3000一千", "3000"),
+        ("3000一", "3000"),
+        ("3000壹个", "3000"),
+    ],
+)
+def test_any_other_mixture_of_the_two_writings_is_cut(passage: str, phrase: str) -> None:
+    assert miss(passage, phrase) is PieceMiss.CUTS_A_NUMBER
+
+
+def test_the_numbers_inside_a_piece_split_off_one_and_a_counter() -> None:
     assert piece("3000一个", "3000一个").numbers == ("3000", "一")
     assert piece("ETH 3000一个", "3000").numbers == ("3000",)

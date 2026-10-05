@@ -26,6 +26,12 @@ way, the number would come out as another number. When the phrase stands in
 the passage more than once, the first place where it cuts no number is the
 piece.
 
+The one place where a number is followed by something that is not part of
+it, "so much a piece" ("3000一个": the number "3000", then "一个"), lets a
+phrase end there but not begin there: "3000" copied out of "3000一个" is a
+piece, while "一" or "一个" copied out of it is still taken as cutting the
+run "3000一". Only the number before "一个" is let go; nothing else is.
+
 A phrase is looked for in at most ``MAX_PLACES_TRIED`` places. One that
 stands in the passage more often than that, each time as part of a longer
 number, is taken as cutting a number: looking further would let one reply
@@ -47,7 +53,7 @@ import unicodedata
 from collections.abc import Mapping
 from dataclasses import dataclass
 
-from ledger_hand.extraction.passage_numbers import number_spans
+from ledger_hand.extraction.passage_numbers import number_runs, number_spans
 
 # Far more places than a phrase of a real passage stands in as part of other
 # numbers before it stands alone.
@@ -104,6 +110,15 @@ def _tidied(text: str) -> tuple[str, list[int]]:
     return "".join(characters), origins
 
 
+def _inside(spans: list[tuple[int, int]], length: int) -> list[bool]:
+    """For each place between two characters, whether it lies inside one of ``spans``."""
+    inside = [False] * (length + 1)
+    for start, end in spans:
+        for place in range(start + 1, end):
+            inside[place] = True
+    return inside
+
+
 class Passage:
     """The text the user typed, ready to have phrases looked up in it."""
 
@@ -112,17 +127,15 @@ class Passage:
         self._tidy, self._origins = _tidied(text)
         self._numbers = number_spans(self._tidy)
         self._number_starts = [start for start, _ in self._numbers]
-        # cuts[i]: whether a cut between tidied characters i - 1 and i falls
-        # inside a number.
-        self._cuts = [False] * (len(self._tidy) + 1)
-        for start, end in self._numbers:
-            for inside in range(start + 1, end):
-                self._cuts[inside] = True
-        # resume[i]: the first place from i on where a phrase may begin, which
-        # is anywhere but inside a number.
+        # A phrase may not begin inside a run that could be a number, and may
+        # not end inside a number; the two differ only where "so much a
+        # piece" follows a number.
+        self._start_cuts = _inside(number_runs(self._tidy), len(self._tidy))
+        self._end_cuts = _inside(self._numbers, len(self._tidy))
+        # resume[i]: the first place from i on where a phrase may begin.
         self._resume = list(range(len(self._tidy) + 1))
         for place in range(len(self._tidy) - 1, -1, -1):
-            if self._cuts[place]:
+            if self._start_cuts[place]:
                 self._resume[place] = self._resume[place + 1]
         self._found: dict[str, Piece | PieceMiss] = {}
 
@@ -150,7 +163,7 @@ class Passage:
             return PieceMiss.NOT_IN_PASSAGE
         for _ in range(MAX_PLACES_TRIED):
             end = start + len(wanted)
-            if not (self._cuts[start] or self._cuts[end]):
+            if not (self._start_cuts[start] or self._end_cuts[end]):
                 return self._piece(start, end)
             # A start inside a number is passed over to the number's end.
             start = self._tidy.find(wanted, self._resume[start + 1])

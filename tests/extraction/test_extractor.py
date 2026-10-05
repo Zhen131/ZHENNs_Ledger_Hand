@@ -752,3 +752,16 @@ def test_a_price_said_as_so_much_a_piece_is_kept(
     assert issues_of(result, IssueKind.NUMBERS_LEFT_OVER) == [
         Issue(kind=IssueKind.NUMBERS_LEFT_OVER, numbers=("一",))
     ]
+
+
+def test_part_of_a_number_the_core_reads_whole_is_still_cut() -> None:
+    passage = "买了 1千零5 个 DOGE，价格 0.12"
+    reply = table(row(side="buy", coin="DOGE", quantity="5 个", price="0.12"))
+
+    result = extracted(passage, reply)
+
+    assert result.drafts[0].quantity is None
+    assert result.drafts[0].price == Decimal("0.12")
+    assert issues_of(result, IssueKind.CUTS_A_NUMBER) == [
+        Issue(kind=IssueKind.CUTS_A_NUMBER, draft=0, field=Field.QUANTITY, phrase="5 个")
+    ]
