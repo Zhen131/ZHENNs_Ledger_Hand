@@ -37,6 +37,7 @@ src/ledger_hand/
         time_wording.py       which known parts a time phrase is made of              (exists)
         timeparse.py          time phrases to exact moments ("now" is passed in)      (exists)
         validation.py         validation; which fields are still missing              (exists)
+        zones.py              which time zone names are taken                         (exists)
         stored.py             a saved trade: record, identifier, two moments          (exists)
         followup.py           what to ask when something is missing
     ports.py              the two ports: model and storage
@@ -144,6 +145,13 @@ It cannot see `astimezone(zone)` called on a time without a zone, which also
 takes that time to be in the machine's zone. The core therefore only ever
 handles moments that carry an offset; a current moment without one is refused
 where it comes in.
+
+There is one look outside the program the core does take: the zone database.
+`ZoneInfo` reads a zone's rules from it, and `core/zones.py` reads from it,
+once, the list of zone names, because a time zone name is taken only when it
+is spelled exactly as that list has it. The rules of time zones are kept
+nowhere else. Reading the database tells the core nothing about the machine's
+own clock or zone.
 
 `core/` does not use floating-point numbers either: an amount is an exact
 decimal built from text. The check reports:

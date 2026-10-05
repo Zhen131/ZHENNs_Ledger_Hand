@@ -86,8 +86,9 @@ from ledger_hand.core.time_wording import (
     WeekReckoning,
     read_phrase,
 )
-from ledger_hand.core.trade import NOT_ZONE_NAMES, OccurredTime, TimePrecision
+from ledger_hand.core.trade import OccurredTime, TimePrecision
 from ledger_hand.core.validation import DEFAULT_FUTURE_GRACE
+from ledger_hand.core.zones import zone_named
 
 __all__ = [
     "Refusal",
@@ -161,7 +162,7 @@ def read_time(
         raise ValueError("the current moment must be a datetime that carries an offset")
     if grace < timedelta(0):
         raise ValueError("the grace cannot be negative")
-    zone_info = _zone_named(zone)
+    zone_info = zone_named(zone)
     phrase = read_phrase(text)
     if isinstance(phrase, Refusal):
         return TimeRefused(phrase)
@@ -189,16 +190,6 @@ def write_time(occurred: OccurredTime) -> str:
     if offset is None or offset % _ONE_MINUTE:
         raise ValueError(f"the offset of {value!r} is not a whole number of minutes")
     return value.isoformat(timespec="seconds")
-
-
-def _zone_named(name: str) -> ZoneInfo:
-    # The same names are refused as for the time of a trade; see NOT_ZONE_NAMES.
-    if name in NOT_ZONE_NAMES:
-        raise ValueError(f"not a time zone name: {name!r}")
-    try:
-        return ZoneInfo(name)
-    except (KeyError, ValueError, OSError) as error:
-        raise ValueError(f"not a time zone name: {name!r}") from error
 
 
 def _moment_back(span: timedelta, setting: _Setting) -> TimeReading:
