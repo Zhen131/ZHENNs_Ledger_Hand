@@ -41,10 +41,17 @@ src/ledger_hand/
         stored.py             a saved trade: record, identifier, two moments          (exists)
         followup.py           what to ask when something is missing
     ports.py              the two ports: model, and later storage                     (exists)
-    extraction/           a passage of text to drafts
-        prompts/              prompt versions, one file per version
-        reply_parser.py       turns a model reply into drafts; survives a garbled reply
-        extractor.py
+    extraction/           a passage of text to drafts                                 (exists)
+        extractor.py          the entry point: one passage in, drafts and issues out  (exists)
+        reply_table.py        the flat table the model fills, as a JSON schema        (exists)
+        reply_parser.py       reads a reply against the table; survives a garbled one (exists)
+        passage.py            finds a copied phrase in the passage                    (exists)
+        passage_numbers.py    the numbers written in a text                           (exists)
+        row_draft.py          one row of the table to one draft                       (exists)
+        unit_currency.py      which currency a unit word names                        (exists)
+        issues.py             what was left empty and what to look at                 (exists)
+        prompting.py          what a prompt version is; the messages it makes         (exists)
+        prompts/              prompt versions, one file per version, examples beside  (exists)
     llm/                  plugs for the model port: a local model server; later a cloud one (exists)
         ollama.py             the local plug: one chat call to Ollama, one try        (exists)
         ollama_request.py     what is sent: the body of one chat request              (exists)
@@ -68,6 +75,7 @@ evals/                    prompt experiments: test sentences, scoring script, re
 tests/                    mirrors src; also holds the guardrails, fakes and golden samples  (exists)
     fakes/                stand-ins for the outside world: a scripted model           (exists)
     live/                 the live check against a real model, run by hand only       (exists)
+    extraction/           tests of extraction against the scripted model              (exists)
 ```
 
 A **port** is an interface that the inner code talks to ("ask the model",
@@ -191,6 +199,22 @@ decimal built from text. The check reports:
 It cannot see everything. Dividing two whole numbers with `/`, for one, gives
 a floating-point number without any of these signs; that is left to whoever
 reads the change.
+
+### What `extraction/` may not do
+
+`extraction/` is handed the current moment and the time zone's name, like
+the core. The check reports in it the same reads of the clock and of the
+machine's zone as in `core/` (see above), and also those through the `time`
+module: its clock functions (`time.time()`, `time.monotonic()`,
+`time.perf_counter()` and the like) and what it says about the machine's
+zone (`time.localtime()`, `time.tzname`, `time.timezone` and the like),
+called as an attribute of the module under any name or imported by name.
+`extraction/` may still import the module for anything else. A second gate,
+`tests/guardrails/test_repo_extraction_boundaries.py`, checks the real
+`extraction/` straight from its source, without the table: it imports only
+the standard library, the core and the ports file, never the `time` module,
+calls no method that reads the clock or the machine's zone, and names no
+environment variable.
 
 ## The eleven rules
 

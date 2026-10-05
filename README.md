@@ -92,17 +92,40 @@ anything else or wait without end. Timed out, rate limited and server error
 are tried again a few times, with waits that double each time. What the
 reply's text says is not checked here: a model reply is untrusted input, and
 whoever asked checks it. A small function asks the server for its version
-and the model's fingerprint, for the records of an experiment. No prompt is
-written yet.
+and the model's fingerprint, for the records of an experiment.
 
 Where the model is, which one, its key and the default parameters are
 settings read from environment variables (see "Model settings" below);
 `src/ledger_hand/settings.py` is the only place in the package that reads
 them. A key is never printed and never appears in an error.
 
+**A passage becomes drafts.** `extract` in `src/ledger_hand/extraction/`
+takes a passage as typed, a model port, the current moment, the time zone's
+name and the coin table. The model does one thing only: it copies phrases
+out of the passage into a flat table, one row per trade, each cell a piece of
+the passage or empty. The program does the rest. Every phrase must be a
+piece of the passage (compared after tidying width and runs of whitespace,
+and never cutting a number in two), or the field stays empty; the piece, the
+user's own writing, is what goes on. Numbers and times are turned into values
+by the core's rules, and whatever the core is unsure of, cannot read, finds
+ambiguous or in the future leaves the field empty with the core's reason. A
+unit written with a price, total or fee names its currency when that field
+was left empty. Every draft keeps the whole passage as its original text.
+What comes back is the drafts and a list of issues: every field left empty
+and why, every value kept with a caution, every row left out, and the
+numbers of the passage no trade used, since a trade may be missing. A reply
+that is not the table makes the program ask again, as often as the caller
+allows; a failure of the model port is handed back as it was raised. An
+empty passage, or one longer than the ledger keeps, is never sent. The
+prompt (`extraction/prompts/first.py`) is its first version, with its
+invented examples in a file beside it. `scripts/try_extraction.py` tries it
+by hand with the real model. Whether the model reads passages well is not
+measured yet.
+
 Apart from asking the model, all of this is pure computation: nothing is
 written to disk yet, and nothing that is said is recorded. There is no
-prompt, no storage and no interface yet.
+storage and no interface yet, and no follow-up questions: a draft with
+blanks comes back with its issues, and nothing asks the user anything yet.
 
 The repository also has its Python environment, one command that runs every
 check, and two guardrails that keep the code base in shape (the layering
@@ -114,19 +137,21 @@ check and the hygiene scan).
 | --- | --- |
 | `pyproject.toml` | Package metadata and the configuration of every tool (pytest, ruff, mypy). |
 | `requirements.txt` | Exact versions of the run-time dependencies (httpx, tzlocal) and the development tools, so the environment can be rebuilt identically. |
-| `src/ledger_hand/` | The package. Today it holds its version, `core/`, `export/`, the ports file, the settings and `llm/`. |
+| `src/ledger_hand/` | The package. Today it holds its version, `core/`, `export/`, the ports file, the settings, `llm/` and `extraction/`. |
 | `src/ledger_hand/core/` | Core rules: pure computation, no network, files, database, user interface or clock. Holds the shapes of a trade (`trade.py`), the coin table (`coins.py`), the ledger's limits (`ledger_limits.py`), exact decimal arithmetic (`arithmetic.py`), the reading and writing of numbers (`numbers.py`), the reading and writing of times (`timeparse.py`, with the wording of a time phrase in `time_wording.py`) and the check of a draft (`validation.py`), a saved trade (`stored.py`) and which time zone names are taken (`zones.py`). |
 | `src/ledger_hand/export/` | The ledger's backup format: the whole file (`backup.py`), one trade (`trade_entry.py`), one coin (`coin_card.py`), bookkeeping moments (`moments.py`) and the file's name (`file_name.py`). Writes no file itself. |
 | `src/ledger_hand/ports.py` | The model port: messages, parameters, the reply and its record, and the error with its six kinds. Only shapes; it sends nothing. |
 | `src/ledger_hand/settings.py` | The only place in the package that reads environment variables: the model settings, their defaults and their checks. |
 | `src/ledger_hand/llm/` | The local plug for the model port: the plug itself (`ollama.py`), what is sent (`ollama_request.py`) and how what comes back is read (`ollama_reply.py`), one HTTP exchange and how its failures are sorted (`exchange.py`), making a server's words safe to show (`error_text.py`), trying again (`retry.py`), the assembled local model (`local.py`), and the server's version and the model's fingerprint (`ollama_identity.py`). The only part that may import httpx. |
-| `tests/` | The tests. `tests/core/`, `tests/export/` and `tests/llm/` have one test module per module; `tests/llm/` also has a fake Ollama server and a batch of attacks on the plug. |
+| `src/ledger_hand/extraction/` | A passage to drafts: the entry point (`extractor.py`), the table the model fills (`reply_table.py`) and how its reply is read (`reply_parser.py`), finding a copied phrase in the passage (`passage.py`) and the numbers written in a text (`passage_numbers.py`), one row to one draft (`row_draft.py`), which currency a unit names (`unit_currency.py`), the issues (`issues.py`), the messages a prompt version makes (`prompting.py`), and the prompt versions with their examples (`prompts/`). Reads no clock, no zone of the machine and no environment variable. |
+| `tests/` | The tests. `tests/core/`, `tests/export/`, `tests/llm/` and `tests/extraction/` have one test module per module; `tests/llm/` also has a fake Ollama server and a batch of attacks on the plug, and `tests/extraction/` a batch of attacks on extraction. |
 | `tests/conftest.py` | Stops every test that is not marked `live_model` from reaching the network. |
 | `tests/fakes/` | Stand-ins for the outside world: a scripted model that plays back replies and errors in order and records what it was asked. |
-| `tests/live/` | The live check, which talks to a real model, and the small schema check it uses. |
+| `tests/live/` | The live check, which talks to a real model, the small schema check it uses, and the smoke test of extraction. |
 | `tests/export/samples.py`, `tests/export/attack.py`, `tests/export/golden/` | Invented trades to export, batches of edge cases made to find where this program and the ledger part ways, both shared with the ledger tier, and the golden sample. A golden sample is never edited once committed; a new format version gets one of its own. |
 | `tests/guardrails/` | The layering check and the hygiene scan, the tests that prove they catch what they should, and the two gate tests that apply them to this repository. |
 | `scripts/check.sh` | One command that runs all checks. |
+| `scripts/try_extraction.py` | Try extraction by hand: a passage in, the drafts, the issues and a record of each call to the model out (see "Trying extraction by hand" below). |
 | `scripts/ledger_check.py`, `scripts/ledger_validate.ts`, `scripts/ledger_offsets.ts` | The ledger tier of the checks: sample files judged by the ledger's own validator, and the ledger's offsets compared with ours. |
 | `tests/ledger_check/` | What the ledger tier checks (`cases.py`), tests of the tier's own logic, and the one sample for it written by hand. |
 | `docs/architecture.md` | How the layers are divided, who may import whom, the house rules, and where new features go. |
@@ -134,7 +159,7 @@ check and the hygiene scan).
 | `data/` | Not in Git. Run-time output, caches and, later, the local database. Created when first needed. |
 | `.venv/` | Not in Git. The local Python environment. |
 
-Directories for later parts (extraction, storage, flows, user interface)
+Directories for later parts (storage, flows, user interface)
 are created by the change that first needs them; see `docs/architecture.md`
 for the planned layout.
 
@@ -258,13 +283,36 @@ as the program reads them. It asks the server for its version and the
 model's fingerprint, then hands the model an invented question with a small
 table (a JSON schema) and checks that the reply is valid JSON that follows
 the table. It prints the table, the reply, how long the call took and the
-token counts. When the server cannot be reached, it fails with a message
-that starts with `unreachable`.
+token counts. Then it takes four invented passages (one trade in Chinese,
+one in English, several trades, and talk with no trade) the whole way
+through extraction, prints the drafts, the issues and how long each passage
+took, and checks only that each comes back as drafts and a list of issues;
+whether the model read them right is not judged there. When the server
+cannot be reached, it fails with a message that starts with `unreachable`.
+The first call after the model has been idle includes loading it into
+memory, which takes several seconds more than the calls after it.
 
 To see what happens when no model server is running, do not stop the one you
 have: point the address at a port nothing listens on instead, for example
 `LEDGER_HAND_MODEL_URL=http://127.0.0.1:59999 scripts/check.sh live`.
 `quick` gives the same result either way, because it never talks to a model.
+
+### Trying extraction by hand
+
+```sh
+.venv/bin/python scripts/try_extraction.py "9:40 bought 0.02 BTC at 94,900, fee 2 USDT"
+echo "昨天卖了 2 ETH，价格 3,420" | .venv/bin/python scripts/try_extraction.py
+```
+
+The passage is the arguments, or else standard input. The script sends it
+to the model the settings name and prints every draft field by field, the
+issues, and one line per call to the model with how long it took and how
+many tokens it read and wrote. The current moment is the machine's clock and
+the time zone is the machine's own, read with tzlocal; a zone name the
+program does not take as it stands stops the script instead of being
+replaced. Nothing is written to disk. Exit status: `0` the passage was read
+(even with no trade in it), `1` it was not (refused, no readable reply, or
+the model failed), `2` the script could not start (a setting or the zone).
 
 To let the tool fix formatting instead of only reporting it:
 
