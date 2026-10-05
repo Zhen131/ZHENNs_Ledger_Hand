@@ -343,7 +343,7 @@ def test_every_sample_has_a_name_of_its_own_and_the_golden_one_is_read_from_its_
 def test_the_samples_cover_each_kind_of_expectation() -> None:
     kinds = {type(sample.expected) for sample in ledger_check.light_samples()}
 
-    assert kinds == {Accepted, HoldingsOnly, Refused}
+    assert kinds == {Accepted, HoldingsOnly, Refused, ledger_check.AcceptedExceptZoneData}
 
 
 def _changed_paths(before: object, after: object, path: str = "") -> list[str]:
@@ -402,3 +402,154 @@ def test_the_process_zones_are_the_machine_s_own_and_two_far_apart() -> None:
     for zone in ledger_check.PROCESS_ZONES[1:]:
         assert zone is not None
         assert is_zone_name(zone)
+
+
+# --- where the two time zone databases disagree -----------------------------
+
+
+def offset_refused(place: int) -> LedgerError:
+    """What the ledger says when a trade's offset is not its zone's at that instant."""
+    return LedgerError(
+        "LEDGER_DATA_INVALID_ENTITY",
+        f"trades[{place}].occurredAt",
+        f"trades[{place}].occurredAt offset must match occurredTimeZone at its instant",
+    )
+
+
+EXCEPT_ZONE_DATA = ledger_check.AcceptedExceptZoneData()
+
+
+def test_only_refusals_where_the_databases_disagree_are_as_expected() -> None:
+    verdict = refused(offset_refused(3), offset_refused(7))
+
+    assert judge(EXCEPT_ZONE_DATA, verdict, frozenset({3, 7})) == []
+    assert ledger_check.zone_data_errors(verdict, frozenset({3, 7})) == list(verdict.errors)
+
+
+def test_any_other_error_beside_them_fails() -> None:
+    verdict = refused(offset_refused(3), TOTAL_OFF)
+
+    problems = judge(EXCEPT_ZONE_DATA, verdict, frozenset({3}))
+
+    assert problems == [f"not explained by the two time zone databases: {TOTAL_OFF}"]
+
+
+def test_an_offset_refused_where_the_databases_agree_fails() -> None:
+    verdict = refused(offset_refused(5))
+
+    problems = judge(EXCEPT_ZONE_DATA, verdict, frozenset({3}))
+
+    assert f"not explained by the two time zone databases: {offset_refused(5)}" in problems
+    assert "the time zone databases disagree on trades[3], yet the ledger did not object" in (
+        problems
+    )
+
+
+def test_a_trade_the_databases_disagree_on_must_be_refused_for_it() -> None:
+    assert judge(EXCEPT_ZONE_DATA, ACCEPTED, frozenset({3})) == [
+        "the time zone databases disagree on trades[3], yet the ledger did not object"
+    ]
+
+
+def test_with_no_disagreement_the_file_must_simply_be_accepted() -> None:
+    assert judge(EXCEPT_ZONE_DATA, ACCEPTED) == []
+    assert judge(EXCEPT_ZONE_DATA, refused(offset_refused(0))) != []
+
+
+def test_a_refusal_at_another_path_or_with_another_code_is_not_the_databases() -> None:
+    elsewhere = LedgerError(
+        "LEDGER_DATA_INVALID_ENTITY",
+        "trades[4].occurredAt",
+        "trades[3].occurredAt offset must match occurredTimeZone at its instant",
+    )
+    other_code = LedgerError(
+        "LEDGER_DATA_INVALID_REFERENCE", "trades[3].occurredAt", offset_refused(3).message
+    )
+
+    assert ledger_check.zone_data_errors(refused(elsewhere, other_code), frozenset({3, 4})) == []
+
+
+def test_the_offsets_of_timed_trades_are_probed_and_days_are_not() -> None:
+    text = json.dumps(
+        {
+            "ledgerData": {
+                "trades": [
+                    {"occurredAt": "2026-10-02", "occurredTimeZone": "Europe/Budapest"},
+                    {
+                        "occurredAt": "2026-10-05T07:46:00+02:00",
+                        "occurredTimeZone": "Europe/Budapest",
+                    },
+                    {"occurredAt": "2026-10-05T05:46:00+00:00", "occurredTimeZone": "UTC"},
+                ]
+            }
+        }
+    )
+
+    assert ledger_check.offset_probes(text) == [
+        (1, "2026-10-05T07:46:00+02:00", "Europe/Budapest"),
+        (2, "2026-10-05T05:46:00+00:00", "UTC"),
+    ]
+
+
+@pytest.mark.parametrize(
+    ("instant", "zone", "offset"),
+    [
+        ("2026-10-05T05:46:00+00:00", "UTC", "+00:00"),
+        ("2026-10-05T07:46:00+02:00", "Europe/Budapest", "+02:00"),
+        ("2026-01-05T07:46:00+00:00", "Europe/Budapest", "+01:00"),
+        ("2026-10-05T05:46:00+00:00", "Asia/Kathmandu", "+05:45"),
+        ("2026-01-05T05:46:00+00:00", "America/St_Johns", "-03:30"),
+    ],
+)
+def test_our_offset_is_written_as_the_ledger_writes_it(
+    instant: str, zone: str, offset: str
+) -> None:
+    assert ledger_check.our_offset(instant, zone) == offset
+
+
+def test_gaps_are_the_probes_where_the_ledger_gives_another_offset() -> None:
+    probes = [
+        (0, "2026-10-05T05:46:00+00:00", "UTC"),
+        (4, "2026-10-05T07:46:00+02:00", "Europe/Budapest"),
+        (9, "2026-10-05T05:46:00+00:00", "UTC"),
+    ]
+
+    gaps = ledger_check.zone_gaps(probes, ["+01:00", "+02:00", None])
+
+    assert gaps == {
+        0: ledger_check.ZoneGap("UTC", "2026-10-05T05:46:00+00:00", "+00:00", "+01:00"),
+        9: ledger_check.ZoneGap("UTC", "2026-10-05T05:46:00+00:00", "+00:00", None),
+    }
+
+
+def test_our_database_version_is_read_from_its_version_file(tmp_path: Path) -> None:
+    (tmp_path / "+VERSION").write_text("2099z\n", encoding="utf-8")
+
+    assert ledger_check.our_zone_data_version([str(tmp_path / "missing"), str(tmp_path)]) == (
+        f"2099z (system, {tmp_path})"
+    )
+
+
+def test_the_notice_names_both_versions_the_zones_the_count_and_the_document() -> None:
+    gap = ledger_check.ZoneGap("Africa/Casablanca", "2026-10-05T05:46:00+00:00", "+00:00", "+01:00")
+    comparison = ledger_check.ZoneDataComparison(
+        "2026c (system)", "tz 2026a, ICU 78.2", ({0: gap},)
+    )
+
+    lines = ledger_check.zone_data_notice(comparison, {"a.json": [gap, gap], "b.json": []})
+    text = "\n".join(lines)
+
+    assert all(line.startswith("!!!") for line in lines)
+    assert "2026c (system)" in text
+    assert "tz 2026a, ICU 78.2" in text
+    assert "Africa/Casablanca" in text
+    assert "2 (a.json: 2)" in text
+    assert "pending" in text
+    assert "docs/known-gaps.md" in text
+    assert (REPO_ROOT / "docs" / "known-gaps.md").is_file()
+
+
+def test_no_notice_when_the_ledger_refused_nothing_for_it() -> None:
+    comparison = ledger_check.ZoneDataComparison("2026c", "tz 2026c", ({},))
+
+    assert ledger_check.zone_data_notice(comparison, {"a.json": []}) == []

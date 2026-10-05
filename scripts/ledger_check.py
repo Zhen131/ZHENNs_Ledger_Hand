@@ -51,26 +51,32 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import zoneinfo
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 from types import ModuleType
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from ledger_hand.export.backup import BACKUP_FORMAT_VERSION, LEDGER_SCHEMA_VERSION
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 LEDGER_ENV = "LEDGER_HAND_LEDGER_DIR"
 VALIDATOR = REPO_ROOT / "scripts" / "ledger_validate.ts"
+OFFSETS = REPO_ROOT / "scripts" / "ledger_offsets.ts"
+# Where the known, pending gap between the two time zone databases is described.
+ZONE_DATA_DOC = 'docs/known-gaps.md, section "Time zone database versions"'
 
 # Inside a ledger checkout.
 LEDGER_ENTRY = Path("src/features/backup/backupEnvelope.ts")
 LEDGER_TSX = Path("node_modules/.bin/tsx")
 LEDGER_CONFIG = Path("tsconfig.json")
 
-# The line on which the validator prints its findings starts with this.
+# The lines on which the two TypeScript scripts print their findings start with these.
 MARKER = "LEDGER_HAND_RESULT "
+OFFSETS_MARKER = "LEDGER_HAND_OFFSETS "
 VALIDATOR_TIMEOUT_SECONDS = 600
 
 # The time zones the validator's process is run in: the machine's own, and
@@ -83,6 +89,13 @@ PROCESS_ZONES = (None, "America/Los_Angeles", "Pacific/Kiritimati")
 HOLDINGS_CODE = "LEDGER_DATA_INVALID_TRADE_TIMELINE"
 HOLDINGS_MESSAGE = re.compile(
     r"Cannot sell (?:more \S+ than current position|\S+ with zero current position)"
+)
+
+# How the ledger says that a trade's offset is not its zone's offset at that
+# instant, which it also says when its time zone database differs from ours.
+ZONE_DATA_CODE = "LEDGER_DATA_INVALID_ENTITY"
+ZONE_DATA_MESSAGE = re.compile(
+    r"trades\[(\d+)\]\.occurredAt offset must match occurredTimeZone at its instant"
 )
 
 
@@ -136,7 +149,19 @@ class Refused:
         return f"refused with exactly: {planted}"
 
 
-Expectation = Accepted | HoldingsOnly | Refused
+@dataclass(frozen=True)
+class AcceptedExceptZoneData:
+    """Accepted, except that the ledger may refuse the offset of a trade whose zone, at
+    that instant, has another offset in the ledger's time zone database than in ours.
+
+    Which trades those are is worked out when the tier runs, by asking both sides.
+    """
+
+    def __str__(self) -> str:
+        return "accepted, except offsets where the two time zone databases disagree"
+
+
+Expectation = Accepted | HoldingsOnly | Refused | AcceptedExceptZoneData
 
 
 @dataclass(frozen=True)
@@ -195,10 +220,16 @@ def is_holdings_shortfall(error: LedgerError) -> bool:
     return error.code == HOLDINGS_CODE and HOLDINGS_MESSAGE.fullmatch(error.message) is not None
 
 
-def judge(expected: Expectation, verdict: Verdict) -> list[str]:
-    """How ``verdict`` differs from ``expected``; an empty list when it does not."""
+def judge(expected: Expectation, verdict: Verdict, gaps: frozenset[int] = frozenset()) -> list[str]:
+    """How ``verdict`` differs from ``expected``; an empty list when it does not.
+
+    ``gaps`` are the places of the trades whose offset the two time zone
+    databases disagree on; only ``AcceptedExceptZoneData`` looks at them.
+    """
     if verdict.thrown is not None:
         return [f"the validator threw instead of answering: {verdict.thrown}"]
+    if isinstance(expected, AcceptedExceptZoneData):
+        return _beyond_zone_data(verdict, gaps)
     if isinstance(expected, Accepted):
         if verdict.accepted and not verdict.errors:
             return []
@@ -214,6 +245,34 @@ def judge(expected: Expectation, verdict: Verdict) -> list[str]:
             if not is_holdings_shortfall(error)
         ]
     return _unmatched(expected.errors, verdict.errors)
+
+
+def zone_data_errors(verdict: Verdict, gaps: frozenset[int]) -> list[LedgerError]:
+    """The errors in ``verdict`` that only say the two time zone databases disagree."""
+    return [error for error in verdict.errors if _zone_data_place(error) in gaps]
+
+
+def _zone_data_place(error: LedgerError) -> int | None:
+    found = ZONE_DATA_MESSAGE.fullmatch(error.message)
+    if error.code != ZONE_DATA_CODE or found is None:
+        return None
+    place = int(found.group(1))
+    return place if error.path == f"trades[{place}].occurredAt" else None
+
+
+def _beyond_zone_data(verdict: Verdict, gaps: frozenset[int]) -> list[str]:
+    tolerated = zone_data_errors(verdict, gaps)
+    problems = [
+        f"not explained by the two time zone databases: {error}"
+        for error in verdict.errors
+        if error not in tolerated
+    ]
+    objected = {_zone_data_place(error) for error in tolerated}
+    problems.extend(
+        f"the time zone databases disagree on trades[{place}], yet the ledger did not object"
+        for place in sorted(gaps - objected)
+    )
+    return problems
 
 
 def _unmatched(planted: Sequence[PlantedError], reported: Sequence[LedgerError]) -> list[str]:
@@ -259,6 +318,8 @@ def _sample(case: Any) -> Sample:
         expected: Expectation = Accepted()
     elif case.expect is cases.Expect.HOLDINGS_ONLY:
         expected = HoldingsOnly()
+    elif case.expect is cases.Expect.ACCEPTED_EXCEPT_ZONE_DATA:
+        expected = AcceptedExceptZoneData()
     else:
         expected = Refused(tuple(PlantedError(*planted) for planted in case.planted))
     return Sample(case.name, case.build(), expected, case.today)
@@ -410,6 +471,153 @@ def parse_report(text: str) -> ValidatorReport:
     )
 
 
+# --- where the two time zone databases disagree ------------------------------
+
+
+@dataclass(frozen=True)
+class ZoneGap:
+    """One trade whose zone has two different offsets at its instant, ours and the ledger's."""
+
+    zone: str
+    instant: str
+    ours: str
+    ledgers: str | None
+
+
+@dataclass(frozen=True)
+class ZoneDataComparison:
+    """Both sides' time zone databases, and per sample the trades they disagree on, by place."""
+
+    ours: str
+    ledgers: str
+    gaps: tuple[dict[int, ZoneGap], ...]
+
+
+def offset_probes(text: str) -> list[tuple[int, str, str]]:
+    """Each trade in ``text`` known to the minute or second: its place, instant and zone."""
+    trades = json.loads(text)["ledgerData"]["trades"]
+    return [
+        (place, trade["occurredAt"], trade["occurredTimeZone"])
+        for place, trade in enumerate(trades)
+        if len(trade["occurredAt"]) > len("YYYY-MM-DD") and "occurredTimeZone" in trade
+    ]
+
+
+def our_offset(instant: str, zone: str) -> str:
+    """The offset of ``zone`` at ``instant`` by our time zone database, as ``+01:00``."""
+    offset = datetime.fromisoformat(instant).astimezone(ZoneInfo(zone)).utcoffset()
+    assert offset is not None
+    minutes = int(offset.total_seconds()) // 60
+    sign = "-" if minutes < 0 else "+"
+    return f"{sign}{abs(minutes) // 60:02}:{abs(minutes) % 60:02}"
+
+
+def zone_gaps(
+    probes: Sequence[tuple[int, str, str]], ledgers: Sequence[str | None]
+) -> dict[int, ZoneGap]:
+    """The probed trades whose offset the ledger's database gives otherwise than ours."""
+    gaps = {}
+    for (place, instant, zone), theirs in zip(probes, ledgers, strict=True):
+        ours = our_offset(instant, zone)
+        if theirs != ours:
+            gaps[place] = ZoneGap(zone, instant, ours, theirs)
+    return gaps
+
+
+def our_zone_data_version(tzpath: Sequence[str] = zoneinfo.TZPATH) -> str:
+    """The version of the time zone database Python reads, as its files name it."""
+    for directory in tzpath:
+        version = Path(directory) / "+VERSION"
+        if version.is_file():
+            return f"{version.read_text(encoding='utf-8').strip()} (system, {directory})"
+    try:
+        # Only where the system has no database of its own.
+        import tzdata
+    except ImportError:
+        return "unknown"
+    return f"{tzdata.IANA_VERSION} (tzdata package)"
+
+
+def zone_data_notice(
+    comparison: ZoneDataComparison, refused: Mapping[str, Sequence[ZoneGap]]
+) -> list[str]:
+    """The lines that announce the known, pending gap; none when the ledger refused nothing for it.
+
+    ``refused`` maps each sample's name to the trades the ledger refused only
+    because the two databases disagree.
+    """
+    count = sum(len(gaps) for gaps in refused.values())
+    if not count:
+        return []
+    zones = sorted({gap.zone for gaps in refused.values() for gap in gaps})
+    per_sample = ", ".join(f"{name}: {len(gaps)}" for name, gaps in refused.items() if gaps)
+    rule = "!!! " + "=" * 72
+    return [
+        rule,
+        "!!! KNOWN AND PENDING: the two time zone databases disagree",
+        f"!!!   ours (Python zoneinfo):        {comparison.ours}",
+        f"!!!   the ledger's (its Node runtime): {comparison.ledgers}",
+        f"!!!   zones where they disagree:     {', '.join(zones)}",
+        f"!!!   trades the ledger refused for it: {count} ({per_sample})",
+        "!!!   The ledger computes another offset for these zones at these moments,",
+        "!!!   so it refuses trades this program exports there to the minute or second.",
+        f"!!!   This is a decision still pending, not a pass. See {ZONE_DATA_DOC}.",
+        "!!!   It is not counted as a failure of this tier; anything else would be.",
+        rule,
+    ]
+
+
+def compare_zone_data(
+    ledger: Path, config: Path, directory: Path, chosen: Sequence[Sample]
+) -> ZoneDataComparison | str:
+    """Ask both sides for the offsets of the samples that allow for the gap; compare them."""
+    probes = [
+        offset_probes(sample.text) if isinstance(sample.expected, AcceptedExceptZoneData) else []
+        for sample in chosen
+    ]
+    flat = [(instant, zone) for found in probes for _, instant, zone in found]
+    answer = run_offsets(ledger, config, directory, flat)
+    if isinstance(answer, str):
+        return answer
+    versions, ledgers = answer
+    gaps: list[dict[int, ZoneGap]] = []
+    start = 0
+    for found in probes:
+        gaps.append(zone_gaps(found, ledgers[start : start + len(found)]))
+        start += len(found)
+    return ZoneDataComparison(our_zone_data_version(), versions, tuple(gaps))
+
+
+def run_offsets(
+    ledger: Path, config: Path, directory: Path, probes: Sequence[tuple[str, str]]
+) -> tuple[str, list[str | None]] | str:
+    """The ledger's versions and its offset for each (instant, zone), or why it could not tell."""
+    probes_file = directory / "offset-probes.json"
+    probes_file.write_text(json.dumps([list(probe) for probe in probes]), encoding="utf-8")
+    command = [str(ledger / LEDGER_TSX), "--no-cache", "--tsconfig", str(config), str(OFFSETS)]
+    command += [str(ledger), str(probes_file)]
+    try:
+        done = subprocess.run(
+            command,
+            cwd=ledger,
+            stdin=subprocess.DEVNULL,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            timeout=VALIDATOR_TIMEOUT_SECONDS,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired) as error:
+        return f"the ledger's offsets could not be asked for: {error}"
+    lines = [line for line in done.stdout.splitlines() if line.startswith(OFFSETS_MARKER)]
+    if done.returncode != 0 or len(lines) != 1:
+        return f"asking the ledger for offsets failed (exit {done.returncode}):\n{done.stderr}"
+    report = json.loads(lines[0].removeprefix(OFFSETS_MARKER))
+    if len(report["offsets"]) != len(probes):
+        return f"the ledger gave {len(report['offsets'])} offsets for {len(probes)} moments"
+    return f"tz {report['tz']}, ICU {report['icu']}", report["offsets"]
+
+
 # --- the whole tier ---------------------------------------------------------
 
 
@@ -424,14 +632,32 @@ def run(ledger: Path, chosen: Sequence[Sample]) -> Outcome:
         config = write_config(directory, ledger)
         files = write_samples(directory, chosen)
         answers = _validate_everywhere(ledger, config, chosen, files)
+        comparison = compare_zone_data(ledger, config, directory, chosen)
     clean_after = _reported_clean(ledger, "after")
-    if isinstance(answers, str):
-        print(answers)
-        return Outcome.FAILED
+    for failure in (answers, comparison):
+        if isinstance(failure, str):
+            print(failure)
+            return Outcome.FAILED
+    assert not isinstance(answers, str) and not isinstance(comparison, str)
     report, verdicts = answers
     versions_match = _reported_versions(report)
-    all_as_expected = _reported_verdicts(chosen, verdicts)
+    all_as_expected = _reported_verdicts(chosen, verdicts, comparison.gaps)
+    _announce_zone_data(chosen, verdicts, comparison)
     return Outcome.PASSED if all_as_expected and versions_match and clean_after else Outcome.FAILED
+
+
+def _announce_zone_data(
+    chosen: Sequence[Sample], verdicts: Sequence[Sequence[Verdict]], comparison: ZoneDataComparison
+) -> None:
+    refused = {}
+    for sample, answers, gaps in zip(chosen, verdicts, comparison.gaps, strict=True):
+        places = {
+            _zone_data_place(error) for error in zone_data_errors(answers[0], frozenset(gaps))
+        }
+        refused[sample.name] = [gaps[place] for place in sorted(gaps) if place in places]
+    lines = zone_data_notice(comparison, refused)
+    if lines:
+        print("\n" + "\n".join(lines))
 
 
 def _validate_everywhere(
@@ -475,11 +701,15 @@ def _reported_clean(ledger: Path, when: str) -> bool:
     return state.clean
 
 
-def _reported_verdicts(chosen: Sequence[Sample], verdicts: Sequence[Sequence[Verdict]]) -> bool:
+def _reported_verdicts(
+    chosen: Sequence[Sample],
+    verdicts: Sequence[Sequence[Verdict]],
+    gaps: Sequence[Mapping[int, ZoneGap]],
+) -> bool:
     failures = 0
-    for sample, answers in zip(chosen, verdicts, strict=True):
+    for sample, answers, sample_gaps in zip(chosen, verdicts, gaps, strict=True):
         problems = {
-            _zone_label(zone): judge(sample.expected, verdict)
+            _zone_label(zone): judge(sample.expected, verdict, frozenset(sample_gaps))
             for zone, verdict in zip(PROCESS_ZONES, answers, strict=True)
         }
         failed = any(problems.values())

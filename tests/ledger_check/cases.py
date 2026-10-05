@@ -42,6 +42,7 @@ class Expect(enum.Enum):
 
     ACCEPTED = "accepted with no error"
     HOLDINGS_ONLY = "refused only for selling more than is held"
+    ACCEPTED_EXCEPT_ZONE_DATA = "accepted, except offsets where the two zone databases disagree"
     PLANTED = "refused with exactly the planted errors"
 
 
@@ -130,7 +131,7 @@ def light_cases() -> list[Case]:
         Case(
             "attack-last-days.json",
             lambda: text_of(attack.last_days(), today=attack.LAST_TODAY),
-            Expect.ACCEPTED,
+            Expect.ACCEPTED_EXCEPT_ZONE_DATA,
             today=attack.LAST_TODAY,
         ),
         Case(
@@ -152,7 +153,7 @@ def light_cases() -> list[Case]:
         Case(
             "attack-every-zone-on-the-day.json",
             lambda: text_of(attack.every_zone_on_the_day(), today=attack.ACROSS_TODAY),
-            Expect.ACCEPTED,
+            Expect.ACCEPTED_EXCEPT_ZONE_DATA,
             today=attack.ACROSS_TODAY,
         ),
         Case(
