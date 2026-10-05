@@ -39,15 +39,15 @@ way the ledger accepts it.
 **Times as people say them.** `read_time` turns a short piece of text into a
 definite time, given the current moment and the time zone, both handed in by
 the caller: "刚才", "3 小时前", "昨天晚上 9 点 40", "上周五下午三点", "last
-Friday 3pm", "Oct 2", "15:05:30". Only a date said gives a day; a clock time
-gives the minute, or the second when seconds were said. Spans back from now
-count real elapsed time, so they stay right when the clocks change; day words,
-weekdays and dates count calendar days. Every part of the text must be one the
-program knows. When the text can mean more than one time ("10/2", "晚上 12
-点", "last Monday" on most days of the week, "昨天晚上" without a clock
-time), the clocks skipped that time, or it lies in the future, the answer says
-so, never a guess; on the night the clocks go back, a time shown twice comes
-back as two candidates. `write_time` writes a time the way the ledger takes
+Friday 3pm", "Oct 2", "15:05:30". A date said gives a day, and so does a day
+with only a half of it ("昨天晚上", "Friday night"), with a caution; a clock
+time gives the minute, or the second when seconds were said. Spans back from
+now count real elapsed time, so they stay right when the clocks change; day
+words, weekdays and dates count calendar days. Every part of the text must be
+one the program knows. When the text can mean more than one time ("10/2",
+"晚上 12 点", "last Monday" on most days of the week), the clocks skipped
+that time, or it lies in the future, the answer says so, never a guess; on
+the night the clocks go back, a time shown twice comes back as two candidates. `write_time` writes a time the way the ledger takes
 it: a date, or a moment with its seconds and offset.
 
 All of this is pure computation. There is no language model, no storage and
