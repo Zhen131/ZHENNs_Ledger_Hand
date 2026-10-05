@@ -1200,6 +1200,17 @@ def test_letter_that_comes_apart_into_gaps_and_marks_is_no_unit_even_when_allowe
         assert read_number(text, extra_units=[letter]) == Unsure(Doubt.UNKNOWN_UNIT)
 
 
+def test_letter_that_comes_apart_is_no_unit_though_its_mark_is_a_letter_the_caller_allows() -> None:
+    # The mark this one comes apart into is the small iota written under a
+    # letter; in capitals it is the letter iota itself.
+    iota = "\N{GREEK SMALL LETTER IOTA}"
+    under = "\N{GREEK YPOGEGRAMMENI}"
+
+    assert recognised_with(f"5 {iota}", iota) == Recognised(Decimal("5"), iota)
+    for text in (f"5 {under}", f"5{under}", f"5 个{under}", f"5 {under} BTC", f"5 {under}{under}"):
+        assert read_number(text, extra_units=[iota]) == Unsure(Doubt.UNKNOWN_UNIT)
+
+
 @pytest.mark.parametrize(
     "name",
     [
