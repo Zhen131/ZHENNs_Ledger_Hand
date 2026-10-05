@@ -1,0 +1,441 @@
+[
+  {
+    "id": "f01",
+    "text": "昨天晚上十点在 OKX 买了 0.02 个比特币，价格九万四千九，手续费 0.00002 BTC",
+    "now": "2026-10-05T21:30:00+02:00",
+    "zone": "Europe/Budapest",
+    "language": "zh",
+    "group": "scored",
+    "features": ["chinese_numerals", "day_word_with_clock"],
+    "trades": [
+      {
+        "side": "buy",
+        "coin": ["比特币", "BTC"],
+        "quantity": ["0.02 个比特币", "0.02"],
+        "price": ["九万四千九", "94900"],
+        "fee": ["0.00002 BTC", "0.00002"],
+        "fee_currency": ["BTC", "BTC"],
+        "time": ["昨天晚上十点", "2026-10-04T22:00:00+02:00", "minute"],
+        "platform": ["OKX", "OKX"],
+        "missing": []
+      }
+    ]
+  },
+  {
+    "id": "f02",
+    "text": "Sold 1.2 ETH at 2,433 on Kraken 45 minutes ago, fee 0.7 USDT, felt like the top",
+    "now": "2026-10-05T15:30:00-04:00",
+    "zone": "America/New_York",
+    "language": "en",
+    "group": "scored",
+    "features": ["thousands_comma", "span_back"],
+    "trades": [
+      {
+        "side": "sell",
+        "coin": ["ETH", "ETH"],
+        "quantity": ["1.2 ETH", "1.2"],
+        "price": ["2,433", "2433"],
+        "fee": ["0.7 USDT", "0.7"],
+        "fee_currency": ["USDT", "USDT"],
+        "time": ["45 minutes ago", "2026-10-05T14:45:00-04:00", "minute"],
+        "platform": ["Kraken", "Kraken"],
+        "opinion": ["felt like the top", "felt like the top"],
+        "missing": []
+      }
+    ]
+  },
+  {
+    "id": "f03",
+    "text": "今天下午 2 点 buy 了 4 个 ETH，total 1 万 U，fee 4 U",
+    "now": "2026-10-05T21:30:00+02:00",
+    "zone": "Europe/Budapest",
+    "language": "mixed",
+    "group": "scored",
+    "features": ["gap_before_multiplier", "multiplier", "currency_word", "day_word_with_clock"],
+    "trades": [
+      {
+        "side": "buy",
+        "coin": ["ETH", "ETH"],
+        "quantity": ["4 个 ETH", "4"],
+        "total": ["1 万 U", "10000"],
+        "price_currency": ["U", "USDT"],
+        "fee": ["4 U", "4"],
+        "fee_currency": ["U", "USDT"],
+        "time": ["今天下午 2 点", "2026-10-05T14:00:00+02:00", "minute"],
+        "missing": []
+      }
+    ]
+  },
+  {
+    "id": "f04",
+    "text": "前天卖了 3 个 ETH，2380一个，手续费 2.1U，Bybit 上卖的，那会儿大饼才 6 万出头",
+    "now": "2026-10-05T21:30:00+02:00",
+    "zone": "Europe/Budapest",
+    "language": "zh",
+    "group": "scored",
+    "features": ["per_piece", "currency_word", "date_only", "unrelated_number"],
+    "trades": [
+      {
+        "side": "sell",
+        "coin": ["ETH", "ETH"],
+        "quantity": ["3 个 ETH", "3"],
+        "price": ["2380", "2380"],
+        "fee": ["2.1U", "2.1"],
+        "fee_currency": ["U", "USDT"],
+        "time": ["前天", "2026-10-03", "day"],
+        "platform": ["Bybit", "Bybit"],
+        "missing": []
+      }
+    ]
+  },
+  {
+    "id": "f05",
+    "text": "bought 0.015 BTC at 63 250 on Oct 1, fee 0.6 USDT",
+    "now": "2026-10-05T21:30:00+02:00",
+    "zone": "Europe/Budapest",
+    "language": "en",
+    "group": "scored",
+    "features": ["space_thousands", "written_date", "date_only"],
+    "trades": [
+      {
+        "side": "buy",
+        "coin": ["BTC", "BTC"],
+        "quantity": ["0.015 BTC", "0.015"],
+        "price": ["63 250", null],
+        "fee": ["0.6 USDT", "0.6"],
+        "fee_currency": ["USDT", "USDT"],
+        "time": ["Oct 1", "2026-10-01", "day"],
+        "missing": ["ONE_MORE_OF_QUANTITY_PRICE_TOTAL"]
+      }
+    ]
+  },
+  {
+    "id": "f06",
+    "text": "今天上午 11 点 buy ETH 1.5 2388，fee 1.1 USDT",
+    "now": "2026-10-05T21:30:00+02:00",
+    "zone": "Europe/Budapest",
+    "language": "mixed",
+    "group": "scored",
+    "features": ["adjacent_numbers", "day_word_with_clock"],
+    "trades": [
+      {
+        "side": "buy",
+        "coin": ["ETH", "ETH"],
+        "quantity": ["1.5", "1.5"],
+        "price": ["2388", "2388"],
+        "fee": ["1.1 USDT", "1.1"],
+        "fee_currency": ["USDT", "USDT"],
+        "time": ["今天上午 11 点", "2026-10-05T11:00:00+02:00", "minute"],
+        "missing": []
+      }
+    ]
+  },
+  {
+    "id": "f07",
+    "text": "昨天下午买了 50 个，单价 3.1，手续费 0.15U",
+    "now": "2026-10-05T21:30:00+02:00",
+    "zone": "Europe/Budapest",
+    "language": "zh",
+    "group": "scored",
+    "features": ["currency_word", "date_only"],
+    "trades": [
+      {
+        "side": "buy",
+        "quantity": ["50 个", "50"],
+        "price": ["3.1", "3.1"],
+        "fee": ["0.15U", "0.15"],
+        "fee_currency": ["U", "USDT"],
+        "time": ["昨天下午", "2026-10-04", "day"],
+        "missing": ["COIN"]
+      }
+    ]
+  },
+  {
+    "id": "f08",
+    "text": "Sold DOGE worth 300 USDT at 0.25 each, fee paid 0.001 BNB",
+    "now": "2026-10-05T21:30:00+02:00",
+    "zone": "Europe/Budapest",
+    "language": "en",
+    "group": "scored",
+    "features": ["currency_word"],
+    "trades": [
+      {
+        "side": "sell",
+        "coin": ["DOGE", "DOGE"],
+        "price": ["0.25", "0.25"],
+        "total": ["300 USDT", "300"],
+        "price_currency": ["USDT", "USDT"],
+        "fee": ["0.001 BNB", "0.001"],
+        "fee_currency": ["BNB", "BNB"],
+        "missing": ["OCCURRED"]
+      }
+    ]
+  },
+  {
+    "id": "f09",
+    "text": "今天早上 7 点半买了 1.5 k 个 XRP，0.59 一个，手续费 0",
+    "now": "2026-10-05T21:30:00+02:00",
+    "zone": "Europe/Budapest",
+    "language": "mixed",
+    "group": "scored",
+    "features": ["gap_before_multiplier", "multiplier", "day_word_with_clock"],
+    "trades": [
+      {
+        "side": "buy",
+        "coin": ["XRP", "XRP"],
+        "quantity": ["1.5 k 个 XRP", null],
+        "price": ["0.59", "0.59"],
+        "fee": ["0", "0"],
+        "time": ["今天早上 7 点半", "2026-10-05T07:30:00+02:00", "minute"],
+        "missing": ["ONE_MORE_OF_QUANTITY_PRICE_TOTAL"]
+      }
+    ]
+  },
+  {
+    "id": "f10",
+    "text": "上周三在币安买了两笔：0.2 个 BTC，价格 61,500；还有 SOL，花了 800U；手续费各 0.5U",
+    "now": "2026-10-05T21:30:00+02:00",
+    "zone": "Europe/Budapest",
+    "language": "zh",
+    "group": "scored",
+    "features": ["shared_detail", "thousands_comma", "currency_word", "date_only"],
+    "trades": [
+      {
+        "side": "buy",
+        "coin": ["BTC", "BTC"],
+        "quantity": ["0.2 个 BTC", "0.2"],
+        "price": ["61,500", "61500"],
+        "fee": ["0.5U", "0.5"],
+        "fee_currency": ["U", "USDT"],
+        "time": ["上周三", "2026-09-30", "day"],
+        "platform": ["币安", "币安"],
+        "missing": []
+      },
+      {
+        "side": "buy",
+        "coin": ["SOL", "SOL"],
+        "total": ["800U", "800"],
+        "price_currency": ["U", "USDT"],
+        "fee": ["0.5U", "0.5"],
+        "fee_currency": ["U", "USDT"],
+        "time": ["上周三", "2026-09-30", "day"],
+        "platform": ["币安", "币安"],
+        "missing": ["ONE_MORE_OF_QUANTITY_PRICE_TOTAL"]
+      }
+    ]
+  },
+  {
+    "id": "f11",
+    "text": "Two trades on Kraken on Sep 29 at 16:40: sold 300 ADA at 0.55, bought 0.4 ETH at 2,360, fee 0.3 USDT each",
+    "now": "2026-10-05T22:15:00+08:00",
+    "zone": "Asia/Shanghai",
+    "language": "en",
+    "group": "scored",
+    "features": ["shared_detail", "thousands_comma", "written_date"],
+    "trades": [
+      {
+        "side": "sell",
+        "coin": ["ADA", "ADA"],
+        "quantity": ["300 ADA", "300"],
+        "price": ["0.55", "0.55"],
+        "fee": ["0.3 USDT", "0.3"],
+        "fee_currency": ["USDT", "USDT"],
+        "time": ["Sep 29 at 16:40", "2026-09-29T16:40:00+08:00", "minute"],
+        "platform": ["Kraken", "Kraken"],
+        "missing": []
+      },
+      {
+        "side": "buy",
+        "coin": ["ETH", "ETH"],
+        "quantity": ["0.4 ETH", "0.4"],
+        "price": ["2,360", "2360"],
+        "fee": ["0.3 USDT", "0.3"],
+        "fee_currency": ["USDT", "USDT"],
+        "time": ["Sep 29 at 16:40", "2026-09-29T16:40:00+08:00", "minute"],
+        "platform": ["Kraken", "Kraken"],
+        "missing": []
+      }
+    ]
+  },
+  {
+    "id": "f12",
+    "text": "昨天 sold 两个 BNB at 590，然后 buy 了 30 个 LINK at 13.9，手续费都是 0，感觉 LINK 要起飞",
+    "now": "2026-10-05T21:30:00+02:00",
+    "zone": "Europe/Budapest",
+    "language": "mixed",
+    "group": "scored",
+    "features": ["shared_detail", "chinese_numerals", "date_only"],
+    "trades": [
+      {
+        "side": "sell",
+        "coin": ["BNB", "BNB"],
+        "quantity": ["两个 BNB", "2"],
+        "price": ["590", "590"],
+        "fee": ["0", "0"],
+        "time": ["昨天", "2026-10-04", "day"],
+        "missing": []
+      },
+      {
+        "side": "buy",
+        "coin": ["LINK", "LINK"],
+        "quantity": ["30 个 LINK", "30"],
+        "price": ["13.9", "13.9"],
+        "fee": ["0", "0"],
+        "time": ["昨天", "2026-10-04", "day"],
+        "opinion": ["感觉 LINK 要起飞", "感觉 LINK 要起飞"],
+        "missing": []
+      }
+    ]
+  },
+  {
+    "id": "f13",
+    "text": "今天下午 5 点在 OKX 一口气买了三个币：0.01 BTC 价格 62,300，0.3 ETH 价格 2,395，10 个 SOL 价格 151，手续费都是 0.3 USDT",
+    "now": "2026-10-05T21:30:00+02:00",
+    "zone": "Europe/Budapest",
+    "language": "zh",
+    "group": "scored",
+    "features": ["shared_detail", "thousands_comma", "day_word_with_clock"],
+    "trades": [
+      {
+        "side": "buy",
+        "coin": ["BTC", "BTC"],
+        "quantity": ["0.01 BTC", "0.01"],
+        "price": ["62,300", "62300"],
+        "fee": ["0.3 USDT", "0.3"],
+        "fee_currency": ["USDT", "USDT"],
+        "time": ["今天下午 5 点", "2026-10-05T17:00:00+02:00", "minute"],
+        "platform": ["OKX", "OKX"],
+        "missing": []
+      },
+      {
+        "side": "buy",
+        "coin": ["ETH", "ETH"],
+        "quantity": ["0.3 ETH", "0.3"],
+        "price": ["2,395", "2395"],
+        "fee": ["0.3 USDT", "0.3"],
+        "fee_currency": ["USDT", "USDT"],
+        "time": ["今天下午 5 点", "2026-10-05T17:00:00+02:00", "minute"],
+        "platform": ["OKX", "OKX"],
+        "missing": []
+      },
+      {
+        "side": "buy",
+        "coin": ["SOL", "SOL"],
+        "quantity": ["10 个 SOL", "10"],
+        "price": ["151", "151"],
+        "fee": ["0.3 USDT", "0.3"],
+        "fee_currency": ["USDT", "USDT"],
+        "time": ["今天下午 5 点", "2026-10-05T17:00:00+02:00", "minute"],
+        "platform": ["OKX", "OKX"],
+        "missing": []
+      }
+    ]
+  },
+  {
+    "id": "f14",
+    "text": "Yesterday I cleared out small bags: sold 500 TRX at 0.24, 80 ARB at 0.7, 12 UNI at 9.5 and 3 APT at 8.8",
+    "now": "2026-10-05T21:30:00+02:00",
+    "zone": "Europe/Budapest",
+    "language": "en",
+    "group": "scored",
+    "features": ["shared_detail", "date_only"],
+    "trades": [
+      {
+        "side": "sell",
+        "coin": ["TRX", "TRX"],
+        "quantity": ["500 TRX", "500"],
+        "price": ["0.24", "0.24"],
+        "time": ["Yesterday", "2026-10-04", "day"],
+        "missing": ["FEE"]
+      },
+      {
+        "side": "sell",
+        "coin": ["ARB", "ARB"],
+        "quantity": ["80 ARB", "80"],
+        "price": ["0.7", "0.7"],
+        "time": ["Yesterday", "2026-10-04", "day"],
+        "missing": ["FEE"]
+      },
+      {
+        "side": "sell",
+        "coin": ["UNI", "UNI"],
+        "quantity": ["12 UNI", "12"],
+        "price": ["9.5", "9.5"],
+        "time": ["Yesterday", "2026-10-04", "day"],
+        "missing": ["FEE"]
+      },
+      {
+        "side": "sell",
+        "coin": ["APT", "APT"],
+        "quantity": ["3 APT", "3"],
+        "price": ["8.8", "8.8"],
+        "time": ["Yesterday", "2026-10-04", "day"],
+        "missing": ["FEE"]
+      }
+    ]
+  },
+  {
+    "id": "f15",
+    "text": "群里都在喊 10 万，我还是拿着不动，晚上再看",
+    "now": "2026-10-05T21:30:00+02:00",
+    "zone": "Europe/Budapest",
+    "language": "zh",
+    "group": "scored",
+    "features": [],
+    "trades": []
+  },
+  {
+    "id": "f16",
+    "text": "Thinking about rotating into SOL next month, but no moves yet",
+    "now": "2026-10-05T21:30:00+02:00",
+    "zone": "Europe/Budapest",
+    "language": "en",
+    "group": "scored",
+    "features": [],
+    "trades": []
+  },
+  {
+    "id": "f17",
+    "text": "Opened a 5x long on ETH at 2,380 with 100 USDT margin last night",
+    "now": "2026-10-05T21:30:00+02:00",
+    "zone": "Europe/Budapest",
+    "language": "en",
+    "group": "not_to_record",
+    "kind": "futures_or_leverage",
+    "features": [],
+    "trades": []
+  },
+  {
+    "id": "f18",
+    "text": "用 0.05 BTC 换了 1.3 个 ETH，在 Uniswap 上换的",
+    "now": "2026-10-05T21:30:00+02:00",
+    "zone": "Europe/Budapest",
+    "language": "zh",
+    "group": "not_to_record",
+    "kind": "coin_for_coin",
+    "features": [],
+    "trades": []
+  },
+  {
+    "id": "f19",
+    "text": "Placed a limit sell for 2 SOL at 165, still waiting for it to fill",
+    "now": "2026-10-05T21:30:00+02:00",
+    "zone": "Europe/Budapest",
+    "language": "en",
+    "group": "not_to_record",
+    "kind": "open_order",
+    "features": [],
+    "trades": []
+  },
+  {
+    "id": "f20",
+    "text": "下周想 buy 一点 DOT，大概 4 刀左右就进",
+    "now": "2026-10-05T21:30:00+02:00",
+    "zone": "Europe/Budapest",
+    "language": "mixed",
+    "group": "not_to_record",
+    "kind": "plan",
+    "features": [],
+    "trades": []
+  }
+]
