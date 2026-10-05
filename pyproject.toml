@@ -30,7 +30,11 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = ["-ra", "--strict-markers", "--strict-config"]
+# Tests that talk to a real model are left out here; the live tier runs them.
+addopts = ["-ra", "--strict-markers", "--strict-config", "-m", "not live_model"]
+markers = [
+    "live_model: talks to a real model server; run only by the live tier of scripts/check.sh",
+]
 xfail_strict = true
 
 [tool.ruff]
