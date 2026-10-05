@@ -33,7 +33,10 @@ It is refused, with nothing written, when:
 - a trade's time is a moment whose offset from UTC is not a whole number of
   minutes, which some zones had before the 1970s. The ledger's way of writing
   a time cannot hold such an offset. The check of a draft does not refuse one
-  yet, so the export refuses it instead of failing while it writes.
+  yet, so the export refuses it instead of failing while it writes;
+- a trade's date, in its own time zone, is after the today handed in. The
+  ledger refuses a trade dated after its own today, and it compares the date
+  on the trade's own wall clock, not the instant.
 
 The same trades, in any order, with the same coin table, moment, name and
 version, always give the same text, byte for byte. It is laid out the way the
@@ -58,7 +61,7 @@ import re
 from collections import Counter
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
-from datetime import datetime, time, timedelta
+from datetime import date, datetime, time, timedelta
 
 from ledger_hand.core.coins import CoinTable
 from ledger_hand.core.ledger_limits import (
@@ -97,6 +100,7 @@ class ExportProblem(enum.Enum):
     OFFSET_NOT_WHOLE_MINUTES = (
         "a trade's time has an offset from UTC that is not a whole number of minutes"
     )
+    DATED_AFTER_TODAY = "a trade's date, in its own time zone, is after today"
 
 
 @dataclass(frozen=True)
@@ -119,6 +123,7 @@ def export_backup(
     coins: CoinTable,
     *,
     exported_at: datetime,
+    today: date,
     app_name: str,
     app_version: str,
 ) -> str | ExportRefused:
@@ -131,8 +136,16 @@ def export_backup(
     the ledger would refuse, is a mistake of the calling code and raises
     ``ValueError``.
 
+    ``today`` is the date on this machine, handed in by the caller. A trade
+    whose date, in its own time zone, is after it is not exported: the ledger
+    compares exactly that date with its own today, and a file it would read as
+    holding a trade from the future is never written. A ``datetime``, or
+    anything else that is not a plain date, raises ``TypeError``.
+
     ``trades`` may be any collection, or a generator: it is read once.
     """
+    if isinstance(today, datetime) or not isinstance(today, date):
+        raise TypeError(f"today must be a date, not {type(today).__name__}")
     app = _app_text(app_name, app_version)
     moment = write_moment(exported_at)
     # Read once into a tuple: a generator would look non-empty when it is
@@ -145,6 +158,7 @@ def export_backup(
     cards = _coin_cards(symbols, coins, issues)
     _check_identifiers(trades, symbols, issues)
     _check_offsets(trades, issues)
+    _check_dates(trades, today, issues)
     if issues:
         return _refusal(issues)
     document = {
@@ -215,6 +229,12 @@ def _check_offsets(trades: Sequence[StoredTrade], issues: list[ExportIssue]) -> 
         offset = value.utcoffset() if isinstance(value, datetime) else None
         if offset is not None and offset % _ONE_MINUTE:
             issues.append(ExportIssue(ExportProblem.OFFSET_NOT_WHOLE_MINUTES, trade.id))
+
+
+def _check_dates(trades: Sequence[StoredTrade], today: date, issues: list[ExportIssue]) -> None:
+    for trade in trades:
+        if trade.record.occurred.calendar_date > today:
+            issues.append(ExportIssue(ExportProblem.DATED_AFTER_TODAY, trade.id))
 
 
 def _refusal(issues: list[ExportIssue]) -> ExportRefused:

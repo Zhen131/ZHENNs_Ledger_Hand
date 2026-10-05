@@ -47,9 +47,11 @@ from ledger_hand.export.backup import (
 BUDAPEST = "Europe/Budapest"
 SHANGHAI = "Asia/Shanghai"
 
-# The current moment of the check, and the moment of the export.
+# The current moment of the check, the moment of the export, and the date
+# on the machine that exports, which the ledger is also given as its today.
 NOW = datetime(2026, 10, 4, 10, 0, tzinfo=ZoneInfo(BUDAPEST))
 EXPORTED_AT = datetime(2026, 10, 4, 8, 0, tzinfo=timezone.utc)
+TODAY = date(2026, 10, 4)
 
 # Fixed rather than the package's version, so that a new version of the
 # program does not change the golden sample.
@@ -92,9 +94,11 @@ def day(year: int, month: int, number: int, zone: str = BUDAPEST) -> OccurredTim
     return OccurredTime(date(year, month, number), TimePrecision.DAY, zone)
 
 
-def record(draft: TradeDraft, coins: CoinTable = BUILT_IN_TABLE) -> TradeRecord:
+def record(
+    draft: TradeDraft, coins: CoinTable = BUILT_IN_TABLE, now: datetime = NOW
+) -> TradeRecord:
     """The record the check makes of ``draft``; a draft it does not accept is a mistake here."""
-    result = check_draft(draft, coins, NOW)
+    result = check_draft(draft, coins, now)
     if not isinstance(result, TradeRecord):
         raise AssertionError(f"the check did not accept a sample trade: {result}")
     return result
@@ -106,21 +110,29 @@ def saved(
     coins: CoinTable = BUILT_IN_TABLE,
     created: datetime | None = None,
     updated: datetime | None = None,
+    now: datetime = NOW,
 ) -> StoredTrade:
     """``draft`` checked and saved; created at the usual moment unless told otherwise."""
     created = CREATED if created is None else created
     return StoredTrade(
         id=identifier,
-        record=record(draft, coins),
+        record=record(draft, coins, now),
         created_at=created,
         updated_at=created if updated is None else updated,
     )
 
 
-def exported(trades: list[StoredTrade], coins: CoinTable = BUILT_IN_TABLE) -> str:
+def exported(
+    trades: list[StoredTrade], coins: CoinTable = BUILT_IN_TABLE, today: date = TODAY
+) -> str:
     """The text of the file for ``trades``; a refusal is a mistake here."""
     text = export_backup(
-        trades, coins, exported_at=EXPORTED_AT, app_name=APP_NAME, app_version=APP_VERSION
+        trades,
+        coins,
+        exported_at=EXPORTED_AT,
+        today=today,
+        app_name=APP_NAME,
+        app_version=APP_VERSION,
     )
     if isinstance(text, ExportRefused):
         raise AssertionError(f"the export refused sample trades: {text}")

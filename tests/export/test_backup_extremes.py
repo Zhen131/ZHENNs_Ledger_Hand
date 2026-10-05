@@ -58,6 +58,7 @@ def saved(records: list[TradeRecord]) -> list[StoredTrade]:
 def export(trades: list[StoredTrade], **changes: Any) -> str | ExportRefused:
     arguments: dict[str, Any] = {
         "exported_at": EXPORTED_AT,
+        "today": date(9999, 12, 31),
         "app_name": APP_NAME,
         "app_version": APP_VERSION,
     }

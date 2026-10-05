@@ -22,7 +22,14 @@ from ledger_hand.export.backup import (
     ExportRefused,
     export_backup,
 )
-from tests.export.samples import APP_NAME, APP_VERSION, EXPORTED_AT, golden_trades, saved
+from tests.export.samples import (
+    APP_NAME,
+    APP_VERSION,
+    EXPORTED_AT,
+    TODAY,
+    golden_trades,
+    saved,
+)
 
 BUDAPEST = "Europe/Budapest"
 
@@ -57,7 +64,12 @@ def on(day: int, zone: str = BUDAPEST) -> OccurredTime:
 
 def export(trades: Iterable[StoredTrade], coins: CoinTable = BUILT_IN_TABLE) -> str | ExportRefused:
     return export_backup(
-        trades, coins, exported_at=EXPORTED_AT, app_name=APP_NAME, app_version=APP_VERSION
+        trades,
+        coins,
+        exported_at=EXPORTED_AT,
+        today=TODAY,
+        app_name=APP_NAME,
+        app_version=APP_VERSION,
     )
 
 
@@ -124,7 +136,12 @@ def test_the_export_moment_is_written_in_utc_to_the_second() -> None:
     moment = datetime(2026, 10, 4, 10, 0, 59, 900_000, tzinfo=ZoneInfo(BUDAPEST))
 
     text = export_backup(
-        [trade("t1")], BUILT_IN_TABLE, exported_at=moment, app_name="a", app_version="1"
+        [trade("t1")],
+        BUILT_IN_TABLE,
+        exported_at=moment,
+        today=TODAY,
+        app_name="a",
+        app_version="1",
     )
 
     assert isinstance(text, str)
@@ -402,6 +419,77 @@ def test_old_times_with_whole_minute_offsets_and_old_days_are_exported() -> None
     }
 
 
+# --- today -------------------------------------------------------------------
+
+LATER_NOW = datetime(2026, 10, 6, 12, 0, tzinfo=timezone.utc)
+
+
+def later(identifier: str, occurred: OccurredTime) -> StoredTrade:
+    """A trade the check accepted when it was already 6 October everywhere."""
+    return saved(identifier, draft(occurred=occurred), now=LATER_NOW)
+
+
+def at(zone: str, moment: datetime) -> OccurredTime:
+    return OccurredTime(moment.astimezone(ZoneInfo(zone)), TimePrecision.MINUTE, zone)
+
+
+def export_on(trades: list[StoredTrade], today: date) -> str | ExportRefused:
+    return export_backup(
+        trades,
+        BUILT_IN_TABLE,
+        exported_at=EXPORTED_AT,
+        today=today,
+        app_name=APP_NAME,
+        app_version=APP_VERSION,
+    )
+
+
+def test_a_trade_dated_today_or_before_is_exported() -> None:
+    trades = [later("today", on(4)), later("yesterday", on(3))]
+
+    assert isinstance(export_on(trades, date(2026, 10, 4)), str)
+
+
+def test_a_trade_dated_after_today_in_its_own_zone_is_refused_and_named() -> None:
+    # One instant: still 4 October in Budapest, already 5 October in Tokyo
+    # and in Kiritimati, still 4 October in Los Angeles.
+    instant = datetime(2026, 10, 4, 21, 30, tzinfo=timezone.utc)
+    trades = [
+        later("budapest", at(BUDAPEST, instant)),
+        later("tokyo", at("Asia/Tokyo", instant)),
+        later("kiritimati", at("Pacific/Kiritimati", instant)),
+        later("los-angeles", at("America/Los_Angeles", instant)),
+        later("tomorrow-day", on(5)),
+    ]
+
+    assert export_on(trades, date(2026, 10, 4)) == ExportRefused(
+        (
+            ExportIssue(ExportProblem.DATED_AFTER_TODAY, "kiritimati"),
+            ExportIssue(ExportProblem.DATED_AFTER_TODAY, "tokyo"),
+            ExportIssue(ExportProblem.DATED_AFTER_TODAY, "tomorrow-day"),
+        )
+    )
+    assert isinstance(export_on(trades, date(2026, 10, 5)), str)
+
+
+def test_the_date_compared_is_the_one_written_in_the_file() -> None:
+    instant = datetime(2026, 10, 4, 21, 30, tzinfo=timezone.utc)
+    trade = later("tokyo", at("Asia/Tokyo", instant))
+
+    text = export_on([trade], date(2026, 10, 5))
+
+    assert isinstance(text, str)
+    assert json.loads(text)["ledgerData"]["trades"][0]["occurredAt"].startswith("2026-10-05")
+
+
+@pytest.mark.parametrize(
+    "today", [datetime(2026, 10, 4, 12, 0, tzinfo=timezone.utc), "2026-10-04", None]
+)
+def test_today_must_be_a_plain_date(today: object) -> None:
+    with pytest.raises(TypeError, match="today must be a date"):
+        export_on([trade("t1")], today)  # type: ignore[arg-type]
+
+
 # --- mistakes of the calling code -------------------------------------------
 
 
@@ -411,6 +499,7 @@ def test_an_export_moment_without_an_offset_is_a_mistake_of_the_caller() -> None
             [trade("t1")],
             BUILT_IN_TABLE,
             exported_at=datetime(2026, 10, 4, 8, 0),
+            today=TODAY,
             app_name=APP_NAME,
             app_version=APP_VERSION,
         )
@@ -428,6 +517,7 @@ def test_a_program_name_or_version_the_ledger_would_refuse_is_a_mistake_of_the_c
             [trade("t1")],
             BUILT_IN_TABLE,
             exported_at=EXPORTED_AT,
+            today=TODAY,
             app_name=name,
             app_version=version,
         )
@@ -439,6 +529,7 @@ def test_a_program_name_and_version_longer_than_the_ledger_allows_is_refused() -
             [trade("t1")],
             BUILT_IN_TABLE,
             exported_at=EXPORTED_AT,
+            today=TODAY,
             app_name="n" * 126,
             app_version="1",
         ),
@@ -449,6 +540,7 @@ def test_a_program_name_and_version_longer_than_the_ledger_allows_is_refused() -
             [trade("t1")],
             BUILT_IN_TABLE,
             exported_at=EXPORTED_AT,
+            today=TODAY,
             app_name="n" * 127,
             app_version="1",
         )
