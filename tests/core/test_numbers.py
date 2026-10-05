@@ -513,7 +513,7 @@ def test_unit_made_of_known_blocks_is_handed_back_as_written(
         "3个成交",
         "8万 成交",
         "5" + "X" * 32,
-        # Names that were once handed back because nothing in them looked like a multiplier.
+        # Names of things in which nothing looks like a multiplier.
         "5 wif",
         "5 wld",
         "5 ksm",
@@ -2036,8 +2036,8 @@ def test_unit_that_only_resembles_a_vague_word_stays_a_unit(text: str, unit: str
 
 # --- once doubted, never recognised ------------------------------------------
 #
-# Each of these was once handed back as the bare number with part of the text
-# taken for a unit, or was found by taking a unit apart word by word. None of
+# In each of these the unit holds a multiplier, a smaller unit or a share,
+# glued on or set apart, in front or behind, in one form or another. None of
 # their units is on the list of units this program knows, so none is read.
 
 ONCE_DOUBTED = [

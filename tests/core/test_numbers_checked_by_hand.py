@@ -1,11 +1,12 @@
-"""The inputs that were tried by hand when the reading of numbers was checked, kept for good.
+"""Texts tried by hand against the reading of numbers, kept as fixed cases.
 
-Three rounds of checking by hand each found texts that were called recognised
-while the number handed back was off by a thousand or more, because a
-multiplier or a smaller unit sat inside the unit word. Every text those
-rounds listed is kept here, the harmless ones included. One rule covers them
-all: a text is read to exactly the value and the unit written down in this
-file, or it is not recognised.
+Most of them have a multiplier or a smaller unit somewhere in or next to the
+unit word, written in every way that might get the bare number handed back as
+if it were recognised: glued on, set apart, in the plural, in another
+alphabet, in letters that only look like ordinary ones. The plain texts they
+were compared with are kept as well. One rule covers them all: a text is read
+to exactly the value and the unit written down in this file, or it is not
+recognised.
 
 Every amount here is invented.
 """
@@ -16,7 +17,59 @@ from decimal import Decimal
 
 import pytest
 
-from ledger_hand.core.numbers import Caution, Recognised, read_number
+from ledger_hand.core.numbers import (
+    Caution,
+    Doubt,
+    NotANumber,
+    Reading,
+    Recognised,
+    Unsure,
+    read_number,
+)
+
+
+def in_another_form(text: str, capital_a: str, small_a: str) -> str:
+    """``text`` with its ordinary letters replaced by those of an alphabet listed in order."""
+    return "".join(
+        chr(ord(capital_a) + ord(letter) - ord("A"))
+        if "A" <= letter <= "Z"
+        else chr(ord(small_a) + ord(letter) - ord("a"))
+        if "a" <= letter <= "z"
+        else letter
+        for letter in text
+    )
+
+
+def bold(text: str) -> str:
+    return in_another_form(text, "\N{MATHEMATICAL BOLD CAPITAL A}", "\N{MATHEMATICAL BOLD SMALL A}")
+
+
+def sans_serif(text: str) -> str:
+    return in_another_form(
+        text, "\N{MATHEMATICAL SANS-SERIF CAPITAL A}", "\N{MATHEMATICAL SANS-SERIF SMALL A}"
+    )
+
+
+def monospace(text: str) -> str:
+    return in_another_form(
+        text, "\N{MATHEMATICAL MONOSPACE CAPITAL A}", "\N{MATHEMATICAL MONOSPACE SMALL A}"
+    )
+
+
+RAISED_LETTERS = {
+    "U": "\N{MODIFIER LETTER CAPITAL U}",
+    "s": "\N{MODIFIER LETTER SMALL S}",
+    "D": "\N{MODIFIER LETTER CAPITAL D}",
+    "T": "\N{MODIFIER LETTER CAPITAL T}",
+    "u": "\N{MODIFIER LETTER SMALL U}",
+    "k": "\N{MODIFIER LETTER SMALL K}",
+}
+
+
+def raised(text: str) -> str:
+    """``text`` in the small letters written above the line."""
+    return "".join(RAISED_LETTERS[letter] for letter in text)
+
 
 # Text, value, unit. Each value was compared by hand with what the text says.
 READ_TO_EXACTLY_THIS = [
@@ -125,6 +178,64 @@ READ_TO_EXACTLY_THIS = [
     ("5usdt", "5", "usdt"),
     ("5 dollars", "5", "dollars"),
     ("5dollars", "5", "dollars"),
+    ("50美金", "50", "美金"),
+    ("0.5个", "0.5", "个"),
+    ("$50", "50", "$"),
+    ("8万", "80000", None),
+    ("2亿", "200000000", None),
+    ("五千", "5000", None),
+    ("1.25w", "12500", None),
+    ("５ｋ", "5000", None),
+    ("３ｗ刀", "30000", "刀"),
+    ("5k个", "5000", "个"),
+    ("5w个比特币", "50000", "个比特币"),
+    ("5k$", "5000", "$"),
+    ("5 " + bold("BTC") + "个", "5", bold("BTC") + "个"),
+    ("5K TETHER", "5000", "TETHER"),
+    ("5W 美刀", "50000", "美刀"),
+    ("5 刀刀", "5", "刀刀"),
+    ("5 美金美元", "5", "美金美元"),
+    ("5 比特币个枚", "5", "比特币个枚"),
+    ("5ｋ刀", "5000", "刀"),
+    ("5w BTC", "50000", "BTC"),
+    ("5k比特币", "5000", "比特币"),
+    ("5w刀刀", "50000", "刀刀"),
+    ("$5k", "5000", "$"),
+    ("＄5ｋ", "5000", "＄"),
+    ("3千个比特币", "3000", "个比特币"),
+    ("三千个比特币", "3000", "个比特币"),
+    ("3 千个", "3000", "个"),
+    ("3个比特币现金", "3", "个比特币现金"),
+    ("3个比特现金", "3", "个比特现金"),
+    ("3个以太经典", "3", "个以太经典"),
+    ("3颗以太", "3", "颗以太"),
+    ("3个门罗", "3", "个门罗"),
+    ("两万三个刀", "23000", "个刀"),
+    ("3个美刀", "3", "个美刀"),
+    ("5 大饼刀", "5", "大饼刀"),
+    ("3个比特币比特币", "3", "个比特币比特币"),
+    ("5 Bitcoin Cash", "5", "Bitcoin Cash"),
+    ("5 bitcoin   cash", "5", "bitcoin   cash"),
+    ("5 Bitcoin\N{IDEOGRAPHIC SPACE}Cash", "5", "Bitcoin\N{IDEOGRAPHIC SPACE}Cash"),
+    ("5 USD Coin", "5", "USD Coin"),
+    ("5 NEAR Protocol", "5", "NEAR Protocol"),
+    ("5k Bitcoin Cash", "5000", "Bitcoin Cash"),
+    ("5 " + bold("BTC"), "5", bold("BTC")),
+    ("5 " + raised("UsDT"), "5", raised("UsDT")),
+    ("5 " + raised("u"), "5", raised("u")),
+    ("5 \N{FEMININE ORDINAL INDICATOR}DA", "5", "\N{FEMININE ORDINAL INDICATOR}DA"),
+    ("5 万", "50000", None),
+    ("5 千", "5000", None),
+    ("5 个比特币", "5", "个比特币"),
+    ("5 ton", "5", "ton"),
+    ("5 BTC", "5", "BTC"),
+    ("5BTC", "5", "BTC"),
+    ("5" + raised("UsDT"), "5", raised("UsDT")),
+    ("5万", "50000", None),
+    ("5千", "5000", None),
+    ("5" + bold("BTC"), "5", bold("BTC")),
+    ("5 " + bold("U"), "5", bold("U")),
+    ("5" + bold("U"), "5", bold("U")),
 ]
 
 READ_WITH_A_CAUTION = {"94.900", "12.345", "123.456", "1.234万"}
@@ -811,9 +922,241 @@ NEVER_RECOGNISED = [
     "5 M",
     "5 k",
     "5 w",
+    "5 BTCUSDT",
+    "5 " + bold("BTCUSDT"),
+    "500 BONK",
+    "5wBTC",
+    "5kBTC",
+    "5ku",
+    "5wu",
+    "-0.00",
+    "-1",
+    "5kBitcoin Cash",
+    "5wrapped bitcoin",
+    "5 Book of Meme",
+    "5 Book of Meme k",
+    "5 Over Protocol",
+    "5 lakh",
+    "5 ＫＢＴＣ",
+    "５ｋＢＴＣ",
+    "5 Ｋ",
+    "5 ｋ刀",
+    "5 кBTC",
+    "5 κBTC",
+    "5 ВТС",
+    "5к",
+    "5 тыс USDT",
+    "5 キロBTC",
+    "5 만",
+    "5 천 USDT",
+    "5 万円",
+    "5" + raised("k") + "BTC",
+    "5 BTC" + raised("k"),
+    "5 " + bold("kBTC"),
+    "5 " + bold("BTCk"),
+    "5 " + bold("ksBTC"),
+    "5 " + bold("mBTC"),
+    "3个打",
+    "3双刀",
+    "5块",
+    "5 角",
+    "5 分",
+    "5 聪",
+    "5 个币",
+    "3个对",
+    "5 以太坊们",
+    "5个仟",
+    "5 Ws",
+    "5 bucks",
+    "5 bn",
+    "5 dozen",
+    "5 tons",
+    "5 kcoin",
+    "5 coinsk",
+    "5 TOKENk",
+    "5 USDk",
+    "5 Uk",
+    "5 kU",
+    "5U k",
+    "5 LINKk",
+    "5 kLINK",
+    "5 SUIk",
+    "5kk",
+    "5kw",
+    "5wk",
+    "5ktoken",
+    "5kU",
+    "$5kBTC",
+    "5 k个",
+    "5 k比特币",
+    "5 比特币 k",
+    "5 个w比特币",
+    "3个千比特币",
+    "3个比特币千",
+    "3个万比特币",
+    "3京比特币",
+    "3个比特币京",
+    "3个百比特币",
+    "3个两比特币",
+    "3 个零比特币",
+    "3个廿",
+    "3个十",
+    "3个萬",
+    "0.5个二饼",
+    "3个比特",
+    "3个比特币们",
+    "3们个比特币",
+    "3个比特币现",
+    "3个以太坊币",
+    "3个以太经",
+    "3个美",
+    "3个刀美",
+    "3个狗狗",
+    "3个狗币",
+    "3个罗币",
+    "3 泰达",
+    "3 毛比特币",
+    "3 比特币毛",
+    "3 个打比特币",
+    "5 Cash",
+    "5 Inu",
+    "5 Classic",
+    "5 Protocol",
+    "5 BitcoinCash",
+    "5个Bitcoin Cash",
+    "5 Bitcoin Cash个",
+    "5 Bitcoin Cash k",
+    "5 k Bitcoin Cash",
+    "5 Shiba Inu USDT",
+    "5 Shiba Inu Inu",
+    "5 Bitcoin Cash Bitcoin Cash",
+    "5 个 Bitcoin Cash",
+    "5 Bitcoin 万 Cash",
+    "5 " + sans_serif("BTCETH"),
+    "5 " + monospace("BTCUSDT"),
+    "5 BTC" + raised("UsDT"),
+    "5 " + bold("UU"),
+    "5 " + bold("TOKENU"),
+    "5 OP" + raised("u"),
+    "5coin" + bold("U"),
+    "5 BTCETH",
+    "5 UU",
+    "5 TOKENU",
+    "500 bonk",
+    "500 ＢＯＮＫ",
+    "500 个BONK",
+    "500 BONK个",
+    "500 BONKs",
+    "500 BONK k",
+    "5 Baby Doge",
+    "5k Baby Doge",
+    "5 Baby",
+    "5kBaby Doge",
+    "5 Baby Doge k",
+    "5 k Baby Doge",
+    "5个邦克",
+    "5个邦克们",
+    "5 个邦克千",
+    "5w rapped bitcoin",
+    "5 BONK",
+    "5 k BTC",
+    "5 ksats",
+    "5个万",
+    "5 个千",
+    "5 兩",
+    "5BONK",
+    "5BTCUSDT",
+    "5BTC" + raised("UsDT"),
+    "5Baby Doge",
+    "5Book of Meme",
+    "5Over Protocol",
+    "5UU",
+    "5 Wrapped Bitcoin",
+    "5Wrapped Bitcoin",
+    "5 £",
+    "5£",
+    "5 ¥",
+    "5¥",
+    "5 \N{FEMININE ORDINAL INDICATOR}",
+    "5\N{FEMININE ORDINAL INDICATOR}",
+    "5 \N{MASCULINE ORDINAL INDICATOR}",
+    "5\N{MASCULINE ORDINAL INDICATOR}",
+    "5 €",
+    "5€",
+    "5兩",
+    "5 邦克",
+    "5邦克",
+    "5" + bold("BTCUSDT"),
+    "5" + bold("UU"),
+    "5k\N{ZERO WIDTH SPACE}BTC",
+    "5k\N{SOFT HYPHEN}BTC",
+    "5k-BTC",
+    "5k_BTC",
+    "5k.BTC",
+    "5k/BTC",
+    "5\N{THIN SPACE}kBTC",
+    "5\N{NARROW NO-BREAK SPACE}kBTC",
+    "5 \N{KELVIN SIGN}BTC",
+    "5\N{KELVIN SIGN}BTC",
+    "5 \N{CJK COMPATIBILITY IDEOGRAPH-F978}",
 ]
 
-# The number characters one round tried, in each of the places it tried them.
+F978 = "\N{CJK COMPATIBILITY IDEOGRAPH-F978}"
+
+# Words a caller allows for one call, a text, and what the text is then read as.
+READ_WITH_WORDS_FROM_THE_CALLER: list[tuple[tuple[str, ...], str, Reading]] = [
+    (("BONK",), "500 BONK", Recognised(Decimal("500"), "BONK")),
+    (("BONK",), "500 bonk", Recognised(Decimal("500"), "bonk")),
+    (("BONK",), "500 ＢＯＮＫ", Recognised(Decimal("500"), "ＢＯＮＫ")),
+    (("BONK",), "500 个BONK", Recognised(Decimal("500"), "个BONK")),
+    (("BONK",), "500 BONK个", Recognised(Decimal("500"), "BONK个")),
+    (("BONK",), "5k BONK", Recognised(Decimal("5000"), "BONK")),
+    (("BONK",), "5 kBONK", Unsure(Doubt.UNKNOWN_UNIT)),
+    (("BONK",), "5kBONK", Unsure(Doubt.UNCLEAR_MULTIPLIER)),
+    (("BONK",), "500 BONKs", Unsure(Doubt.UNKNOWN_UNIT)),
+    (("BONK",), "500 BONK k", Unsure(Doubt.UNKNOWN_UNIT)),
+    (("Baby Doge", "Book of Meme"), "5 Baby Doge", Recognised(Decimal("5"), "Baby Doge")),
+    (("Baby Doge", "Book of Meme"), "5 Book of Meme", Recognised(Decimal("5"), "Book of Meme")),
+    (("Baby Doge", "Book of Meme"), "5k Baby Doge", Recognised(Decimal("5000"), "Baby Doge")),
+    (("Baby Doge", "Book of Meme"), "5 Baby", Unsure(Doubt.UNKNOWN_UNIT)),
+    (("Baby Doge", "Book of Meme"), "5kBaby Doge", Unsure(Doubt.UNCLEAR_MULTIPLIER)),
+    (("Baby Doge", "Book of Meme"), "5 Baby Doge k", NotANumber()),
+    (("Baby Doge", "Book of Meme"), "5 k Baby Doge", NotANumber()),
+    (("Baby Doge", "Book of Meme"), "5 Book of Meme k", NotANumber()),
+    (("邦克", "Wrapped Bitcoin"), "5个邦克", Recognised(Decimal("5"), "个邦克")),
+    (("邦克", "Wrapped Bitcoin"), "5个邦克们", Unsure(Doubt.UNKNOWN_UNIT)),
+    (("邦克", "Wrapped Bitcoin"), "5 个邦克千", NotANumber()),
+    (("邦克", "Wrapped Bitcoin"), "5wrapped bitcoin", Recognised(Decimal("5"), "wrapped bitcoin")),
+    (("邦克", "Wrapped Bitcoin"), "5w rapped bitcoin", Unsure(Doubt.UNKNOWN_UNIT)),
+    (("Over Protocol",), "5 Over Protocol", Unsure(Doubt.APPROXIMATE)),
+    (("kBONK",), "5 kBONK", Recognised(Decimal("5"), "kBONK")),
+    (("kBONK",), "5kBONK", Recognised(Decimal("5"), "kBONK")),
+    (("kBONK",), "5 BONK", Unsure(Doubt.UNKNOWN_UNIT)),
+    (("kBONK", "BONK"), "5kBONK", Unsure(Doubt.UNCLEAR_MULTIPLIER)),
+    # A multiplier letter of this program is not taken from the caller: "5k"
+    # is five thousand with or without it, and "5 k" is five of nothing known.
+    (("k",), "5 k", Unsure(Doubt.UNKNOWN_UNIT)),
+    (("k",), "5 k BTC", Unsure(Doubt.UNKNOWN_UNIT)),
+    (("k",), "5k", Recognised(Decimal("5000"))),
+    (("k",), "5 kBTC", Unsure(Doubt.UNKNOWN_UNIT)),
+    (("w",), "5 w", Unsure(Doubt.UNKNOWN_UNIT)),
+    (("w",), "5w", Recognised(Decimal("50000"))),
+    # Other words that change a number are the caller's to answer for.
+    (("thousand",), "5 thousand", Recognised(Decimal("5"), "thousand")),
+    (("sats",), "5 sats", Recognised(Decimal("5"), "sats")),
+    (("ks",), "5ks", Recognised(Decimal("5"), "ks")),
+    (("sats", "ks"), "5 ksats", Unsure(Doubt.UNKNOWN_UNIT)),
+    # A number character is read as part of the number, or makes the text no number.
+    (("万",), "5个万", NotANumber()),
+    (("千",), "5 个千", NotANumber()),
+    (("万",), "5 万", Recognised(Decimal("50000"))),
+    (("千",), "5 千", Recognised(Decimal("5000"))),
+    (("兩",), "5 兩", NotANumber()),
+    (("兩",), f"5 {F978}", NotANumber()),
+    ((F978,), f"5 {F978}", NotANumber()),
+]
+
+# Characters that say a number, each tried in a dozen places around a number.
 NUMBER_CHARACTERS_TRIED = (
     "兆京垓秭穰沟涧正载极溝澗載極"
     "壹贰貳叁參叄参肆伍陆陸柒捌玖拾佰仟陌阡"
@@ -862,6 +1205,13 @@ def test_number_character_tried_as_a_unit_is_not_recognised_in_any_place(charact
     ]
 
     assert recognised == []
+
+
+@pytest.mark.parametrize(("allowed", "text", "reading"), READ_WITH_WORDS_FROM_THE_CALLER)
+def test_checked_text_with_words_from_the_caller_is_read_to_exactly_this(
+    allowed: tuple[str, ...], text: str, reading: Reading
+) -> None:
+    assert read_number(text, extra_units=allowed) == reading
 
 
 def test_no_checked_text_is_listed_twice() -> None:
