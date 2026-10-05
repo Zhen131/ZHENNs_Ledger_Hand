@@ -15,6 +15,7 @@ from pathlib import Path
 import pytest
 
 from ledger_hand.core.trade import NOT_ZONE_NAMES
+from ledger_hand.core.zones import is_zone_name
 from scripts import ledger_check
 from scripts.ledger_check import (
     Accepted,
@@ -330,7 +331,7 @@ def test_a_directory_git_cannot_read_is_not_clean(tmp_path: Path) -> None:
 
 
 def test_every_sample_has_a_name_of_its_own_and_the_golden_one_is_read_from_its_file() -> None:
-    chosen = ledger_check.samples()
+    chosen = ledger_check.light_samples()
     names = [sample.name for sample in chosen]
 
     assert len(set(names)) == len(names)
@@ -340,7 +341,7 @@ def test_every_sample_has_a_name_of_its_own_and_the_golden_one_is_read_from_its_
 
 
 def test_the_samples_cover_each_kind_of_expectation() -> None:
-    kinds = {type(sample.expected) for sample in ledger_check.samples()}
+    kinds = {type(sample.expected) for sample in ledger_check.light_samples()}
 
     assert kinds == {Accepted, HoldingsOnly, Refused}
 
@@ -384,3 +385,20 @@ def test_every_zone_name_the_machine_knows_is_taken_except_the_names_that_are_no
     assert "Europe/Budapest" in taken
     assert "UTC" in taken
     assert len(taken) > 300
+
+
+def test_every_case_has_a_name_of_its_own_and_heavy_ones_are_built_only_when_run() -> None:
+    from tests.ledger_check import cases
+
+    names = [case.name for case in [*cases.light_cases(), *cases.heavy_cases()]]
+    refusals = [case.name for case in cases.limit_refusals()]
+
+    assert len(set(names)) == len(names)
+    assert len(set(refusals)) == len(refusals) == 3
+
+
+def test_the_process_zones_are_the_machine_s_own_and_two_far_apart() -> None:
+    assert ledger_check.PROCESS_ZONES[0] is None
+    for zone in ledger_check.PROCESS_ZONES[1:]:
+        assert zone is not None
+        assert is_zone_name(zone)

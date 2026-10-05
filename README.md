@@ -56,11 +56,16 @@ writes saved trades as the text of a backup file in the ledger's own format
 and a card for every coin they use, with its full name and Binance market
 taken from the coin table. A saved trade (`core/stored.py`) is a finished
 record with the identifier and the creation and change moments that saving
-gives it. The same trades always give the same bytes. Nothing is written when
-there is no trade, an identifier is empty, too long or used twice, a coin is
-missing from the coin table, or a trade's time has an offset from UTC with
-seconds in it (some zones had one before the 1970s, and the ledger cannot
-write it); the answer lists every such issue instead.
+gives it. The same trades always give the same bytes. The caller hands in
+today's date, and the ledger is meant to be given the same one. Nothing is
+written when there is no trade; an identifier is empty, too long or used
+twice (compared the way the ledger compares text); a coin is missing from the
+coin table; a trade's time has an offset from UTC with seconds in it (some
+zones had one before the 1970s, and the ledger cannot write it); a trade's
+date, in its own zone, is after today; or there are more coins, trades or
+bytes than one ledger file may hold. The answer lists every such issue
+instead. A time zone name is taken only when it is spelled exactly as the
+zone database lists it.
 `backup_file_name` names the file, with the word `incremental` in it: the
 ledger's present import replaces the whole ledger, and a file of a few new
 trades must never be taken for a full backup. A golden sample, a committed
@@ -85,11 +90,11 @@ check and the hygiene scan).
 | `src/ledger_hand/core/` | Core rules: pure computation, no network, files, database, user interface or clock. Holds the shapes of a trade (`trade.py`), the coin table (`coins.py`), the ledger's limits (`ledger_limits.py`), exact decimal arithmetic (`arithmetic.py`), the reading and writing of numbers (`numbers.py`), the reading and writing of times (`timeparse.py`, with the wording of a time phrase in `time_wording.py`) and the check of a draft (`validation.py`), a saved trade (`stored.py`) and which time zone names are taken (`zones.py`). |
 | `src/ledger_hand/export/` | The ledger's backup format: the whole file (`backup.py`), one trade (`trade_entry.py`), one coin (`coin_card.py`), bookkeeping moments (`moments.py`) and the file's name (`file_name.py`). Writes no file itself. |
 | `tests/` | The tests. `tests/core/` and `tests/export/` have one test module per module. |
-| `tests/export/samples.py`, `tests/export/golden/` | Invented trades to export, shared with the ledger tier, and the golden sample. A golden sample is never edited once committed; a new format version gets one of its own. |
+| `tests/export/samples.py`, `tests/export/attack.py`, `tests/export/golden/` | Invented trades to export, batches of edge cases made to find where this program and the ledger part ways, both shared with the ledger tier, and the golden sample. A golden sample is never edited once committed; a new format version gets one of its own. |
 | `tests/guardrails/` | The layering check and the hygiene scan, the tests that prove they catch what they should, and the two gate tests that apply them to this repository. |
 | `scripts/check.sh` | One command that runs all checks. |
 | `scripts/ledger_check.py`, `scripts/ledger_validate.ts` | The ledger tier of the checks: sample files judged by the ledger's own validator. |
-| `tests/ledger_check/` | Tests of the ledger tier's own logic, and the one sample for it written by hand. |
+| `tests/ledger_check/` | What the ledger tier checks (`cases.py`), tests of the tier's own logic, and the one sample for it written by hand. |
 | `docs/architecture.md` | How the layers are divided, who may import whom, the house rules, and where new features go. |
 | `data/` | Not in Git. Run-time output, caches and, later, the local database. Created when first needed. |
 | `.venv/` | Not in Git. The local Python environment. |
@@ -171,12 +176,25 @@ selling more than is held (this program cannot know what the ledger holds), or
 refused with exactly the errors planted in it. The output lists every error
 the ledger reported for every sample.
 
+What is checked is listed in `tests/ledger_check/cases.py`: the golden sample,
+edge cases, batches of awkward trades (every time zone, the first and last
+days there are, awkward characters, extreme numbers, buys followed by sales,
+the ledger's limits of one file) and copies with mistakes planted in them.
+Each sample is handed to the ledger together with the date it is to take as
+today, the same date it was exported on, and is judged three times: in the
+machine's own time zone, in Los Angeles and in Kiritimati. Before that, the
+export itself must refuse one coin, one trade and one byte more than a file
+may hold. One sample is about 128 MiB, so the tier takes several seconds and
+over a gigabyte of memory.
+
 The ledger checkout is only read. Before and after, the tier asks Git whether
 the checkout is clean, with `git --no-optional-locks status --porcelain`,
 which writes nothing into it, and fails when it is not. `tsx` runs with
 `--no-cache`, and the configuration file it needs (one that extends the
 ledger's own, because it has to name the checkout) is generated in the
-temporary directory.
+temporary directory. Git does not see files it ignores, such as caches under
+`node_modules`; to make sure nothing at all was written, look for files newer
+than a marker made just before the run (`find <checkout> -newer <marker>`).
 
 When no checkout is named, the named one is missing, or `tsx`, Node.js or Git
 is missing, the tier is skipped: it prints why and ends with exit status `3`,

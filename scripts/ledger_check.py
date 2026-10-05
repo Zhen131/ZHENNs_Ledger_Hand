@@ -13,14 +13,15 @@ what the sample is expected to get. A sample is expected to be one of:
   cannot know: it does not see what the ledger already holds;
 - refused with exactly the errors that were planted in it, one for one.
 
-The samples: one file written by hand from the ledger's documented format;
-the committed golden sample; and files exported now from the invented trades
-in ``tests/export/samples.py``: trades at the edges of what this program
-accepts, a fee paid in a third coin, one trade in each time zone a trade may
-be recorded in, a sale with nothing bought before it, and copies of the golden
-sample with one mistake planted in each. The tier also
-fails when the ledger's format versions are no longer the ones this program
-writes.
+What is checked is said in ``tests/ledger_check/cases.py``, beside the
+invented trades the samples are exported from: a file written by hand, the
+committed golden sample, edge cases and batches of awkward trades, and copies
+with mistakes planted in them. Each sample is judged on a given today, handed
+to the ledger, and in three process time zones (the machine's own,
+Los Angeles and Kiritimati), so that no verdict depends on the clock or on
+where the ledger runs. Before any of that, the export itself must refuse
+inputs one past each of the ledger's limits of one file. The tier also fails
+when the ledger's format versions are no longer the ones this program writes.
 
 Where the ledger is comes from ``--ledger PATH`` or else from the environment
 variable ``LEDGER_HAND_LEDGER_DIR``. Nothing in this repository names a path
@@ -52,14 +53,16 @@ import sys
 import tempfile
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from datetime import date
 from pathlib import Path
+from types import ModuleType
+from typing import Any
 
 from ledger_hand.export.backup import BACKUP_FORMAT_VERSION, LEDGER_SCHEMA_VERSION
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 LEDGER_ENV = "LEDGER_HAND_LEDGER_DIR"
 VALIDATOR = REPO_ROOT / "scripts" / "ledger_validate.ts"
-HAND_WRITTEN_EXAMPLE = REPO_ROOT / "tests" / "ledger_check" / "hand_written_example.json"
 
 # Inside a ledger checkout.
 LEDGER_ENTRY = Path("src/features/backup/backupEnvelope.ts")
@@ -69,6 +72,10 @@ LEDGER_CONFIG = Path("tsconfig.json")
 # The line on which the validator prints its findings starts with this.
 MARKER = "LEDGER_HAND_RESULT "
 VALIDATOR_TIMEOUT_SECONDS = 600
+
+# The time zones the validator's process is run in: the machine's own, and
+# two far apart, so that no verdict depends on where the ledger happens to be.
+PROCESS_ZONES = (None, "America/Los_Angeles", "Pacific/Kiritimati")
 
 # How the ledger says that a sale exceeds what is held: this code, with one of
 # these two messages. The same code is also used for other errors, so both
@@ -134,11 +141,12 @@ Expectation = Accepted | HoldingsOnly | Refused
 
 @dataclass(frozen=True)
 class Sample:
-    """One file for the ledger to judge, and what it should get."""
+    """One file for the ledger to judge, the date it is to take as today, and what it should get."""
 
     name: str
     text: str
     expected: Expectation
+    today: date
 
 
 # --- what the ledger said ---------------------------------------------------
@@ -224,64 +232,56 @@ def _unmatched(planted: Sequence[PlantedError], reported: Sequence[LedgerError])
 # --- the samples ------------------------------------------------------------
 
 
-def samples() -> list[Sample]:
-    """Every sample the ledger is asked to judge, in the order they are reported."""
-    # The invented trades live with the tests; this script runs from its own
-    # directory, so the repository has to be put on the path to reach them.
+def _cases() -> ModuleType:
+    """The module that says what to check; it lives with the tests and their invented trades."""
+    # This script runs from its own directory, so the repository has to be put
+    # on the path to reach the tests.
     if str(REPO_ROOT) not in sys.path:
         sys.path.insert(0, str(REPO_ROOT))
-    from tests.export import samples as invented
+    from tests.ledger_check import cases
 
-    broken = invented.broken_texts()
-    return [
-        Sample("hand-written-example.json", _read(HAND_WRITTEN_EXAMPLE), Accepted()),
-        Sample(invented.GOLDEN_FILE.name, _read(invented.GOLDEN_FILE), Accepted()),
-        Sample("edges.json", invented.edge_text(), Accepted()),
-        Sample("third-coin-fee.json", invented.third_coin_fee_text(), Accepted()),
-        Sample("every-zone.json", invented.every_zone_text(), Accepted()),
-        Sample("sell-only.json", invented.sell_only_text(), HoldingsOnly()),
-        Sample(
-            "broken-total-off.json",
-            broken["total-off"],
-            Refused(
-                (
-                    PlantedError(
-                        "LEDGER_DATA_INVALID_ENTITY", "trades[0].totalValue", "TOTAL_VALUE_MISMATCH"
-                    ),
-                )
-            ),
-        ),
-        Sample(
-            "broken-fee-coin-missing.json",
-            broken["fee-coin-missing"],
-            Refused(
-                (
-                    PlantedError(
-                        "LEDGER_DATA_INVALID_REFERENCE",
-                        "trades[0].feeCurrency",
-                        "Unknown fee asset: BNB",
-                    ),
-                )
-            ),
-        ),
-        Sample(
-            "broken-zone-disagrees.json",
-            broken["zone-disagrees"],
-            Refused(
-                (
-                    PlantedError(
-                        "LEDGER_DATA_INVALID_ENTITY",
-                        "trades[2].occurredAt",
-                        "offset must match occurredTimeZone",
-                    ),
-                )
-            ),
-        ),
-    ]
+    return cases
 
 
-def _read(path: Path) -> str:
-    return path.read_text(encoding="utf-8")
+def light_samples() -> list[Sample]:
+    """Every sample but the very large one, in the order they are reported."""
+    return [_sample(case) for case in _cases().light_cases()]
+
+
+def heavy_samples() -> list[Sample]:
+    """The sample exactly as large as the ledger reads, about 128 MiB."""
+    return [_sample(case) for case in _cases().heavy_cases()]
+
+
+def _sample(case: Any) -> Sample:
+    cases = _cases()
+    if case.expect is cases.Expect.ACCEPTED:
+        expected: Expectation = Accepted()
+    elif case.expect is cases.Expect.HOLDINGS_ONLY:
+        expected = HoldingsOnly()
+    else:
+        expected = Refused(tuple(PlantedError(*planted) for planted in case.planted))
+    return Sample(case.name, case.build(), expected, case.today)
+
+
+def check_limit_refusals() -> bool:
+    """Whether the export refuses one past each of the ledger's limits, as it should."""
+    all_refused = True
+    for case in _cases().limit_refusals():
+        result = case.build()
+        issues = getattr(result, "issues", None)
+        expected = [(case.problem, case.subject)]
+        found = None if issues is None else [(issue.problem, issue.subject) for issue in issues]
+        as_expected = found == expected
+        all_refused = all_refused and as_expected
+        verdict = "as expected" if as_expected else "NOT AS EXPECTED"
+        outcome = (
+            "exported"
+            if found is None
+            else "refused: " + ", ".join(f"{problem.name} {subject}" for problem, subject in found)
+        )
+        print(f"{verdict}: export of {case.name}: {outcome}")
+    return all_refused
 
 
 # --- finding the ledger -----------------------------------------------------
@@ -359,14 +359,22 @@ def write_samples(directory: Path, chosen: Sequence[Sample]) -> list[Path]:
     return files
 
 
-def run_validator(ledger: Path, config: Path, files: Sequence[Path]) -> ValidatorReport | str:
-    """What the ledger's validator says about each file, or why it could not be run."""
+def run_validator(
+    ledger: Path, config: Path, files: Sequence[Path], today: date, zone: str | None = None
+) -> ValidatorReport | str:
+    """What the ledger's validator says about each file, or why it could not be run.
+
+    ``today`` is handed to the ledger as its today. ``zone``, when given, is
+    the time zone the validator's process runs in, in place of the machine's.
+    """
     command = [str(ledger / LEDGER_TSX), "--no-cache", "--tsconfig", str(config), str(VALIDATOR)]
-    command += [str(ledger), *map(str, files)]
+    command += [str(ledger), today.isoformat(), *map(str, files)]
+    environment = dict(os.environ) if zone is None else {**os.environ, "TZ": zone}
     try:
         done = subprocess.run(
             command,
             cwd=ledger,
+            env=environment,
             capture_output=True,
             text=True,
             encoding="utf-8",
@@ -414,14 +422,37 @@ def run(ledger: Path, chosen: Sequence[Sample]) -> Outcome:
     with tempfile.TemporaryDirectory(prefix="ledger-hand-check-") as scratch:
         directory = Path(scratch)
         config = write_config(directory, ledger)
-        report = run_validator(ledger, config, write_samples(directory, chosen))
+        files = write_samples(directory, chosen)
+        answers = _validate_everywhere(ledger, config, chosen, files)
     clean_after = _reported_clean(ledger, "after")
-    if isinstance(report, str):
-        print(report)
+    if isinstance(answers, str):
+        print(answers)
         return Outcome.FAILED
+    report, verdicts = answers
     versions_match = _reported_versions(report)
-    all_as_expected = _reported_verdicts(chosen, report.verdicts)
+    all_as_expected = _reported_verdicts(chosen, verdicts)
     return Outcome.PASSED if all_as_expected and versions_match and clean_after else Outcome.FAILED
+
+
+def _validate_everywhere(
+    ledger: Path, config: Path, chosen: Sequence[Sample], files: Sequence[Path]
+) -> tuple[ValidatorReport, list[list[Verdict]]] | str:
+    """Each sample's verdict in each process time zone, judged on the sample's own today."""
+    verdicts: list[list[Verdict]] = [[] for _ in chosen]
+    report: ValidatorReport | None = None
+    for zone in PROCESS_ZONES:
+        for today in sorted({sample.today for sample in chosen}):
+            places = [place for place, sample in enumerate(chosen) if sample.today == today]
+            answer = run_validator(ledger, config, [files[place] for place in places], today, zone)
+            if isinstance(answer, str):
+                return answer
+            if len(answer.verdicts) != len(places):
+                return f"the validator answered for {len(answer.verdicts)} of {len(places)} files"
+            report = report or answer
+            for place, verdict in zip(places, answer.verdicts, strict=True):
+                verdicts[place].append(verdict)
+    assert report is not None
+    return report, verdicts
 
 
 def _reported_versions(report: ValidatorReport) -> bool:
@@ -444,23 +475,38 @@ def _reported_clean(ledger: Path, when: str) -> bool:
     return state.clean
 
 
-def _reported_verdicts(chosen: Sequence[Sample], verdicts: Sequence[Verdict]) -> bool:
-    if len(verdicts) != len(chosen):
-        print(f"the validator answered for {len(verdicts)} of {len(chosen)} files")
-        return False
+def _reported_verdicts(chosen: Sequence[Sample], verdicts: Sequence[Sequence[Verdict]]) -> bool:
     failures = 0
-    for sample, verdict in zip(chosen, verdicts, strict=True):
-        problems = judge(sample.expected, verdict)
-        failures += bool(problems)
-        print(f"\n{'as expected' if not problems else 'NOT AS EXPECTED'}: {sample.name}")
-        print(f"  expected: {sample.expected}")
-        print(f"  ledger: {'accepted' if verdict.accepted else 'refused'}")
-        for error in verdict.errors:
-            print(f"    {error}")
-        for problem in problems:
-            print(f"  problem: {problem}")
+    for sample, answers in zip(chosen, verdicts, strict=True):
+        problems = {
+            _zone_label(zone): judge(sample.expected, verdict)
+            for zone, verdict in zip(PROCESS_ZONES, answers, strict=True)
+        }
+        failed = any(problems.values())
+        failures += failed
+        print(f"\n{'NOT AS EXPECTED' if failed else 'as expected'}: {sample.name}")
+        print(f"  expected: {sample.expected}, judged on {sample.today.isoformat()}")
+        if all(answer == answers[0] for answer in answers):
+            zones = ", ".join(_zone_label(zone) for zone in PROCESS_ZONES)
+            _print_verdict(f"ledger, in each process time zone ({zones})", answers[0])
+        else:
+            for zone, answer in zip(PROCESS_ZONES, answers, strict=True):
+                _print_verdict(f"ledger, in {_zone_label(zone)}", answer)
+        for zone, found in problems.items():
+            for problem in found:
+                print(f"  problem ({zone}): {problem}")
     print(f"\n{len(chosen) - failures} of {len(chosen)} samples got what they should")
     return failures == 0
+
+
+def _print_verdict(where: str, verdict: Verdict) -> None:
+    print(f"  {where}: {'accepted' if verdict.accepted else 'refused'}")
+    for error in verdict.errors:
+        print(f"    {error}")
+
+
+def _zone_label(zone: str | None) -> str:
+    return "the machine's own" if zone is None else zone
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -471,7 +517,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     if isinstance(located, str):
         print(f"skipped: {located}")
         return Outcome.SKIPPED.value
-    return run(located, samples()).value
+    print("== the export's own refusals at the ledger's limits ==")
+    refused_as_expected = check_limit_refusals()
+    print("\n== sample files judged by the ledger ==")
+    outcome = run(located, light_samples() + heavy_samples())
+    passed = outcome is Outcome.PASSED and refused_as_expected
+    return (Outcome.PASSED if passed else Outcome.FAILED).value
 
 
 if __name__ == "__main__":
