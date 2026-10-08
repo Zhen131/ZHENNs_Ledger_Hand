@@ -19,9 +19,9 @@ Without ``--answers`` the script asks at the terminal, reading each answer
 from standard input. With ``--answers FILE`` it is not interactive: the
 answers are the lines of the file (``-`` for standard input, after the
 passage when the passage is not given as arguments), each printed after
-its question as if typed. When they run out before every trade is settled,
-the script stops; when they run out once every trade is settled, that
-counts as "done".
+its question as if typed. When the answers, or the input at the terminal,
+run out before every trade is settled, the script stops; once every trade
+is settled, running out counts as "done".
 
 The current moment is read from the machine's clock and the zone is the
 machine's own, read with ``tzlocal``; both are handed in. Nothing is written

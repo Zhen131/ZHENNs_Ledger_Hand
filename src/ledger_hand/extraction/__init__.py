@@ -14,6 +14,14 @@ word names, ``row_draft`` turns one row into a draft, ``issues`` holds the
 kinds of issue, ``prompting`` builds the messages and ``prompts`` holds the
 prompt versions.
 
+Two more steps ask the model about what the user typed, in the same way:
+``screening`` judges a passage before extraction (does it report a trade the
+ledger records?), with the list the model fills in ``screen_table``; and
+``answer_phrase`` reads an answer to a follow-up question, by the rules of
+the core and the word lists of ``answer_words``, asking the model only to
+copy one piece of it (``answer_table``). ``passage_check`` is the check
+every step makes before a passage is sent.
+
 This package imports only ``core`` and the ports file. It reads no clock, no
 time zone of the machine and no environment variable: the current moment and
 the zone are handed in. The layering check enforces it.
