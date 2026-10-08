@@ -11,6 +11,14 @@ because a misspelt name would otherwise be ignored without a word.
 The key, if there is one, is kept in a ``Secret``: printing it, or printing
 the settings, shows a placeholder, and no error message here ever repeats it.
 
+``load_data_places`` reads where the program keeps its data: the folder
+named by ``LEDGER_HAND_DATA_DIR``, or ``data`` in the current working
+directory when it is not set. The book (the SQLite file of saved trades) and
+the folder of export files are inside it. This variable does not start with
+the model settings' prefix, so it is not one of them, and the other
+``LEDGER_HAND_`` variables the scripts read are left alone as before. Reading
+it makes nothing: the folders are made by whatever first writes there.
+
 Every default is a named constant below, with the reason for its value. Tests
 compare against these names, never against the numbers, so a default is
 tuned here and nowhere else.
@@ -20,7 +28,8 @@ store anything or know about the other parts of the package.
 
 Names defined here: ``ENV_PREFIX``, ``Variable``, the ``DEFAULT_...``
 constants, ``MAX_RETRIES``, ``Secret``, ``SettingsError``, ``ModelSettings``,
-``load_model_settings``.
+``load_model_settings``, ``DATA_DIRECTORY_VARIABLE``, ``BOOK_FILE_NAME``,
+``EXPORTS_DIRECTORY_NAME``, ``DataPlaces`` and ``load_data_places``.
 """
 
 from __future__ import annotations
@@ -31,6 +40,7 @@ import os
 import re
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
+from pathlib import Path
 from urllib.parse import urlsplit
 
 ENV_PREFIX = "LEDGER_HAND_MODEL_"
@@ -332,3 +342,51 @@ def _check_whole(
         raise SettingsError(
             f"{variable.value}: {value} is out of range; it must be {lowest} or more{top}"
         )
+
+
+# --- where the data is kept --------------------------------------------------
+
+DATA_DIRECTORY_VARIABLE = "LEDGER_HAND_DATA_DIR"
+# Beside the program, where the repository's own ignore file keeps it out of Git.
+DEFAULT_DATA_DIRECTORY = "data"
+# The book: the SQLite file of saved trades.
+BOOK_FILE_NAME = "ledger-hand-book.sqlite3"
+# The folder export files are written into.
+EXPORTS_DIRECTORY_NAME = "exports"
+
+
+@dataclass(frozen=True)
+class DataPlaces:
+    """Where the data is kept: the folder, the book inside it, and the folder of exports."""
+
+    directory: Path
+
+    @property
+    def book(self) -> Path:
+        return self.directory / BOOK_FILE_NAME
+
+    @property
+    def exports(self) -> Path:
+        return self.directory / EXPORTS_DIRECTORY_NAME
+
+
+def load_data_places(
+    environ: Mapping[str, str] | None = None, *, working_directory: Path | None = None
+) -> DataPlaces:
+    """Where the data is kept, from ``environ`` or the process's environment when ``None``.
+
+    A relative folder, and the default, are taken from ``working_directory``,
+    or the current one when ``None``; a leading ``~`` is the home folder.
+    Nothing is made here.
+    """
+    source = os.environ if environ is None else environ
+    base = Path.cwd() if working_directory is None else working_directory
+    value = source.get(DATA_DIRECTORY_VARIABLE)
+    if value is None or not value.strip():
+        return DataPlaces(base / DEFAULT_DATA_DIRECTORY)
+    named = value.strip()
+    if "\0" in named:
+        raise SettingsError(
+            f"{DATA_DIRECTORY_VARIABLE}: a folder's name cannot hold a NUL character"
+        )
+    return DataPlaces(base / Path(named).expanduser())
