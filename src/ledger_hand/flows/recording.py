@@ -2,9 +2,14 @@
 
 The steps, each handing back a new ``Progress``:
 
-- ``start`` takes the passage, a model port, the current moment and the zone.
-  The passage is checked first and never sent when it is empty, too long or
-  not valid text. The model judges it (``extraction.screening``): when it
+- ``start`` takes the passage, a model port, the current moment and the zone,
+  and, if the caller hands one in, the book (a storage port). With a book,
+  the passage is first looked up by its fingerprint: the earlier saves of it,
+  or of one that differs only in spacing or the width of its characters, are
+  kept as a reminder and hold nothing back; and the coins the user confirmed
+  and saved before join the coin table. Without a book, nothing is looked
+  up and nothing is opened. The passage is checked next and never sent when
+  it is empty, too long or not valid text. The model judges it (``extraction.screening``): when it
   reports only things the ledger does not record, it is stopped, with the
   reason for each and the passage's own words where the model gave them, and
   nothing is extracted; when it reports nothing, there is no trade. Otherwise
@@ -32,8 +37,9 @@ over. A failure while reading an answer or wording a question does not end
 it: the answer is asked for again, or the program's own sentence is used.
 
 The current moment and the zone are those of the passage throughout, and
-the coins the user confirms are known for the rest of the run only. Nothing
-is written anywhere.
+the coins the user confirms are known for the rest of the run only; saving
+keeps them with the trades that use them (``saving``). Nothing is written
+anywhere here, and a book handed in is only read.
 
 Names defined here: ``start``, ``answer``, ``remove``, ``cancel``,
 ``finish`` and ``tuning_from``.
@@ -45,6 +51,7 @@ import dataclasses
 from datetime import datetime
 
 from ledger_hand.asking.prompts.bookkeeper import BOOKKEEPER_PROMPT
+from ledger_hand.core.book import EarlierSave
 from ledger_hand.core.coins import BUILT_IN_TABLE, CoinTable
 from ledger_hand.core.followup import CannotRecord, ConfirmCoin, next_follow_up
 from ledger_hand.core.trade import OccurredTime, TradeRecord
@@ -69,7 +76,9 @@ from ledger_hand.extraction.prompts.answer import ANSWER_PROMPT
 from ledger_hand.extraction.prompts.first import FIRST_PROMPT
 from ledger_hand.extraction.prompts.screen import SCREEN_PROMPT
 from ledger_hand.extraction.screening import Decision, Screened, screen
+from ledger_hand.flows.coin_book import with_confirmed_coins
 from ledger_hand.flows.filling import confirm, fill
+from ledger_hand.flows.fingerprint import passage_fingerprint
 from ledger_hand.flows.progress import (
     DEFAULT_TUNING,
     Asked,
@@ -85,7 +94,7 @@ from ledger_hand.flows.progress import (
     Tuning,
 )
 from ledger_hand.flows.questions import make_question
-from ledger_hand.ports import ModelParameters, ModelPort, ReplyRecord
+from ledger_hand.ports import ModelParameters, ModelPort, ReplyRecord, StoragePort
 from ledger_hand.settings import ModelSettings
 
 _PROMPT_OF = {
@@ -120,13 +129,25 @@ def start(
     zone: str,
     coins: CoinTable = BUILT_IN_TABLE,
     tuning: Tuning = DEFAULT_TUNING,
+    book: StoragePort | None = None,
 ) -> Progress:
-    """Judge ``passage``, extract its trades, check them, and ask the first question."""
+    """Judge ``passage``, extract its trades, check them, and ask the first question.
+
+    With ``book``, the earlier saves of the passage are looked up and the
+    coins confirmed before join ``coins``; a failure of the book raises its
+    ``StorageError`` before the model is asked anything.
+    """
     if not isinstance(now, datetime) or now.utcoffset() is None:
         raise ValueError("the current moment must be a datetime that carries an offset")
     if not is_zone_name(zone):
         raise ValueError(f"not a time zone name: {zone!r}")
-    progress = Progress(Stage.REFUSED, passage, Setting(now, zone, coins, tuning))
+    seen_before: tuple[EarlierSave, ...] = ()
+    if book is not None:
+        seen_before = book.earlier_saves(passage_fingerprint(passage))
+        coins = with_confirmed_coins(coins, book.confirmed_coins())
+    progress = Progress(
+        Stage.REFUSED, passage, Setting(now, zone, coins, tuning), seen_before=seen_before
+    )
     screening = screen(passage, model, asks_again=tuning.asks_again)
     progress = _with_calls(progress, Step.SCREENING, _calls_of(screening))
     if isinstance(screening, PassageRefused):

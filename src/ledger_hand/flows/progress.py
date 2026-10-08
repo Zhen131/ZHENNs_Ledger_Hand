@@ -4,8 +4,9 @@ A ``Progress`` holds everything a command line or an interface needs to show
 and nothing it has to work out: the stage (``Stage``), every trade with its
 draft and what became of it (``TradeState``), the question waiting for its
 answer (``Question``), why the passage was stopped or what was set aside, the
-reminders from extraction, why nothing could be done when the model failed,
-which prompt versions were used and a record of every call to the model. Its
+reminders from extraction, the earlier saves of the same passage when a book
+was handed in, why nothing could be done when the model failed, which prompt
+versions were used and a record of every call to the model. Its
 properties say what may be done next: whether a trade can be removed, whether
 the whole passage can be dropped, whether every trade is settled and whether
 the passage is over.
@@ -24,6 +25,7 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from ledger_hand.asking.question_text import Writer
+from ledger_hand.core.book import EarlierSave
 from ledger_hand.core.coins import CoinTable
 from ledger_hand.core.followup import AskCell, AskWhichCell, ConfirmCoin, Problem
 from ledger_hand.core.trade import OccurredTime, TradeDraft, TradeRecord
@@ -188,6 +190,10 @@ class Progress:
     ``reminders`` the ones to keep in mind. ``note`` says why an answer given
     once every trade was settled could not be used. ``prompts`` names the
     prompt version used for each step, in the order first used.
+    ``seen_before`` lists the earlier saves of this passage, or of one that
+    differs from it only in spacing or the width of its characters, oldest
+    first; it is only ever filled when a book was handed in, and it only
+    reminds: nothing is held back for it.
     """
 
     stage: Stage
@@ -203,6 +209,7 @@ class Progress:
     note: str | None = None
     prompts: tuple[tuple[Step, str], ...] = ()
     calls: tuple[Call, ...] = ()
+    seen_before: tuple[EarlierSave, ...] = ()
 
     @property
     def records(self) -> tuple[TradeRecord, ...]:
