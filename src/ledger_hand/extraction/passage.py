@@ -22,7 +22,9 @@ piece of a passage that says "BTC", and neither is "0.02BTC" of one that says
 "0.02 BTC".
 
 A phrase is a piece only where it does not cut a number of the passage in
-two (``passage_numbers`` says what a number is). "94" is not a piece of
+two (``passage_numbers`` says what a number is, and it is told where the
+passage wrote a comma full width, since tidying turns that comma into an
+ordinary one: "63,000，1.5" is two numbers, "94，900" one). "94" is not a piece of
 "94,900", "1.2" is not one of "1.2k", and "8" is not one of "8万": copied that
 way, the number would come out as another number. When the phrase stands in
 the passage more than once, the first place where it cuts no number is the
@@ -69,6 +71,8 @@ from ledger_hand.extraction.passage_numbers import number_runs, number_spans
 # Far more places than a phrase of a real passage stands in as part of other
 # numbers before it stands alone.
 MAX_PLACES_TRIED = 256
+
+_FULL_WIDTH_COMMA = "\N{FULLWIDTH COMMA}"
 
 
 class PieceMiss(enum.Enum):
@@ -139,12 +143,18 @@ class Passage:
     def __init__(self, text: str) -> None:
         self.text = text
         self._tidy, self._origins = _tidied(text)
-        self._numbers = number_spans(self._tidy)
+        # Tidying turns a full-width comma into an ordinary one; where one
+        # stood decides where a number ends, so it is passed on. The same
+        # places are used for the numbers of the passage and for the cuts.
+        commas = frozenset(
+            place for place, origin in enumerate(self._origins) if text[origin] == _FULL_WIDTH_COMMA
+        )
+        self._numbers = number_spans(self._tidy, commas)
         self._number_starts = [start for start, _ in self._numbers]
         # A phrase may not begin inside a run that could be a number, and may
         # not end inside a number; the two differ only where "so much a
         # piece" follows a number.
-        self._start_cuts = _inside(number_runs(self._tidy), len(self._tidy))
+        self._start_cuts = _inside(number_runs(self._tidy, commas), len(self._tidy))
         self._end_cuts = _inside(self._numbers, len(self._tidy))
         # resume[i]: the first place from i on where a phrase may begin.
         self._resume = list(range(len(self._tidy) + 1))
