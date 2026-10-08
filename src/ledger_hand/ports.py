@@ -1,4 +1,4 @@
-"""The model port: what the rest of the program may ask of a language model.
+"""The two ports: what the rest of the program may ask of a language model and of storage.
 
 The rest of the program only ever talks to a ``ModelPort``. Behind it sits a
 plug: the local model server today, perhaps a cloud service later, or a
@@ -7,17 +7,25 @@ a JSON schema the reply has to follow, and the sampling parameters; it gets
 back the reply's text and a short record of the call. Every failure, whatever
 the plug, is one ``ModelError`` carrying one of six kinds.
 
-This module only declares shapes. It sends nothing, reads no settings and
-holds no prompt. Whether the text of a reply is valid JSON that follows the
-schema is for the caller to check: a model reply is untrusted input. Which
-plug is used, and with which default parameters, is decided where the plug is
-built from the settings.
+Saved trades are kept behind a ``StoragePort``: a SQLite file today, or an
+in-memory stand-in in the tests. It saves the trades recorded from one
+passage together, with the coins the user confirmed for them; says whether a
+passage with the same fingerprint was saved before; lists the saved trades,
+all of them or those not exported yet; marks trades as exported; and lists
+the confirmed coins. Every failure, whatever the plug, is one
+``StorageError`` carrying one of eight kinds. The shapes it takes and gives
+carry moments, so they are declared in ``core.book`` and only named here.
 
-The storage port joins this file when storage is built.
+This module only declares shapes. It sends nothing, stores nothing, reads no
+settings and holds no prompt. Whether the text of a reply is valid JSON that
+follows the schema is for the caller to check: a model reply is untrusted
+input. Which plug is used, and with which defaults, is decided where the plug
+is built from the settings.
 
 Names defined here: ``Role``, ``Message``, ``JsonSchema``,
 ``ModelParameters``, ``FinishReason``, ``ReplyRecord``, ``ModelReply``,
-``ModelErrorKind``, ``ModelError``, ``ModelPort``.
+``ModelErrorKind``, ``ModelError``, ``ModelPort``, ``StorageErrorKind``,
+``StorageError`` and ``StoragePort``.
 """
 
 from __future__ import annotations
@@ -26,6 +34,16 @@ import enum
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Protocol
+
+from ledger_hand.core.book import (
+    ConfirmedCoin,
+    EarlierSave,
+    ExportMark,
+    ListedTrade,
+    Listing,
+    PassageSave,
+)
+from ledger_hand.core.stored import StoredTrade
 
 
 class Role(enum.Enum):
@@ -208,4 +226,83 @@ class ModelPort(Protocol):
         With ``reply_schema`` the model is asked to write JSON that follows
         it. Without ``parameters`` the plug uses the defaults it was built with.
         """
+        ...
+
+
+class StorageErrorKind(enum.Enum):
+    """The eight kinds of storage failure. Every plug sorts every failure into one of them."""
+
+    NEWER_VERSION = "newer_version"
+    """The book was written by a newer version of this program; it is left as it is."""
+    NOT_A_DATABASE = "not_a_database"
+    """The file is not a database at all; it is left as it is."""
+    NOT_THIS_PROGRAMS = "not_this_programs"
+    """The file is a database, but not this program's book, or its tables are not
+    the ones its version has; it is left as it is."""
+    DAMAGED = "damaged"
+    """The book is damaged: cut short, or holding what cannot be read back."""
+    LOCKED = "locked"
+    """Someone else is using the book and it stayed busy for longer than the wait allowed."""
+    INACCESSIBLE = "inaccessible"
+    """The book or its folder cannot be made, read or written: no permission, a
+    folder that is read-only or not a folder, a full disk, or an input or output error."""
+    CONFLICT = "conflict"
+    """What was asked does not fit what the book holds: an identifier already
+    saved, or a trade to mark that is not there or was exported already."""
+    UNEXPECTED = "unexpected"
+    """A failure that fits no other kind; the message says what the store reported."""
+
+
+class StorageError(Exception):
+    """A storage operation failed; ``kind`` says how and ``message`` says it in words.
+
+    Nothing is changed by an operation that fails: a save, or a marking, is
+    whole or not at all.
+    """
+
+    def __init__(self, kind: StorageErrorKind, message: str) -> None:
+        super().__init__(kind, message)
+        self.kind = kind
+        self.message = message
+
+    def __str__(self) -> str:
+        return f"{self.kind.value}: {self.message}"
+
+    def __repr__(self) -> str:
+        return f"StorageError({self.kind.name}, {self.message!r})"
+
+
+class StoragePort(Protocol):
+    """Where saved trades are kept. Every method raises ``StorageError`` when it fails.
+
+    Moments come back in UTC; they are the same instants that were handed in.
+    """
+
+    def save(self, passage: PassageSave) -> tuple[StoredTrade, ...]:
+        """Save the trades of ``passage`` and its confirmed coins, all together or not at all.
+
+        Gives back the trades as saved. A coin already in the book keeps the
+        moment it was first confirmed. An identifier already in the book is
+        a ``CONFLICT``, and nothing is saved.
+        """
+        ...
+
+    def earlier_saves(self, fingerprint: str) -> tuple[EarlierSave, ...]:
+        """Every earlier save of a passage with ``fingerprint``, oldest first; none if never."""
+        ...
+
+    def trades(self, listing: Listing) -> tuple[ListedTrade, ...]:
+        """The saved trades ``listing`` asks for, in the order they were saved."""
+        ...
+
+    def mark_exported(self, mark: ExportMark) -> None:
+        """Mark every trade ``mark`` names as exported at its moment, all of them or none.
+
+        A trade that is not in the book, or was exported already, is a
+        ``CONFLICT``, and nothing is marked.
+        """
+        ...
+
+    def confirmed_coins(self) -> tuple[ConfirmedCoin, ...]:
+        """Every coin the user confirmed and saved a trade with, in the order of their symbols."""
         ...
