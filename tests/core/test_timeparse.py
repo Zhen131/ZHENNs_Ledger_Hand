@@ -264,11 +264,11 @@ DATES = [
     own("Sept. 30", "2026-09-30 day"),
     own("去年10月2号", "2025-10-02 day"),
     own("今年1月1日", "2026-01-01 day"),
-    own("12月25号", "2025-12-25 day"),
-    own("Dec 25", "2025-12-25 day"),
-    own("10月8号", "2025-10-08 day"),
+    own("12月25号", "AMBIGUOUS"),
+    own("Dec 25", "AMBIGUOUS"),
+    own("10月8号", "AMBIGUOUS"),
     own("2号", "2026-10-02 day"),
-    own("8号", "2026-09-08 day"),
+    own("8号", "AMBIGUOUS"),
     own("上个月15号", "2026-09-15 day"),
     own("这个月8号", "IN_THE_FUTURE"),
     own("2月29号", "2024-02-29 day"),
@@ -589,11 +589,11 @@ def test_counting_back_across_a_month_a_year_and_a_leap_day(
     assert outcome("3 days ago", now, zone) == f"{three_days_ago} day"
 
 
-def test_a_leap_day_without_a_year_is_the_latest_one_not_after_today() -> None:
+def test_a_leap_day_without_a_year_is_this_year_s_once_come_and_ambiguous_before() -> None:
     now = local(SHANGHAI, 2028, 3, 1, 10, 0)
 
     assert outcome("2月29号", now) == "2028-02-29 day"
-    assert outcome("Feb 29", local(SHANGHAI, 2028, 2, 28, 10, 0)) == "2024-02-29 day"
+    assert outcome("Feb 29", local(SHANGHAI, 2028, 2, 28, 10, 0)) == "AMBIGUOUS"
 
 
 # --- summer time: the days the clocks change ---------------------------------

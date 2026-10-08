@@ -48,7 +48,13 @@ words, weekdays and dates count calendar days. Every part of the text must be
 one the program knows. When the text can mean more than one time ("10/2",
 "晚上 12 点", "last Monday" on most days of the week), the clocks skipped
 that time, or it lies in the future, the answer says so, never a guess; on
-the night the clocks go back, a time shown twice comes back as two candidates. `write_time` writes a time the way the ledger takes
+the night the clocks go back, a time shown twice comes back as two
+candidates. A date said without its year whose day this year is still to
+come ("10月8号" said on 7 October) is ambiguous too: it may mean last year's,
+or the day may be a slip, and the program asks instead of picking one. A day
+of the month without its month ("8号" said on the 7th) is the same. Only a
+day this year (this month) does not have at all, such as 29 February, is
+looked for further back. `write_time` writes a time the way the ledger takes
 it: a date, or a moment with its seconds and offset.
 
 **A file the ledger accepts.** `export_backup` in `src/ledger_hand/export/`

@@ -37,11 +37,18 @@ date and the moment:
   the Friday of the week before this one. "last Friday" may mean the latest
   Friday before today or the Friday of last week: where the two are the same
   day it is that day, and where they differ the answer is ambiguous.
-- A date without a year is the latest such date that is not after today, and
-  a day of the month without a month likewise. A clock time without a day is
-  on today. The date is settled first and the clock time put on it after;
-  when that lands after the current moment, the answer is "in the future". It
-  is never moved back a day, a week or a year to make it fit.
+- A date without a year ("10月8号", "Dec 25") is this year's when that day
+  has come. When this year's is still to come, the answer is "ambiguous": the
+  user may mean last year's, or may have said the wrong day, and the program
+  does not pick one. Only when this year has no such day at all (29 February)
+  is it looked for further back: the latest one that is not after today. A
+  day of the month without a month ("8号") works the same way with months:
+  this month's when it has come, "ambiguous" when it is still to come, and
+  the latest one before when this month has no such day ("31号"). A clock
+  time without a day is on today. The date is settled first and the clock
+  time put on it after; when that lands after the current moment, the answer
+  is "in the future". It is never moved back a day, a week or a year to make
+  it fit.
 - In the future means what it means to ``OccurredTime.is_in_the_future``:
   for a moment, later than the current moment plus the grace; for a day,
   after today's date. A date after today is in the future whatever clock time
@@ -307,6 +314,8 @@ def _month_day_date(spec: MonthDay, today: date) -> date | Refusal:
     if spec.year is not None or spec.years_back is not None:
         year = spec.year if spec.year is not None else today.year - (spec.years_back or 0)
         return _valid_date(year, spec.month, spec.day) or Refusal.UNKNOWN_WORDING
+    if _still_to_come(_valid_date(today.year, spec.month, spec.day), today):
+        return Refusal.AMBIGUOUS
     for back in range(_YEARS_TO_LOOK_BACK):
         found = _valid_date(today.year - back, spec.month, spec.day)
         if found is not None and found <= today:
@@ -319,11 +328,23 @@ def _day_of_month_date(spec: DayOfMonth, today: date) -> date | Refusal:
     if spec.months_back is not None:
         year, month = _month_back(today, spec.months_back)
         return _valid_date(year, month, spec.day) or Refusal.UNKNOWN_WORDING
+    if _still_to_come(_valid_date(today.year, today.month, spec.day), today):
+        return Refusal.AMBIGUOUS
     for back in range(_MONTHS_TO_LOOK_BACK):
         found = _valid_date(*_month_back(today, back), spec.day)
         if found is not None and found <= today:
             return found
     return Refusal.UNKNOWN_WORDING
+
+
+def _still_to_come(day: date | None, today: date) -> bool:
+    """Whether ``day`` exists and lies after today.
+
+    A date said without its year (or a day without its month) whose day this
+    year (this month) is still to come may mean the one before, or a slip of
+    the tongue; neither is guessed.
+    """
+    return day is not None and day > today
 
 
 def _month_back(today: date, months: int) -> tuple[int, int]:
