@@ -37,25 +37,28 @@ The steps:
 
 Every draft's original text is the whole passage, unchanged.
 
+The check of the passage (step 1) is ``passage_check``'s, shared with the
+other steps that send a passage to a model.
+
 Names defined here: ``extract``, ``Extraction``, ``Extracted``,
-``PassageRefused``, ``PassageProblem``, ``ReplyUnreadable``,
-``ModelFailed``, ``DEFAULT_ASKS_AGAIN`` and ``MAX_ASKS_AGAIN``.
+``PassageRefused``, ``ReplyUnreadable``, ``ModelFailed``,
+``DEFAULT_ASKS_AGAIN`` and ``MAX_ASKS_AGAIN``. ``PassageProblem`` comes from
+``passage_check`` and is named here as well.
 """
 
 from __future__ import annotations
 
 import collections
-import enum
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 
 from ledger_hand.core.coins import BUILT_IN_TABLE, CoinTable
-from ledger_hand.core.ledger_limits import RAW_TEXT_MAX_LENGTH, text_length, trim
 from ledger_hand.core.trade import TradeDraft
 from ledger_hand.core.zones import is_zone_name
 from ledger_hand.extraction.issues import Issue, IssueKind
 from ledger_hand.extraction.passage import Passage
+from ledger_hand.extraction.passage_check import PassageProblem, passage_problem
 from ledger_hand.extraction.prompting import PromptVersion, build_messages
 from ledger_hand.extraction.prompts.first import FIRST_PROMPT
 from ledger_hand.extraction.reply_parser import ReplyProblem, ReplyRow, ReplyRows, read_reply
@@ -68,14 +71,6 @@ from ledger_hand.ports import ModelError, ModelParameters, ModelPort, ReplyRecor
 DEFAULT_ASKS_AGAIN = 1
 # The most a caller may ask for, so that the calls for one passage stay few.
 MAX_ASKS_AGAIN = 5
-
-
-class PassageProblem(enum.Enum):
-    """Why a passage was not sent to the model."""
-
-    EMPTY = "the passage is empty"
-    TOO_LONG = "the passage is longer than the ledger keeps as the original text"
-    NOT_VALID_TEXT = "the passage holds a character that is not valid Unicode text"
 
 
 @dataclass(frozen=True)
@@ -131,7 +126,7 @@ def extract(
     model is asked again after a reply that misses the table.
     """
     _check_arguments(passage, now, zone, asks_again)
-    problem = _passage_problem(passage)
+    problem = passage_problem(passage)
     if problem is not None:
         return PassageRefused(problem)
     calls: list[ReplyRecord] = []
@@ -166,20 +161,6 @@ def _check_arguments(passage: object, now: object, zone: object, asks_again: obj
         raise TypeError(f"asks_again is a whole number, not {type(asks_again).__name__}")
     if not 0 <= asks_again <= MAX_ASKS_AGAIN:
         raise ValueError(f"asks_again must be from 0 to {MAX_ASKS_AGAIN}")
-
-
-def _passage_problem(passage: str) -> PassageProblem | None:
-    # Counted in characters first: a text with more characters than the limit
-    # has more UTF-16 units too, and is turned away without being measured.
-    if len(passage) > RAW_TEXT_MAX_LENGTH or text_length(passage) > RAW_TEXT_MAX_LENGTH:
-        return PassageProblem.TOO_LONG
-    if not trim(passage).strip():
-        return PassageProblem.EMPTY
-    try:
-        passage.encode("utf-8")
-    except UnicodeEncodeError:
-        return PassageProblem.NOT_VALID_TEXT
-    return None
 
 
 def _extracted(
