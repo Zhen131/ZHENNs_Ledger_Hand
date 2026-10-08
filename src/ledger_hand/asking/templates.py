@@ -21,7 +21,7 @@ _ASK = {
     Cell.QUANTITY: "How much of the coin was bought or sold?",
     Cell.PRICE: "What was the price of one coin, in USDT?",
     Cell.TOTAL: "What was the total paid or received, in USDT, without the fee?",
-    Cell.FEE: "What was the fee for this trade (say 'none' if there was none)?",
+    Cell.FEE: "What was the fee for this trade?",
     Cell.FEE_COIN: "Which coin or currency was the fee paid in?",
     Cell.OCCURRED: "When did this trade happen?",
     Cell.PLATFORM: "What shorter name should be kept for the platform (or 'none')?",
