@@ -15,6 +15,9 @@ trade, or go on to extraction) is decided in ``screening``, not by the model.
 A version is never changed once it has been measured; a change of wording is
 a new version in a new file.
 
+This version is named ``screen-1``; the state of a recorded passage names it
+for the step it was used in.
+
 Names defined here: ``SCREEN_PROMPT``.
 """
 

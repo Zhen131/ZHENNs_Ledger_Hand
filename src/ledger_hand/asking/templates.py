@@ -53,8 +53,9 @@ _BECAUSE = {
 def template_sentence(asked: AskCell | ConfirmCoin | AskWhichCell, word: str | None) -> str:
     """The program's question for ``asked``; ``word`` is the coin word a confirmation is about."""
     if isinstance(asked, ConfirmCoin):
-        whose = "the coin" if asked.cell is Cell.COIN else "the coin the fee was paid in"
-        return f'Is "{word}", {whose}, the symbol of a coin?'
+        if asked.cell is Cell.COIN:
+            return f'Is "{word}" the symbol of a coin?'
+        return f'Is "{word}", which the fee was paid in, the symbol of a coin?'
     if isinstance(asked, AskWhichCell):
         if asked.cells == AMOUNT_CELLS:
             return (

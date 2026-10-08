@@ -12,6 +12,9 @@ its own sentence instead when the model's will not do.
 A version is never changed once it has been used for a measurement; a change
 of wording is a new version in a new file.
 
+This version is named ``bookkeeper-1``; the state of a recorded passage names it
+for the step it was used in.
+
 Names defined here: ``BookkeeperPrompt`` and ``BOOKKEEPER_PROMPT``.
 """
 
