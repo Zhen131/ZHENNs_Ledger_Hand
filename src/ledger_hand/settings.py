@@ -49,6 +49,7 @@ class Variable(enum.Enum):
     TIMEOUT_SECONDS = ENV_PREFIX + "TIMEOUT_SECONDS"
     RETRIES = ENV_PREFIX + "RETRIES"
     RETRY_WAIT_SECONDS = ENV_PREFIX + "RETRY_WAIT_SECONDS"
+    QUESTION_TEMPERATURE = ENV_PREFIX + "QUESTION_TEMPERATURE"
 
 
 # Ollama's own address on this machine: the model runs locally by default.
@@ -83,6 +84,13 @@ DEFAULT_RETRIES = 2
 DEFAULT_RETRY_WAIT_SECONDS = 1.0
 # The most retries a setting may ask for, so that the waits stay finite.
 MAX_RETRIES = 10
+# Wording a follow-up question is the one call where some variety reads more
+# naturally than the same sentence every time. What is asked, and every fact
+# the question may use, are fixed by the program before the model writes,
+# and a sentence that strays is replaced by the program's own; so a higher
+# temperature changes only the wording. Judging a passage, extraction and
+# reading an answer keep the temperature above, which is 0 by default.
+DEFAULT_QUESTION_TEMPERATURE = 0.7
 
 _WHOLE_NUMBER = re.compile(r"[0-9]{1,9}")
 _PLAIN_NUMBER = re.compile(r"[0-9]{1,9}(?:\.[0-9]{1,9})?")
@@ -125,7 +133,9 @@ class ModelSettings:
 
     ``retries`` is how many times a call that may pass on its own is tried
     again; ``retry_wait_seconds`` is the wait before the first retry, and each
-    later wait is twice the one before.
+    later wait is twice the one before. ``question_temperature`` is the
+    temperature for wording a follow-up question; every other call uses
+    ``temperature``.
     """
 
     base_url: str = DEFAULT_BASE_URL
@@ -138,6 +148,7 @@ class ModelSettings:
     timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS
     retries: int = DEFAULT_RETRIES
     retry_wait_seconds: float = DEFAULT_RETRY_WAIT_SECONDS
+    question_temperature: float = DEFAULT_QUESTION_TEMPERATURE
 
     def __post_init__(self) -> None:
         _check_base_url(self.base_url)
@@ -157,6 +168,12 @@ class ModelSettings:
         _check_range(
             Variable.RETRY_WAIT_SECONDS,
             self.retry_wait_seconds,
+            lambda value: value >= 0,
+            "0 or more",
+        )
+        _check_range(
+            Variable.QUESTION_TEMPERATURE,
+            self.question_temperature,
             lambda value: value >= 0,
             "0 or more",
         )
@@ -194,6 +211,11 @@ def load_model_settings(environ: Mapping[str, str] | None = None) -> ModelSettin
             given[Variable.RETRY_WAIT_SECONDS],
             DEFAULT_RETRY_WAIT_SECONDS,
             _number(Variable.RETRY_WAIT_SECONDS),
+        ),
+        question_temperature=_or(
+            given[Variable.QUESTION_TEMPERATURE],
+            DEFAULT_QUESTION_TEMPERATURE,
+            _number(Variable.QUESTION_TEMPERATURE),
         ),
     )
 

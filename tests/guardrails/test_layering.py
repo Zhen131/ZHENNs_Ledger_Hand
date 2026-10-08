@@ -25,6 +25,7 @@ AREA_FILE = {
     "core": "core/rules.py",
     "ports": "ports.py",
     "extraction": "extraction/extractor.py",
+    "asking": "asking/question_text.py",
     "export": "export/writer.py",
     "llm": "llm/client.py",
     "storage": "storage/store.py",
@@ -40,12 +41,34 @@ MAY_IMPORT = {
     "core": set(),
     "ports": {"core"},
     "extraction": {"core", "ports"},
+    "asking": {"core", "ports"},
     "export": {"core", "ports"},
     "llm": {"core", "ports", "settings"},
     "storage": {"core", "ports", "settings"},
     "settings": set(),
-    "flows": {"root", "core", "ports", "extraction", "export", "llm", "storage", "settings"},
-    "ui": {"root", "core", "ports", "extraction", "export", "llm", "storage", "settings", "flows"},
+    "flows": {
+        "root",
+        "core",
+        "ports",
+        "extraction",
+        "asking",
+        "export",
+        "llm",
+        "storage",
+        "settings",
+    },
+    "ui": {
+        "root",
+        "core",
+        "ports",
+        "extraction",
+        "asking",
+        "export",
+        "llm",
+        "storage",
+        "settings",
+        "flows",
+    },
     "root": set(),
 }
 
@@ -809,7 +832,7 @@ def test_an_environment_read_names_the_line(tmp_path: Path) -> None:
 
 # Written out by hand: the areas that read neither the clock nor the
 # machine's time zone. The core is checked above; extraction is checked here.
-CLOCK_FREE = {"core", "extraction"}
+CLOCK_FREE = {"core", "extraction", "asking"}
 EXTRACTION_FILE = AREA_FILE["extraction"]
 
 TIME_MODULE_CLOCK_READS = [
