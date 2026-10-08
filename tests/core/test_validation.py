@@ -956,6 +956,7 @@ def test_problems_are_listed_in_the_order_the_enumerations_are_written() -> None
         "FEE_COIN_NOT_A_SYMBOL",
         "FEE_NOT_BELOW_QUANTITY",
         "IN_THE_FUTURE",
+        "OFFSET_HAS_SECONDS",
         "PLATFORM_TOO_LONG",
         "NOTE_TOO_LONG",
         "RAW_TEXT_EMPTY",

@@ -33,6 +33,10 @@ The rules:
 - The time cannot be in the future: a moment may be at most ``future_grace``
   after the current moment, and a day may not be after today in the trade's
   own time zone.
+- A moment's offset from UTC must be a whole number of minutes. Some zones
+  had offsets with seconds in them before the 1970s, such as ``+01:16:20`` in
+  Budapest in 1890, and the ledger's way of writing a time cannot hold one.
+  A time known only to the day carries no offset and is not affected.
 - The original text cannot be empty; it, the note and the platform have the
   ledger's length limits. The platform is recorded without surrounding
   whitespace, and a platform of whitespace alone counts as not given.
@@ -108,6 +112,9 @@ class Violation(enum.Enum):
     FEE_COIN_NOT_A_SYMBOL = "the fee coin is unknown and cannot be written as a ledger symbol"
     FEE_NOT_BELOW_QUANTITY = "a buy fee paid in the bought coin is not below the quantity"
     IN_THE_FUTURE = "the trade is dated in the future"
+    OFFSET_HAS_SECONDS = (
+        "the time's offset from UTC has seconds in it, which the ledger cannot write"
+    )
     PLATFORM_TOO_LONG = "the platform is longer than the ledger allows"
     NOTE_TOO_LONG = "the note is longer than the ledger allows"
     RAW_TEXT_EMPTY = "the original text is empty"
@@ -157,6 +164,8 @@ class CheckSettings:
 
 
 DEFAULT_SETTINGS = CheckSettings()
+
+_ONE_MINUTE = timedelta(minutes=1)
 
 _Problem = Missing | Violation
 
@@ -416,10 +425,21 @@ def _occurred(
     if occurred is None:
         found.append(Missing.OCCURRED)
         return None
-    if occurred.is_in_the_future(now, grace):
+    in_the_future = occurred.is_in_the_future(now, grace)
+    seconds_in_offset = _offset_has_seconds(occurred)
+    if in_the_future:
         found.append(Violation.IN_THE_FUTURE)
-        return None
-    return occurred
+    if seconds_in_offset:
+        found.append(Violation.OFFSET_HAS_SECONDS)
+    return None if in_the_future or seconds_in_offset else occurred
+
+
+def _offset_has_seconds(occurred: OccurredTime) -> bool:
+    """Whether the time is a moment whose offset is not a whole number of minutes."""
+    if not isinstance(occurred.value, datetime):
+        return False
+    offset = occurred.value.utcoffset()
+    return offset is not None and bool(offset % _ONE_MINUTE)
 
 
 # --- free text --------------------------------------------------------------

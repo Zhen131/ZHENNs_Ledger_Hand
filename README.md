@@ -20,7 +20,8 @@ current moment, and `check_draft` returns either a finished record or two
 lists: what is still missing, and what breaks a rule. A draft that names two
 of quantity, price and total gets the third calculated; an unknown coin has
 to be confirmed first; the fee has to be stated even when it is zero; nothing
-dated in the future is accepted. The limits of the ledger (digits, lengths,
+dated in the future is accepted, and neither is a moment whose offset from UTC
+has seconds in it (some zones had one before the 1970s). The limits of the ledger (digits, lengths,
 tolerance) are copied into one file and applied the way the ledger applies
 them.
 
@@ -60,8 +61,9 @@ gives it. The same trades always give the same bytes. The caller hands in
 today's date, and the ledger is meant to be given the same one. Nothing is
 written when there is no trade; an identifier is empty, too long or used
 twice (compared the way the ledger compares text); a coin is missing from the
-coin table; a trade's time has an offset from UTC with seconds in it (some
-zones had one before the 1970s, and the ledger cannot write it); a trade's
+coin table; a trade's time has an offset from UTC with seconds in it (the
+ledger cannot write it; the check of a draft already refuses one, and this is
+a second guard); a trade's
 date, in its own zone, is after today; or there are more coins, trades or
 bytes than one ledger file may hold. The answer lists every such issue
 instead. A time zone name is taken only when it is spelled exactly as the

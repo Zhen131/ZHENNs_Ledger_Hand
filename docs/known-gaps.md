@@ -59,11 +59,13 @@ number of minutes, such as `+01:16:20` in Budapest in 1890. The ledger's way
 of writing a time cannot hold such an offset.
 
 **Which trades it affects.** Only a time built directly with such an offset;
-reading a time phrase never produces one. The check of a draft still accepts
-it, and the export then refuses the trade with the reason
-`OFFSET_NOT_WHOLE_MINUTES` instead of failing while it writes.
+reading a time phrase never produces one. A time known only to the day
+carries no offset and is not affected: 1 June 1890 in Budapest is accepted
+and exported as `1890-06-01`.
 
-**Why it is not fixed here.** Refusing it already in the check of a draft
-means adding a reason to the check's list of violations, which one of the
-check's own tests pins down exactly; changing that test waits for the project
-owner's decision.
+**How it is handled.** The check of a draft refuses such a moment, with the
+reason `OFFSET_HAS_SECONDS`, so it never becomes a record. The export keeps
+its own refusal, `OFFSET_NOT_WHOLE_MINUTES`, as a second guard: a record
+built some other way is refused there instead of failing while it writes.
+This is no longer a gap between this program and the ledger; it stays listed
+here because the two guards are easy to take for one.

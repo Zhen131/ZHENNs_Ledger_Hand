@@ -33,8 +33,9 @@ It is refused, with nothing written, when:
   be written;
 - a trade's time is a moment whose offset from UTC is not a whole number of
   minutes, which some zones had before the 1970s. The ledger's way of writing
-  a time cannot hold such an offset. The check of a draft does not refuse one
-  yet, so the export refuses it instead of failing while it writes;
+  a time cannot hold such an offset. The check of a draft already refuses
+  one; this is a second guard, so that a record built some other way is
+  refused here instead of failing while it writes;
 - a trade's date, in its own time zone, is after the today handed in. The
   ledger refuses a trade dated after its own today, and it compares the date
   on the trade's own wall clock, not the instant.

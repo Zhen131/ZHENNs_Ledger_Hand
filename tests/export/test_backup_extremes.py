@@ -9,6 +9,7 @@ the same edges.
 
 from __future__ import annotations
 
+import dataclasses
 import json
 from datetime import date, datetime, time, timedelta, timezone
 from decimal import Decimal
@@ -20,7 +21,7 @@ import pytest
 from ledger_hand.core.coins import BUILT_IN_TABLE
 from ledger_hand.core.stored import StoredTrade
 from ledger_hand.core.trade import OccurredTime, Side, TimePrecision, TradeDraft, TradeRecord
-from ledger_hand.core.validation import check_draft
+from ledger_hand.core.validation import DraftProblems, Violation, check_draft
 from ledger_hand.export.backup import ExportProblem, ExportRefused, export_backup
 from ledger_hand.export.file_name import backup_file_name
 from tests.export.samples import APP_NAME, APP_VERSION, EXPORTED_AT, zones_taken
@@ -46,6 +47,34 @@ def accepted(occurred: OccurredTime, now: datetime) -> TradeRecord | None:
     )
     result = check_draft(draft, BUILT_IN_TABLE, now)
     return result if isinstance(result, TradeRecord) else None
+
+
+def violations(occurred: OccurredTime, now: datetime) -> tuple[Violation, ...]:
+    """The rules the same plain buy at ``occurred`` breaks, as the check names them."""
+    draft = TradeDraft(
+        side=Side.BUY,
+        coin="BTC",
+        quantity=Decimal("1"),
+        price=Decimal("1"),
+        fee=Decimal("0"),
+        occurred=occurred,
+        raw_text=f"1 BTC at {occurred.value} in {occurred.time_zone}",
+    )
+    result = check_draft(draft, BUILT_IN_TABLE, now)
+    assert isinstance(result, DraftProblems), result
+    return result.violations
+
+
+def built_past_the_check(occurred: OccurredTime) -> TradeRecord:
+    """The record of the same plain buy at a time the check refuses, built past the check.
+
+    The export refuses an offset with seconds as well, as a second guard; this
+    is how that guard is reached.
+    """
+    record = accepted(OccurredTime(date(1, 1, 1), TimePrecision.DAY, occurred.time_zone), EARLY_NOW)
+    assert record is not None
+    raw_text = f"1 BTC at {occurred.value} in {occurred.time_zone}"
+    return dataclasses.replace(record, occurred=occurred, raw_text=raw_text)
 
 
 def saved(records: list[TradeRecord]) -> list[StoredTrade]:
@@ -122,8 +151,15 @@ def test_the_earliest_moments_in_every_zone_are_exported_or_refused_never_failed
         # Noon of 2 January of the year 1 on the zone's own wall clock; most
         # zones then had an offset with seconds in it.
         local = datetime(1, 1, 2, 12, 0, second, tzinfo=ZoneInfo(zone))
-        record = accepted(OccurredTime(local, precision, zone), EARLY_NOW)
-        assert record is not None, zone
+        occurred = OccurredTime(local, precision, zone)
+        record = accepted(occurred, EARLY_NOW)
+        if occurred.value.utcoffset() % timedelta(minutes=1):
+            # The check refuses it and names the offset; built past the check.
+            assert record is None, zone
+            assert violations(occurred, EARLY_NOW) == (Violation.OFFSET_HAS_SECONDS,), zone
+            record = built_past_the_check(occurred)
+        else:
+            assert record is not None, zone
         records.append(record)
     trades = saved(records)
     whole = [

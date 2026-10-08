@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 import json
 from collections.abc import Iterable
 from datetime import date, datetime, timezone
@@ -379,6 +380,16 @@ def old_moment(zone: str, year: int, month: int = 6, day: int = 1) -> OccurredTi
     return OccurredTime(moment, TimePrecision.MINUTE, zone)
 
 
+def past_the_check(identifier: str, occurred: OccurredTime) -> StoredTrade:
+    """A saved trade at ``occurred``, a time whose offset the check of a draft refuses.
+
+    The export refuses such a time as well, as a second guard. To test that
+    guard, the record is built past the check.
+    """
+    made = trade(identifier)
+    return dataclasses.replace(made, record=dataclasses.replace(made.record, occurred=occurred))
+
+
 @pytest.mark.parametrize(
     ("zone", "year", "offset"),
     [
@@ -392,7 +403,7 @@ def test_a_time_whose_offset_has_seconds_is_refused_not_failed_on(
 ) -> None:
     occurred = old_moment(zone, year)
     assert occurred.value.isoformat().endswith(offset)
-    old = trade("old", occurred=occurred)
+    old = past_the_check("old", occurred)
 
     assert refusal([old]) == (ExportIssue(ExportProblem.OFFSET_NOT_WHOLE_MINUTES, "old"),)
 
@@ -400,8 +411,8 @@ def test_a_time_whose_offset_has_seconds_is_refused_not_failed_on(
 def test_only_the_trades_whose_offset_has_seconds_are_named() -> None:
     trades = [
         trade("fine", occurred=minute(2, 10, 0)),
-        trade("old-shanghai", occurred=old_moment("Asia/Shanghai", 1900)),
-        trade("old-budapest", occurred=old_moment(BUDAPEST, 1890)),
+        past_the_check("old-shanghai", old_moment("Asia/Shanghai", 1900)),
+        past_the_check("old-budapest", old_moment(BUDAPEST, 1890)),
     ]
 
     assert refusal(trades) == (
@@ -411,7 +422,7 @@ def test_only_the_trades_whose_offset_has_seconds_are_named() -> None:
 
 
 def test_an_offset_with_seconds_is_listed_after_the_other_issues() -> None:
-    trades = [trade("dup"), trade("dup", occurred=old_moment(BUDAPEST, 1890))]
+    trades = [trade("dup"), past_the_check("dup", old_moment(BUDAPEST, 1890))]
 
     assert refusal(trades) == (
         ExportIssue(ExportProblem.ID_USED_TWICE, "dup"),
