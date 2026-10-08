@@ -117,6 +117,9 @@ and never cutting a number in two), or the field stays empty; the piece, the
 user's own writing, is what goes on. Numbers and times are turned into values
 by the core's rules, and whatever the core is unsure of, cannot read, finds
 ambiguous or in the future leaves the field empty with the core's reason. A
+comma written full width ("，") ends a number unless the core's number
+reader reads both sides together as one number it is sure of: "94，900" is
+one number, "63,000，1.5" is two, and so is "1，5" (1 and 5, not 1.5). A
 unit written with a price, total or fee names its currency when that field
 was left empty. Every draft keeps the whole passage as its original text.
 What comes back is the drafts and a list of issues: every field left empty
@@ -144,10 +147,54 @@ it, or a value made up. The results of each run are in `evals/results/`,
 and `evals/RESULTS.md` records them; the first is the baseline of the first
 prompt with `qwen2.5:7b` on the debug set.
 
+**Judging a passage first.** `screen` in
+`src/ledger_hand/extraction/screening.py` asks the model which kinds of thing
+a passage reports, from one fixed list: a filled spot trade, futures or
+leverage, one coin swapped for another, an order not filled yet, and a plan.
+Each report comes with the words of the passage that show it, quoted only
+when they really are a piece of the passage. The program decides what
+follows: a passage that reports only the kinds the ledger does not record is
+stopped, with the reason for each; one that reports nothing has no trade;
+one that reports a filled spot trade goes on to extraction, and anything
+else it reports is set aside as a caution. The prompt
+(`extraction/prompts/screen.py`) gives no example at all.
+
+**Asking about what is missing.** `core/followup.py` says what to ask next
+about a draft the check did not pass, from one fixed order of every problem
+the check can name: a cell to ask for, a coin word to confirm, which of
+several cells is wrong (quantity times price not matching the total; a fee
+in the bought coin not below the quantity), or that the trade cannot be
+recorded and why (the coin is USDT, or the trade is priced in another coin).
+The model words each question as a meticulous bookkeeper
+(`src/ledger_hand/asking/`), behind a label of the program's own that says
+which trade and which field is asked about; when the model fails, or writes
+anything but one plain question, or brings in a number, a coin or a word
+that is not among the facts, the program's own sentence is used. An answer
+is read by rules first (`extraction/answer_phrase.py`): a number, a time with
+the passage's own moment and zone, a coin, and short fixed word lists for
+buy or sell, yes or no, "no fee", "skip", "cancel" and which cell is wrong.
+Only when the rules cannot read the whole answer is the model asked to copy
+the one piece of it that gives what was asked; the piece must be a piece of
+the answer, and it is read by the same rules. An answer that cannot be used
+gets the same question again, with the reason.
+
+**Recording a passage.** `src/ledger_hand/flows/recording.py` strings all of
+this together: judge the passage, extract its trades, check each one, then
+ask one trade at a time and one field at a time, put each answer back and
+check the trade again, until every trade is a record, skipped or impossible
+to record. Each step hands back the whole state as one value that never
+changes (`flows/progress.py`): the stage, every trade, the question waiting,
+the records, why the passage was stopped, the reminders, which prompt
+versions were used, and whether a record can still be removed or the whole
+passage dropped. A record can be removed once every trade is settled, even
+one that was complete from the start, so a wrong value seen in the records
+can be kept out. When the model fails while judging or extracting, nothing
+is kept. `scripts/record_trades.py` runs it at the command line (see
+"Recording trades by hand" below).
+
 Apart from asking the model, all of this is pure computation: nothing is
 written to disk yet, and nothing that is said is recorded. There is no
-storage and no interface yet, and no follow-up questions: a draft with
-blanks comes back with its issues, and nothing asks the user anything yet.
+storage and no interface yet: the records are listed, not saved.
 
 The repository also has its Python environment, one command that runs every
 check, and two guardrails that keep the code base in shape (the layering
@@ -159,17 +206,19 @@ check and the hygiene scan).
 | --- | --- |
 | `pyproject.toml` | Package metadata and the configuration of every tool (pytest, ruff, mypy). |
 | `requirements.txt` | Exact versions of the run-time dependencies (httpx, tzlocal) and the development tools, so the environment can be rebuilt identically. |
-| `src/ledger_hand/` | The package. Today it holds its version, `core/`, `export/`, the ports file, the settings, `llm/` and `extraction/`. |
-| `src/ledger_hand/core/` | Core rules: pure computation, no network, files, database, user interface or clock. Holds the shapes of a trade (`trade.py`), the coin table (`coins.py`), the ledger's limits (`ledger_limits.py`), exact decimal arithmetic (`arithmetic.py`), the reading and writing of numbers (`numbers.py`), the reading and writing of times (`timeparse.py`, with the wording of a time phrase in `time_wording.py`) and the check of a draft (`validation.py`), a saved trade (`stored.py`) and which time zone names are taken (`zones.py`). |
+| `src/ledger_hand/` | The package. Today it holds its version, `core/`, `export/`, the ports file, the settings, `llm/`, `extraction/`, `asking/` and `flows/`. |
+| `src/ledger_hand/core/` | Core rules: pure computation, no network, files, database, user interface or clock. Holds the shapes of a trade (`trade.py`), the coin table (`coins.py`), the ledger's limits (`ledger_limits.py`), exact decimal arithmetic (`arithmetic.py`), the reading and writing of numbers (`numbers.py`), the reading and writing of times (`timeparse.py`, with the wording of a time phrase in `time_wording.py`) and the check of a draft (`validation.py`), what to ask next about a draft (`followup.py`), a saved trade (`stored.py`) and which time zone names are taken (`zones.py`). |
 | `src/ledger_hand/export/` | The ledger's backup format: the whole file (`backup.py`), one trade (`trade_entry.py`), one coin (`coin_card.py`), bookkeeping moments (`moments.py`) and the file's name (`file_name.py`). Writes no file itself. |
 | `src/ledger_hand/ports.py` | The model port: messages, parameters, the reply and its record, and the error with its six kinds. Only shapes; it sends nothing. |
 | `src/ledger_hand/settings.py` | The only place in the package that reads environment variables: the model settings, their defaults and their checks. |
 | `src/ledger_hand/llm/` | The local plug for the model port: the plug itself (`ollama.py`), what is sent (`ollama_request.py`) and how what comes back is read (`ollama_reply.py`), one HTTP exchange and how its failures are sorted (`exchange.py`), making a server's words safe to show (`error_text.py`), trying again (`retry.py`), the assembled local model (`local.py`), and the server's version and the model's fingerprint (`ollama_identity.py`). The only part that may import httpx. |
-| `src/ledger_hand/extraction/` | A passage to drafts: the entry point (`extractor.py`), the table the model fills (`reply_table.py`) and how its reply is read (`reply_parser.py`), finding a copied phrase in the passage (`passage.py`) and the numbers written in a text (`passage_numbers.py`), one row to one draft (`row_draft.py`), which currency a unit names (`unit_currency.py`), the issues (`issues.py`), the messages a prompt version makes (`prompting.py`), and the prompt versions with their examples (`prompts/`). Reads no clock, no zone of the machine and no environment variable. |
-| `tests/` | The tests. `tests/core/`, `tests/export/`, `tests/llm/` and `tests/extraction/` have one test module per module; `tests/llm/` also has a fake Ollama server and a batch of attacks on the plug, and `tests/extraction/` a batch of attacks on extraction. `tests/evals/` tests the experiment kit and the test sentences. |
+| `src/ledger_hand/extraction/` | A passage to drafts: the entry point (`extractor.py`), the table the model fills (`reply_table.py`) and how its reply is read (`reply_parser.py`), finding a copied phrase in the passage (`passage.py`) and the numbers written in a text (`passage_numbers.py`), one row to one draft (`row_draft.py`), which currency a unit names (`unit_currency.py`), the issues (`issues.py`), the messages a prompt version makes (`prompting.py`), and the prompt versions with their examples (`prompts/`). Also the check of a passage before it is sent (`passage_check.py`), judging a passage (`screening.py`, with the list the model fills in `screen_table.py`), and reading an answer to a question (`answer_phrase.py`, with its word lists in `answer_words.py` and what the model copies in `answer_table.py`). Reads no clock, no zone of the machine and no environment variable. |
+| `src/ledger_hand/asking/` | Wording a follow-up question: the facts, the model's sentence and its checks (`question_text.py`), the program's own sentences (`templates.py`) and the prompt (`prompts/bookkeeper.py`). Imports only `core/` and the ports file; reads no clock. |
+| `src/ledger_hand/flows/` | Recording a passage from start to records (`recording.py`): the state it hands back (`progress.py`), putting a question together (`questions.py`) and putting an answer back (`filling.py`). Writes nothing. |
+| `tests/` | The tests. `tests/core/`, `tests/export/`, `tests/llm/`, `tests/extraction/`, `tests/asking/` and `tests/flows/` have one test module per module, or more; `tests/llm/` also has a fake Ollama server and a batch of attacks on the plug, and `tests/extraction/` a batch of attacks on extraction. `tests/flows/` also tests the script for recording trades. `tests/evals/` tests the experiment kit and the test sentences. |
 | `tests/conftest.py` | Stops every test that is not marked `live_model` from reaching the network. |
-| `tests/fakes/` | Stand-ins for the outside world: a scripted model that plays back replies and errors in order and records what it was asked. |
-| `tests/live/` | The live check, which talks to a real model, the small schema check it uses, and the smoke test of extraction. |
+| `tests/fakes/` | Stand-ins for the outside world: a scripted model that plays back replies and errors in order and records what it was asked, and a model that answers each kind of call (judging, extraction, wording a question, reading an answer) from its own script. |
+| `tests/live/` | The live check, which talks to a real model, the small schema check it uses, the smoke test of extraction, and the check of judging the debug set. |
 | `tests/export/samples.py`, `tests/export/attack.py`, `tests/export/golden/` | Invented trades to export, batches of edge cases made to find where this program and the ledger part ways, both shared with the ledger tier, and the golden sample. A golden sample is never edited once committed; a new format version gets one of its own. |
 | `tests/guardrails/` | The layering check and the hygiene scan, the tests that prove they catch what they should, and the two gate tests that apply them to this repository. |
 | `scripts/check.sh` | One command that runs all checks. |
@@ -177,6 +226,7 @@ check and the hygiene scan).
 | `evals/results/` | One results file per run (`*.jsonl`) and its summary (`*.summary.json`). In Git: all of it is invented data. |
 | `evals/RESULTS.md` | The results record: what each run measured, with the tables its results file gives. |
 | `scripts/try_extraction.py` | Try extraction by hand: a passage in, the drafts, the issues and a record of each call to the model out (see "Trying extraction by hand" below). |
+| `scripts/record_trades.py` | Record trades from a passage at the command line, one question at a time (see "Recording trades by hand" below). |
 | `scripts/ledger_check.py`, `scripts/ledger_validate.ts`, `scripts/ledger_offsets.ts` | The ledger tier of the checks: sample files judged by the ledger's own validator, and the ledger's offsets compared with ours. |
 | `tests/ledger_check/` | What the ledger tier checks (`cases.py`), tests of the tier's own logic, and the one sample for it written by hand. |
 | `docs/architecture.md` | How the layers are divided, who may import whom, the house rules, and where new features go. |
@@ -184,9 +234,9 @@ check and the hygiene scan).
 | `data/` | Not in Git. Run-time output, caches and, later, the local database. Created when first needed. |
 | `.venv/` | Not in Git. The local Python environment. |
 
-Directories for later parts (storage, flows, user interface)
-are created by the change that first needs them; see `docs/architecture.md`
-for the planned layout.
+Directories for later parts (storage, user interface) are created by the
+change that first needs them; see `docs/architecture.md` for the planned
+layout.
 
 ## Setting up from scratch
 
@@ -231,7 +281,7 @@ The script takes one argument, the tier: `quick` (the default), `ledger` or
 | `format` | `ruff format --check .` | Formatting is left to the tool. |
 | `lint` | `ruff check .` | Basic errors, import order, naming, common pitfalls, needless complexity, boolean flag parameters, overlong functions. |
 | `types` | `mypy` | Strict type checking of `core/` and `ports.py`. |
-| `layering` | `pytest tests/guardrails/test_repo_layering.py` | Each part of the package imports only what the layering table allows; `core/` reads no clock and uses no floating-point number; only `settings.py` reads environment variables. |
+| `layering` | `pytest tests/guardrails/test_repo_layering.py` | Each part of the package imports only what the layering table allows; `core/` reads no clock and uses no floating-point number; `extraction/` and `asking/` read no clock and no zone of the machine; only `settings.py` reads environment variables. |
 | `hygiene` | `pytest tests/guardrails/test_repo_hygiene.py` | No machine-specific paths, private work-log identifiers or tool-attribution text in any file Git tracks or would add. |
 | `tests` | `pytest` | Every test except the live ones, including the tests of the two guardrails themselves. No test reaches the network: the model plug is tested against a fake transport, and a test that tries to connect fails on the spot. |
 
@@ -312,8 +362,14 @@ token counts. Then it takes four invented passages (one trade in Chinese,
 one in English, several trades, and talk with no trade) the whole way
 through extraction, prints the drafts, the issues and how long each passage
 took, and checks only that each comes back as drafts and a list of issues;
-whether the model read them right is not judged there. When the server
-cannot be reached, it fails with a message that starts with `unreachable`.
+whether the model read them right is not judged there. Then it judges the
+debug set (never the final set): the four sentences that report only what
+the ledger does not record (leverage, one coin for another, an order not
+filled, a plan) must each be stopped, with nothing extracted and no
+question asked; the kind the model named is printed beside the kind the
+sentence was written as. For the other 26 it prints where each would go,
+and checks nothing about it. When the server cannot be reached, it fails
+with a message that starts with `unreachable`.
 The first call after the model has been idle includes loading it into
 memory, which takes several seconds more than the calls after it.
 
@@ -338,6 +394,53 @@ program does not take as it stands stops the script instead of being
 replaced. Nothing is written to disk. Exit status: `0` the passage was read
 (even with no trade in it), `1` it was not (refused, no readable reply, or
 the model failed), `2` the script could not start (a setting or the zone).
+
+### Recording trades by hand
+
+```sh
+.venv/bin/python scripts/record_trades.py "昨天晚上在 OKX 买了 0.3 个 ETH，又卖了 50 个 SOL"
+.venv/bin/python scripts/record_trades.py --answers answers.txt "sold 2 SOL at 150 yesterday"
+printf '3,180\nnone\ndone\n' | .venv/bin/python scripts/record_trades.py --answers - "..."
+```
+
+The passage is the arguments, or else the first line of standard input. The
+script records it as described under "Recording a passage" above: each
+question is printed with its label and the program's notes beside it, and
+the answer is read from standard input. Answer "skip" to leave the trade
+being asked about out, or "cancel" to drop the whole passage. Once every
+trade is settled, the records are listed with the trades skipped, those
+that cannot be recorded and why, the reminders and anything set aside; then
+"remove N" leaves record N out, "cancel" drops the whole passage, and "done"
+ends. Nothing is saved: saving is a later part of the program.
+
+With `--answers FILE` the script is not interactive: the answers are the
+lines of the file (`-` for standard input, after the passage when the
+passage is not given as arguments), each printed after its question. When
+they run out before every trade is settled, the script stops; when they run
+out once every trade is settled, that counts as "done". The current moment
+is the machine's clock and the zone the machine's own, read with tzlocal.
+Nothing is written to disk. Exit status: `0` done, with the records listed
+(there may be none); `1` nothing is kept (the passage was refused, stopped,
+held no trade, the model failed, or the passage was dropped); `2` the
+script could not start (a setting or the zone); `3` the answers or the input
+ran out before the end.
+
+### The prompts and their techniques
+
+Each prompt version is a file of its own, never changed once measured; a new
+wording is a new version.
+
+| Prompt | Step | Technique |
+| --- | --- | --- |
+| `first` (`extraction/prompts/first.py`) | Extraction: copy the phrases of each trade into a table | A few examples (few-shot), in a file beside it |
+| `screen-1` (`extraction/prompts/screen.py`) | Judging a passage: which kinds of thing it reports | No example at all (zero-shot) |
+| `answer-1` (`extraction/prompts/answer.py`) | Reading an answer the rules could not: copy the one piece that gives what was asked | No example at all (zero-shot) |
+| `bookkeeper-1` (`asking/prompts/bookkeeper.py`) | Wording a follow-up question | A role (persona): a meticulous bookkeeper who asks for one thing at a time |
+
+Every prompt except the one for wording a question runs at the temperature
+of `LEDGER_HAND_MODEL_TEMPERATURE` (0 by default); wording a question runs
+at `LEDGER_HAND_MODEL_QUESTION_TEMPERATURE`. The state of a recorded passage
+names the version used for each step.
 
 ### Running an experiment
 
@@ -404,6 +507,7 @@ of these, because a misspelt name would otherwise be ignored without a word.
 | `LEDGER_HAND_MODEL_TIMEOUT_SECONDS` | `120` | How long to wait for the whole reply. Leaves room for loading the model on the first call. Not sent to the model. |
 | `LEDGER_HAND_MODEL_RETRIES` | `2` | How many times a call that timed out, was rate limited or met a server error is tried again. 0 to 10. |
 | `LEDGER_HAND_MODEL_RETRY_WAIT_SECONDS` | `1` | The wait before the first retry; each later wait is twice the one before. |
+| `LEDGER_HAND_MODEL_QUESTION_TEMPERATURE` | `0.7` | The temperature for wording a follow-up question, the one call where some variety reads better than the same sentence every time. What is asked, and every fact the question may use, are the program's, and a sentence that strays is replaced by the program's own, so only the wording changes. Judging a passage, extraction and reading an answer use `LEDGER_HAND_MODEL_TEMPERATURE`. 0 or more. |
 
 Numbers are written with plain digits and at most one point (`0.7`, `45`),
 with no sign or exponent. The defaults are named constants in

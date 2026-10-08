@@ -39,7 +39,7 @@ src/ledger_hand/
         validation.py         validation; which fields are still missing              (exists)
         zones.py              which time zone names are taken                         (exists)
         stored.py             a saved trade: record, identifier, two moments          (exists)
-        followup.py           what to ask when something is missing
+        followup.py           what to ask next when something is missing or wrong     (exists)
     ports.py              the two ports: model, and later storage                     (exists)
     extraction/           a passage of text to drafts                                 (exists)
         extractor.py          the entry point: one passage in, drafts and issues out  (exists)
@@ -52,6 +52,16 @@ src/ledger_hand/
         issues.py             what was left empty and what to look at                 (exists)
         prompting.py          what a prompt version is; the messages it makes         (exists)
         prompts/              prompt versions, one file per version, examples beside  (exists)
+        passage_check.py      a passage that must not be sent: empty, too long, not text (exists)
+        screen_table.py       the list of kinds the model fills when judging a passage (exists)
+        screening.py          judging a passage: stopped, no trade, or on to extraction (exists)
+        answer_words.py       the fixed word lists an answer is read against          (exists)
+        answer_table.py       what the model copies out of an answer; its reply       (exists)
+        answer_phrase.py      reading an answer: rules first, the model only to copy  (exists)
+    asking/               wording a follow-up question                                (exists)
+        question_text.py      the facts, the model's sentence and its checks, the label (exists)
+        templates.py          the program's own sentence for every question           (exists)
+        prompts/              the persona prompt                                      (exists)
     llm/                  plugs for the model port: a local model server; later a cloud one (exists)
         ollama.py             the local plug: one chat call to Ollama, one try        (exists)
         ollama_request.py     what is sent: the body of one chat request              (exists)
@@ -68,7 +78,11 @@ src/ledger_hand/
         coin_card.py          one coin in the ledger's fields                         (exists)
         moments.py            creation, change and export moments, in UTC             (exists)
         file_name.py          the name of an export file                              (exists)
-    flows/                strings the parts into one task: record a trade, export
+    flows/                strings the parts into one task: record a trade; later, export (exists)
+        recording.py          a passage from start to records, one question at a time (exists)
+        progress.py           where it stands: one value that never changes           (exists)
+        questions.py          putting a question together: facts and notes            (exists)
+        filling.py            putting an answer back into a trade                     (exists)
     settings.py           the only place that reads settings                          (exists)
     ui/                   the user interface; the only place that may use Streamlit
 evals/                    prompt experiments: test sentences, scoring, runner, results (exists)
@@ -85,9 +99,11 @@ evals/                    prompt experiments: test sentences, scoring, runner, r
     results/              one results file per run, with its summary               (exists)
     RESULTS.md            the results record                                       (exists)
 tests/                    mirrors src; also holds the guardrails, fakes and golden samples  (exists)
-    fakes/                stand-ins for the outside world: a scripted model           (exists)
+    fakes/                stand-ins for the outside world: scripted models            (exists)
     live/                 the live check against a real model, run by hand only       (exists)
     extraction/           tests of extraction against the scripted model              (exists)
+    asking/               tests of wording a question                                 (exists)
+    flows/                tests of recording a passage and of its script              (exists)
     evals/                tests of the experiment kit and the test sentences          (exists)
 ```
 
@@ -101,7 +117,7 @@ server, a SQLite file). There are exactly two ports: model and storage.
 | --- | --- | --- |
 | `core/` | the standard-library modules on the core allow-list (below); `core/` itself | everything else |
 | `ports.py` | `core/`; standard-library modules of the annotation kind (below) | third-party libraries; every other part |
-| `extraction/`, `export/` | `core/`, `ports.py` | `llm/`, `storage/`, `settings.py`, `flows/`, `ui/` |
+| `extraction/`, `asking/`, `export/` | `core/`, `ports.py` | `llm/`, `storage/`, `settings.py`, `flows/`, `ui/` |
 | `llm/`, `storage/` (the plugs) | `core/`, `ports.py`, `settings.py` | `extraction/`, `export/`, `flows/`, `ui/`, each other |
 | `settings.py` | the standard library | every other part of the package |
 | `flows/` | everything except `ui/` | `ui/` |
@@ -112,8 +128,8 @@ How the check reads this table:
 
 - A part may always import itself.
 - "May import" is a complete list. What is not on it is refused, even when the
-  third column does not name it; so `extraction/` and `export/` may not import
-  each other either.
+  third column does not name it; so `extraction/`, `asking/` and `export/` may
+  not import each other either.
 - The package's own `__init__.py` only states the version. It imports nothing
   from the package; `flows/` and `ui/` may import it.
 - Parts other than `core/` and `ports.py` may use the standard library freely,
@@ -228,6 +244,18 @@ called as an attribute of the module under any name or imported by name.
 the standard library, the core and the ports file, never the `time` module,
 calls no method that reads the clock or the machine's zone, and names no
 environment variable.
+
+### What `asking/` and `flows/` may not do
+
+`asking/` is handed the facts of a question and reads neither the clock nor
+the machine's zone; the layering check reports in it the same reads as in
+`extraction/`. `flows/` is handed the current moment and the zone by whoever
+starts it (a script or, later, the interface) and passes them on; it never
+reads them itself. A gate, `tests/guardrails/test_repo_clock_free_parts.py`,
+checks the real source of both straight, without the table: neither imports
+the `time` module, calls a method that reads the clock or the machine's zone,
+or names an environment variable, and `asking/` imports only the standard
+library, the core and the ports file.
 
 ## The eleven rules
 

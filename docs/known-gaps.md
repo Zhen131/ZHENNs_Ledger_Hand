@@ -1,9 +1,10 @@
 # Known gaps
 
-Places where a trade this program accepts and exports is still refused by the
-ledger, or is refused by the export instead of being caught earlier. Each one
-is known, is shown by the checks, and waits for a decision by the project
-owner. None of them is fixed here on purpose.
+Known limits of this program: places where a trade it accepts and exports
+may still be refused by the ledger, where two guards stand in for each
+other, and where a step that asks the model has a weakness that is known
+but not mended. Each one is described with the trades or passages it
+affects; where a choice is needed, it waits for the project owner.
 
 ## Time zone database versions
 
@@ -69,3 +70,38 @@ its own refusal, `OFFSET_NOT_WHOLE_MINUTES`, as a second guard: a record
 built some other way is refused there instead of failing while it writes.
 This is no longer a gap between this program and the ledger; it stays listed
 here because the two guards are easy to take for one.
+
+## Judging a passage can stop a real trade
+
+**What it is.** Before extraction, the model judges which kinds of thing a
+passage reports (`extraction/screening.py`). When it judges that a passage
+reports only things the ledger does not record (futures or leverage, one
+coin swapped for another, an order not filled yet, a plan), the whole
+passage is stopped and nothing is extracted. The program never lets
+through a kind the model named as not recorded.
+
+**Which passages it affects.** A passage about a real, filled spot trade
+that the model takes for one of those kinds, for example because it
+mentions a plan or an order in passing in a way the model reads as the
+whole of it. A passage that the model judges to report a filled spot trade
+as well goes on, with the rest shown as a caution.
+
+**What the user can do.** Say it again in other words, so that the filled
+trade stands out. There is no way to say "this is a spot trade, record it
+anyway": whether to offer one is a decision for the project owner.
+
+## Judging a passage has no score on the final set
+
+**What it is.** The judging step was written and checked against the debug
+set only. With `qwen2.5:7b`, the four debug sentences that report only what
+the ledger does not record were each stopped, with the kind they were
+written as; the 23 debug sentences with trades all went on to extraction;
+of the 3 with no trade, two were judged to hold none and one was stopped as
+a plan. The final set is kept for the last run of an experiment, and that
+run measures extraction only, so this step has no score on sentences it
+was not checked against.
+
+**What follows from it.** Its rate of stopping a real trade, or of letting
+through what is not recorded, on new passages is not measured. The live
+tier of the checks runs the debug set again (`tests/live/test_live_screening.py`).
+
