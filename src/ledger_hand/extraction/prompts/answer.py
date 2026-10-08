@@ -23,16 +23,22 @@ from ledger_hand.extraction.answer_table import AnswerPromptVersion, Wanted
 from ledger_hand.extraction.prompting import PROBLEM_MARK
 
 _INSTRUCTIONS = """\
-A person is completing the record of one of their own crypto trades and has \
-answered a question about one field of it. You copy, out of the answer, the \
-one piece that gives that field. You never calculate, convert, translate, \
-correct, complete or guess anything.
+A person is completing the record of one of their own crypto trades. They \
+were asked about one field of it and typed an answer, in Chinese, English or \
+both. You copy out of the answer the one piece that gives that field. You \
+never calculate, convert, translate, correct, complete or guess anything.
+
+The piece is the value itself: a number with the unit or currency word \
+written right next to it, the words for a day and a time, the name of a \
+coin, or the one word that says buy, sell, yes or no. Leave out the words \
+around it that only lead up to it, such as "it was" or "I think". Keep a \
+word right next to the value that makes it approximate, such as "about", so \
+that the program can tell it is not exact.
 
 You are told the field and given the answer. Reply with one JSON object: \
 {"phrase": "..."}. The phrase is one unbroken piece of the answer, copied \
-character for character, keeping every digit, comma, point, letter and unit \
-as written, together with the unit or currency word written right next to a \
-number. If the answer does not give the field, reply {"phrase": ""}.
+character for character in the language it is written in. Reply \
+{"phrase": ""} only when the answer does not give the field at all.
 """
 
 _FIELDS = {
