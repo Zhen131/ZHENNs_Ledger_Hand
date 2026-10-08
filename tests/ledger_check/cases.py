@@ -10,6 +10,15 @@ is made from.
   only when the tier runs.
 - ``limit_refusals``: inputs one past the ledger's limits of one file, which
   the export itself must refuse, built only when the tier runs.
+- ``zone_agreed_cases``: the trades of the two samples that allow for the gap
+  between the two time zone databases, to be judged strictly once the trades
+  the two databases disagree on are left out. Which trades those are is
+  known only when the tier runs and asks both sides, so the tier builds these
+  samples itself.
+
+One sample is not exported directly: ``flow_export_text`` saves invented
+trades in a book in a temporary folder and takes the file the export flow
+writes, so that what the flow writes is judged by the ledger too.
 
 Most samples are exported with the same today they are judged on, because
 that is the promise: what the export lets through on a given day, the ledger
@@ -21,17 +30,24 @@ from __future__ import annotations
 
 import enum
 import json
+import tempfile
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date, timedelta
 from pathlib import Path
 
+from ledger_hand.core.book import ConfirmedCoin, PassageSave
 from ledger_hand.core.coins import BUILT_IN_TABLE, CoinTable
 from ledger_hand.core.ledger_limits import MAX_COINS_PER_FILE, MAX_FILE_BYTES, MAX_TRADES_PER_FILE
 from ledger_hand.core.stored import StoredTrade
+from ledger_hand.core.trade import Side, TradeDraft
 from ledger_hand.export.backup import ExportProblem, ExportRefused, export_backup
+from ledger_hand.flows.exporting import ExportResult
+from ledger_hand.flows.exporting import export as export_from_the_book
+from ledger_hand.flows.fingerprint import passage_fingerprint
+from ledger_hand.storage.sqlite_store import SqliteStore
 from tests.export import attack, samples
-from tests.export.samples import APP_NAME, APP_VERSION, EXPORTED_AT, TODAY
+from tests.export.samples import APP_NAME, APP_VERSION, BUDAPEST, CREATED, EXPORTED_AT, TODAY
 
 HAND_WRITTEN_EXAMPLE = Path(__file__).parent / "hand_written_example.json"
 DAY_BEFORE_ACROSS = attack.ACROSS_TODAY - timedelta(days=1)
@@ -55,6 +71,21 @@ class Case:
     expect: Expect
     today: date = TODAY
     planted: tuple[tuple[str, str, str], ...] = ()
+
+
+@dataclass(frozen=True)
+class AgreedCase:
+    """The trades of the sample named ``source``, without those the two databases disagree on.
+
+    Judged strictly: accepted with no error. ``trades`` are exported again,
+    on ``today``, once the tier knows which of them to leave out.
+    """
+
+    name: str
+    source: str
+    trades: Callable[[], list[StoredTrade]]
+    today: date
+    coins: CoinTable = BUILT_IN_TABLE
 
 
 @dataclass(frozen=True)
@@ -197,6 +228,7 @@ def light_cases() -> list[Case]:
                 ),
             ),
         ),
+        Case("flow-export.json", flow_export_text, Expect.ACCEPTED),
         Case(
             "broken-zone-disagrees.json",
             lambda: broken["zone-disagrees"],
@@ -210,6 +242,73 @@ def light_cases() -> list[Case]:
             ),
         ),
     ]
+
+
+def zone_agreed_cases() -> list[AgreedCase]:
+    """The two samples that allow for the zone-data gap, again, without the trades it touches."""
+    return [
+        AgreedCase(
+            "attack-last-days-where-zone-data-agree.json",
+            "attack-last-days.json",
+            attack.last_days,
+            attack.LAST_TODAY,
+        ),
+        AgreedCase(
+            "attack-every-zone-on-the-day-where-zone-data-agree.json",
+            "attack-every-zone-on-the-day.json",
+            attack.every_zone_on_the_day,
+            attack.ACROSS_TODAY,
+        ),
+    ]
+
+
+def flow_trades() -> tuple[list[StoredTrade], CoinTable]:
+    """The golden sample's trades and one in a coin the user confirmed, with the coin table."""
+    coins = BUILT_IN_TABLE.with_confirmed("PIKA")
+    pika = samples.saved(
+        "flow-pika",
+        TradeDraft(
+            side=Side.BUY,
+            coin="PIKA",
+            quantity=samples.number("1000"),
+            price=samples.number("0.05"),
+            fee=samples.number("0"),
+            fee_coin="USDT",
+            occurred=samples.wall(BUDAPEST, (2026, 10, 3, 20, 15)),
+            raw_text="昨晚 8 点 15 买了 1000 个 PIKA，0.05 一个，没有手续费",
+        ),
+        coins,
+    )
+    return [*samples.golden_trades(), pika], coins
+
+
+def flow_export_text() -> str:
+    """The file the export flow writes from a book of invented trades, in a temporary folder.
+
+    Each trade is saved as a passage of its own, the coin the user confirmed
+    with the trade that uses it; the export runs at the samples' export
+    moment in Budapest, so its today is the samples' today.
+    """
+    trades, _ = flow_trades()
+    with tempfile.TemporaryDirectory(prefix="ledger-hand-flow-") as scratch:
+        folder = Path(scratch)
+        book = SqliteStore(folder / "book.sqlite3")
+        for trade in trades:
+            confirmed = trade.record.coin == "PIKA"
+            book.save(
+                PassageSave(
+                    fingerprint=passage_fingerprint(trade.record.raw_text),
+                    saved_at=CREATED,
+                    trades=(trade,),
+                    coins=(ConfirmedCoin(symbol="PIKA", confirmed_at=CREATED),)
+                    if confirmed
+                    else (),
+                )
+            )
+        outcome = export_from_the_book(book, folder / "exports", now=EXPORTED_AT, zone=BUDAPEST)
+        if outcome.result is not ExportResult.EXPORTED or outcome.path is None:
+            raise AssertionError(f"the export flow did not write the sample: {outcome}")
+        return outcome.path.read_text(encoding="utf-8")
 
 
 def _size_of(trades: list[StoredTrade]) -> int:

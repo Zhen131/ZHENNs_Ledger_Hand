@@ -15,13 +15,19 @@ what the sample is expected to get. A sample is expected to be one of:
 
 What is checked is said in ``tests/ledger_check/cases.py``, beside the
 invented trades the samples are exported from: a file written by hand, the
-committed golden sample, edge cases and batches of awkward trades, and copies
-with mistakes planted in them. Each sample is judged on a given today, handed
-to the ledger, and in three process time zones (the machine's own,
-Los Angeles and Kiritimati), so that no verdict depends on the clock or on
-where the ledger runs. Before any of that, the export itself must refuse
-inputs one past each of the ledger's limits of one file. The tier also fails
-when the ledger's format versions are no longer the ones this program writes.
+committed golden sample, edge cases and batches of awkward trades, a file the
+export flow wrote from a book, and copies with mistakes planted in them.
+Two samples hold a trade in every time zone and allow for the known gap
+between the two time zone databases; once both sides have been asked where
+they disagree, the same trades without those are exported again as two more
+samples, and these must be accepted with no error at all.
+
+Each sample is judged on a given today, handed to the ledger, and in three
+process time zones (the machine's own, Los Angeles and Kiritimati), so that
+no verdict depends on the clock or on where the ledger runs. Before any of
+that, the export itself must refuse inputs one past each of the ledger's
+limits of one file. The tier also fails when the ledger's format versions are
+no longer the ones this program writes.
 
 Where the ledger is comes from ``--ledger PATH`` or else from the environment
 variable ``LEDGER_HAND_LEDGER_DIR``. Nothing in this repository names a path
@@ -622,7 +628,11 @@ def run_offsets(
 
 
 def run(ledger: Path, chosen: Sequence[Sample]) -> Outcome:
-    """Check ``chosen`` with the ledger at ``ledger``, printing the evidence as it goes."""
+    """Check ``chosen`` with the ledger at ``ledger``, printing the evidence as it goes.
+
+    The samples where the two time zone databases agree are added to
+    ``chosen`` once both sides have been asked (``agreed_samples``).
+    """
     print(f"ledger checkout: {ledger}")
     print(f"ledger commit: {ledger_commit(ledger)}")
     if not _reported_clean(ledger, "before"):
@@ -630,20 +640,80 @@ def run(ledger: Path, chosen: Sequence[Sample]) -> Outcome:
     with tempfile.TemporaryDirectory(prefix="ledger-hand-check-") as scratch:
         directory = Path(scratch)
         config = write_config(directory, ledger)
-        files = write_samples(directory, chosen)
-        answers = _validate_everywhere(ledger, config, chosen, files)
-        comparison = compare_zone_data(ledger, config, directory, chosen)
+        judged = _judged(ledger, config, directory, chosen)
     clean_after = _reported_clean(ledger, "after")
-    for failure in (answers, comparison):
-        if isinstance(failure, str):
-            print(failure)
-            return Outcome.FAILED
-    assert not isinstance(answers, str) and not isinstance(comparison, str)
-    report, verdicts = answers
+    if isinstance(judged, str):
+        print(judged)
+        return Outcome.FAILED
+    everything, report, verdicts, comparison = judged
     versions_match = _reported_versions(report)
-    all_as_expected = _reported_verdicts(chosen, verdicts, comparison.gaps)
-    _announce_zone_data(chosen, verdicts, comparison)
+    all_as_expected = _reported_verdicts(everything, verdicts, comparison.gaps)
+    _announce_zone_data(everything, verdicts, comparison)
     return Outcome.PASSED if all_as_expected and versions_match and clean_after else Outcome.FAILED
+
+
+def _judged(
+    ledger: Path, config: Path, directory: Path, chosen: Sequence[Sample]
+) -> tuple[list[Sample], ValidatorReport, list[list[Verdict]], ZoneDataComparison] | str:
+    """Every sample's verdicts, those where the databases agree included; or why not."""
+    comparison = compare_zone_data(ledger, config, directory, chosen)
+    if isinstance(comparison, str):
+        return comparison
+    agreed, left_out = agreed_samples(chosen, comparison)
+    print("\n== trades left out where the two time zone databases disagree ==")
+    print("\n".join(left_out) if left_out else "(no sample to derive)")
+    everything = [*chosen, *agreed]
+    files = write_samples(directory, everything)
+    answers = _validate_everywhere(ledger, config, everything, files)
+    if isinstance(answers, str):
+        return answers
+    gaps = (*comparison.gaps, *({} for _ in agreed))
+    report, verdicts = answers
+    return (
+        everything,
+        report,
+        verdicts,
+        ZoneDataComparison(comparison.ours, comparison.ledgers, gaps),
+    )
+
+
+def agreed_samples(
+    chosen: Sequence[Sample], comparison: ZoneDataComparison
+) -> tuple[list[Sample], list[str]]:
+    """The samples of the same trades without those the two databases disagree on.
+
+    For each such case whose source is among ``chosen``: the trades the two
+    time zone databases give different offsets, found when both sides were
+    asked, are left out, and the rest are exported again; the sample must be
+    accepted with no error. Also gives the lines that say which trades were
+    left out.
+    """
+    gaps_of = {
+        sample.name: (sample, gaps) for sample, gaps in zip(chosen, comparison.gaps, strict=True)
+    }
+    cases = _cases()
+    derived: list[Sample] = []
+    lines: list[str] = []
+    for case in cases.zone_agreed_cases():
+        if case.source not in gaps_of:
+            continue
+        source, gaps = gaps_of[case.source]
+        written = json.loads(source.text)["ledgerData"]["trades"]
+        left_out = {written[place]["id"]: gaps[place] for place in sorted(gaps)}
+        kept = [trade for trade in case.trades() if trade.id not in left_out]
+        derived.append(
+            Sample(case.name, cases.text_of(kept, case.coins, case.today), Accepted(), case.today)
+        )
+        lines.append(
+            f"{case.name}: {len(kept)} of the {len(written)} trades of {case.source}; "
+            f"left out {len(left_out)}"
+        )
+        lines.extend(
+            f"  {identifier}: {gap.zone} at {gap.instant}: "
+            f"ours {gap.ours}, the ledger's {gap.ledgers}"
+            for identifier, gap in left_out.items()
+        )
+    return derived, lines
 
 
 def _announce_zone_data(
