@@ -9,10 +9,11 @@ The steps, each handing back a new ``Progress``:
   kept as a reminder and hold nothing back; and the coins the user confirmed
   and saved before join the coin table. Without a book, nothing is looked
   up and nothing is opened. The passage is checked next and never sent when
-  it is empty, too long or not valid text. The model judges it (``extraction.screening``): when it
-  reports only things the ledger does not record, it is stopped, with the
-  reason for each and the passage's own words where the model gave them, and
-  nothing is extracted; when it reports nothing, there is no trade. Otherwise
+  it is empty, too long or not valid text. The model judges it
+  (``extraction.screening``): when it reports only things the ledger does
+  not record, it is stopped, with the reason for each and the passage's own
+  words where the model gave them, and nothing is extracted; when it
+  reports nothing, there is no trade. Otherwise
   the trades are extracted, and what the passage reports beside them that is
   not recorded is set aside, to be shown as a caution. Each draft is checked
   (``core.validation``); a complete one is recorded at once.
