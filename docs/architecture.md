@@ -26,7 +26,7 @@ pyproject.toml            dependencies and tool configuration, all in this one f
 README.md                                                                             (exists)
 docs/                     documentation                                               (exists)
 scripts/                  the check script and the ledger tier; scripts outside the package (exists)
-data/                     run-time output and the local database; never in Git
+data/                     run-time output: the book and the export files; never in Git
 src/ledger_hand/
     core/                 core rules: no network, database or user interface          (exists)
         ledger_limits.py      the ledger's limits, and its way of measuring them      (exists)
@@ -39,8 +39,10 @@ src/ledger_hand/
         validation.py         validation; which fields are still missing              (exists)
         zones.py              which time zone names are taken                         (exists)
         stored.py             a saved trade: record, identifier, two moments          (exists)
+        book.py               what the book keeps beside a saved trade; listings      (exists)
+        passage_form.py       a passage in the form it is compared in                 (exists)
         followup.py           what to ask next when something is missing or wrong     (exists)
-    ports.py              the two ports: model, and later storage                     (exists)
+    ports.py              the two ports: model and storage                            (exists)
     extraction/           a passage of text to drafts                                 (exists)
         extractor.py          the entry point: one passage in, drafts and issues out  (exists)
         reply_table.py        the flat table the model fills, as a JSON schema        (exists)
@@ -71,18 +73,29 @@ src/ledger_hand/
         retry.py              tries again after failures that may pass on their own   (exists)
         local.py              the local plug assembled from the settings, with retries (exists)
         ollama_identity.py    the server's version and the model's fingerprint        (exists)
-    storage/              plug for the storage port: SQLite, with numbered upgrade scripts
+    storage/              plug for the storage port: SQLite, with numbered upgrade scripts (exists)
+        sqlite_store.py       the plug: every operation of the port, one connection each (exists)
+        book_file.py          opening a book: its mark, its version, upgrading it     (exists)
+        rows.py               a saved trade as the values of a row, and back          (exists)
+        failures.py           SQLite's failures as the port's kinds                   (exists)
+        upgrades/             the numbered upgrade scripts, never changed once committed (exists)
     export/               writes the ledger's backup format as text                   (exists)
         backup.py             the whole file; refuses what the ledger would refuse    (exists)
         trade_entry.py        one saved trade in the ledger's fields                  (exists)
         coin_card.py          one coin in the ledger's fields                         (exists)
         moments.py            creation, change and export moments, in UTC             (exists)
         file_name.py          the name of an export file                              (exists)
-    flows/                strings the parts into one task: record a trade; later, export (exists)
+    flows/                strings the parts into one task: record, save, export      (exists)
         recording.py          a passage from start to records, one question at a time (exists)
         progress.py           where it stands: one value that never changes           (exists)
         questions.py          putting a question together: facts and notes            (exists)
         filling.py            putting an answer back into a trade                     (exists)
+        saving.py             the final records kept in the book                      (exists)
+        identifiers.py        a new identifier for a saved trade                      (exists)
+        fingerprint.py        a passage's fingerprint, worked out in one place        (exists)
+        coin_book.py          the confirmed coins between the book and the coin table (exists)
+        exporting.py          the trades not exported yet, written as one file, marked (exists)
+        export_file.py        a new file, whole, never replacing another              (exists)
     settings.py           the only place that reads settings                          (exists)
     ui/                   the user interface; the only place that may use Streamlit
 evals/                    prompt experiments: test sentences, scoring, runner, results (exists)
@@ -99,7 +112,8 @@ evals/                    prompt experiments: test sentences, scoring, runner, r
     results/              one results file per run, with its summary               (exists)
     RESULTS.md            the results record                                       (exists)
 tests/                    mirrors src; also holds the guardrails, fakes and golden samples  (exists)
-    fakes/                stand-ins for the outside world: scripted models            (exists)
+    fakes/                stand-ins for the outside world: scripted models, a book in memory (exists)
+    storage/              tests of the storage port against every plug; the golden book (exists)
     live/                 the live check against a real model, run by hand only       (exists)
     extraction/           tests of extraction against the scripted model              (exists)
     asking/               tests of wording a question                                 (exists)
@@ -245,13 +259,25 @@ the standard library, the core and the ports file, never the `time` module,
 calls no method that reads the clock or the machine's zone, and names no
 environment variable.
 
+### What `storage/` may not do
+
+`storage/` is the only part that may import `sqlite3`, and it imports
+nothing of the package but the core, the ports file and the settings. It
+reads no clock: every moment it keeps is handed in. A second gate,
+`tests/guardrails/test_repo_storage_boundaries.py`, checks the real package
+straight from its source: only `storage/` imports sqlite3, `storage/`
+imports only what it may, and the ports file names the storage shapes from
+the core only.
+
 ### What `asking/` and `flows/` may not do
 
 `asking/` is handed the facts of a question and reads neither the clock nor
 the machine's zone; the layering check reports in it the same reads as in
 `extraction/`. `flows/` is handed the current moment and the zone by whoever
 starts it (a script or, later, the interface) and passes them on; it never
-reads them itself. A gate, `tests/guardrails/test_repo_clock_free_parts.py`,
+reads them itself. The identifiers it gives saved trades are random UUIDs
+(version 4), never ones made from the clock. A gate,
+`tests/guardrails/test_repo_clock_free_parts.py`,
 checks the real source of both straight, without the table: neither imports
 the `time` module, calls a method that reads the clock or the machine's zone,
 or names an environment variable, and `asking/` imports only the standard
@@ -335,6 +361,62 @@ asked checks it.
 `tests/fakes/scripted_model.py` is the port's stand-in for tests: it plays
 back a script of replies and errors in order, records every call, and fails
 the test when the script runs out.
+
+## The storage port
+
+The storage port in `ports.py` is a `StoragePort` with five methods. Their
+shapes carry moments, so they are declared in `core/book.py` and only named
+in the ports file, which may not use `datetime` itself.
+
+| Method | What it does |
+| --- | --- |
+| `save(PassageSave)` | Saves the trades recorded from one passage, with the passage's fingerprint, the moment of saving and the coins the user confirmed that they use, all in one transaction. Gives back the trades as saved. An identifier already in the book is a `CONFLICT` and nothing is saved. |
+| `earlier_saves(fingerprint)` | Every earlier save of a passage with that fingerprint: when, and how many trades. |
+| `trades(Listing)` | The saved trades, all of them or those not exported yet, in the order saved, each with the moment it was exported. |
+| `mark_exported(ExportMark)` | Marks the trades named as exported at the moment given, all of them or none; a trade not in the book, or already exported, is a `CONFLICT`. |
+| `confirmed_coins()` | The coins the user confirmed and saved a trade with. |
+
+Every failure is a `StorageError` whose `kind` is one of eight
+(`StorageErrorKind`):
+
+| Kind | Raised when |
+| --- | --- |
+| `NEWER_VERSION` | The book was written by a newer version of this program. It is left as it is. |
+| `NOT_A_DATABASE` | The file is not a SQLite database at all. It is left as it is. |
+| `NOT_THIS_PROGRAMS` | The file is a database without this program's mark, or its tables are not exactly those of its version. It is left as it is. |
+| `DAMAGED` | SQLite finds the book damaged (cut short, malformed), or a row cannot be read back as what the book wrote. |
+| `LOCKED` | Someone else is using the book and it stayed busy for longer than the wait allowed. |
+| `INACCESSIBLE` | The book or its folder cannot be made, read or written: no permission, a read-only folder, a folder that is a file, a full disk, an input or output error. |
+| `CONFLICT` | What was asked does not fit what the book holds (see the table above). |
+| `UNEXPECTED` | A failure that fits no other kind, with SQLite's own words. |
+
+**The book's version.** The book carries two numbers in its file header: a
+mark that says it is this program's book (SQLite's `application_id`) and its
+version (`user_version`), a named constant, `BOOK_VERSION`, in
+`storage/book_file.py`. They are read first, through a connection that
+cannot write. A file that is newer, not a database or not this program's is
+refused without one byte written; a missing or empty file becomes a new book
+of the current version. These numbers are the book's own and none of the
+ledger's four version numbers.
+
+**Upgrade scripts.** `storage/upgrades/upgrade_NNNN.py`, numbered from 1 with
+no gap: script `n` turns a book of version `n - 1` into one of version `n`.
+They run in order, each in a transaction of its own, and are never changed
+once committed: a change to the tables is the next script, with a golden
+sample of the version it makes, in the same change. A test lists the
+scripts from the folder and checks that running them one by one from an
+empty file gives exactly the tables of a new book.
+
+**The golden sample.** `tests/storage/golden/book-v1.sqlite3`, made by the
+store itself and compacted, and its text dump `book-v1.sql`, so that the
+hygiene scan sees what is inside. Tests copy it to a temporary folder before
+opening it and check that the current code reads exactly what it holds,
+that the dump makes the same tables and rows, and that both files are the
+bytes committed.
+
+`tests/fakes/memory_store.py` is the port's stand-in for tests: it keeps
+everything in memory, does what the port promises the way the SQLite plug
+does, passes the same tests of the port, and can be made to fail.
 
 ## Deliberately left out
 

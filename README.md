@@ -192,9 +192,54 @@ can be kept out. When the model fails while judging or extracting, nothing
 is kept. `scripts/record_trades.py` runs it at the command line (see
 "Recording trades by hand" below).
 
-Apart from asking the model, all of this is pure computation: nothing is
-written to disk yet, and nothing that is said is recorded. There is no
-storage and no interface yet: the records are listed, not saved.
+**Keeping the records.** Saved trades are kept in the book: one SQLite file
+of this program's own, behind the storage port in `src/ledger_hand/ports.py`
+(save the trades of one passage, say whether a passage was saved before,
+list the saved trades, mark trades as exported, list the coins the user
+confirmed). The one plug, in `src/ledger_hand/storage/`, uses Python's own
+`sqlite3`. Each trade is kept field by field: numbers and times as the ledger
+writes them, as text, never as floating-point numbers, so a trade read back
+is equal to the one saved, down to which amount was worked out; bookkeeping
+moments in UTC to the microsecond. The book carries its own version number
+(1 today) and a mark that says it is this program's, both in the file's
+header, and both are read before anything else: a file that is newer than
+this program, not a database or not this program's book is refused, and not
+one byte of it is written; a missing or empty file becomes a new book, with
+its folder. Numbered upgrade scripts (`storage/upgrades/`) bring an older
+book up to date, one transaction each, and are never changed once
+committed; neither is the golden sample of each version
+(`tests/storage/golden/`). Every failure of the book is one `StorageError`
+with one of eight kinds (newer version, not a database, not this program's,
+damaged, locked, inaccessible, conflict, unexpected); nothing of `sqlite3`
+leaks out. Each operation opens the book and closes it again.
+
+`flows/saving.py` saves the final records of a passage, only when the person
+asked for it: each gets a new identifier (`hand-` and a random UUID) and the
+moment of saving; the coins the user confirmed that the saved trades use are
+kept with them, in the same transaction, and a coin confirmed for a trade
+that was then left out is forgotten. When a book is handed to the recording
+of a passage, the passage is first looked up by its fingerprint (a digest of
+the passage with spacing and character width made uniform): an earlier save
+of it is shown as a reminder, with its date and number of trades, and holds
+nothing back; and the coins confirmed and saved before are known.
+
+`flows/exporting.py` writes the saved trades not exported yet into a new
+file in the exports folder, with `export_backup` (the export moment is the
+current moment, and today its date in the person's time zone) and
+`backup_file_name`, then marks them as exported, with that moment. A refusal
+writes nothing and marks nothing, and says every reason; with nothing new,
+nothing is written. The file is written under a temporary name first and
+only then given its real one, in a way that never replaces a file of that
+name: two exports in the same second would be given the same name, and the
+second then writes nothing and marks nothing. A file and the book cannot be
+changed together in one step, so the order is chosen for what an
+interruption leaves behind: the file is written first and its trades marked
+after. Cut off in between, the result is a file whose trades are not
+marked, and the next export writes them again, which the person can see;
+never trades marked as exported with no file, which would lose them.
+
+Apart from asking the model and keeping the book, all of this is pure
+computation. There is no interface yet.
 
 The repository also has its Python environment, one command that runs every
 check, and two guardrails that keep the code base in shape (the layering
@@ -206,18 +251,19 @@ check and the hygiene scan).
 | --- | --- |
 | `pyproject.toml` | Package metadata and the configuration of every tool (pytest, ruff, mypy). |
 | `requirements.txt` | Exact versions of the run-time dependencies (httpx, tzlocal) and the development tools, so the environment can be rebuilt identically. |
-| `src/ledger_hand/` | The package. Today it holds its version, `core/`, `export/`, the ports file, the settings, `llm/`, `extraction/`, `asking/` and `flows/`. |
-| `src/ledger_hand/core/` | Core rules: pure computation, no network, files, database, user interface or clock. Holds the shapes of a trade (`trade.py`), the coin table (`coins.py`), the ledger's limits (`ledger_limits.py`), exact decimal arithmetic (`arithmetic.py`), the reading and writing of numbers (`numbers.py`), the reading and writing of times (`timeparse.py`, with the wording of a time phrase in `time_wording.py`) and the check of a draft (`validation.py`), what to ask next about a draft (`followup.py`), a saved trade (`stored.py`) and which time zone names are taken (`zones.py`). |
+| `src/ledger_hand/` | The package. Today it holds its version, `core/`, `export/`, the ports file, the settings, `llm/`, `storage/`, `extraction/`, `asking/` and `flows/`. |
+| `src/ledger_hand/core/` | Core rules: pure computation, no network, files, database, user interface or clock. Holds the shapes of a trade (`trade.py`), the coin table (`coins.py`), the ledger's limits (`ledger_limits.py`), exact decimal arithmetic (`arithmetic.py`), the reading and writing of numbers (`numbers.py`), the reading and writing of times (`timeparse.py`, with the wording of a time phrase in `time_wording.py`) and the check of a draft (`validation.py`), what to ask next about a draft (`followup.py`), a saved trade (`stored.py`), what the book keeps beside it (`book.py`), the form a passage is compared in (`passage_form.py`) and which time zone names are taken (`zones.py`). |
 | `src/ledger_hand/export/` | The ledger's backup format: the whole file (`backup.py`), one trade (`trade_entry.py`), one coin (`coin_card.py`), bookkeeping moments (`moments.py`) and the file's name (`file_name.py`). Writes no file itself. |
-| `src/ledger_hand/ports.py` | The model port: messages, parameters, the reply and its record, and the error with its six kinds. Only shapes; it sends nothing. |
-| `src/ledger_hand/settings.py` | The only place in the package that reads environment variables: the model settings, their defaults and their checks. |
+| `src/ledger_hand/ports.py` | The two ports. The model port: messages, parameters, the reply and its record, and the error with its six kinds. The storage port: its operations and the error with its eight kinds; the shapes it takes and gives are in `core/book.py`. Only shapes; it sends and stores nothing. |
+| `src/ledger_hand/settings.py` | The only place in the package that reads environment variables: the model settings, their defaults and their checks, and where the data is kept. |
+| `src/ledger_hand/storage/` | The SQLite plug for the storage port (`sqlite_store.py`): opening a book, its version and its mark (`book_file.py`), a trade as a row and back (`rows.py`), SQLite's failures as the port's kinds (`failures.py`), and the numbered upgrade scripts (`upgrades/`). The only part that may import sqlite3. |
 | `src/ledger_hand/llm/` | The local plug for the model port: the plug itself (`ollama.py`), what is sent (`ollama_request.py`) and how what comes back is read (`ollama_reply.py`), one HTTP exchange and how its failures are sorted (`exchange.py`), making a server's words safe to show (`error_text.py`), trying again (`retry.py`), the assembled local model (`local.py`), and the server's version and the model's fingerprint (`ollama_identity.py`). The only part that may import httpx. |
 | `src/ledger_hand/extraction/` | A passage to drafts: the entry point (`extractor.py`), the table the model fills (`reply_table.py`) and how its reply is read (`reply_parser.py`), finding a copied phrase in the passage (`passage.py`) and the numbers written in a text (`passage_numbers.py`), one row to one draft (`row_draft.py`), which currency a unit names (`unit_currency.py`), the issues (`issues.py`), the messages a prompt version makes (`prompting.py`), and the prompt versions with their examples (`prompts/`). Also the check of a passage before it is sent (`passage_check.py`), judging a passage (`screening.py`, with the list the model fills in `screen_table.py`), and reading an answer to a question (`answer_phrase.py`, with its word lists in `answer_words.py` and what the model copies in `answer_table.py`). Reads no clock, no zone of the machine and no environment variable. |
 | `src/ledger_hand/asking/` | Wording a follow-up question: the facts, the model's sentence and its checks (`question_text.py`), the program's own sentences (`templates.py`) and the prompt (`prompts/bookkeeper.py`). Imports only `core/` and the ports file; reads no clock. |
-| `src/ledger_hand/flows/` | Recording a passage from start to records (`recording.py`): the state it hands back (`progress.py`), putting a question together (`questions.py`) and putting an answer back (`filling.py`). Writes nothing. |
-| `tests/` | The tests. `tests/core/`, `tests/export/`, `tests/llm/`, `tests/extraction/`, `tests/asking/` and `tests/flows/` have one test module per module, or more; `tests/llm/` also has a fake Ollama server and a batch of attacks on the plug, and `tests/extraction/` a batch of attacks on extraction. `tests/flows/` also tests the script for recording trades. `tests/evals/` tests the experiment kit and the test sentences. |
+| `src/ledger_hand/flows/` | Recording a passage from start to records (`recording.py`): the state it hands back (`progress.py`), putting a question together (`questions.py`) and putting an answer back (`filling.py`). Saving the records (`saving.py`) with new identifiers (`identifiers.py`), a passage's fingerprint (`fingerprint.py`), the confirmed coins between the book and the coin table (`coin_book.py`), and exporting (`exporting.py`) into a new file that never replaces another (`export_file.py`). |
+| `tests/` | The tests. `tests/core/`, `tests/export/`, `tests/llm/`, `tests/extraction/`, `tests/asking/`, `tests/storage/` and `tests/flows/` have one test module per module, or more; `tests/llm/` also has a fake Ollama server and a batch of attacks on the plug, and `tests/extraction/` a batch of attacks on extraction. `tests/storage/` runs the same tests of the storage port against the SQLite plug and the in-memory stand-in, and holds the golden book. `tests/flows/` also tests the script for recording trades. `tests/evals/` tests the experiment kit and the test sentences. |
 | `tests/conftest.py` | Stops every test that is not marked `live_model` from reaching the network. |
-| `tests/fakes/` | Stand-ins for the outside world: a scripted model that plays back replies and errors in order and records what it was asked, and a model that answers each kind of call (judging, extraction, wording a question, reading an answer) from its own script. |
+| `tests/fakes/` | Stand-ins for the outside world: a scripted model that plays back replies and errors in order and records what it was asked, a model that answers each kind of call (judging, extraction, wording a question, reading an answer) from its own script, and a book kept in memory that can be made to fail. |
 | `tests/live/` | The live check, which talks to a real model, the small schema check it uses, the smoke test of extraction, and the check of judging the debug set. |
 | `tests/export/samples.py`, `tests/export/attack.py`, `tests/export/golden/` | Invented trades to export, batches of edge cases made to find where this program and the ledger part ways, both shared with the ledger tier, and the golden sample. A golden sample is never edited once committed; a new format version gets one of its own. |
 | `tests/guardrails/` | The layering check and the hygiene scan, the tests that prove they catch what they should, and the two gate tests that apply them to this repository. |
@@ -231,12 +277,12 @@ check and the hygiene scan).
 | `tests/ledger_check/` | What the ledger tier checks (`cases.py`), tests of the tier's own logic, and the one sample for it written by hand. |
 | `docs/architecture.md` | How the layers are divided, who may import whom, the house rules, and where new features go. |
 | `docs/known-gaps.md` | Known gaps between what this program accepts and what the ledger accepts, each waiting for a decision. |
-| `data/` | Not in Git. Run-time output, caches and, later, the local database. Created when first needed. |
+| `tests/storage/golden/` | The golden book of version 1, a SQLite file, and its text dump. Never edited once committed; a new version of the book gets one of its own. |
+| `data/` | Not in Git. The data folder by default: the book (`ledger-hand-book.sqlite3`) and the export files (`exports/`). Created when first written to. |
 | `.venv/` | Not in Git. The local Python environment. |
 
-Directories for later parts (storage, user interface) are created by the
-change that first needs them; see `docs/architecture.md` for the planned
-layout.
+Directories for later parts (the user interface) are created by the change
+that first needs them; see `docs/architecture.md` for the planned layout.
 
 ## Setting up from scratch
 
@@ -324,6 +370,14 @@ What is checked is listed in `tests/ledger_check/cases.py`: the golden sample,
 edge cases, batches of awkward trades (every time zone, the first and last
 days there are, awkward characters, extreme numbers, buys followed by sales,
 the ledger's limits of one file) and copies with mistakes planted in them.
+One sample is the file the export flow writes from a book of invented trades
+in a temporary folder, so that what the flow writes is judged as well. The
+two samples that allow for the gap between the time zone databases are also
+judged strictly: once both sides have been asked which of their trades they
+give different offsets, those trades are left out, the rest are exported
+again, and these two samples must be accepted with no error at all. The
+output lists every trade left out, with its zone, its moment and both
+offsets.
 Each sample is handed to the ledger together with the date it is to take as
 today, the same date it was exported on, and is judged three times: in the
 machine's own time zone, in Los Angeles and in Kiritimati. Before that, the
@@ -411,7 +465,8 @@ being asked about out, or "cancel" to drop the whole passage. Once every
 trade is settled, the records are listed with the trades skipped, those
 that cannot be recorded and why, the reminders and anything set aside; then
 "remove N" leaves record N out, "cancel" drops the whole passage, and "done"
-ends. Nothing is saved: saving is a later part of the program.
+ends. Nothing is saved unless `--save` is given (see "Saving, listing and
+exporting" below).
 
 With `--answers FILE` the script is not interactive: the answers are the
 lines of the file (`-` for standard input, after the passage when the
@@ -419,11 +474,44 @@ passage is not given as arguments), each printed after its question. When
 they run out before every trade is settled, the script stops; when they run
 out once every trade is settled, that counts as "done". The current moment
 is the machine's clock and the zone the machine's own, read with tzlocal.
-Nothing is written to disk. Exit status: `0` done, with the records listed
-(there may be none); `1` nothing is kept (the passage was refused, stopped,
-held no trade, the model failed, or the passage was dropped); `2` the
-script could not start (a setting or the zone); `3` the answers or the input
-ran out before the end.
+Without `--save`, `--list` or `--export`, nothing is written to disk and no
+book is opened. Exit status: `0` done, with the records listed (there may be
+none); `1` nothing is kept (the passage was refused, stopped, held no trade,
+the model failed, or the passage was dropped); `2` the script could not
+start (a setting or the zone); `3` the answers or the input ran out before
+the end.
+
+### Saving, listing and exporting
+
+```sh
+.venv/bin/python scripts/record_trades.py --save "昨天晚上在 OKX 买了 0.3 个 ETH，价格 3,180，手续费 0"
+.venv/bin/python scripts/record_trades.py --list
+.venv/bin/python scripts/record_trades.py --export
+```
+
+`--save` records the passage as above, with the book open. Before the first
+question it says whether the same passage, or one that differs from it only
+in spacing or full-width characters, was saved before: on which day, and how
+many trades. That is a reminder only; nothing is held back. The coins
+confirmed and saved before need no confirming again. Once the records are
+final (after "done", and any "remove N" before it), it asks whether to save
+them, and saves them only when the answer is `save` (or `yes`, `y`, `存`,
+`保存`). Any other answer saves nothing, and so does running out of answers
+with `--answers`: saving is never assumed.
+
+`--list` lists every saved trade with its identifier, its fields, when it was
+saved and whether and when it was exported. `--export` writes the saved
+trades not exported yet into a new file in the exports folder and marks them
+as exported, as described under "Keeping the records" above; with nothing
+new, it says so and writes nothing.
+
+The book and the exports folder are in the data folder; see "Where the data
+is kept" below. Exit status, besides those above: `0` saved (or there was
+nothing to save), listed, exported, or nothing new to export; `1` the
+records were not saved, or the export was refused or its file could not be
+written (nothing was marked); `4` the book failed (the message gives its
+kind), or the export file was written but its trades could not be marked,
+so that the next export writes them again.
 
 ### The prompts and their techniques
 
@@ -522,6 +610,21 @@ long past the time allowed.
 The plug ignores the proxy settings of the environment (`HTTP_PROXY` and the
 like), so a request for the model on this machine never leaves it through a
 proxy.
+
+## Where the data is kept
+
+| Variable | Default | What it sets |
+| --- | --- | --- |
+| `LEDGER_HAND_DATA_DIR` | `data` in the working directory | The data folder. The book is `ledger-hand-book.sqlite3` in it and export files go into `exports/` in it. A relative folder is taken from the working directory; a leading `~` is the home folder. |
+
+The data folder and the exports folder are made when something is first
+written there; reading the setting makes nothing, and recording a passage
+without `--save` never opens the book. This variable is not one of the model
+settings above and does not start with their prefix, so setting it never
+makes the model settings refuse anything; neither do `LEDGER_HAND_LEDGER_DIR`
+and `LEDGER_HAND_PYTHON`, which the scripts read. The default `data/` is
+kept out of Git by the repository's ignore file. The book holds the original
+passages, as typed: keep it out of anything shared.
 
 ## Changing the development tools
 
