@@ -16,19 +16,22 @@ from pathlib import Path
 import pytest
 
 from ledger_hand.core.book import ConfirmedCoin, EarlierSave, ExportMark, Listing
+from ledger_hand.core.numbers import write_number
+from ledger_hand.core.stored import StoredTrade
 from ledger_hand.ports import StorageError, StorageErrorKind, StoragePort
+from ledger_hand.storage.sqlite_store import SqliteStore
 from tests.fakes.memory_store import MemoryStore
 from tests.storage.invented import SAVED_AT, passage, records, stored
 
 LATER = SAVED_AT + timedelta(minutes=5)
 EXPORTED_AT = datetime(2026, 10, 9, 7, 0, 0, 654321, tzinfo=timezone.utc)
-PLUGS = ["memory"]
+PLUGS = ["sqlite", "memory"]
 
 
 def build(plug: str, where: Path) -> StoragePort:
     if plug == "memory":
         return MemoryStore()
-    raise AssertionError(f"no such plug: {plug}")
+    return SqliteStore(where / "book.sqlite3")
 
 
 @pytest.fixture(params=PLUGS)
@@ -36,7 +39,7 @@ def store(request: pytest.FixtureRequest, tmp_path: Path) -> Iterator[StoragePor
     yield build(request.param, tmp_path / "data")
 
 
-def four_trades() -> list:
+def four_trades() -> list[StoredTrade]:
     return [stored(f"hand-{name}", record) for name, record in records().items()]
 
 
@@ -65,7 +68,7 @@ def test_saved_trades_come_back_equal_in_every_cell(store: StoragePort) -> None:
         assert kept.occurred.value == record.occurred.value
         assert type(kept.occurred.value) is type(record.occurred.value)
         for name in ("quantity", "price", "total", "fee"):
-            assert str(getattr(kept, name)) == str(getattr(record, name)), name
+            assert write_number(getattr(kept, name)) == write_number(getattr(record, name)), name
         assert (kept.platform, kept.note, kept.raw_text) == (
             record.platform,
             record.note,
