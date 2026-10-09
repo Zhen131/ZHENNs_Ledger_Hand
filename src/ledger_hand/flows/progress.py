@@ -7,9 +7,9 @@ answer (``Question``), why the passage was stopped or what was set aside, the
 reminders from extraction, the earlier saves of the same passage when a book
 was handed in, why nothing could be done when the model failed, which prompt
 versions were used and a record of every call to the model. Its
-properties say what may be done next: whether a trade can be removed, whether
-the whole passage can be dropped, whether every trade is settled and whether
-the passage is over.
+properties say what may be done next: whether a trade can be removed, and
+which, whether the records can be saved, whether the whole passage can be
+dropped, whether every trade is settled and whether the passage is over.
 
 Only ``recording`` makes a ``Progress``; this module states the shapes.
 
@@ -246,3 +246,19 @@ class Progress:
     def can_cancel(self) -> bool:
         """Whether the whole passage can be dropped now."""
         return self.stage in (Stage.ASKING, Stage.REVIEWING)
+
+    @property
+    def removable(self) -> tuple[int, ...]:
+        """The numbers (counting from 1, in passage order) of the trades that can be removed now."""
+        if not self.can_remove:
+            return ()
+        return tuple(
+            number
+            for number, trade in enumerate(self.trades, start=1)
+            if trade.status is TradeStatus.RECORDED and trade.record is not None
+        )
+
+    @property
+    def can_save(self) -> bool:
+        """Whether the records can be made final and saved now: all is settled, one is a record."""
+        return self.stage is Stage.REVIEWING and bool(self.records)
