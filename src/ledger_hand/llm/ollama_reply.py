@@ -10,8 +10,10 @@ status and the start of the body attached:
 - status 200 in any other shape (not UTF-8, not JSON, not an object, no
   message, no text, blank text, text that is not valid Unicode, not marked
   done, or a body that could not be read): ``MALFORMED_REPLY``;
-- status 404 with a JSON object whose ``error`` text says "not found": this
-  is how Ollama says it does not have the model; ``MODEL_NOT_FOUND``;
+- status 404 with a JSON object whose ``error`` text says "not found" and
+  names a model (both in any case): this is how Ollama says it does not have
+  the model; ``MODEL_NOT_FOUND``. A 404 that says only "Not Found" comes
+  from something else at the address, and falls to the next line;
 - any other status: as ``exchange.failure_for_status`` sorts it.
 
 The record of the call takes the model's name, the two token counts
@@ -100,7 +102,10 @@ def _says_not_found(answer: Answer) -> bool:
     except (ValueError, RecursionError):
         return False
     error = data.get("error") if isinstance(data, dict) else None
-    return isinstance(error, str) and "not found" in error.lower()
+    if not isinstance(error, str):
+        return False
+    said = error.lower()
+    return "not found" in said and "model" in said
 
 
 def _refuse_constant(name: str) -> object:
