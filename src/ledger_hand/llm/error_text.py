@@ -8,15 +8,12 @@ is replaced by a placeholder wherever it occurs. The key is hidden before
 the text is cut short, so that a key straddling the cut cannot leave half of
 itself behind.
 
-A server that repeats the key does not always repeat it as it was sent. It
-may write it inside a JSON string, where a quote or a backslash gets a
-backslash in front (twice over, when that JSON is itself put in a string),
-any character may become ``\\uXXXX`` and a slash may become ``\\/``; in an
-address, where characters become ``%XX`` in either case; or in an HTML
-page, where ``&``, ``<``, ``>`` and quotes become entities, named or
-numbered. So each character of the key is looked for in every one of these
-ways, mixed as they come, and the whole match is hidden. Hiding a little
-more than the key (a stray backslash in front of it, say) is the safe side.
+A server that repeats the key does not always repeat it as it was sent: it
+may write it escaped as JSON (once or more), as ``\\uXXXX``, percent-encoded
+or as HTML entities. ``key_forms`` finds the key in each of these ways, in
+time that grows in step with the length of the text, and every stretch it
+finds is hidden whole. Hiding a little more than the key (a stray backslash
+in front of it, say) is the safe side.
 
 This module only rewrites text. It decides nothing about kinds of failure.
 
@@ -26,8 +23,7 @@ Names defined here: ``SNIPPET_CHARACTERS``, ``DETAIL_CHARACTERS``,
 
 from __future__ import annotations
 
-import re
-
+from ledger_hand.llm.key_forms import key_spans
 from ledger_hand.settings import Secret
 
 # Enough of a reply to see what it was, short enough to read in one line.
@@ -37,47 +33,17 @@ DETAIL_CHARACTERS = 300
 HIDDEN = "<hidden>"
 
 
-# The names HTML gives the characters a key may hold; numbered entities are
-# looked for for every character.
-_HTML_NAMES = {
-    "&": ("&amp;",),
-    "<": ("&lt;",),
-    ">": ("&gt;",),
-    '"': ("&quot;",),
-    "'": ("&apos;",),
-}
-
-
 def hide(text: str, secret: Secret | None) -> str:
     """``text`` with every occurrence of the secret, written in any of the known ways, hidden."""
     if secret is None or not secret.reveal():
         return text
-    return _written_back(secret.reveal()).sub(HIDDEN, text)
-
-
-def _written_back(value: str) -> re.Pattern[str]:
-    """A pattern for ``value`` with each character written in any of the known ways."""
-    return re.compile("".join(_one_character(character) for character in value))
-
-
-def _one_character(character: str) -> str:
-    code = ord(character)
-    percent = "".join(f"%{byte:02x}" for byte in character.encode("utf-8", "surrogatepass"))
-    # The longer ways first, the character itself last, so that a key ending in
-    # "&" or "\\" is matched with the whole of "&amp;" or "\\u005c" behind it.
-    ways = [
-        *(re.escape(name) for name in _HTML_NAMES.get(character, ())),
-        f"&#0*{code};",
-        f"(?i:&#x0*{code:x};)",
-        f"(?i:{re.escape(percent)})",
-    ]
-    if code <= 0xFFFF:
-        ways.append(rf"(?i:\\u{code:04x})")
-    # A backslash is doubled by each round of JSON, so it stands for any run of them.
-    ways.append(r"\\+" if character == "\\" else re.escape(character))
-    # Any run of backslashes in front: one for a JSON escape, more for JSON in JSON.
-    # As few as will do, so that the backslash of a "\\uXXXX" stays with it.
-    return rf"\\*?(?:{'|'.join(ways)})"
+    pieces: list[str] = []
+    after = 0
+    for begin, end in key_spans(text, secret.reveal()):
+        pieces += [text[after:begin], HIDDEN]
+        after = end
+    pieces.append(text[after:])
+    return "".join(pieces)
 
 
 def snippet(body: bytes, secret: Secret | None) -> str | None:

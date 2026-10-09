@@ -85,6 +85,7 @@ src/ledger_hand/
         reply_json.py         what both plugs share in reading a reply                (exists)
         exchange.py           one HTTP exchange; sorts failed connections and statuses (exists)
         error_text.py         a server's words made safe to show, the key hidden      (exists)
+        key_forms.py          where a key stands in a text, in any known way written  (exists)
         retry_after.py        how long a rate-limited server asks to wait             (exists)
         retry.py              tries again after failures that may pass on their own   (exists)
         connect.py            the plug the settings choose, checked, with retries     (exists)
