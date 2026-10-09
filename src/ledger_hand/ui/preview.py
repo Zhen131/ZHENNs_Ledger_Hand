@@ -7,7 +7,10 @@ price belongs shows at a glance), the fee and its coin, the platform and the
 note. A trade that is complete shows its record; any other shows its
 draft as it stands, with blanks where nothing is known yet. The amount the
 program worked out from the other two is marked, read from the record, so
-the mark appears only once the trade has passed the check.
+the mark appears only once the trade has passed the check. So is the fee
+coin of a complete trade whose fee the ledger leaves out of the cost (paid
+in a third coin; the core says which), and a sentence under the table says
+why.
 
 Numbers are written as the ledger writes them, from exact decimals; a draft
 value the ledger could not hold is written out as the exact decimal it is.
@@ -18,8 +21,8 @@ own zone, followed by that zone's name.
 answering a question), and under it the controls: Don't save for each
 trade, Save and Discard all. Each is usable only when the flow offers it.
 
-Names defined here: ``COLUMNS``, ``CALCULATED_MARK``, ``rows``, ``draw`` and
-the keys of the controls.
+Names defined here: ``COLUMNS``, ``CALCULATED_MARK``, ``FEE_LEFT_OUT_MARK``,
+``rows``, ``draw`` and the keys of the controls.
 """
 
 from __future__ import annotations
@@ -29,6 +32,7 @@ from decimal import Decimal
 
 import streamlit as st
 
+from ledger_hand.core.fee_cost import fee_left_out_of_cost
 from ledger_hand.core.numbers import write_number
 from ledger_hand.core.trade import Amount, OccurredTime, TimePrecision
 from ledger_hand.flows.progress import Progress, TradeState, TradeStatus
@@ -55,6 +59,8 @@ COLUMNS = (
     "Note",
 )
 CALCULATED_MARK = " *"
+# After the fee coin of a complete trade whose fee the ledger leaves out of the cost.
+FEE_LEFT_OUT_MARK = " (not in cost)"
 # The star stands alone in the sentence, so the caption does not read it as Markdown.
 _LEGEND = "An amount marked * was worked out by the program from the other two."
 # Wide enough for a date, a time and a zone name, and for a status with its reason.
@@ -88,6 +94,8 @@ def draw(progress: Progress | None) -> None:
             },
         )
     st.caption(_LEGEND)
+    for reminder in sayings.fees_left_out(progress):
+        st.caption(reminder)
     if progress is not None and progress.trades:
         with st.container(horizontal=True):
             for number in range(1, len(progress.trades) + 1):
@@ -132,6 +140,8 @@ def _row(number: int, trade: TradeState) -> dict[str, str]:
         }
         if record.derived is not None:
             cells[_AMOUNT_COLUMNS[record.derived]] += CALCULATED_MARK
+        if fee_left_out_of_cost(record):
+            cells["Fee coin"] += FEE_LEFT_OUT_MARK
     else:
         draft = trade.draft
         cells = {

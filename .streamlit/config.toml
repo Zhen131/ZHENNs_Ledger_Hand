@@ -12,3 +12,8 @@ address = "127.0.0.1"
 # writing a credentials file into the home folder and without opening a
 # browser: open http://127.0.0.1:8501 yourself.
 headless = true
+
+[client]
+# Show no developer options in the menu at the top right, among them the
+# Deploy button, which offers to publish the app on Streamlit's cloud.
+toolbarMode = "minimal"
