@@ -63,17 +63,21 @@ def _written_back(value: str) -> re.Pattern[str]:
 def _one_character(character: str) -> str:
     code = ord(character)
     percent = "".join(f"%{byte:02x}" for byte in character.encode("utf-8", "surrogatepass"))
+    # The longer ways first, the character itself last, so that a key ending in
+    # "&" or "\\" is matched with the whole of "&amp;" or "\\u005c" behind it.
     ways = [
-        re.escape(character),
-        f"(?i:{re.escape(percent)})",
+        *(re.escape(name) for name in _HTML_NAMES.get(character, ())),
         f"&#0*{code};",
         f"(?i:&#x0*{code:x};)",
-        *(re.escape(name) for name in _HTML_NAMES.get(character, ())),
+        f"(?i:{re.escape(percent)})",
     ]
     if code <= 0xFFFF:
         ways.append(rf"(?i:\\u{code:04x})")
+    # A backslash is doubled by each round of JSON, so it stands for any run of them.
+    ways.append(r"\\+" if character == "\\" else re.escape(character))
     # Any run of backslashes in front: one for a JSON escape, more for JSON in JSON.
-    return rf"\\*(?:{'|'.join(ways)})"
+    # As few as will do, so that the backslash of a "\\uXXXX" stays with it.
+    return rf"\\*?(?:{'|'.join(ways)})"
 
 
 def snippet(body: bytes, secret: Secret | None) -> str | None:

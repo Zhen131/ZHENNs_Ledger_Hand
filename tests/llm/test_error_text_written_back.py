@@ -96,3 +96,20 @@ def test_a_plain_key_is_hidden_as_before() -> None:
     plain = Secret("sk-invented-abcdef0123456789")
 
     assert hide("Bearer sk-invented-abcdef0123456789.", plain) == f"Bearer {HIDDEN}."
+
+
+@pytest.mark.parametrize(
+    ("value", "written"),
+    [
+        ("sk-invented-ends-with-&", "sk-invented-ends-with-&amp;"),
+        ("sk-invented-ends-with-\\", "sk-invented-ends-with-\\u005c"),
+        ("sk-invented-ends-with-\\", "sk-invented-ends-with-\\\\"),
+        ("sk-invented-ends-with-\\", "sk-invented-ends-with-\\\\\\\\"),
+        ("sk-invented-ends-with-u", "".join(f"\\u{ord(c):04x}" for c in "sk-invented-ends-with-u")),
+        ('sk-invented-ends-with-"', "sk-invented-ends-with-\\\\\\&quot;"),
+    ],
+)
+def test_a_key_ending_in_a_character_written_another_way_leaves_nothing_of_that_way(
+    value: str, written: str
+) -> None:
+    assert hide(f"before {written} after", Secret(value)) == f"before {HIDDEN} after"
