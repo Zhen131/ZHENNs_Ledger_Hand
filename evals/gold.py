@@ -68,6 +68,7 @@ class Split(enum.Enum):
 
     DEBUG = "debug"
     FINAL = "final"
+    WRITINGS = "writings"
 
 
 class Language(enum.Enum):

@@ -2,13 +2,15 @@
 
     .venv/bin/python -m evals.run                      # the debug set, the first prompt
     .venv/bin/python -m evals.run --prompt first --model qwen2.5:7b
+    .venv/bin/python -m evals.run --set writings --prompt stepwise
     .venv/bin/python -m evals.run --resume evals/results/<file>.jsonl
 
 Run from the top of the repository. The model is the one the settings name
 (see "Model settings" in the README), unless ``--model`` names another; the
 parameters (temperature and the rest) are the settings' too. The set is the
-debug set. The final set is run only with ``--final-exam``, and the results
-file then says so: it is kept for the last run of an experiment.
+debug set, unless ``--set`` names the writings set (``writings``), which is
+scored apart. The final set is run only with ``--final-exam``, and the
+results file then says so: it is kept for the last run of an experiment.
 
 For each sentence, extraction is given the sentence's own fixed moment and
 zone, never the clock. The moment a sentence is done, its line is added to
@@ -61,6 +63,7 @@ from evals.records import (
 from evals.scoring import Produced, ResultKind, score_sentence
 from evals.summarize import summary_path
 from evals.tables import markdown, summarize
+from evals.writings import WRITINGS_SET
 from ledger_hand.core.coins import BUILT_IN_TABLE
 from ledger_hand.core.trade import TradeRecord
 from ledger_hand.core.validation import check_draft
@@ -361,7 +364,14 @@ def run_sentences(
 
 def _arguments(arguments: Sequence[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(prog="python -m evals.run", description=__doc__)
-    parser.add_argument("--final-exam", action="store_true", help="run the final set instead")
+    chosen_set = parser.add_mutually_exclusive_group()
+    chosen_set.add_argument("--final-exam", action="store_true", help="run the final set instead")
+    chosen_set.add_argument(
+        "--set",
+        default=Split.DEBUG.value,
+        choices=[Split.DEBUG.value, Split.WRITINGS.value],
+        help="the set to run: the debug set, or the writings set scored apart",
+    )
     parser.add_argument("--prompt", default="first", choices=sorted(PROMPTS))
     parser.add_argument("--model", default=None, help="the model to ask instead of the setting")
     parser.add_argument("--only", nargs="+", default=None, help="only these sentence ids")
@@ -370,8 +380,12 @@ def _arguments(arguments: Sequence[str]) -> argparse.Namespace:
 
 
 def set_for(options: argparse.Namespace) -> tuple[Split, Path]:
-    """The set a run takes: the debug set, unless the final-exam switch was given."""
-    return (Split.FINAL, FINAL_SET) if options.final_exam else (Split.DEBUG, DEBUG_SET)
+    """The set a run takes: the debug set, unless the final-exam switch or ``--set`` says else."""
+    if options.final_exam:
+        return Split.FINAL, FINAL_SET
+    if options.set == Split.WRITINGS.value:
+        return Split.WRITINGS, WRITINGS_SET
+    return Split.DEBUG, DEBUG_SET
 
 
 def _results_path(results_dir: Path, split: Split, prompt: str, started: datetime) -> Path:
