@@ -3068,7 +3068,10 @@ downloaded for this experiment; the second model waits until one is
 named. The runner takes another model by name (`--model <name>`) and
 records its name and fingerprint in the run line; a name the model server
 does not have stops the run before any results file is written, with exit
-status 2 (`tests/evals/test_run_second_model.py`).
+status 2 (`tests/evals/test_run_second_model.py`; and against the model
+server itself, in the live tier, `tests/live/test_live_second_model.py`,
+which also reads the server's list of models before and after and finds it
+the same).
 
 ### The runs of the second experiment
 
