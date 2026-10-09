@@ -409,7 +409,7 @@ line.
 
 | Step | What changed | What it showed |
 | --- | --- | --- |
-| 1 | `first` written: field descriptions, rules, ten invented examples. While trying it by hand, before any measurement, a rule was added: never translate, copy times in the passage's own words (commit `dd83094`) | The baseline: 29 / 34 |
+| 1 | `first` written: field descriptions, rules, ten invented examples. Before the first measurement, one rule was added: never translate, and copy times in the passage's own words (commit `dd83094`) | The baseline: 29 / 34 |
 | 2 | Not the prompt: the program's reading of a full-width comma between two numbers was fixed | The same 30 raw replies; d23 went from 0 to 2 whole trades, so `first` became 31 / 34 (`evals/RESULTS.md`, "`first` against the baseline, sentence by sentence") |
 | 3 | `zero_shot`: the ten examples taken out | 19 / 34: the examples carry most of the work; without them 9 times and 1 fee were left out with no issue, and 5 values were made up |
 | 4 | `persona`: a bookkeeper's role before the instructions | 29 / 34: no gain |
@@ -419,8 +419,9 @@ line.
 | 8 | Final set, `first`, once | 22 / 22 |
 | 9 | `split-1`: split a passage first, then extract each segment | Tied on whole trades, 2 extra trades, about twice the calls |
 
-`answer-1`, the prompt that copies a piece of an answer, was reworded once
-after a trial by hand, before anything measured it (commit `b345470`).
+`answer-1`, the prompt that copies a piece of an answer, has been reworded
+once (commit `b345470`): it now says what the piece to copy is, so that the
+words leading up to it are left out. No measured run uses it.
 
 One caveat on step 7: `stepwise` asks again with `first`'s words, which ask
 for `{"trades": [...]}`, while its own table puts `steps` first. In the
@@ -463,7 +464,7 @@ stands.
 | Screenshot input is not built | It is planned for a later stage; where it would go is in `docs/architecture.md`. So nothing multimodal is in this version. |
 | An English time is often written in Chinese by the model | The most common reason a trade is not whole in the experiments. The program catches it (the phrase is not a piece of the passage) and asks, so it costs a question, not a wrong record; no prompt version mended it (`docs/known-gaps.md`). |
 | A total put as the price can reach the records | `first` did so twice on the debug set, with no issue about the field (`evals/RESULTS.md`). The table shows price and total side by side and a trade can be left out; `price_total` removed it but lost two other trades, so the rule did not pick it (`docs/known-gaps.md`). |
-| An "about" not right next to a number may be dropped | When the model copies a piece of an answer it may leave out a word such as "大概" that does not touch the number, and the program then takes the amount as exact. Seen in trials by hand, not measured (`docs/known-gaps.md`). |
+| An "about" not right next to a number may be dropped | When the model copies a piece of an answer it may leave out a word such as "大概" that does not touch the number, and the program then takes the amount as exact: the piece is only checked to be a piece of the answer. Not measured (`docs/known-gaps.md`). |
 | Time zone databases of different versions | The ledger and this program each use their own copy; where they differ, the ledger refuses a timed trade this program exports. Closing it needs a decision (`docs/known-gaps.md`). |
 | The book after a crash in the middle of a write | SQLite leaves a journal file, which its read-only first look cannot roll back, so the book is refused as inaccessible until it is opened for writing once; no data is lost (`docs/known-gaps.md`). Opening for writing would bend the rule that a refused file is never written to; the choice is the project owner's. |
 | A change of the time zone database can make the whole book unreadable | A timed trade whose kept offset no longer matches its zone makes the book report itself damaged, so nothing can be listed or exported (`docs/known-gaps.md`). Marking only those trades is a change still to be decided. |

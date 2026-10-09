@@ -145,9 +145,10 @@ piece of it that gives the value. It may leave out a word that makes the
 value approximate when the word does not touch the number ("大概买了 2 个"
 copied as "2 个"); the program then takes the amount as exact.
 
-**Why it stands.** Seen in trials by hand, not measured. The prompt asks the
-model to keep such a word when it stands right next to the value, and the
-number reader is unsure of an amount that keeps it.
+**Why it stands.** Nothing catches it: the piece is only checked to be a
+piece of the answer. The prompt asks the model to keep such a word when it
+stands right next to the value, and the number reader is unsure of an
+amount that keeps it. How often it happens is not measured.
 
 ## The book after a write was cut off
 
