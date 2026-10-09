@@ -415,10 +415,245 @@ written during the run is the same in the one worked out again.
 
 ## 2026-10-09: prompt experiment one, five prompt versions, `qwen2.5:7b`
 
-Five prompt versions for extraction, each one technique away from the first,
-measured with the same test sentences, scoring and model as the baseline.
-Each run below has its own subsection with the tables its results file
-gives, and the three more counts (`evals/extra_counts.py`).
+Five versions of the extraction prompt, each one technique away from the
+first, measured with the same 30 debug sentences, the same scoring and the
+same model as the baseline above. Then the same five on a small set of
+sentences written for the numbers the number reader finds hard (the
+writings set), scored apart. Then two runs that each change one parameter.
+The final set is run once, after all of this is recorded, with the version
+that a rule fixed before the runs picks; its section is at the end.
+
+These are versions of the extraction prompt only. The prompts for judging a
+passage (`screen-1`, zero-shot), reading an answer (`answer-1`, zero-shot)
+and wording a question (`bookkeeper-1`, persona) do other jobs and are not
+measured here.
+
+| Version | File | Technique | The one thing it changes from `first` |
+| --- | --- | --- | --- |
+| `first` | `extraction/prompts/first.py` | few-shot | nothing: the baseline, instructions and ten examples |
+| `zero_shot` | `extraction/prompts/zero_shot.py` | zero-shot | no example; the instructions are the same |
+| `persona` | `extraction/prompts/persona.py` | persona | a paragraph before the instructions: the model is a meticulous bookkeeper |
+| `stepwise` | `extraction/prompts/stepwise.py` | chain of thought | a paragraph after the instructions asking for a step-by-step analysis, written in a field `steps` that its reply table has before the rows; its examples are `first`'s and show no analysis |
+| `price_total` | `extraction/prompts/price_total.py` | content iteration | a sixth rule after the instructions: an amount said as a total goes into total, never into price |
+
+The words for asking again are the same in all five. A test checks that
+each version is `first` with only its declared change
+(`tests/extraction/test_prompt_versions.py`).
+
+**Conditions.** Every run used `qwen2.5:7b` (fingerprint
+`845dbda0ea48ed749caafd9e6037047aa19acfcfd82e704d7ca97d631a0b697e`),
+Ollama 0.34.3 and the settings' defaults: temperature 0.0, top_p 1.0,
+longest reply 1,024 tokens, context 16,384 tokens, 120 seconds per call, 2
+retries 1 second apart, and asking again once after a reply that misses the
+table. Only the two parameter comparisons change one of these each. The
+model was loaded before the first run. The runs were made one after
+another on 2026-10-09 between 02:32 and 02:59 UTC, each at the commit that
+recorded the run before it; between those commits only the results files
+and this record changed. Each run line also records the fingerprint of the
+reply table the version sends: it is the same for every version but
+`stepwise`.
+
+**How to read the new tables.** The first table of each comparison holds
+the scores of the summary (see the top of this file), one row per run. The
+second holds: the wrong values with no issue (the summary's list of that
+name: wrong values and made-up values with no issue about the field); the
+three more counts; the sentences in which a reply was cut off at the
+longest reply; the calls to the model; and the seconds the sentences took,
+added up. Calls, cut-off replies and seconds count every sentence of the
+set, the passages not to record included. The three more counts are listed
+case by case in each run's subsection:
+
+- **A total put as the price**: in a pair whose gold trade says a total,
+  the model's phrase for the price is the gold total's phrase, or the
+  draft's price is the gold total while the gold price is another number.
+- **Half copies (any)**: the model's phrase for a field is part of the gold
+  phrase but not all of it, whether the field came out right or not: `100
+  万` for `100 万 SHIB` counts, and so does `0.05` for `0.05 个 BTC`. **Half
+  copies (not right)** is the summary's count, which takes only the fields
+  that did not come out right.
+- **A time in another language**: the time was left empty because the
+  model's phrase is not a piece of the passage, and one of the model's
+  phrase and the gold phrase holds a Chinese character and the other none.
+
+### The five versions on the debug set
+
+| Version | Technique | Differs from `first` in | Well-formed | Whole trades right | One trade | Several trades | Missed | Extra | Made up | No-trade sentences right |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `first` | few-shot | the baseline: instructions and ten examples | 26 / 26 (100.0%) | 31 / 34 (91.2%) | 13 / 15 (86.7%) | 18 / 19 (94.7%) | 0 | 0 | 2 / 140 (1.4%) | 3 / 3 (100.0%) |
+| `zero_shot` | zero-shot | no example | 26 / 26 (100.0%) | 19 / 34 (55.9%) | 8 / 15 (53.3%) | 11 / 19 (57.9%) | 0 | 0 | 5 / 140 (3.6%) | 3 / 3 (100.0%) |
+| `persona` | persona | a role said before the instructions | 26 / 26 (100.0%) | 29 / 34 (85.3%) | 12 / 15 (80.0%) | 17 / 19 (89.5%) | 0 | 0 | 3 / 140 (2.1%) | 3 / 3 (100.0%) |
+| `stepwise` | chain of thought | a step-by-step analysis written before the table | 26 / 26 (100.0%) | 25 / 34 (73.5%) | 10 / 15 (66.7%) | 15 / 19 (78.9%) | 0 | 0 | 1 / 140 (0.7%) | 3 / 3 (100.0%) |
+| `price_total` | content iteration | one more rule: a total is never the price | 26 / 26 (100.0%) | 29 / 34 (85.3%) | 12 / 15 (80.0%) | 17 / 19 (89.5%) | 0 | 0 | 0 / 140 (0.0%) | 3 / 3 (100.0%) |
+
+| Version | Wrong values with no issue | A total put as the price | Half copies (any) | Half copies (not right) | A time in another language | Sentences with a reply cut off | Calls | Seconds | Results file |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `first` | 2 | 2 | 0 | 0 | 2 | 0 | 30 | 115.9 | `evals/results/run-20261009T023225Z-debug-first.jsonl` |
+| `zero_shot` | 5 | 0 | 42 | 0 | 2 | 0 | 30 | 116.2 | `evals/results/run-20261009T023459Z-debug-zero_shot.jsonl` |
+| `persona` | 3 | 2 | 0 | 0 | 2 | 0 | 30 | 119.3 | `evals/results/run-20261009T023708Z-debug-persona.jsonl` |
+| `stepwise` | 0 | 0 | 0 | 0 | 1 | 0 | 30 | 177.8 | `evals/results/run-20261009T023913Z-debug-stepwise.jsonl` |
+| `price_total` | 0 | 0 | 0 | 0 | 2 | 0 | 30 | 127.6 | `evals/results/run-20261009T024223Z-debug-price_total.jsonl` |
+
+The rule, written down before any version was run: the most whole trades
+right; then the fewest wrong values with no issue; then the fewest trades
+missed and extra, added up; then the first in the order `first`,
+`price_total`, `persona`, `zero_shot`, `stepwise`. So a new version is
+picked only if it does strictly better than `first`. The parameter
+comparisons below take no part.
+
+Picked by the rule: `first`, settled at step 1.
+
+- Step 1, most whole trades right: `first`.
+
+The fields that did not come out right, run by run (each is in the run's
+subsection below):
+
+- `first`, 3 trades not whole: d05 and d13, the English time written in
+  Chinese (left empty); d05 and d23 (third trade), the total put as the
+  price as well or instead (a made-up price with no issue); d23 (third
+  trade), `TON 卖了 200 个` written as `200 个 TON` (left empty).
+- `zero_shot`, 15 trades not whole: 10 fields left empty with no issue (9
+  times and 1 fee); 4 prices copied with `一个` after the number
+  (`13.6 一个`), which the number reader does not read (left empty); 2
+  times in another language (d05 `yesterday` as `昨天`, d15 `9:40` as
+  `昨天晚上 9 点 40`); 5 made-up values with no issue (a
+  pricing currency in d02 and twice in d23, the coin `3` in d08, the
+  quantity `500` in d14, which is the total).
+- `persona`, 5 trades not whole: d05, the total put as the price instead
+  (a made-up price with no issue, the total left empty) and the English
+  time written in Chinese; d13, the English time written in Chinese; d23
+  (third trade), as in `first`; d08, the coin `3` (made up, no issue); d19,
+  the price `两千四百五` written as `2,450` (left empty).
+- `stepwise`, 9 trades not whole: the side left empty with no issue in d06,
+  d07 and d14; the time left empty with no issue in d07 and in the three
+  trades of d21; the Chinese prices of d04 and d19 written in digits (left
+  empty); the English time of d13 written in Chinese (left empty); and in
+  d14 the total as the quantity, with an issue about it. No wrong value
+  with no issue.
+- `price_total`, 5 trades not whole: d05 and d13, the English time written
+  in Chinese; d11, `0.02 94900` copied whole as the quantity (the number
+  reader is unsure of it, left empty) and no price; d19, the Chinese price
+  written in digits; d23 (third trade), `200 个 TON` again. No total put as
+  the price and no made-up value.
+
+### The writings set
+
+20 invented sentences, each made for one hard way of writing a number, in
+Chinese or mixed passages and in English ones (`evals/sets/writings.json`,
+read by `evals/writings.py`). Their gold answers follow the same rules as
+the 50 sentences: a number the core is unsure of (`3 w`, `1.5 k`, `94 900`)
+leaves its field empty, and each gold trade goes through the check of a
+draft. These runs are not part of the scores above.
+
+| Way of writing | Chinese or mixed passages | English passages |
+| --- | --- | --- |
+| a gap before a letter multiplier (3 w, 1.5 k) | 2 | 2 |
+| a gap before a Chinese multiplier (100 万) | 2 | 2 |
+| a space between thousands (94 900) | 2 | 2 |
+| two numbers one space apart (0.02 94900) | 2 | 2 |
+| a full-width comma between digits (94，900; 63,000，1.5) | 2 | 2 |
+
+| Version | Technique | Differs from `first` in | Well-formed | Whole trades right | One trade | Several trades | Missed | Extra | Made up | No-trade sentences right |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `first` | few-shot | the baseline: instructions and ten examples | 20 / 20 (100.0%) | 15 / 22 (68.2%) | 13 / 18 (72.2%) | 2 / 4 (50.0%) | 0 | 0 | 0 / 93 (0.0%) | 0 / 0 (-) |
+| `zero_shot` | zero-shot | no example | 20 / 20 (100.0%) | 14 / 22 (63.6%) | 14 / 18 (77.8%) | 0 / 4 (0.0%) | 0 | 0 | 1 / 93 (1.1%) | 0 / 0 (-) |
+| `persona` | persona | a role said before the instructions | 20 / 20 (100.0%) | 15 / 22 (68.2%) | 13 / 18 (72.2%) | 2 / 4 (50.0%) | 0 | 0 | 0 / 93 (0.0%) | 0 / 0 (-) |
+| `stepwise` | chain of thought | a step-by-step analysis written before the table | 20 / 20 (100.0%) | 12 / 22 (54.5%) | 10 / 18 (55.6%) | 2 / 4 (50.0%) | 0 | 1 | 0 / 93 (0.0%) | 0 / 0 (-) |
+| `price_total` | content iteration | one more rule: a total is never the price | 20 / 20 (100.0%) | 15 / 22 (68.2%) | 13 / 18 (72.2%) | 2 / 4 (50.0%) | 0 | 0 | 0 / 93 (0.0%) | 0 / 0 (-) |
+
+| Version | Wrong values with no issue | A total put as the price | Half copies (any) | Half copies (not right) | A time in another language | Sentences with a reply cut off | Calls | Seconds | Results file |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `first` | 0 | 0 | 1 | 0 | 7 | 0 | 20 | 68.2 | `evals/results/run-20261009T024502Z-writings-first.jsonl` |
+| `zero_shot` | 1 | 1 | 29 | 0 | 5 | 0 | 20 | 79.2 | `evals/results/run-20261009T024611Z-writings-zero_shot.jsonl` |
+| `persona` | 0 | 0 | 1 | 0 | 7 | 0 | 20 | 79.4 | `evals/results/run-20261009T024737Z-writings-persona.jsonl` |
+| `stepwise` | 0 | 0 | 1 | 0 | 6 | 0 | 20 | 124.6 | `evals/results/run-20261009T024858Z-writings-stepwise.jsonl` |
+| `price_total` | 0 | 0 | 1 | 0 | 7 | 0 | 20 | 81.4 | `evals/results/run-20261009T025103Z-writings-price_total.jsonl` |
+
+Whole trades right for each way of writing:
+
+| Way of writing | `first` | `zero_shot` | `persona` | `stepwise` | `price_total` |
+| --- | --- | --- | --- | --- | --- |
+| a gap before a letter multiplier (3 w, 1.5 k) | 3 / 4 (75.0%) | 4 / 4 (100.0%) | 3 / 4 (75.0%) | 2 / 4 (50.0%) | 3 / 4 (75.0%) |
+| a gap before a Chinese multiplier (100 万) | 3 / 4 (75.0%) | 2 / 4 (50.0%) | 3 / 4 (75.0%) | 1 / 4 (25.0%) | 3 / 4 (75.0%) |
+| a space between thousands (94 900) | 3 / 4 (75.0%) | 3 / 4 (75.0%) | 3 / 4 (75.0%) | 3 / 4 (75.0%) | 3 / 4 (75.0%) |
+| two numbers one space apart (0.02 94900) | 3 / 4 (75.0%) | 3 / 4 (75.0%) | 3 / 4 (75.0%) | 2 / 4 (50.0%) | 3 / 4 (75.0%) |
+| a full-width comma between digits (94，900; 63,000，1.5) | 3 / 6 (50.0%) | 2 / 6 (33.3%) | 3 / 6 (50.0%) | 4 / 6 (66.7%) | 3 / 6 (50.0%) |
+
+In these 100 sentence runs no model copied only part of a hard number:
+not `3` of `3 w`, `900` of `94 900`, nor one number of `0.02 94900`
+together with the other. Wherever the gold answer has a phrase for a
+number field and the model wrote one, the model's phrase was the gold
+phrase (after the scoring's tidying), or the gold phrase without its unit
+(`zero_shot` only: `2 w` for `2 w 个 DOGE`, `200 万` for `200 万 SHIB`, 28
+such fields, all of them right), except two rewrites in `stepwise`: `5 万
+个 DOGE` written as `5 万个 DOGE` in w06 and `6 900` as `6,900` in w12,
+neither a piece of the passage, both left empty. The half copy that
+`first`, `persona`, `stepwise` and `price_total` each have is the time
+`Monday` for `on Monday` (w07), which is right.
+
+The trades not whole, besides the English times written in Chinese (7
+fields in `first`, `persona` and `price_total`, 6 in `stepwise`, 5 in
+`zero_shot`): in `zero_shot`, the fee left out in w07 and in both trades of
+w18, and `1.2 万` put under price as well as under total in w08 (a made-up
+price with no issue); in `stepwise`, the time left out in w01 and w05, the
+quantity of w06 left empty (above), and in w14 the time put in a second
+row of its own.
+
+### `first` against the baseline, sentence by sentence
+
+This run of `first` and the baseline's (2026-10-05) under the same prompt,
+model and parameters; the code that reads a reply changed between them (a
+full-width comma between two numbers no longer joins them).
+
+| Sentences in both runs | Same raw replies | Other raw replies | Same raw replies, other drafts or issues |
+| --- | --- | --- | --- |
+| 30 | 30 | 0 | 1 |
+
+| Sentence | Same raw replies | Same drafts and issues | Whole trades right, earlier | Whole trades right, later |
+| --- | --- | --- | --- | --- |
+| d23 | yes | no | 0 | 2 |
+
+d23 is the passage with `63,000，1.5`: the model wrote the same reply; the
+program now takes `63,000` and `1.5 ETH` as they are, and two of its three
+trades are whole.
+
+### Parameter comparisons
+
+Each changes one parameter of one version and is not part of the rule.
+Each table shows the main run first and the comparison second.
+
+**1. `first`, temperature 0.7** (instead of 0.0): how far the version the
+rule picked moves when the model samples more freely.
+
+| Version | Technique | Differs from `first` in | Well-formed | Whole trades right | One trade | Several trades | Missed | Extra | Made up | No-trade sentences right |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `first` | few-shot | the baseline: instructions and ten examples | 26 / 26 (100.0%) | 31 / 34 (91.2%) | 13 / 15 (86.7%) | 18 / 19 (94.7%) | 0 | 0 | 2 / 140 (1.4%) | 3 / 3 (100.0%) |
+| `first` | few-shot | the baseline: instructions and ten examples | 26 / 26 (100.0%) | 30 / 34 (88.2%) | 13 / 15 (86.7%) | 17 / 19 (89.5%) | 0 | 0 | 1 / 140 (0.7%) | 3 / 3 (100.0%) |
+
+| Version | Wrong values with no issue | A total put as the price | Half copies (any) | Half copies (not right) | A time in another language | Sentences with a reply cut off | Calls | Seconds | Results file |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `first` | 2 | 2 | 0 | 0 | 2 | 0 | 30 | 115.9 | `evals/results/run-20261009T023225Z-debug-first.jsonl` |
+| `first` | 1 | 1 | 0 | 0 | 2 | 0 | 30 | 130.6 | `evals/results/run-20261009T025243Z-debug-first.jsonl` |
+
+**2. `stepwise`, longest reply 256 tokens** (instead of 1,024): `stepwise`
+writes the longest replies, its analysis coming before the table; its
+longest reply in the main run was 297 tokens. This shows what the limit
+does when a reply reaches it: the three-trade passages d21, d22 and d23
+were cut off, asked again, cut off again, and gave no draft.
+
+| Version | Technique | Differs from `first` in | Well-formed | Whole trades right | One trade | Several trades | Missed | Extra | Made up | No-trade sentences right |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `stepwise` | chain of thought | a step-by-step analysis written before the table | 26 / 26 (100.0%) | 25 / 34 (73.5%) | 10 / 15 (66.7%) | 15 / 19 (78.9%) | 0 | 0 | 1 / 140 (0.7%) | 3 / 3 (100.0%) |
+| `stepwise` | chain of thought | a step-by-step analysis written before the table | 23 / 26 (88.5%) | 19 / 34 (55.9%) | 10 / 15 (66.7%) | 9 / 19 (47.4%) | 9 | 0 | 1 / 102 (1.0%) | 3 / 3 (100.0%) |
+
+| Version | Wrong values with no issue | A total put as the price | Half copies (any) | Half copies (not right) | A time in another language | Sentences with a reply cut off | Calls | Seconds | Results file |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `stepwise` | 0 | 0 | 0 | 0 | 1 | 0 | 30 | 177.8 | `evals/results/run-20261009T023913Z-debug-stepwise.jsonl` |
+| `stepwise` | 0 | 0 | 0 | 0 | 1 | 3 | 33 | 228.6 | `evals/results/run-20261009T025506Z-debug-stepwise.jsonl` |
+
+### The runs
+
+Each run has its own subsection with the tables its results file gives and
+its three more counts (`evals/extra_counts.py`).
 
 ### Run: debug set, prompt `first`
 
