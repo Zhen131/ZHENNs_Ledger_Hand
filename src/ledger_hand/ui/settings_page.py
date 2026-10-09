@@ -1,9 +1,11 @@
 """The Settings page: every model setting, its value now, its default and why; changes for this tab.
 
-One row for each model setting the settings module names (``Variable``), so
-a setting added there appears here by itself: its value now, its default,
-what it sets and why its default is what it is, all as the settings module
-holds them (``settings.ABOUT``). The key shows only whether there is one.
+Above the table, one line says which plug talks to the model now (local
+or cloud), at which address, and whether there is a key. Then one row for
+each model setting the settings module names (``Variable``), so a setting
+added there appears here by itself: its value now, its default, what it
+sets and why its default is what it is, all as the settings module holds
+them (``settings.ABOUT``). The key shows only whether there is one.
 Under the table, the settings but the key can be changed (``settings_form``)
 for this browser tab only; reopening the page or restarting the program goes
 back to the environment and the defaults. The data folder is shown and
@@ -14,8 +16,8 @@ machine zone without a name), the page still opens: it says why, and shows
 every setting's default and why, without values and without the inputs,
 since a setting in the environment is put right in the environment.
 
-Names defined here: ``TABLE_KEY``, ``FOLDER_KEY``, ``SCOPE``, ``rows`` and
-``main``.
+Names defined here: ``PLUG_KEY``, ``TABLE_KEY``, ``FOLDER_KEY``, ``SCOPE``,
+``rows`` and ``main``.
 """
 
 from __future__ import annotations
@@ -30,9 +32,10 @@ from ledger_hand.settings import (
     Variable,
 )
 from ledger_hand.ui import sayings, session, settings_form
-from ledger_hand.ui.setting_text import shown
+from ledger_hand.ui.setting_text import plug_in_use, shown
 from ledger_hand.wiring import AssemblyError
 
+PLUG_KEY = "settings_plug"
 TABLE_KEY = "settings_table"
 FOLDER_KEY = "settings_data_folder"
 SCOPE = (
@@ -65,6 +68,8 @@ def main() -> None:
         st.caption("Until then nothing can be changed here. Every setting, its default and why:")
         _table(None)
         return
+    with st.container(key=PLUG_KEY):
+        st.text(plug_in_use(parts.settings))
     _table(parts.settings)
     settings_form.draw(parts.settings)
     _data_folder(parts.places)

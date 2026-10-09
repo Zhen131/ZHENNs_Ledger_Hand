@@ -11,16 +11,22 @@ cannot go without a sentence.
 
 A model failure of one kind may be said differently for each status code
 the server answered with: ``MODEL_FAILURES_BY_STATUS`` is looked up first,
-by kind and status, and holds nothing yet; a plug that sorts statuses finer
-adds its entries there.
+by kind and status. It holds the statuses with which a cloud service turns
+a call down as a server error: a key refused (401, 403) and a request
+refused (400), the latter with the start of what the server answered. A
+rate-limited call whose server said how long to wait is said with that wait
+(``RATE_LIMITED_FOR``).
 
 What a sentence fills in comes from the settings the parts were built from
 (the address, the model's name, the time allowed) or from the failure itself
-(a status code, a file's path, a reason). The key never appears: the
-settings keep it hidden, and no sentence names it.
+(a status code, the start of the server's answer, the wait it asked for, a
+file's path, a reason). The key never appears: the settings keep it hidden,
+no sentence names it, and the start of a server's answer has the key hidden
+once more here, in every form a server may write it back, although the
+plugs never let it through.
 
 Names defined here: ``MODEL_FAILURES``, ``MODEL_FAILURES_BY_STATUS``,
-``REPLY_UNREADABLE``, ``PASSAGE_REFUSALS``, ``STORAGE_FAILURES``,
+``RATE_LIMITED_FOR``, ``REPLY_UNREADABLE``, ``PASSAGE_REFUSALS``, ``STORAGE_FAILURES``,
 ``ASSEMBLY_FAILURES``, ``WRITE_FAILURES``, ``model_failed``,
 ``model_trouble``, ``passage_refused``, ``book_trouble``,
 ``assembly_failed``, ``export_refused``, ``export_not_written`` and
@@ -29,6 +35,7 @@ Names defined here: ``MODEL_FAILURES``, ``MODEL_FAILURES_BY_STATUS``,
 
 from __future__ import annotations
 
+import math
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from types import MappingProxyType
@@ -38,14 +45,17 @@ from ledger_hand.export.backup import ExportIssue
 from ledger_hand.extraction.passage_check import PassageProblem
 from ledger_hand.flows.export_file import WriteProblem
 from ledger_hand.flows.progress import Failure
+from ledger_hand.llm.error_text import hide
 from ledger_hand.ports import ModelError, ModelErrorKind, StorageError, StorageErrorKind
-from ledger_hand.settings import DATA_DIRECTORY_VARIABLE, ModelSettings
+from ledger_hand.settings import DATA_DIRECTORY_VARIABLE, ModelSettings, Variable
 from ledger_hand.ui.setting_text import written
 from ledger_hand.wiring import AssemblyError, AssemblyProblem
 
 # What went wrong with the model, and what can be done. {address} is where
-# the model was asked, {model} its name, {seconds} the time allowed and
-# {status} the server's status code, when it gave one.
+# the model was asked, {model} its name, {seconds} the time allowed,
+# {status} the server's status code, when it gave one, {said} the start of
+# what the server answered, when there was something, and {wait} the
+# seconds the server asked to wait.
 MODEL_FAILURES: Mapping[ModelErrorKind, str] = MappingProxyType(
     {
         ModelErrorKind.UNREACHABLE: (
@@ -76,8 +86,31 @@ MODEL_FAILURES: Mapping[ModelErrorKind, str] = MappingProxyType(
     }
 )
 
+# The key is set in the environment only, so that is where it is put right.
+_KEY_REFUSED = (
+    "The model server at {address} did not take the key{status}. Check "
+    f"{Variable.KEY.value} in the environment, where the key is set, and that it may use "
+    "{model}; then start the program again."
+)
+
 # The same, said for one status code of one kind; looked up before the above.
-MODEL_FAILURES_BY_STATUS: Mapping[tuple[ModelErrorKind, int], str] = MappingProxyType({})
+MODEL_FAILURES_BY_STATUS: Mapping[tuple[ModelErrorKind, int], str] = MappingProxyType(
+    {
+        (ModelErrorKind.SERVER_ERROR, 401): _KEY_REFUSED,
+        (ModelErrorKind.SERVER_ERROR, 403): _KEY_REFUSED,
+        (ModelErrorKind.SERVER_ERROR, 400): (
+            "The model server at {address} turned the request down as it was sent{status}."
+            "{said} Check the model's name on the Settings page. A service that does not "
+            "take the reply table this program sends turns every call down this way."
+        ),
+    }
+)
+
+# Rate limited, when the server said how long to wait.
+RATE_LIMITED_FOR = (
+    "The model server turned the call away because it was called too often, and asked to "
+    "wait {wait} seconds. Wait that long, then try again."
+)
 
 # The model answered, but no reply could be read as the table it was asked for.
 REPLY_UNREADABLE = (
@@ -179,10 +212,16 @@ def model_failed(failure: Failure, settings: ModelSettings) -> str:
 
 
 def model_trouble(error: ModelError, settings: ModelSettings) -> str:
-    """The sentence for ``error``: by its kind and status code if there is one, else its kind."""
+    """The sentence for ``error``: by its kind and status code if there is one, else its kind.
+
+    A rate-limited call whose server said how long to wait is said with the
+    wait, in whole seconds, rounded up.
+    """
     template = None
     if error.status is not None:
         template = MODEL_FAILURES_BY_STATUS.get((error.kind, error.status))
+    if template is None and error.kind is ModelErrorKind.RATE_LIMITED:
+        template = None if error.retry_after_seconds is None else RATE_LIMITED_FOR
     if template is None:
         template = MODEL_FAILURES[error.kind]
     return template.format(
@@ -190,7 +229,23 @@ def model_trouble(error: ModelError, settings: ModelSettings) -> str:
         model=settings.model,
         seconds=written(settings.timeout_seconds),
         status="" if error.status is None else f" (status {error.status})",
+        said=_said(error, settings),
+        wait=_wait(error),
     )
+
+
+def _said(error: ModelError, settings: ModelSettings) -> str:
+    """The start of what the server answered, as a sentence; nothing when it sent nothing."""
+    if not error.snippet:
+        return ""
+    return f' Its answer began: "{hide(error.snippet, settings.api_key)}".'
+
+
+def _wait(error: ModelError) -> str:
+    """The wait the server asked for, in whole seconds rounded up, at least 1."""
+    if error.retry_after_seconds is None:
+        return ""
+    return written(max(1, math.ceil(error.retry_after_seconds)))
 
 
 def passage_refused(problem: PassageProblem) -> str:
