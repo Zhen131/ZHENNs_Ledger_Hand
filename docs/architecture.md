@@ -24,6 +24,7 @@ placeholder files.
 ```text
 pyproject.toml            dependencies and tool configuration, all in this one file   (exists)
 README.md                                                                             (exists)
+.streamlit/config.toml    Streamlit's settings: nothing sent, this machine only, headless (exists)
 docs/                     documentation                                               (exists)
 scripts/                  the check script and the ledger tier; scripts outside the package (exists)
 data/                     run-time output: the book and the export files; never in Git
@@ -97,7 +98,14 @@ src/ledger_hand/
         exporting.py          the trades not exported yet, written as one file, marked (exists)
         export_file.py        a new file, whole, never replacing another              (exists)
     settings.py           the only place that reads settings                          (exists)
-    ui/                   the user interface; the only place that may use Streamlit
+    wiring.py             builds the parts from the settings, the clock and the zone  (exists)
+    ui/                   the user interface; the only place that may use Streamlit   (exists)
+        app.py                the page Streamlit runs: the chat beside the table      (exists)
+        chat.py               the chat so far and the one input                       (exists)
+        preview.py            the table of what will be recorded, and its buttons     (exists)
+        turns.py              a message or a click handed to the flows                (exists)
+        sayings.py            what the program says, read off the progress            (exists)
+        session.py            what lasts between reruns: parts, progress, chat        (exists)
 evals/                    prompt experiments: test sentences, scoring, runner, results (exists)
     sets/                 the test sentences with gold answers: debug and final   (exists)
     gold.py               the shapes of a sentence and its gold answer             (exists)
@@ -118,6 +126,7 @@ tests/                    mirrors src; also holds the guardrails, fakes and gold
     extraction/           tests of extraction against the scripted model              (exists)
     asking/               tests of wording a question                                 (exists)
     flows/                tests of recording a passage and of its script              (exists)
+    ui/                   the page run headless against fakes; the settings file      (exists)
     evals/                tests of the experiment kit and the test sentences          (exists)
 ```
 
@@ -134,13 +143,16 @@ server, a SQLite file). There are exactly two ports: model and storage.
 | `extraction/`, `asking/`, `export/` | `core/`, `ports.py` | `llm/`, `storage/`, `settings.py`, `flows/`, `ui/` |
 | `llm/`, `storage/` (the plugs) | `core/`, `ports.py`, `settings.py` | `extraction/`, `export/`, `flows/`, `ui/`, each other |
 | `settings.py` | the standard library | every other part of the package |
-| `flows/` | everything except `ui/` | `ui/` |
+| `flows/` | everything except `ui/` and the wiring module | `ui/`, the wiring module |
+| the wiring module `wiring.py` | everything except `ui/` | `ui/` |
 | `ui/` | everything | nothing is closed to it |
 | outside the package: `scripts/`, `evals/`, `tests/` | anything in the package | the package never imports them back |
 
 How the check reads this table:
 
 - A part may always import itself.
+- The list for `flows/` is written out part by part in the check, so a part
+  added later is closed to the flows until it is added to that list.
 - "May import" is a complete list. What is not on it is refused, even when the
   third column does not name it; so `extraction/`, `asking/` and `export/` may
   not import each other either.
@@ -162,7 +174,7 @@ How the check reads this table:
 | `streamlit` | `ui/` |
 | `httpx` | `llm/` |
 | `sqlite3` | `storage/` |
-| `tzlocal` | no part of the package today: only scripts outside it. A wiring module that assembles the application is planned; when it is added, it becomes the one place inside the package that may import it. |
+| `tzlocal` | the wiring module, `wiring.py`, alone; scripts outside the package may import it too. |
 
 Any other third-party import is refused in every part. A new run-time
 dependency is a design decision, not a routine edit.
@@ -269,13 +281,37 @@ straight from its source: only `storage/` imports sqlite3, `storage/`
 imports only what it may, and the ports file names the storage shapes from
 the core only.
 
+### The wiring module and `ui/`
+
+The wiring module, `wiring.py` at the top of the package, builds the parts
+the flows are handed: the model plug from the model settings, the book from
+the data settings, the coin table, a function that reads the clock, and the
+machine's zone, read with tzlocal. Building opens and sends nothing. It is
+the one place in the package that reads the machine's zone, and it may read
+the clock, as its job is to hand both to the flows. Only `ui/` may import
+it; the flows never do, since it imports them.
+
+`ui/` is one Streamlit page. It makes no business decision: what to ask,
+whether a passage is settled, whether it can be saved, which trade can be
+left out and which cannot be recorded all come from the flow's `Progress`;
+the page lays them out and hands the person's words and clicks to the flows.
+It is the only part that keeps anything between reruns (Streamlit's
+`session_state`), and it imports nothing third-party but Streamlit itself,
+not what Streamlit brings along (pandas, numpy and the like). Two gates
+check the real package straight from its source, without the table:
+`tests/guardrails/test_repo_wiring_boundaries.py` (only the wiring module
+imports tzlocal; only `ui/` imports the wiring module; the flows import
+neither it nor `ui/`) and `tests/guardrails/test_repo_interface_boundaries.py`
+(only `ui/` imports Streamlit; `ui/` imports no other third-party module;
+`session_state` is named nowhere else).
+
 ### What `asking/` and `flows/` may not do
 
 `asking/` is handed the facts of a question and reads neither the clock nor
 the machine's zone; the layering check reports in it the same reads as in
 `extraction/`. `flows/` is handed the current moment and the zone by whoever
-starts it (a script or, later, the interface) and passes them on; it never
-reads them itself. The identifiers it gives saved trades are random UUIDs
+starts it (a script, or the interface through the wiring module) and passes
+them on; it never reads them itself. The identifiers it gives saved trades are random UUIDs
 (version 4), never ones made from the clock. A gate,
 `tests/guardrails/test_repo_clock_free_parts.py`,
 checks the real source of both straight, without the table: neither imports

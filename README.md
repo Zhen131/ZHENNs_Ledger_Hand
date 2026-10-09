@@ -238,8 +238,27 @@ after. Cut off in between, the result is a file whose trades are not
 marked, and the next export writes them again, which the person can see;
 never trades marked as exported with no file, which would lose them.
 
-Apart from asking the model and keeping the book, all of this is pure
-computation. There is no interface yet.
+**The interface.** `src/ledger_hand/ui/` is one Streamlit page: a chat on
+the left and, on the right, a table of what will be recorded (see "Starting
+the interface" below). A passage typed in the chat is recorded as above;
+each question comes back in the chat with its label, and the answer is typed
+in the same box. The table has one row per trade, with where it stands
+(complete, asking, left out, or cannot record and why), its time, coin,
+side, quantity, price and total side by side, fee and fee coin, platform and
+note; the amount the program worked out is marked once the trade has passed
+the check. Each row has a "Don't save" button, and under the table are
+Save and "Discard all"; each can be pressed only when the flow offers it.
+Save keeps the records in the book and empties the table. A new passage
+typed while the last one is settled but neither saved nor discarded is not
+taken: the page says so and offers the two choices. The interface decides
+nothing itself: what to ask, whether a passage is settled, whether it can be
+saved and which trade can be left out all come from the flow's progress. It
+gets the model, the book, the clock and the machine's zone from one wiring
+module, `src/ledger_hand/wiring.py`, the only place in the package that
+reads the machine's zone (with tzlocal).
+
+Apart from asking the model, keeping the book and drawing the page, all of
+this is pure computation.
 
 The repository also has its Python environment, one command that runs every
 check, and two guardrails that keep the code base in shape (the layering
@@ -250,8 +269,9 @@ check and the hygiene scan).
 | Path | What it is |
 | --- | --- |
 | `pyproject.toml` | Package metadata and the configuration of every tool (pytest, ruff, mypy). |
-| `requirements.txt` | Exact versions of the run-time dependencies (httpx, tzlocal) and the development tools, so the environment can be rebuilt identically. |
-| `src/ledger_hand/` | The package. Today it holds its version, `core/`, `export/`, the ports file, the settings, `llm/`, `storage/`, `extraction/`, `asking/` and `flows/`. |
+| `requirements.txt` | Exact versions of the run-time dependencies (httpx, Streamlit, tzlocal, and what Streamlit brings with it) and the development tools, so the environment can be rebuilt identically. |
+| `.streamlit/config.toml` | Streamlit's settings for the interface: no usage statistics, listen on this machine only, start without questions at the terminal. Read from the folder Streamlit is started in. |
+| `src/ledger_hand/` | The package. Today it holds its version, `core/`, `export/`, the ports file, the settings, `llm/`, `storage/`, `extraction/`, `asking/`, `flows/`, the wiring module and `ui/`. |
 | `src/ledger_hand/core/` | Core rules: pure computation, no network, files, database, user interface or clock. Holds the shapes of a trade (`trade.py`), the coin table (`coins.py`), the ledger's limits (`ledger_limits.py`), exact decimal arithmetic (`arithmetic.py`), the reading and writing of numbers (`numbers.py`), the reading and writing of times (`timeparse.py`, with the wording of a time phrase in `time_wording.py`) and the check of a draft (`validation.py`), what to ask next about a draft (`followup.py`), a saved trade (`stored.py`), what the book keeps beside it (`book.py`), the form a passage is compared in (`passage_form.py`) and which time zone names are taken (`zones.py`). |
 | `src/ledger_hand/export/` | The ledger's backup format: the whole file (`backup.py`), one trade (`trade_entry.py`), one coin (`coin_card.py`), bookkeeping moments (`moments.py`) and the file's name (`file_name.py`). Writes no file itself. |
 | `src/ledger_hand/ports.py` | The two ports. The model port: messages, parameters, the reply and its record, and the error with its six kinds. The storage port: its operations and the error with its eight kinds; the shapes it takes and gives are in `core/book.py`. Only shapes; it sends and stores nothing. |
@@ -261,10 +281,12 @@ check and the hygiene scan).
 | `src/ledger_hand/extraction/` | A passage to drafts: the entry point (`extractor.py`), the table the model fills (`reply_table.py`) and how its reply is read (`reply_parser.py`), finding a copied phrase in the passage (`passage.py`) and the numbers written in a text (`passage_numbers.py`), one row to one draft (`row_draft.py`), which currency a unit names (`unit_currency.py`), the issues (`issues.py`), the messages a prompt version makes (`prompting.py`), and the prompt versions with their examples (`prompts/`). Also the check of a passage before it is sent (`passage_check.py`), judging a passage (`screening.py`, with the list the model fills in `screen_table.py`), and reading an answer to a question (`answer_phrase.py`, with its word lists in `answer_words.py` and what the model copies in `answer_table.py`). Reads no clock, no zone of the machine and no environment variable. |
 | `src/ledger_hand/asking/` | Wording a follow-up question: the facts, the model's sentence and its checks (`question_text.py`), the program's own sentences (`templates.py`) and the prompt (`prompts/bookkeeper.py`). Imports only `core/` and the ports file; reads no clock. |
 | `src/ledger_hand/flows/` | Recording a passage from start to records (`recording.py`): the state it hands back (`progress.py`), putting a question together (`questions.py`) and putting an answer back (`filling.py`). Saving the records (`saving.py`) with new identifiers (`identifiers.py`), a passage's fingerprint (`fingerprint.py`), the confirmed coins between the book and the coin table (`coin_book.py`), and exporting (`exporting.py`) into a new file that never replaces another (`export_file.py`). |
-| `tests/` | The tests. `tests/core/`, `tests/export/`, `tests/llm/`, `tests/extraction/`, `tests/asking/`, `tests/storage/` and `tests/flows/` have one test module per module, or more; `tests/llm/` also has a fake Ollama server and a batch of attacks on the plug, and `tests/extraction/` a batch of attacks on extraction. `tests/storage/` runs the same tests of the storage port against the SQLite plug and the in-memory stand-in, and holds the golden book. `tests/flows/` also tests the script for recording trades. `tests/evals/` tests the experiment kit and the test sentences. |
+| `src/ledger_hand/wiring.py` | The wiring module: builds the model, the book, the coin table, the clock and the machine's zone from the settings, for the interface to hand to the flows. The only part of the package that may import tzlocal. |
+| `src/ledger_hand/ui/` | The interface, one Streamlit page: the page itself (`app.py`), the chat (`chat.py`), the table and its buttons (`preview.py`), what happens on a message or a click (`turns.py`), what the program says (`sayings.py`) and what is kept between reruns (`session.py`). The only part that may import Streamlit. |
+| `tests/` | The tests. `tests/core/`, `tests/export/`, `tests/llm/`, `tests/extraction/`, `tests/asking/`, `tests/storage/` and `tests/flows/` have one test module per module, or more; `tests/llm/` also has a fake Ollama server and a batch of attacks on the plug, and `tests/extraction/` a batch of attacks on extraction. `tests/storage/` runs the same tests of the storage port against the SQLite plug and the in-memory stand-in, and holds the golden book. `tests/flows/` also tests the script for recording trades. `tests/ui/` runs the page headless with Streamlit's own test runner, against fake models and a book in a temporary folder, and checks the settings file. `tests/evals/` tests the experiment kit and the test sentences. |
 | `tests/conftest.py` | Stops every test that is not marked `live_model` from reaching the network. |
 | `tests/fakes/` | Stand-ins for the outside world: a scripted model that plays back replies and errors in order and records what it was asked, a model that answers each kind of call (judging, extraction, wording a question, reading an answer) from its own script, and a book kept in memory that can be made to fail. |
-| `tests/live/` | The live check, which talks to a real model, the small schema check it uses, the smoke test of extraction, and the check of judging the debug set. |
+| `tests/live/` | The live check, which talks to a real model, the small schema check it uses, the smoke test of extraction, the check of judging the debug set, and the smoke test of the page. |
 | `tests/export/samples.py`, `tests/export/attack.py`, `tests/export/golden/` | Invented trades to export, batches of edge cases made to find where this program and the ledger part ways, both shared with the ledger tier, and the golden sample. A golden sample is never edited once committed; a new format version gets one of its own. |
 | `tests/guardrails/` | The layering check and the hygiene scan, the tests that prove they catch what they should, and the two gate tests that apply them to this repository. |
 | `scripts/check.sh` | One command that runs all checks. |
@@ -281,8 +303,8 @@ check and the hygiene scan).
 | `data/` | Not in Git. The data folder by default: the book (`ledger-hand-book.sqlite3`) and the export files (`exports/`). Created when first written to. |
 | `.venv/` | Not in Git. The local Python environment. |
 
-Directories for later parts (the user interface) are created by the change
-that first needs them; see `docs/architecture.md` for the planned layout.
+Directories for later parts are created by the change that first needs
+them; see `docs/architecture.md` for the planned layout.
 
 ## Setting up from scratch
 
@@ -297,8 +319,9 @@ python3.12 -m venv .venv
 .venv/bin/python -m pip install --no-deps -e .
 ```
 
-The second command installs the pinned run-time dependencies (httpx and
-tzlocal) and development tools. The third installs
+The second command installs the pinned run-time dependencies (httpx,
+Streamlit and tzlocal, with what Streamlit brings with it) and the development
+tools. The third installs
 this package in editable mode, so the tests import the code in `src/`
 directly. Both need network access; the third also fetches the build backend
 (setuptools) into a temporary build environment.
@@ -310,6 +333,45 @@ scripts/check.sh
 ```
 
 The last line should read `quick: all checks passed`.
+
+## Starting the interface
+
+You need the model server running first: by default Ollama on this machine
+with `qwen2.5:7b` (see "Model settings" below). Then, from the top of the
+repository:
+
+```sh
+.venv/bin/streamlit run src/ledger_hand/ui/app.py
+```
+
+and open http://127.0.0.1:8501 in your browser. Start it from the top of the
+repository: Streamlit reads its settings from `.streamlit/config.toml` in
+the folder it is started in. They keep it from sending usage statistics,
+make it listen on this machine's own address only, and start it headless, so
+it neither stops at the terminal to ask for an e-mail address nor writes a
+credentials file into your home folder, and it does not open a browser by
+itself. Stop it with Ctrl+C in the terminal.
+
+Type a passage in the box under the chat, for example "Bought 0.02 BTC at
+94,900 yesterday". The program's questions come back in the chat, each with
+a label saying which trade and which field it is about; type the answer in
+the same box, or "skip" to leave that trade out, or "cancel" to drop the
+whole passage. The table on the right shows every trade as it stands, with
+the price and the total side by side, so a total written where the price
+belongs shows at a glance; an amount the program worked out is marked `*`.
+Once every trade is settled, "Don't save" leaves one trade out, "Discard
+all" drops the passage, and Save keeps the rest in the book and says how
+many it saved. Save cannot be pressed while a question is waiting; the
+sentence beside it says why.
+
+The current moment is the machine's clock and the time zone is the
+machine's own, read with tzlocal; a zone name the program does not take as
+it stands, or a model setting it refuses, is said on the page instead of
+the chat. The chat lasts as long as the browser tab and is never written to
+disk; only the trades saved are kept, in the book (see "Where the data is
+kept" below). When the model fails, the chat says so in one sentence and
+nothing of that passage is kept; type it again once the model server is
+running.
 
 ## Running the checks
 
@@ -327,7 +389,7 @@ The script takes one argument, the tier: `quick` (the default), `ledger` or
 | `format` | `ruff format --check .` | Formatting is left to the tool. |
 | `lint` | `ruff check .` | Basic errors, import order, naming, common pitfalls, needless complexity, boolean flag parameters, overlong functions. |
 | `types` | `mypy` | Strict type checking of `core/` and `ports.py`. |
-| `layering` | `pytest tests/guardrails/test_repo_layering.py` | Each part of the package imports only what the layering table allows; `core/` reads no clock and uses no floating-point number; `extraction/` and `asking/` read no clock and no zone of the machine; only `settings.py` reads environment variables. |
+| `layering` | `pytest tests/guardrails/test_repo_layering.py` | Each part of the package imports only what the layering table allows; `core/` reads no clock and uses no floating-point number; `extraction/` and `asking/` read no clock and no zone of the machine; only `settings.py` reads environment variables; only `ui/` imports Streamlit and only the wiring module imports tzlocal. |
 | `hygiene` | `pytest tests/guardrails/test_repo_hygiene.py` | No machine-specific paths, private work-log identifiers or tool-attribution text in any file Git tracks or would add. |
 | `tests` | `pytest` | Every test except the live ones, including the tests of the two guardrails themselves. No test reaches the network: the model plug is tested against a fake transport, and a test that tries to connect fails on the spot. |
 
@@ -422,7 +484,11 @@ the ledger does not record (leverage, one coin for another, an order not
 filled, a plan) must each be stopped, with nothing extracted and no
 question asked; the kind the model named is printed beside the kind the
 sentence was written as. For the other 26 it prints where each would go,
-and checks nothing about it. When the server cannot be reached, it fails
+and checks nothing about it. It also runs the page headless with the parts
+the wiring module builds (the data folder pointed at a temporary one), sends
+one invented passage, and checks that the page comes to its first question
+or settles every trade without breaking; it prints what the program said,
+the table and how long it took. When the server cannot be reached, it fails
 with a message that starts with `unreachable`.
 The first call after the model has been idle includes loading it into
 memory, which takes several seconds more than the calls after it.
@@ -619,7 +685,10 @@ proxy.
 
 The data folder and the exports folder are made when something is first
 written there; reading the setting makes nothing, and recording a passage
-without `--save` never opens the book. This variable is not one of the model
+without `--save` never opens the book. The interface opens the book when it
+takes a passage (to find an earlier save of it and the coins confirmed
+before), so the book is made then if it is not there yet; it writes trades
+into it only on Save. This variable is not one of the model
 settings above and does not start with their prefix, so setting it never
 makes the model settings refuse anything; neither do `LEDGER_HAND_LEDGER_DIR`
 and `LEDGER_HAND_PYTHON`, which the scripts read. The default `data/` is
