@@ -21,7 +21,14 @@ from evals import run as runner
 from evals.cells import tidy_text
 from evals.coverage import feature_holds
 from evals.gold import DEBUG_SET, FINAL_SET, GoldTrade, Group, Sentence, Split, gold_draft, load_set
-from evals.writings import WRITINGS_SET, Context, Writing, writings_of, writings_table
+from evals.writings import (
+    WRITINGS_SET,
+    Context,
+    Writing,
+    coverage_markdown,
+    writings_of,
+    writings_table,
+)
 from ledger_hand.asking.prompts.bookkeeper import BOOKKEEPER_PROMPT
 from ledger_hand.core.coins import BUILT_IN_TABLE
 from ledger_hand.core.numbers import NotANumber, Recognised, Unsure, read_number
@@ -254,3 +261,13 @@ def test_a_run_of_the_writings_set_is_named_and_recorded_as_such(tmp_path: Path)
     assert '"set": "writings"' in head
     assert '"final_exam_switch": false' in head
     assert '"set_file": "evals/sets/writings.json"' in head
+
+
+def test_the_coverage_table_has_a_line_for_each_writing() -> None:
+    text = coverage_markdown(WRITINGS)
+
+    assert (
+        text.splitlines()[0] == "| Way of writing | Chinese or mixed passages | English passages |"
+    )
+    assert len(text.splitlines()) == 2 + len(Writing)
+    assert "| a space between thousands (94 900) | 2 | 2 |" in text

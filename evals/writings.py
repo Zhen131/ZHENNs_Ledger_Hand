@@ -20,7 +20,7 @@ answer and its text, so a sentence cannot be filed under a way it does not
 show. ``writings_table`` counts them for Chinese and English passages.
 
 Names defined here: ``WRITINGS_SET``, ``Writing``, ``Context``,
-``writings_of``, ``context_of`` and ``writings_table``.
+``writings_of``, ``context_of``, ``writings_table`` and ``coverage_markdown``.
 """
 
 from __future__ import annotations
@@ -93,3 +93,17 @@ def writings_table(sentences: Iterable[Sentence]) -> dict[Writing, dict[Context,
         for writing in writings_of(sentence):
             table[writing][context_of(sentence)] += 1
     return table
+
+
+def coverage_markdown(sentences: Iterable[Sentence]) -> str:
+    """How many sentences show each way of writing, in Chinese and in English passages."""
+    table = writings_table(sentences)
+    lines = [
+        "| Way of writing | Chinese or mixed passages | English passages |",
+        "| --- | --- | --- |",
+    ]
+    lines += [
+        f"| {writing.value} | {counts[Context.CHINESE]} | {counts[Context.ENGLISH]} |"
+        for writing, counts in table.items()
+    ]
+    return "\n".join(lines) + "\n"
