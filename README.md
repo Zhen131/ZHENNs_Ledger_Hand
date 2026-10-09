@@ -257,6 +257,18 @@ gets the model, the book, the clock and the machine's zone from one wiring
 module, `src/ledger_hand/wiring.py`, the only place in the package that
 reads the machine's zone (with tzlocal).
 
+Under the table, Export writes the saved trades not exported yet into a new
+file, says where and how many, and marks them; beside it, always, a line in
+red says not to import that file into the ledger yet. A second page,
+Settings, lists every model setting with its value now, its default and why
+the default is what it is, and lets every one but the key be changed for
+the browser tab. Every failure, from a model nobody answers to a book
+written by a newer version of the program, is said in one plain sentence
+that says what happened and what can be done, and nothing breaks. A passage
+saved before is reminded of, with the day and the number of trades, and a
+fee paid in a third coin, which the ledger leaves out of the cost, is
+pointed out in its row and in the chat; neither holds anything back.
+
 Apart from asking the model, keeping the book and drawing the page, all of
 this is pure computation.
 
@@ -270,23 +282,23 @@ check and the hygiene scan).
 | --- | --- |
 | `pyproject.toml` | Package metadata and the configuration of every tool (pytest, ruff, mypy). |
 | `requirements.txt` | Exact versions of the run-time dependencies (httpx, Streamlit, tzlocal, and what Streamlit brings with it) and the development tools, so the environment can be rebuilt identically. |
-| `.streamlit/config.toml` | Streamlit's settings for the interface: no usage statistics, listen on this machine only, start without questions at the terminal. Read from the folder Streamlit is started in. |
+| `.streamlit/config.toml` | Streamlit's settings for the interface: no usage statistics, listen on this machine only, start without questions at the terminal, no developer options (and so no Deploy button) in the menu. Read from the folder Streamlit is started in. |
 | `src/ledger_hand/` | The package. Today it holds its version, `core/`, `export/`, the ports file, the settings, `llm/`, `storage/`, `extraction/`, `asking/`, `flows/`, the wiring module and `ui/`. |
-| `src/ledger_hand/core/` | Core rules: pure computation, no network, files, database, user interface or clock. Holds the shapes of a trade (`trade.py`), the coin table (`coins.py`), the ledger's limits (`ledger_limits.py`), exact decimal arithmetic (`arithmetic.py`), the reading and writing of numbers (`numbers.py`), the reading and writing of times (`timeparse.py`, with the wording of a time phrase in `time_wording.py`) and the check of a draft (`validation.py`), what to ask next about a draft (`followup.py`), a saved trade (`stored.py`), what the book keeps beside it (`book.py`), the form a passage is compared in (`passage_form.py`) and which time zone names are taken (`zones.py`). |
+| `src/ledger_hand/core/` | Core rules: pure computation, no network, files, database, user interface or clock. Holds the shapes of a trade (`trade.py`), the coin table (`coins.py`), the ledger's limits (`ledger_limits.py`), exact decimal arithmetic (`arithmetic.py`), the reading and writing of numbers (`numbers.py`), the reading and writing of times (`timeparse.py`, with the wording of a time phrase in `time_wording.py`) and the check of a draft (`validation.py`), what to ask next about a draft (`followup.py`), a saved trade (`stored.py`), what the book keeps beside it (`book.py`), the form a passage is compared in (`passage_form.py`), which time zone names are taken (`zones.py`) and whether the ledger counts a trade's fee in the cost (`fee_cost.py`). |
 | `src/ledger_hand/export/` | The ledger's backup format: the whole file (`backup.py`), one trade (`trade_entry.py`), one coin (`coin_card.py`), bookkeeping moments (`moments.py`) and the file's name (`file_name.py`). Writes no file itself. |
 | `src/ledger_hand/ports.py` | The two ports. The model port: messages, parameters, the reply and its record, and the error with its six kinds. The storage port: its operations and the error with its eight kinds; the shapes it takes and gives are in `core/book.py`. Only shapes; it sends and stores nothing. |
-| `src/ledger_hand/settings.py` | The only place in the package that reads environment variables: the model settings, their defaults and their checks, and where the data is kept. |
+| `src/ledger_hand/settings.py` | The only place in the package that reads environment variables: the model settings, their defaults and their checks, what each sets and why its default is what it is (as data, `ABOUT`), changes from the settings page read the same way (`apply_changes`), and where the data is kept. |
 | `src/ledger_hand/storage/` | The SQLite plug for the storage port (`sqlite_store.py`): opening a book, its version and its mark (`book_file.py`), a trade as a row and back (`rows.py`), SQLite's failures as the port's kinds (`failures.py`), and the numbered upgrade scripts (`upgrades/`). The only part that may import sqlite3. |
 | `src/ledger_hand/llm/` | The local plug for the model port: the plug itself (`ollama.py`), what is sent (`ollama_request.py`) and how what comes back is read (`ollama_reply.py`), one HTTP exchange and how its failures are sorted (`exchange.py`), making a server's words safe to show (`error_text.py`), trying again (`retry.py`), the assembled local model (`local.py`), and the server's version and the model's fingerprint (`ollama_identity.py`). The only part that may import httpx. |
 | `src/ledger_hand/extraction/` | A passage to drafts: the entry point (`extractor.py`), the table the model fills (`reply_table.py`) and how its reply is read (`reply_parser.py`), finding a copied phrase in the passage (`passage.py`) and the numbers written in a text (`passage_numbers.py`), one row to one draft (`row_draft.py`), which currency a unit names (`unit_currency.py`), the issues (`issues.py`), the messages a prompt version makes (`prompting.py`), and the prompt versions with their examples (`prompts/`). Also the check of a passage before it is sent (`passage_check.py`), judging a passage (`screening.py`, with the list the model fills in `screen_table.py`), and reading an answer to a question (`answer_phrase.py`, with its word lists in `answer_words.py` and what the model copies in `answer_table.py`). Reads no clock, no zone of the machine and no environment variable. |
 | `src/ledger_hand/asking/` | Wording a follow-up question: the facts, the model's sentence and its checks (`question_text.py`), the program's own sentences (`templates.py`) and the prompt (`prompts/bookkeeper.py`). Imports only `core/` and the ports file; reads no clock. |
 | `src/ledger_hand/flows/` | Recording a passage from start to records (`recording.py`): the state it hands back (`progress.py`), putting a question together (`questions.py`) and putting an answer back (`filling.py`). Saving the records (`saving.py`) with new identifiers (`identifiers.py`), a passage's fingerprint (`fingerprint.py`), the confirmed coins between the book and the coin table (`coin_book.py`), and exporting (`exporting.py`) into a new file that never replaces another (`export_file.py`). |
-| `src/ledger_hand/wiring.py` | The wiring module: builds the model, the book, the coin table, the clock and the machine's zone from the settings, for the interface to hand to the flows. The only part of the package that may import tzlocal. |
-| `src/ledger_hand/ui/` | The interface, one Streamlit page: the page itself (`app.py`), the chat (`chat.py`), the table and its buttons (`preview.py`), what happens on a message or a click (`turns.py`), what the program says (`sayings.py`) and what is kept between reruns (`session.py`). The only part that may import Streamlit. |
-| `tests/` | The tests. `tests/core/`, `tests/export/`, `tests/llm/`, `tests/extraction/`, `tests/asking/`, `tests/storage/` and `tests/flows/` have one test module per module, or more; `tests/llm/` also has a fake Ollama server and a batch of attacks on the plug, and `tests/extraction/` a batch of attacks on extraction. `tests/storage/` runs the same tests of the storage port against the SQLite plug and the in-memory stand-in, and holds the golden book. `tests/flows/` also tests the script for recording trades. `tests/ui/` runs the page headless with Streamlit's own test runner, against fake models and a book in a temporary folder, and checks the settings file. `tests/evals/` tests the experiment kit and the test sentences. |
+| `src/ledger_hand/wiring.py` | The wiring module: builds the model, the book, the coin table, the clock and the machine's zone from the settings, with the settings page's changes put in, for the interface to hand to the flows. The only part of the package that may import tzlocal. |
+| `src/ledger_hand/ui/` | The interface, two Streamlit pages: the entry (`app.py`), the Record page (`record_page.py`) with the chat (`chat.py`), the table and its buttons (`preview.py`) and Export (`export_panel.py`); the Settings page (`settings_page.py`) and its inputs (`settings_form.py`); what happens on a message or a click (`turns.py`), what the program says (`sayings.py`), the plain sentence for every failure (`failure_words.py`), a setting's value as it is shown (`setting_text.py`), the last word after Export or a change of setting (`notes.py`) and what is kept between reruns (`session.py`). The only part that may import Streamlit. |
+| `tests/` | The tests. `tests/core/`, `tests/export/`, `tests/llm/`, `tests/extraction/`, `tests/asking/`, `tests/storage/` and `tests/flows/` have one test module per module, or more; `tests/llm/` also has a fake Ollama server and a batch of attacks on the plug, and `tests/extraction/` a batch of attacks on extraction. `tests/storage/` runs the same tests of the storage port against the SQLite plug and the in-memory stand-in, and holds the golden book. `tests/flows/` also tests the script for recording trades. `tests/ui/` runs the pages headless with Streamlit's own test runner, against fake models and a book in a temporary folder (Export, the settings page, every failure, the reminders), checks the plain sentence for every failure, and checks the settings file. `tests/evals/` tests the experiment kit and the test sentences. |
 | `tests/conftest.py` | Stops every test that is not marked `live_model` from reaching the network. |
 | `tests/fakes/` | Stand-ins for the outside world: a scripted model that plays back replies and errors in order and records what it was asked, a model that answers each kind of call (judging, extraction, wording a question, reading an answer) from its own script, and a book kept in memory that can be made to fail. |
-| `tests/live/` | The live check, which talks to a real model, the small schema check it uses, the smoke test of extraction, the check of judging the debug set, and the smoke test of the page. |
+| `tests/live/` | The live check, which talks to a real model, the small schema check it uses, the smoke test of extraction, the check of judging the debug set, the smoke test of the page, and the check of the settings page against an address nobody listens on. |
 | `tests/export/samples.py`, `tests/export/attack.py`, `tests/export/golden/` | Invented trades to export, batches of edge cases made to find where this program and the ledger part ways, both shared with the ledger tier, and the golden sample. A golden sample is never edited once committed; a new format version gets one of its own. |
 | `tests/guardrails/` | The layering check and the hygiene scan, the tests that prove they catch what they should, and the two gate tests that apply them to this repository. |
 | `scripts/check.sh` | One command that runs all checks. |
@@ -372,6 +384,85 @@ disk; only the trades saved are kept, in the book (see "Where the data is
 kept" below). When the model fails, the chat says so in one sentence and
 nothing of that passage is kept; type it again once the model server is
 running.
+
+Two more things are said in the chat, as reminders that hold nothing back.
+When the same passage, or one that differs from it only in spacing or
+full-width characters, was saved before, the chat says so first, with the
+day of each earlier save and how many trades it saved; the passage can
+still be answered and saved. When a trade's fee is paid in a third coin,
+neither USDT nor the coin traded (buying ETH with the fee taken in BNB,
+say), its fee coin is marked "(not in cost)" in the table, a sentence under
+the table says why, and the chat says it once every trade is settled: the
+ledger takes the trade, but leaves that fee out when it works out the cost.
+
+### Exporting from the interface
+
+Export, under the table, writes the saved trades not exported yet into a new
+file in the exports folder, the same file `record_trades.py --export`
+writes, and marks them as exported. The page then says where the file is
+and how many trades it holds; with nothing new it says so and writes
+nothing. When the trades cannot be written as a file as they are, it gives
+every reason, one to a line; when the file cannot be written, it says why;
+in both cases nothing is marked. When the file was written but its trades
+could not be marked, it says where the file is and that the next export
+writes them again.
+
+Beside the button, always, a line in red says not to import this file into
+the ledger yet: the ledger's import replaces the whole ledger with what the
+file holds, which would leave it with these trades only.
+
+### The settings page
+
+Settings, at the top of the page beside Record, lists every model setting
+(see "Model settings" below) with its value now, its default, what it sets
+and why its default is what it is; the key only says whether there is one.
+Every setting but the key can be changed there: type the new value, as it
+would be written in the environment, and press Apply. A blank value takes
+the default. The values are read and checked exactly as the environment's
+are; a value that is refused is named with its rule, and nothing changes.
+Once applied, the next call to the model uses it, even in the middle of a
+passage. "Back to the environment and the defaults" drops every change.
+
+A change lasts for the browser tab only: opening the page again, or
+starting the program again, goes back to the environment variables and the
+defaults. Nothing is written to a file or to the environment, and what the
+page does not change, the key among it, stays as the environment set it.
+The data folder is shown there too, and is changed only with
+`LEDGER_HAND_DATA_DIR` before the program starts. When a setting in the
+environment is refused, the Record page says why and shows nothing else,
+and the Settings page still opens, with the same sentence and every
+setting's default and why.
+
+### What the page says when something fails
+
+Each failure is said in one plain sentence: what happened, and what can be
+done. The page never breaks, and nothing is recorded, saved or marked by
+the step that failed.
+
+| What failed | What the page says |
+| --- | --- |
+| No model answered | The address asked; whether Ollama is running; the address on the Settings page |
+| The model took too long | The time allowed; the first call has to load the model and can be slow; try again, or allow more time on the Settings page |
+| The model is not there | The model's name and the address; check the name, or install it with `ollama pull` |
+| Called too often | The server turned the call away; wait a little, then try again |
+| The server failed | Its status code, when it gave one; try again, or look at the server's own log |
+| A reply not in the agreed form | The reply could not be used; try again, or put the passage another way |
+| Replies that cannot be read as a table | The same, said apart |
+| An empty passage | Nothing was sent to the model: the passage is empty |
+| A passage too long | The limit, 16,384 characters; split it into shorter passages |
+| A passage that is not valid text | Type it again, or paste it from somewhere else |
+| A setting in the environment refused | Which one and its rule; correct or remove it, then start the program again |
+| A change on the settings page refused | Which one and its rule; the settings were not changed |
+| The book written by a newer version, not a database, or not this program's book | Which file, and that it was left as it is; use the newer version, move the file away, or point `LEDGER_HAND_DATA_DIR` elsewhere |
+| The book damaged | Which file, and that the program does not write to it; keep a copy, or point `LEDGER_HAND_DATA_DIR` elsewhere |
+| The book in use, unreadable or unwritable, clashing with what was asked, or failing otherwise | Why, in the book's own words; what to check, then try again |
+| An export refused | Every reason, one to a line; nothing was marked |
+| An export file not written | Why; nothing was marked; press Export again once that is put right |
+| An export file written but not marked | Where it is; the next export writes the trades again |
+
+The sentences are in `src/ledger_hand/ui/failure_words.py`, one for each
+kind of each failure; a test walks every kind, so a new one cannot go
+without a sentence. None of them ever shows the key.
 
 ## Running the checks
 
@@ -488,8 +579,12 @@ and checks nothing about it. It also runs the page headless with the parts
 the wiring module builds (the data folder pointed at a temporary one), sends
 one invented passage, and checks that the page comes to its first question
 or settles every trade without breaking; it prints what the program said,
-the table and how long it took. When the server cannot be reached, it fails
-with a message that starts with `unreachable`.
+the table and how long it took. On the settings page it then points the
+model's address at a port on this machine nobody listens on, checks that a
+passage is answered by the sentence that names that address, goes back to
+the environment and the defaults, and checks that the same passage comes to
+its first question. When the server cannot be reached, it fails with a
+message that starts with `unreachable`.
 The first call after the model has been idle includes loading it into
 memory, which takes several seconds more than the calls after it.
 
@@ -648,6 +743,8 @@ that is not set, or is blank, takes its default. A value in the wrong form
 or out of range stops the program with a message that names the variable,
 and so does a variable that starts with `LEDGER_HAND_MODEL_` but is not one
 of these, because a misspelt name would otherwise be ignored without a word.
+Every one of them but the key can also be changed on the interface's
+settings page, for the browser tab only (see "The settings page" above).
 
 | Variable | Default | What it sets | Why this default |
 | --- | --- | --- | --- |

@@ -24,7 +24,7 @@ placeholder files.
 ```text
 pyproject.toml            dependencies and tool configuration, all in this one file   (exists)
 README.md                                                                             (exists)
-.streamlit/config.toml    Streamlit's settings: nothing sent, this machine only, headless (exists)
+.streamlit/config.toml    Streamlit's settings: nothing sent, this machine only, headless, no developer menu (exists)
 docs/                     documentation                                               (exists)
 scripts/                  the check script and the ledger tier; scripts outside the package (exists)
 data/                     run-time output: the book and the export files; never in Git
@@ -43,6 +43,7 @@ src/ledger_hand/
         book.py               what the book keeps beside a saved trade; listings      (exists)
         passage_form.py       a passage in the form it is compared in                 (exists)
         followup.py           what to ask next when something is missing or wrong     (exists)
+        fee_cost.py           whether the ledger counts a trade's fee in the cost     (exists)
     ports.py              the two ports: model and storage                            (exists)
     extraction/           a passage of text to drafts                                 (exists)
         extractor.py          the entry point: one passage in, drafts and issues out  (exists)
@@ -97,15 +98,22 @@ src/ledger_hand/
         coin_book.py          the confirmed coins between the book and the coin table (exists)
         exporting.py          the trades not exported yet, written as one file, marked (exists)
         export_file.py        a new file, whole, never replacing another              (exists)
-    settings.py           the only place that reads settings                          (exists)
-    wiring.py             builds the parts from the settings, the clock and the zone  (exists)
+    settings.py           the only place that reads settings; why each default, as data (exists)
+    wiring.py             builds the parts from the settings, page changes, the clock and the zone (exists)
     ui/                   the user interface; the only place that may use Streamlit   (exists)
-        app.py                the page Streamlit runs: the chat beside the table      (exists)
+        app.py                the entry Streamlit runs: the title, Record and Settings (exists)
+        record_page.py        the Record page: the chat beside the table, Export under it (exists)
+        settings_page.py      the Settings page: every setting, its value, default and why (exists)
+        settings_form.py      changing the settings for this browser tab              (exists)
         chat.py               the chat so far and the one input                       (exists)
         preview.py            the table of what will be recorded, and its buttons     (exists)
+        export_panel.py       Export, the warning always beside it, and its outcome   (exists)
         turns.py              a message or a click handed to the flows                (exists)
         sayings.py            what the program says, read off the progress            (exists)
-        session.py            what lasts between reruns: parts, progress, chat        (exists)
+        failure_words.py      one plain sentence for every kind of failure            (exists)
+        setting_text.py       a setting's value as it would be typed; the key as set or not (exists)
+        notes.py              the last word after Export or on the settings page, shown (exists)
+        session.py            what lasts between reruns: parts, changes, progress, chat (exists)
 evals/                    prompt experiments: test sentences, scoring, runner, results (exists)
     sets/                 the test sentences with gold answers: debug and final   (exists)
     gold.py               the shapes of a sentence and its gold answer             (exists)
@@ -126,7 +134,7 @@ tests/                    mirrors src; also holds the guardrails, fakes and gold
     extraction/           tests of extraction against the scripted model              (exists)
     asking/               tests of wording a question                                 (exists)
     flows/                tests of recording a passage and of its script              (exists)
-    ui/                   the page run headless against fakes; the settings file      (exists)
+    ui/                   the pages run headless against fakes; the plain words; the settings file (exists)
     evals/                tests of the experiment kit and the test sentences          (exists)
 ```
 
@@ -291,10 +299,24 @@ the one place in the package that reads the machine's zone, and it may read
 the clock, as its job is to hand both to the flows. Only `ui/` may import
 it; the flows never do, since it imports them.
 
-`ui/` is one Streamlit page. It makes no business decision: what to ask,
-whether a passage is settled, whether it can be saved, which trade can be
-left out and which cannot be recorded all come from the flow's `Progress`;
-the page lays them out and hands the person's words and clicks to the flows.
+`ui/` is two Streamlit pages, Record and Settings. It makes no business
+decision: what to ask, whether a passage is settled, whether it can be
+saved, which trade can be left out and which cannot be recorded all come
+from the flow's `Progress`; whether an export can be written, and what
+became of it, from the export flow; which fees the ledger leaves out of the
+cost from the core (`core/fee_cost.py`). The pages lay them out and hand
+the person's words and clicks to the flows. Every failure is said in one
+plain sentence looked up in `ui/failure_words.py`, one entry for each kind
+of each failure, so a new kind cannot go without one.
+
+The settings page shows every model setting, its value, its default and
+why, all read from the settings module (`settings.ABOUT`); it changes
+them for the browser tab only. The page never reads the environment: it
+hands the changes, variable to text, to the wiring module, which reads the
+environment first and puts them in with `settings.apply_changes`, the
+same reading and checks the environment's values get, then builds every
+part again from the result. Nothing is written back to the environment or
+to a file, and the key cannot be changed there.
 It is the only part that keeps anything between reruns (Streamlit's
 `session_state`), and it imports nothing third-party but Streamlit itself,
 not what Streamlit brings along (pandas, numpy and the like). Two gates
