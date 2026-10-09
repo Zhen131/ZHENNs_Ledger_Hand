@@ -317,7 +317,7 @@ check and the hygiene scan).
 | `tests/` | The tests. `tests/core/`, `tests/export/`, `tests/llm/`, `tests/extraction/`, `tests/asking/`, `tests/storage/` and `tests/flows/` have one test module per module, or more; `tests/llm/` also has a fake Ollama server, the pieces of a fake cloud service and a batch of attacks on each plug, and `tests/extraction/` a batch of attacks on extraction. `tests/storage/` runs the same tests of the storage port against the SQLite plug and the in-memory stand-in, and holds the golden book. `tests/flows/` also tests the script for recording trades. `tests/ui/` runs the pages headless with Streamlit's own test runner, against fake models and a book in a temporary folder (Export, the settings page, every failure, the reminders), checks the plain sentence for every failure, and checks the settings file. `tests/evals/` tests the experiment kit and the test sentences. |
 | `tests/conftest.py` | Stops every test that is not marked `live_model` from reaching the network. |
 | `tests/fakes/` | Stand-ins for the outside world: a scripted model that plays back replies and errors in order and records what it was asked, a model that answers each kind of call (judging, extraction, wording a question, reading an answer) from its own script, and a book kept in memory that can be made to fail. |
-| `tests/live/` | The live check, which talks to a real model, the small schema check it uses, the smoke test of extraction, the check of judging the debug set, the smoke test of the page, and the check of the settings page against an address nobody listens on. |
+| `tests/live/` | The live check, which talks to a real model, the small schema check it uses, the smoke test of extraction, the check of judging the debug set, the smoke test of the page, the check of the settings page against an address nobody listens on, and one call of the cloud plug to the local Ollama's OpenAI-style endpoint. |
 | `tests/export/samples.py`, `tests/export/attack.py`, `tests/export/golden/` | Invented trades to export, batches of edge cases made to find where this program and the ledger part ways, both shared with the ledger tier, and the golden sample. A golden sample is never edited once committed; a new format version gets one of its own. |
 | `tests/guardrails/` | The layering check and the hygiene scan, the tests that prove they catch what they should, and the two gate tests that apply them to this repository. |
 | `scripts/check.sh` | One command that runs all checks. |
@@ -610,7 +610,12 @@ the table and how long it took. On the settings page it then points the
 model's address at a port on this machine nobody listens on, checks that a
 passage is answered by the sentence that names that address, goes back to
 the environment and the defaults, and checks that the same passage comes to
-its first question. When the server cannot be reached, it fails with a
+its first question. Last, it tries the cloud plug against the same server:
+Ollama also answers the OpenAI-style chat endpoint under `/v1` of its
+address, so the cloud plug is pointed there, with an invented key that
+Ollama does not check, and asked the same small question once, with no
+retries; the reply must be valid JSON that follows the table. No cloud
+service is called. When the server cannot be reached, it fails with a
 message that starts with `unreachable`.
 The first call after the model has been idle includes loading it into
 memory, which takes several seconds more than the calls after it.
@@ -911,9 +916,11 @@ Known limits:
   `response_format` refuses every call with 400. There is no second way of
   asking (such as plain JSON without the table); the page says the call was
   turned down and quotes the start of the service's answer.
-- The cloud plug is tested against a fake transport only: every test feeds
-  it answers shaped like a cloud service's, and no test calls a real one.
-  The live tier checks the local model only.
+- No test calls a real cloud service. The quick checks feed the cloud plug
+  answers shaped like a cloud service's through a fake transport; the live
+  tier sends it once to the local Ollama's OpenAI-style endpoint (`/v1`),
+  which shows that the request is in a form such a server takes, but not
+  how any one service answers.
 - The experiment tools (`evals/run.py`) always use the local plug, because
   they ask Ollama itself for the model's fingerprint. Unset the cloud
   settings before running an experiment.
