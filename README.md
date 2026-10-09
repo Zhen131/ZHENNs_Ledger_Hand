@@ -454,7 +454,7 @@ the step that failed.
 | A setting in the environment refused | Which one and its rule; correct or remove it, then start the program again |
 | A change on the settings page refused | Which one and its rule; the settings were not changed |
 | The book written by a newer version, not a database, or not this program's book | Which file, and that it was left as it is; use the newer version, move the file away, or point `LEDGER_HAND_DATA_DIR` elsewhere |
-| The book damaged | Which file, and that the program does not write to it; keep a copy, or point `LEDGER_HAND_DATA_DIR` elsewhere |
+| The book damaged | Which file, and that the program does not write to it; keep a copy and move it away, or point `LEDGER_HAND_DATA_DIR` elsewhere |
 | The book in use, unreadable or unwritable, clashing with what was asked, or failing otherwise | Why, in the book's own words; what to check, then try again |
 | An export refused | Every reason, one to a line; nothing was marked |
 | An export file not written | Why; nothing was marked; press Export again once that is put right |

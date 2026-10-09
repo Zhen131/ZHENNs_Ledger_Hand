@@ -119,7 +119,7 @@ STORAGE_FAILURES: Mapping[StorageErrorKind, str] = MappingProxyType(
         ),
         StorageErrorKind.DAMAGED: (
             "The book is damaged, so the program does not write to it. Keep a copy of the "
-            f"file as it is, {_ELSEWHERE}."
+            f"file as it is, then move it away, {_ELSEWHERE}."
         ),
         StorageErrorKind.LOCKED: (
             "The book is in use by another program and stayed busy. Close the other "
