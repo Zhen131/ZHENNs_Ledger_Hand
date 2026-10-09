@@ -110,9 +110,9 @@ the folder it is started in. They keep it from sending usage statistics,
 make it listen on this machine's own address only, and start it headless, so
 it neither stops at the terminal to ask for an e-mail address nor writes a
 credentials file into your home folder, and it does not open a browser by
-itself. It may suggest installing the Watchdog module, which only reloads
-the page when the code changes; the program does not need it. Stop it with
-Ctrl+C in the terminal.
+itself. It may suggest installing the Watchdog module, which only helps
+Streamlit notice changes to the code; the program does not need it. Stop it
+with Ctrl+C in the terminal.
 
 Type a passage in the box under the chat, for example "Bought 0.02 BTC at
 94,900 yesterday". The program's questions come back in the chat, each with
