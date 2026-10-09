@@ -2,11 +2,13 @@
 
 ``load_model_settings`` reads the model settings from environment variables
 named ``LEDGER_HAND_MODEL_...`` (the ``Variable`` enumeration lists them) and
-returns a ``ModelSettings``. A variable that is not set, or is set to nothing
-but blanks, takes its default. A value that is not in the expected form, or
-is out of range, is refused with a ``SettingsError`` that names the variable;
-so is a variable that has the prefix but is not one of the known names,
-because a misspelt name would otherwise be ignored without a word.
+returns a ``ModelSettings``. One of them chooses the plug that talks to the
+model (``Plug``): the local Ollama by default, or a cloud service. A
+variable that is not set, or is set to nothing but blanks, takes its
+default. A value that is not in the expected form, or is out of range, is
+refused with a ``SettingsError`` that names the variable; so is a variable
+that has the prefix but is not one of the known names, because a misspelt
+name would otherwise be ignored without a word.
 
 The key, if there is one, is kept in a ``Secret``: printing it, or printing
 the settings, shows a placeholder, and no error message here ever repeats it.
@@ -32,10 +34,14 @@ else. What each variable sets and the reason for its default are kept as
 data, in ``ABOUT``, and only there: the settings page and the README's table
 of settings show them as written there.
 
-This module only reads and checks settings. It does not talk to the model,
-store anything or know about the other parts of the package.
+This module only reads and checks settings, each variable on its own. It
+does not talk to the model, store anything or know about the other parts of
+the package. Whether the settings fit together for the plug they choose (a
+cloud service needs an address of its own, and off this machine https and a
+key) is checked where the plug is built, not here: so setting one variable
+alone never makes reading the settings fail because of another.
 
-Names defined here: ``ENV_PREFIX``, ``Variable``, the ``DEFAULT_...``
+Names defined here: ``ENV_PREFIX``, ``Variable``, ``Plug``, the ``DEFAULT_...``
 constants, ``MAX_RETRIES``, ``Secret``, ``SettingsError``, ``ModelSettings``,
 ``About``, ``ABOUT``, ``load_model_settings``, ``apply_changes``,
 ``DATA_DIRECTORY_VARIABLE``, ``BOOK_FILE_NAME``, ``EXPORTS_DIRECTORY_NAME``,
@@ -60,6 +66,7 @@ ENV_PREFIX = "LEDGER_HAND_MODEL_"
 class Variable(enum.Enum):
     """The environment variables this module reads."""
 
+    PLUG = ENV_PREFIX + "PLUG"
     URL = ENV_PREFIX + "URL"
     NAME = ENV_PREFIX + "NAME"
     KEY = ENV_PREFIX + "KEY"
@@ -73,7 +80,17 @@ class Variable(enum.Enum):
     QUESTION_TEMPERATURE = ENV_PREFIX + "QUESTION_TEMPERATURE"
 
 
+class Plug(enum.StrEnum):
+    """Which plug talks to the model; the values are what the variable is set to."""
+
+    LOCAL = "local"
+    """Ollama's own chat endpoint, on this machine by default."""
+    CLOUD = "cloud"
+    """The OpenAI-style chat endpoint most cloud services offer."""
+
+
 # The defaults. The reason for each is in ``ABOUT`` below, and only there.
+DEFAULT_PLUG = Plug.LOCAL
 DEFAULT_BASE_URL = "http://127.0.0.1:11434"
 DEFAULT_MODEL = "qwen2.5:7b"
 DEFAULT_TEMPERATURE = 0.0
@@ -124,7 +141,7 @@ class SettingsError(ValueError):
 
 @dataclass(frozen=True, kw_only=True)
 class ModelSettings:
-    """Where the model is, which one, its key, and the defaults for calling it.
+    """Which plug, where the model is, which one, its key, and the defaults for calling it.
 
     ``retries`` is how many times a call that may pass on its own is tried
     again; ``retry_wait_seconds`` is the wait before the first retry, and each
@@ -133,6 +150,7 @@ class ModelSettings:
     ``temperature``.
     """
 
+    plug: Plug = DEFAULT_PLUG
     base_url: str = DEFAULT_BASE_URL
     model: str = DEFAULT_MODEL
     api_key: Secret | None = None
@@ -146,6 +164,10 @@ class ModelSettings:
     question_temperature: float = DEFAULT_QUESTION_TEMPERATURE
 
     def __post_init__(self) -> None:
+        if not isinstance(self.plug, Plug):
+            raise SettingsError(
+                f"{Variable.PLUG.value}: the plug must be a Plug, one of {_plugs()}"
+            )
         _check_base_url(self.base_url)
         _check_visible(Variable.NAME, self.model)
         if self.api_key is not None and not isinstance(self.api_key, Secret):
@@ -185,6 +207,15 @@ class About:
 
 ABOUT: Mapping[Variable, About] = MappingProxyType(
     {
+        Variable.PLUG: About(
+            "plug",
+            "Which plug talks to the model: local, Ollama's own chat endpoint; or cloud, the "
+            "OpenAI-style chat endpoint most cloud services offer. The cloud plug needs the "
+            "service's address, and for an address off this machine https and a key.",
+            "Local, so that by default the model runs on this machine and nothing that is "
+            "typed leaves it. Setting an address or a key never switches to a cloud service; "
+            "only this does.",
+        ),
         Variable.URL: About(
             "base_url",
             "Where the model server is: an http or https address, with no user name, "
@@ -315,6 +346,8 @@ def _known() -> str:
 
 def _read(variable: Variable, text: str) -> object:
     """``text``, already stripped and not empty, read as ``variable``'s value; not yet checked."""
+    if variable is Variable.PLUG:
+        return _plug(text)
     if variable is Variable.URL:
         return _strip_trailing_slash(text)
     if variable is Variable.NAME:
@@ -342,6 +375,19 @@ def _given(source: Mapping[str, str], variable: Variable) -> str | None:
     if value is None or not value.strip():
         return None
     return value.strip()
+
+
+def _plugs() -> str:
+    return " or ".join(plug.value for plug in Plug)
+
+
+def _plug(text: str) -> Plug:
+    try:
+        return Plug(text)
+    except ValueError:
+        raise SettingsError(
+            f"{Variable.PLUG.value}: {_shown(text)} is not a plug; it is {_plugs()}"
+        ) from None
 
 
 def _strip_trailing_slash(text: str) -> str:

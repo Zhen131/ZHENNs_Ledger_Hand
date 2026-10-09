@@ -35,6 +35,7 @@ KEY = "sk-invented-0123456789abcdef"
 # For each variable: a value to set, the field it lands in, and what the field
 # then holds. None of these values is a default.
 EVERY_VARIABLE = {
+    Variable.PLUG: ("cloud", "plug", "cloud"),
     Variable.URL: ("http://192.0.2.7:8080/", "base_url", "http://192.0.2.7:8080"),
     Variable.NAME: ("qwen2.5:14b", "model", "qwen2.5:14b"),
     Variable.KEY: (KEY, "api_key", Secret(KEY)),

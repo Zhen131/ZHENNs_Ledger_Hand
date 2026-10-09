@@ -794,6 +794,7 @@ settings page, for the browser tab only (see "The settings page" above).
 
 | Variable | Default | What it sets | Why this default |
 | --- | --- | --- | --- |
+| `LEDGER_HAND_MODEL_PLUG` | `local` | Which plug talks to the model: local, Ollama's own chat endpoint; or cloud, the OpenAI-style chat endpoint most cloud services offer. The cloud plug needs the service's address, and for an address off this machine https and a key. | Local, so that by default the model runs on this machine and nothing that is typed leaves it. Setting an address or a key never switches to a cloud service; only this does. |
 | `LEDGER_HAND_MODEL_URL` | `http://127.0.0.1:11434` | Where the model server is: an http or https address, with no user name, password, query or fragment. | Ollama's own address on this machine, so by default the model runs locally and nothing that is typed leaves the machine. |
 | `LEDGER_HAND_MODEL_NAME` | `qwen2.5:7b` | Which model to ask. | The model the program was built and measured with. |
 | `LEDGER_HAND_MODEL_KEY` | (none) | A key, sent as a bearer token, for a server that needs one. Never shown, and set in the environment only. | None: the local Ollama needs no key. |
