@@ -1,9 +1,11 @@
 """What a prompt version is, and the messages it makes for one passage.
 
 A ``PromptVersion`` is the instructions, the examples and the words used to
-ask again after a reply that could not be read. Each version lives in a file
-of its own under ``prompts/``, and its examples in a file beside it, so that
-the test sentences of an experiment can be checked against them.
+ask again after a reply that could not be read, and the table the reply of
+extraction is held to: ``REPLY_TABLE`` unless the version brings a table of
+its own. Each version lives in a file of its own under ``prompts/``, and its
+examples in a file beside it, so that the test sentences of an experiment
+can be checked against them.
 
 ``build_messages`` lays a version out as a conversation: the instructions
 as the system message; then each example as the passage, said by the user,
@@ -17,13 +19,14 @@ Names defined here: ``PromptVersion``, ``Example``, ``ExampleRow``,
 
 from __future__ import annotations
 
+import dataclasses
 import json
 from collections.abc import Mapping
 from dataclasses import dataclass
 
 from ledger_hand.extraction.reply_parser import ReplyProblem
-from ledger_hand.extraction.reply_table import TRADES_KEY, Field
-from ledger_hand.ports import Message, Role
+from ledger_hand.extraction.reply_table import REPLY_TABLE, TRADES_KEY, Field
+from ledger_hand.ports import JsonSchema, Message, Role
 
 type ExampleRow = Mapping[Field, str]
 """One row of an example's table; a field that is left out is empty."""
@@ -45,13 +48,16 @@ class PromptVersion:
     """One version of the prompt.
 
     ``ask_again`` holds ``PROBLEM_MARK`` once, where the words for what was
-    wrong with the last reply go.
+    wrong with the last reply go. ``reply_table`` is the table extraction
+    hands the model with this version; a table of its own may add keys
+    around the list of rows, which the reading of a reply leaves aside.
     """
 
     name: str
     instructions: str
     examples: tuple[Example, ...]
     ask_again: str
+    reply_table: JsonSchema = dataclasses.field(default_factory=lambda: REPLY_TABLE)
 
     def __post_init__(self) -> None:
         if self.ask_again.count(PROBLEM_MARK) != 1:

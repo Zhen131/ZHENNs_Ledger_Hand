@@ -21,9 +21,9 @@ name that is not a time zone, or a number of times to ask again out of range.
 The steps:
 
 1. The passage is checked before anything is sent.
-2. The model is asked once, with the table it has to fill and the caller's
-   parameters (``None`` leaves the plug's defaults, which the settings set
-   to temperature 0 for exactly this).
+2. The model is asked once, with the table it has to fill (the prompt
+   version's table) and the caller's parameters (``None`` leaves the plug's
+   defaults, which the settings set to temperature 0 for exactly this).
 3. The reply is read against the table. Only when it misses the table's
    shape is the model asked again, with a note saying what was wrong.
 4. Each row becomes a draft (``row_draft``): every phrase is checked to be
@@ -62,7 +62,6 @@ from ledger_hand.extraction.passage_check import PassageProblem, passage_problem
 from ledger_hand.extraction.prompting import PromptVersion, build_messages
 from ledger_hand.extraction.prompts.first import FIRST_PROMPT
 from ledger_hand.extraction.reply_parser import ReplyProblem, ReplyRow, ReplyRows, read_reply
-from ledger_hand.extraction.reply_table import REPLY_TABLE
 from ledger_hand.extraction.row_draft import Surroundings, draft_from_row
 from ledger_hand.ports import ModelError, ModelParameters, ModelPort, ReplyRecord
 
@@ -136,7 +135,7 @@ def extract(
         try:
             reply = model.chat(
                 build_messages(prompt, passage, last),
-                reply_schema=REPLY_TABLE,
+                reply_schema=prompt.reply_table,
                 parameters=parameters,
             )
         except ModelError as error:
