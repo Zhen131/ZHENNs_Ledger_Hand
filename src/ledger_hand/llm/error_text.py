@@ -8,6 +8,16 @@ is replaced by a placeholder wherever it occurs. The key is hidden before
 the text is cut short, so that a key straddling the cut cannot leave half of
 itself behind.
 
+A server that repeats the key does not always repeat it as it was sent. It
+may write it inside a JSON string, where a quote or a backslash gets a
+backslash in front (twice over, when that JSON is itself put in a string),
+any character may become ``\\uXXXX`` and a slash may become ``\\/``; in an
+address, where characters become ``%XX`` in either case; or in an HTML
+page, where ``&``, ``<``, ``>`` and quotes become entities, named or
+numbered. So each character of the key is looked for in every one of these
+ways, mixed as they come, and the whole match is hidden. Hiding a little
+more than the key (a stray backslash in front of it, say) is the safe side.
+
 This module only rewrites text. It decides nothing about kinds of failure.
 
 Names defined here: ``SNIPPET_CHARACTERS``, ``DETAIL_CHARACTERS``,
@@ -15,6 +25,8 @@ Names defined here: ``SNIPPET_CHARACTERS``, ``DETAIL_CHARACTERS``,
 """
 
 from __future__ import annotations
+
+import re
 
 from ledger_hand.settings import Secret
 
@@ -25,11 +37,43 @@ DETAIL_CHARACTERS = 300
 HIDDEN = "<hidden>"
 
 
+# The names HTML gives the characters a key may hold; numbered entities are
+# looked for for every character.
+_HTML_NAMES = {
+    "&": ("&amp;",),
+    "<": ("&lt;",),
+    ">": ("&gt;",),
+    '"': ("&quot;",),
+    "'": ("&apos;",),
+}
+
+
 def hide(text: str, secret: Secret | None) -> str:
-    """``text`` with every occurrence of the secret replaced by a placeholder."""
+    """``text`` with every occurrence of the secret, written in any of the known ways, hidden."""
     if secret is None or not secret.reveal():
         return text
-    return text.replace(secret.reveal(), HIDDEN)
+    return _written_back(secret.reveal()).sub(HIDDEN, text)
+
+
+def _written_back(value: str) -> re.Pattern[str]:
+    """A pattern for ``value`` with each character written in any of the known ways."""
+    return re.compile("".join(_one_character(character) for character in value))
+
+
+def _one_character(character: str) -> str:
+    code = ord(character)
+    percent = "".join(f"%{byte:02x}" for byte in character.encode("utf-8", "surrogatepass"))
+    ways = [
+        re.escape(character),
+        f"(?i:{re.escape(percent)})",
+        f"&#0*{code};",
+        f"(?i:&#x0*{code:x};)",
+        *(re.escape(name) for name in _HTML_NAMES.get(character, ())),
+    ]
+    if code <= 0xFFFF:
+        ways.append(rf"(?i:\\u{code:04x})")
+    # Any run of backslashes in front: one for a JSON escape, more for JSON in JSON.
+    return rf"\\*(?:{'|'.join(ways)})"
 
 
 def snippet(body: bytes, secret: Secret | None) -> str | None:
