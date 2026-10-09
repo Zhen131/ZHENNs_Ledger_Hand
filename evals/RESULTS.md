@@ -2309,3 +2309,168 @@ One parameter changed from the runs above: the temperature, 0.0 there and 0.7 he
 | d13: Picked up 40 LINK at 13.85 yesterday at 18:20 while BTC sat near 61k, fee 0 | 1 | time | 昨天 18:20 | (empty) | yesterday at 18:20 | 2026-10-04T18:20:00+02:00 (minute) |
 
 </details>
+
+### Parameter comparison 2: debug set, prompt `stepwise`, longest reply 256 tokens
+
+Results file: `evals/results/run-20261009T025506Z-debug-stepwise.jsonl`, with its summary in `run-20261009T025506Z-debug-stepwise.summary.json`.
+
+One parameter changed from the runs above: the longest reply, 1,024 tokens there and 256 here (set with `LEDGER_HAND_MODEL_MAX_REPLY_TOKENS=256`). The `stepwise` version writes the longest replies, as it writes its analysis before the table; its longest reply in its run above was 297 tokens, so 256 is below it. It measures what the limit does when it is reached. This run is not one of the five the rule compares.
+
+<details>
+<summary>The generated tables of this run</summary>
+
+#### Run
+| Condition | Value |
+| --- | --- |
+| set | debug |
+| final_exam_switch | False |
+| set_file | evals/sets/debug.json |
+| set_sha256 | 4529d98323ad1df4d38f5a5b73cdf1082b6a1cd08a0604a454ecf7986104f4d8 |
+| prompt | stepwise |
+| prompt file src/ledger_hand/extraction/prompts/stepwise.py | sha256 ade615b5113708fa8356a35b6e21fbc40bfd1c0666bb22b8eaaf6cbfcf49ca99 |
+| prompt file src/ledger_hand/extraction/prompts/first.py | sha256 e09ca774e7a4455891a9a8980c6932d3b9691f53c00cc189c3dfbcbbfb7368ba |
+| prompt file src/ledger_hand/extraction/prompts/first_examples.py | sha256 3088812302b7895fac2c1c65a60a9f703bdfcec40b9cb556b7cf8ef5ec682c32 |
+| prompt_content_sha256 | 2f47a7ac7368b04d5dbbf112ceebf83cdc0963e6996c464c21ef836096380768 |
+| reply_table_sha256 | c822392c150e388a3bef711e3af1c43e4dd73329b118145b1e8a1308f4dfae89 |
+| commit | 30ef9b44f86a3d42c5e54a4a4a73e3cba727de72 |
+| worktree_clean | True |
+| model | qwen2.5:7b |
+| model_fingerprint | 845dbda0ea48ed749caafd9e6037047aa19acfcfd82e704d7ca97d631a0b697e |
+| server_version | 0.34.3 |
+| base_url | http://127.0.0.1:11434 |
+| parameter temperature | 0.0 |
+| parameter top_p | 1.0 |
+| parameter max_reply_tokens | 256 |
+| parameter context_tokens | 16384 |
+| parameter timeout_seconds | 120.0 |
+| parameter retries | 2 |
+| parameter retry_wait_seconds | 1.0 |
+| parameter asks_again | 1 |
+| coin_table | built-in |
+| started_at | 2026-10-09T02:55:06+00:00 |
+| sentences | 30 |
+| sum_of_sentence_seconds | 228.606 |
+| first_sentence_seconds | 6.445 |
+| longest_sentence_seconds | 24.683 |
+| finished_at | 2026-10-09T02:58:55+00:00 |
+| seconds_of_the_last_session | 228.654 |
+
+#### Scores by group
+| Group | Sentences | Well-formed | Whole trades right | Missed | Extra | Made up | No-trade sentences right |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| all scored sentences | 26 | 23 / 26 (88.5%) | 19 / 34 (55.9%) | 9 | 0 | 1 / 102 (1.0%) | 3 / 3 (100.0%) |
+| one trade | 15 | 15 / 15 (100.0%) | 10 / 15 (66.7%) | 0 | 0 | 1 / 60 (1.7%) | 0 / 0 (-) |
+| several trades | 8 | 5 / 8 (62.5%) | 9 / 19 (47.4%) | 9 | 0 | 0 / 42 (0.0%) | 0 / 0 (-) |
+| - two trades | 5 | 5 / 5 (100.0%) | 9 / 10 (90.0%) | 0 | 0 | 0 / 42 (0.0%) | 0 / 0 (-) |
+| - three or more trades | 3 | 0 / 3 (0.0%) | 0 / 9 (0.0%) | 9 | 0 | 0 / 0 (-) | 0 / 0 (-) |
+| no trade (talk) | 3 | 3 / 3 (100.0%) | 0 / 0 (-) | 0 | 0 | 0 / 0 (-) | 3 / 3 (100.0%) |
+| Chinese | 10 | 9 / 10 (90.0%) | 6 / 13 (46.2%) | 3 | 0 | 1 / 43 (2.3%) | 1 / 1 (100.0%) |
+| English | 9 | 8 / 9 (88.9%) | 8 / 12 (66.7%) | 3 | 0 | 0 / 37 (0.0%) | 1 / 1 (100.0%) |
+| mixed | 7 | 6 / 7 (85.7%) | 5 / 9 (55.6%) | 3 | 0 | 0 / 22 (0.0%) | 1 / 1 (100.0%) |
+
+#### Each field, all scored sentences
+| Field | Right / pairs |
+| --- | --- |
+| side | 22 / 25 (88.0%) |
+| coin | 25 / 25 (100.0%) |
+| quantity | 24 / 25 (96.0%) |
+| price | 23 / 25 (92.0%) |
+| total | 25 / 25 (100.0%) |
+| price_currency | 25 / 25 (100.0%) |
+| fee | 25 / 25 (100.0%) |
+| fee_currency | 25 / 25 (100.0%) |
+| time | 23 / 25 (92.0%) |
+| platform | 25 / 25 (100.0%) |
+| opinion | 25 / 25 (100.0%) |
+
+#### Every field of every pair, by kind
+| Kind | Fields |
+| --- | --- |
+| RIGHT: right | 267 |
+| LEFT_EMPTY_WITH_REASON: left empty by the program, with the reason in the issues | 3 |
+| - because the model's phrase is not a piece of the passage | 3 |
+| - because the model's phrase cuts a number of the passage | 0 |
+| - because the number reader was unsure of the phrase or could not read it | 0 |
+| - because the time reader refused the phrase or gave two candidates | 0 |
+| - because another issue about the field | 0 |
+| LEFT_EMPTY_BY_MODEL: left empty, with no issue: the model copied nothing that gives it | 4 |
+| WRONG_WITH_ISSUE: a wrong value in the draft, with an issue about the field | 0 |
+| WRONG_SILENT: a wrong value in the draft, with no issue about the field | 0 |
+| MADE_UP: a value in the draft where the gold answer is empty | 1 |
+| - of them with an issue about the field | 1 |
+
+#### Wrong values in drafts with no issue about them (0)
+| Sentence | Draft | Field | Model copied | Draft holds | Gold | Kind |
+| --- | --- | --- | --- | --- | --- | --- |
+
+#### Half copies: the model copied part of the gold phrase (0)
+| Sentence | Draft | Field | Model copied | Draft holds | Gold | Kind |
+| --- | --- | --- | --- | --- | --- | --- |
+
+#### Fields the program left empty (3; the model's phrase was exactly the gold phrase in 0)
+| Sentence | Draft | Field | Model copied | Gold phrase | Reason | Model copied exactly the gold phrase |
+| --- | --- | --- | --- | --- | --- | --- |
+| d04 | 1 | price | 63,500 | 六万三千五 | NOT_IN_PASSAGE | no |
+| d13 | 1 | time | 昨天 18:20 | yesterday at 18:20 | NOT_IN_PASSAGE | no |
+| d19 | 1 | price | 2,450 | 两千四百五 | NOT_IN_PASSAGE | no |
+
+#### Passages not to record (not in any score above)
+| Sentence | Kind | Result | Drafts | What the check of a draft says |
+| --- | --- | --- | --- | --- |
+| d27: 昨天开了 10 倍杠杆做多 BTC，开仓价 62,800，保证金 200U | futures_or_leverage | extracted | 1 | draft 1: stopped by ONE_MORE_OF_QUANTITY_PRICE_TOTAL, FEE |
+| d28: Swapped 0.5 ETH for 0.019 BTC on Uniswap this morning | coin_for_coin | extracted | 1 | draft 1: stopped by ONE_MORE_OF_QUANTITY_PRICE_TOTAL, FEE |
+| d29: 挂了一个 limit buy，0.05 BTC @ 58,000，还没成交 | open_order | extracted | 1 | draft 1: stopped by SIDE, FEE, OCCURRED |
+| d30: 打算明天下午 3 点买 1 个 ETH，价格到 2,300 就进 | plan | extracted | 0 | - |
+
+#### Every scored sentence
+| Sentence | Language | Result | Gold trades | Drafts | Whole right | Missed | Extra | Fields not right (gold trade.field:kind) |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| d01 | zh | extracted | 1 | 1 | 1 | 0 | 0 | - |
+| d02 | en | extracted | 1 | 1 | 1 | 0 | 0 | - |
+| d03 | mixed | extracted | 1 | 1 | 1 | 0 | 0 | - |
+| d04 | zh | extracted | 1 | 1 | 0 | 0 | 0 | 1.price:LEFT_EMPTY_WITH_REASON |
+| d05 | en | extracted | 1 | 1 | 1 | 0 | 0 | - |
+| d06 | mixed | extracted | 1 | 1 | 0 | 0 | 0 | 1.side:LEFT_EMPTY_BY_MODEL |
+| d07 | zh | extracted | 1 | 1 | 0 | 0 | 0 | 1.side:LEFT_EMPTY_BY_MODEL, 1.time:LEFT_EMPTY_BY_MODEL |
+| d08 | en | extracted | 1 | 1 | 1 | 0 | 0 | - |
+| d09 | mixed | extracted | 1 | 1 | 1 | 0 | 0 | - |
+| d10 | zh | extracted | 1 | 1 | 1 | 0 | 0 | - |
+| d11 | en | extracted | 1 | 1 | 1 | 0 | 0 | - |
+| d12 | zh | extracted | 1 | 1 | 1 | 0 | 0 | - |
+| d13 | en | extracted | 1 | 1 | 0 | 0 | 0 | 1.time:LEFT_EMPTY_WITH_REASON |
+| d14 | zh | extracted | 1 | 1 | 0 | 0 | 0 | 1.side:LEFT_EMPTY_BY_MODEL, 1.quantity:MADE_UP |
+| d15 | mixed | extracted | 1 | 1 | 1 | 0 | 0 | - |
+| d16 | zh | extracted | 2 | 2 | 2 | 0 | 0 | - |
+| d17 | en | extracted | 2 | 2 | 2 | 0 | 0 | - |
+| d18 | mixed | extracted | 2 | 2 | 2 | 0 | 0 | - |
+| d19 | zh | extracted | 2 | 2 | 1 | 0 | 0 | 1.price:LEFT_EMPTY_WITH_REASON |
+| d20 | en | extracted | 2 | 2 | 2 | 0 | 0 | - |
+| d21 | zh | reply_unreadable | 3 | 0 | 0 | 3 | 0 | - |
+| d22 | en | reply_unreadable | 3 | 0 | 0 | 3 | 0 | - |
+| d23 | mixed | reply_unreadable | 3 | 0 | 0 | 3 | 0 | - |
+| d24 | zh | extracted | 0 | 0 | 0 | 0 | 0 | - |
+| d25 | en | extracted | 0 | 0 | 0 | 0 | 0 | - |
+| d26 | mixed | extracted | 0 | 0 | 0 | 0 | 0 | - |
+
+#### Three more counts
+| Count | Cases |
+| --- | --- |
+| A total put as the price | 0 |
+| Half copies, any field whose phrase is part of the gold phrase | 0 |
+| Half copies, only fields not right (as in the summary) | 0 |
+| A time written in another language | 1 |
+
+#### A total put as the price (0; gold is the total)
+| Sentence | Draft | Field | Model copied | Draft holds | Gold phrase | Gold |
+| --- | --- | --- | --- | --- | --- | --- |
+
+#### Half copies, counted the second way (0)
+| Sentence | Draft | Field | Model copied | Draft holds | Gold phrase | Gold | Field right |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+
+#### A time written in another language (1)
+| Sentence | Draft | Field | Model copied | Draft holds | Gold phrase | Gold |
+| --- | --- | --- | --- | --- | --- | --- |
+| d13: Picked up 40 LINK at 13.85 yesterday at 18:20 while BTC sat near 61k, fee 0 | 1 | time | 昨天 18:20 | (empty) | yesterday at 18:20 | 2026-10-04T18:20:00+02:00 (minute) |
+
+</details>
