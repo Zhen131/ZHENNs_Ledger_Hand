@@ -147,6 +147,14 @@ it, or a value made up. The results of each run are in `evals/results/`,
 and `evals/RESULTS.md` records them; the first is the baseline of the first
 prompt with `qwen2.5:7b` on the debug set.
 
+**Comparing prompt versions.** Four more versions of the extraction prompt,
+each one technique away from the first (no examples, a role, a written
+step-by-step analysis, one more rule on price and total), were run on the
+debug set and on a small set of hard ways of writing a number, side by side
+with the first; a rule fixed beforehand picked one version, and only that
+one ran the final set, once. `evals/RESULTS.md` has the tables. The product
+still records passages with the first prompt.
+
 **Judging a passage first.** `screen` in
 `src/ledger_hand/extraction/screening.py` asks the model which kinds of thing
 a passage reports, from one fixed list: a filled spot trade, futures or
@@ -302,7 +310,7 @@ check and the hygiene scan).
 | `tests/export/samples.py`, `tests/export/attack.py`, `tests/export/golden/` | Invented trades to export, batches of edge cases made to find where this program and the ledger part ways, both shared with the ledger tier, and the golden sample. A golden sample is never edited once committed; a new format version gets one of its own. |
 | `tests/guardrails/` | The layering check and the hygiene scan, the tests that prove they catch what they should, and the two gate tests that apply them to this repository. |
 | `scripts/check.sh` | One command that runs all checks. |
-| `evals/` | The experiment kit, outside the package: the test sentences and their gold answers (`sets/debug.json`, `sets/final.json`, read by `gold.py`), what they cover (`coverage.py`), judging one field (`cells.py`), pairing drafts with gold trades (`matching.py`), the scores (`scoring.py`), the results file (`records.py`), the summary and its tables (`tables.py`), the runner (`run.py`) and the summary worked out again (`summarize.py`). |
+| `evals/` | The experiment kit, outside the package: the test sentences and their gold answers (`sets/debug.json`, `sets/final.json`, read by `gold.py`), what they cover (`coverage.py`), the small set of hard ways of writing a number (`sets/writings.json`, described by `writings.py`), judging one field (`cells.py`), pairing drafts with gold trades (`matching.py`), the scores (`scoring.py`), the results file (`records.py`), the summary and its tables (`tables.py`), the runner (`run.py`), the summary worked out again (`summarize.py`), three more counts beside the summary (`extra_counts.py`), prompt versions side by side with the rule that picks one (`compare.py`), and two runs compared sentence by sentence (`same_replies.py`). |
 | `evals/results/` | One results file per run (`*.jsonl`) and its summary (`*.summary.json`). In Git: all of it is invented data. |
 | `evals/RESULTS.md` | The results record: what each run measured, with the tables its results file gives. |
 | `scripts/try_extraction.py` | Try extraction by hand: a passage in, the drafts, the issues and a record of each call to the model out (see "Trying extraction by hand" below). |
@@ -682,9 +690,18 @@ wording is a new version.
 | Prompt | Step | Technique |
 | --- | --- | --- |
 | `first` (`extraction/prompts/first.py`) | Extraction: copy the phrases of each trade into a table | A few examples (few-shot), in a file beside it |
+| `zero_shot` (`extraction/prompts/zero_shot.py`) | Extraction, for experiments only | No example at all (zero-shot): `first` without its examples |
+| `persona` (`extraction/prompts/persona.py`) | Extraction, for experiments only | A role (persona): a paragraph before `first`'s instructions |
+| `stepwise` (`extraction/prompts/stepwise.py`) | Extraction, for experiments only | Step by step (chain of thought): `first` asks for a written analysis, in a field `steps` of its own reply table, before the rows |
+| `price_total` (`extraction/prompts/price_total.py`) | Extraction, for experiments only | A changed content: `first` and one more rule, that a total is never the price |
 | `screen-1` (`extraction/prompts/screen.py`) | Judging a passage: which kinds of thing it reports | No example at all (zero-shot) |
 | `answer-1` (`extraction/prompts/answer.py`) | Reading an answer the rules could not: copy the one piece that gives what was asked | No example at all (zero-shot) |
 | `bookkeeper-1` (`asking/prompts/bookkeeper.py`) | Wording a follow-up question | A role (persona): a meticulous bookkeeper who asks for one thing at a time |
+
+The four versions marked for experiments each differ from `first` in that
+one thing only, and a test checks it; the product records passages with
+`first`. A version may bring a reply table of its own (`stepwise` does);
+otherwise it sends the one table every version shares.
 
 Every prompt except the one for wording a question runs at the temperature
 of `LEDGER_HAND_MODEL_TEMPERATURE` (0 by default); wording a question runs
@@ -696,36 +713,65 @@ names the version used for each step.
 ```sh
 .venv/bin/python -m evals.run                    # the debug set, prompt "first", the model the settings name
 .venv/bin/python -m evals.run --model qwen2.5:7b --prompt first
+.venv/bin/python -m evals.run --prompt stepwise  # any version: first, zero_shot, persona, stepwise, price_total
+.venv/bin/python -m evals.run --set writings --prompt first
 .venv/bin/python -m evals.run --resume evals/results/<file>.jsonl
 .venv/bin/python -m evals.summarize evals/results/<file>.jsonl [--check]
+.venv/bin/python -m evals.extra_counts evals/results/<file>.jsonl
+.venv/bin/python -m evals.compare evals/results/<file>.jsonl ... [--choose]
+.venv/bin/python -m evals.same_replies evals/results/<earlier>.jsonl evals/results/<later>.jsonl
 ```
 
 Run these from the top of the repository, with the model server running.
-The runner takes the debug set. The final set is run only with
-`--final-exam`, and its results file says so; it is meant for the last run
-of an experiment, once the prompt is settled, so that the scores are not
-tuned to it. `--only` runs some sentences of the set by their ids.
+The runner takes the debug set. `--set writings` takes instead the small
+set of sentences written for the hard ways of writing a number (`3 w`,
+`100 万`, `94 900`, `0.02 94900`, `94，900`), which is scored the same way
+but reported apart. The final set is run only with `--final-exam`, and its
+results file says so; it is meant for the last run of an experiment, once
+the prompt is settled, so that the scores are not tuned to it. `--only`
+runs some sentences of the set by their ids. `--prompt` names the prompt
+version; the parameters are the settings' (set one with its environment
+variable, such as `LEDGER_HAND_MODEL_TEMPERATURE`, to run a parameter
+comparison).
 
 The first line of the results file records the conditions: the set and
-its fingerprint, the prompt version with its files and their fingerprints,
-the commit and whether the work tree was clean, the model, its fingerprint
-and the server's version, every parameter (temperature included, as the
-settings give it) and when the run began. Each sentence's line is added the
+its fingerprint, the prompt version with its files and their fingerprints
+(a version built on `first` lists `first`'s files too), the fingerprint of
+the reply table it sends, the commit and whether the work tree was clean,
+the model, its fingerprint and the server's version, every parameter
+(temperature included, as the settings give it) and when the run began. Each sentence's line is added the
 moment it is done: the model's raw replies, the drafts, the issues, the
 phrases the model copied, the scores and how long it took. A run cut short
 can be carried on with `--resume`, under the same conditions only. The
 summary is saved beside the results file and printed as tables;
 `evals.summarize` works it out again from the file alone, and `--check`
-compares it with the saved one. The debug set took about two minutes with
-`qwen2.5:7b` on the machine it was built on, with the model already loaded;
-the first sentence of a run includes loading the model when it is not.
+compares it with the saved one. `evals.extra_counts` works out three more
+counts from the file alone: a total put as the price, half copies counted
+whether or not the field came out right, and a time written in another
+language. `evals.compare` lays several runs side by side and, with
+`--choose`, applies the rule fixed before the first prompt experiment: the
+most whole trades right; then the fewest wrong values with no issue; then
+the fewest trades missed and extra; then the first of `first`,
+`price_total`, `persona`, `zero_shot`, `stepwise`, so that a new version is
+picked only when it does strictly better than `first`. `evals.same_replies`
+tells two runs' raw replies apart from what the program made of them.
+
+The debug set took about two minutes with `qwen2.5:7b` on the machine it
+was built on, with the model already loaded (`stepwise`, which writes its
+analysis first, about three); the first sentence of a run includes loading
+the model when it is not.
 
 The quick tier tests the scoring against cases worked out by hand and the
 test sentences (coverage, no repeat of a prompt example, every gold answer
 kept by the core's rules), and reads the final set only: no test sends a
-test sentence to a model. It also checks that every committed run is
+test sentence to a model. The writings set is tested the same way, and one
+test runs one of its sentences through the scripted model. It also checks that every committed run is
 finished, that its saved summary is the one its results file gives, and
-that `evals/RESULTS.md` shows exactly the tables each results file gives.
+that `evals/RESULTS.md` shows exactly the tables each results file gives,
+the three more counts of every run after the baseline, and the comparison of
+the first prompt experiment as its results files give it. A sample of what
+`first` sends to the model (`tests/extraction/first_prompt_calls.json`) is
+compared byte for byte, so the baseline cannot move unnoticed.
 
 To let the tool fix formatting instead of only reporting it:
 
