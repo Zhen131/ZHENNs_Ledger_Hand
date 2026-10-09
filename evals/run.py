@@ -3,6 +3,7 @@
     .venv/bin/python -m evals.run                      # the debug set, the first prompt
     .venv/bin/python -m evals.run --prompt first --model qwen2.5:7b
     .venv/bin/python -m evals.run --set writings --prompt stepwise
+    .venv/bin/python -m evals.run --method split_first # split first, then extract
     .venv/bin/python -m evals.run --resume evals/results/<file>.jsonl
 
 Run from the top of the repository. The model is the one the settings name
@@ -11,6 +12,11 @@ parameters (temperature and the rest) are the settings' too. The set is the
 debug set, unless ``--set`` names the writings set (``writings``), which is
 scored apart. The final set is run only with ``--final-exam``, and the
 results file then says so: it is kept for the last run of an experiment.
+
+Each passage is read one of two ways (``--method``, see ``methods``): the
+whole passage in one call (``one_list``, the default and the product's way),
+or split into one segment per trade first, each extracted on its own
+(``split_first``, see ``splitting``, with the split prompt ``split-1``).
 
 For each sentence, extraction is given the sentence's own fixed moment and
 zone, never the clock. The moment a sentence is done, its line is added to
@@ -22,17 +28,24 @@ out afresh from the file (``tables``), saved beside it as
 
 The first line of the results file records the conditions of the run: the
 set file and its fingerprint (SHA-256), the prompt version, its files and
-their fingerprints, the fingerprint of the reply table it sends, the commit
-of the repository and whether the work tree was clean, the model, its
-fingerprint and the Ollama version (asked through the local plug's
-``ask_identity``), every parameter, and the moment the run began. Paths
-are written relative to the repository.
+their fingerprints, the fingerprint of the reply table it sends, the way of
+reading a passage (and when it is split first, the split prompt, its file,
+its fingerprints and the fingerprint of its table), the commit of the
+repository and whether the work tree was clean, the model, its fingerprint
+and the Ollama version (asked through the local plug's ``ask_identity``),
+every parameter, and the moment the run began. Paths are written relative
+to the repository. Each sentence's line holds, besides the drafts and the
+replies, the record of every reply read (``reads``) and, when the passage
+was split first, how it went (``split``): the route, the trades the split
+listed and the segments.
 
 Exit status: 0 the run finished; 2 it could not start (a wrong argument, a
 setting, or the model server could not say who it is).
 
 Names defined here: ``main``, ``Backend``, ``RecordingModel``,
-``PROMPTS``, ``RESULTS_DIR`` and ``run_sentences``.
+``PROMPTS``, ``SPLIT_PROMPT``, ``RESULTS_DIR``, ``Trace``,
+``one_list_trace``, ``read_passage``, ``sentence_line`` and
+``run_sentences``.
 """
 
 from __future__ import annotations
@@ -51,6 +64,8 @@ from types import ModuleType
 from typing import TextIO
 
 from evals.gold import DEBUG_SET, FINAL_SET, Group, Sentence, Split, load_set, trade_to_json
+from evals.methods import Method, method_of
+from evals.reads import copied_from_reads, reads_of
 from evals.records import (
     LineKind,
     append_line,
@@ -82,10 +97,18 @@ from ledger_hand.extraction.prompts import (
     first_examples,
     persona,
     price_total,
+    split,
     stepwise,
     zero_shot,
 )
-from ledger_hand.extraction.reply_parser import ReplyRows, read_reply
+from ledger_hand.extraction.reply_table import Field
+from ledger_hand.extraction.split_table import SPLIT_TABLE, example_split_reply
+from ledger_hand.extraction.splitting import (
+    CallStep,
+    Purpose,
+    SplitExtraction,
+    split_then_extract,
+)
 from ledger_hand.llm.local import connect_local_model
 from ledger_hand.llm.ollama_identity import ask_identity
 from ledger_hand.ports import (
@@ -117,12 +140,18 @@ _SAME_TO_RESUME = (
     "prompt",
     "prompt_content_sha256",
     "reply_table_sha256",
+    "method",
+    "split_prompt_content_sha256",
+    "split_table_sha256",
     "commit",
     "model",
     "model_fingerprint",
     "server_version",
     "parameters",
 )
+# The split prompt a run that splits first uses, and the file its words are in.
+SPLIT_PROMPT = split.SPLIT_PROMPT
+_SPLIT_FILES = (split,)
 
 
 class RecordingModel:
@@ -206,6 +235,31 @@ def _reply_table(prompt: PromptVersion) -> str:
     return json.dumps(prompt.reply_table, ensure_ascii=False)
 
 
+def _split_prompt_content() -> str:
+    examples = [[e.passage, example_split_reply(e)] for e in SPLIT_PROMPT.examples]
+    content = [SPLIT_PROMPT.instructions, examples, SPLIT_PROMPT.ask_again]
+    return json.dumps(content, ensure_ascii=False)
+
+
+def _files(modules: Sequence[ModuleType]) -> list[dict[str, str]]:
+    paths = [Path(str(module.__file__)) for module in modules]
+    return [{"path": _relative(f), "sha256": _sha256(f.read_bytes())} for f in paths]
+
+
+def _method_conditions(method: Method) -> dict[str, object]:
+    """The way of reading a passage; and when it splits first, what the split sends."""
+    if method is Method.ONE_LIST:
+        return {"method": method.value}
+    table = json.dumps(SPLIT_TABLE, ensure_ascii=False)
+    return {
+        "method": method.value,
+        "split_prompt": SPLIT_PROMPT.name,
+        "split_prompt_files": _files(_SPLIT_FILES),
+        "split_prompt_content_sha256": _sha256(_split_prompt_content().encode("utf-8")),
+        "split_table_sha256": _sha256(table.encode("utf-8")),
+    }
+
+
 def _git(*arguments: str) -> str:
     done = subprocess.run(
         ["git", "-C", str(REPO_ROOT), *arguments],
@@ -223,11 +277,15 @@ def _worktree_clean() -> bool:
 
 
 def run_conditions(
-    split: Split, set_file: Path, prompt_name: str, backend: Backend, started: datetime
+    split: Split,
+    set_file: Path,
+    prompt_name: str,
+    backend: Backend,
+    started: datetime,
+    method: Method = Method.ONE_LIST,
 ) -> dict[str, object]:
     """The first line of a results file: everything the run's numbers depend on."""
     prompt, modules = PROMPTS[prompt_name]
-    files = [Path(str(module.__file__)) for module in modules]
     return {
         "record": LineKind.RUN.value,
         "set": split.value,
@@ -235,9 +293,10 @@ def run_conditions(
         "set_file": _relative(set_file),
         "set_sha256": _sha256(set_file.read_bytes()),
         "prompt": prompt_name,
-        "prompt_files": [{"path": _relative(f), "sha256": _sha256(f.read_bytes())} for f in files],
+        "prompt_files": _files(modules),
         "prompt_content_sha256": _sha256(_prompt_content(prompt).encode("utf-8")),
         "reply_table_sha256": _sha256(_reply_table(prompt).encode("utf-8")),
+        **_method_conditions(method),
         "commit": _git("rev-parse", "HEAD"),
         "worktree_clean": _worktree_clean(),
         "model": backend.name,
@@ -250,12 +309,35 @@ def run_conditions(
     }
 
 
-def _produced(result: Extraction, replies: Sequence[ModelReply]) -> Produced:
+@dataclass(frozen=True)
+class Trace:
+    """What each call of one passage was for, the calls the drafts came from, and the split."""
+
+    steps: tuple[CallStep, ...]
+    draft_calls: tuple[int, ...]
+    split: SplitExtraction | None = None
+
+
+def one_list_trace(result: Extraction) -> Trace:
+    """The trace of a passage read in one call: every call an extraction of the whole passage."""
+    calls = () if isinstance(result, PassageRefused) else result.calls
+    steps = tuple(CallStep(Purpose.EXTRACT, None) for _ in calls)
+    last = (len(calls) - 1,) if isinstance(result, Extracted) else ()
+    return Trace(steps, last)
+
+
+def _split_record(done: SplitExtraction) -> dict[str, object]:
+    return {
+        "route": done.route.name,
+        "fell_back": done.route.fell_back,
+        "trades_listed": done.trades_listed,
+        "segments": list(done.segments),
+    }
+
+
+def _produced(result: Extraction, copied: Sequence[Mapping[Field, str]]) -> Produced:
     if isinstance(result, Extracted):
-        read = read_reply(replies[-1])
-        rows = read.rows if isinstance(read, ReplyRows) else ()
-        copied = tuple(row.cells for row in rows if not row.is_empty)
-        return Produced(ResultKind.EXTRACTED, result.drafts, result.issues, copied)
+        return Produced(ResultKind.EXTRACTED, result.drafts, result.issues, tuple(copied))
     if isinstance(result, ReplyUnreadable):
         return Produced(ResultKind.REPLY_UNREADABLE)
     if isinstance(result, ModelFailed):
@@ -285,10 +367,16 @@ def _checks(sentence: Sentence, produced: Produced) -> list[str]:
 
 
 def sentence_line(
-    sentence: Sentence, result: Extraction, replies: Sequence[ModelReply], seconds: float
+    sentence: Sentence,
+    result: Extraction,
+    replies: Sequence[ModelReply],
+    seconds: float,
+    trace: Trace | None = None,
 ) -> dict[str, object]:
-    """The results-file line of one sentence."""
-    produced = _produced(result, replies)
+    """The results-file line of one sentence; without ``trace``, read in one call."""
+    traced = one_list_trace(result) if trace is None else trace
+    reads = reads_of(replies, traced.steps, traced.draft_calls)
+    produced = _produced(result, copied_from_reads(reads))
     calls = [] if isinstance(result, PassageRefused) else list(result.calls)
     line: dict[str, object] = {
         "record": LineKind.SENTENCE.value,
@@ -316,13 +404,44 @@ def sentence_line(
         ],
         "drafts": [draft_to_json(draft) for draft in produced.drafts],
         "copied": copied_to_json(produced.copied),
+        "reads": reads,
         "issues": [issue_to_json(issue) for issue in produced.issues],
         "seconds": round(seconds, 3),
         "scores": score_to_json(score_sentence(sentence, produced)),
     }
+    if traced.split is not None:
+        line["split"] = _split_record(traced.split)
     if sentence.group is Group.NOT_TO_RECORD:
         line["checks"] = _checks(sentence, produced)
     return line
+
+
+def read_passage(
+    sentence: Sentence, model: ModelPort, prompt: PromptVersion, method: Method
+) -> tuple[Extraction, Trace]:
+    """What the passage of ``sentence`` gave, read the way ``method`` names, and its trace."""
+    if method is Method.SPLIT_FIRST:
+        done = split_then_extract(
+            sentence.text,
+            model,
+            now=sentence.now,
+            zone=sentence.zone,
+            coins=BUILT_IN_TABLE,
+            prompt=prompt,
+            split_prompt=SPLIT_PROMPT,
+            asks_again=DEFAULT_ASKS_AGAIN,
+        )
+        return done.extraction, Trace(done.steps, done.draft_calls, done)
+    result = extract(
+        sentence.text,
+        model,
+        now=sentence.now,
+        zone=sentence.zone,
+        coins=BUILT_IN_TABLE,
+        prompt=prompt,
+        asks_again=DEFAULT_ASKS_AGAIN,
+    )
+    return result, one_list_trace(result)
 
 
 def run_sentences(
@@ -333,23 +452,16 @@ def run_sentences(
     *,
     out: TextIO,
     clock: Callable[[], float] = time.monotonic,
+    method: Method = Method.ONE_LIST,
 ) -> None:
     """Every sentence through extraction, each line added to ``path`` once it is done."""
     recorder = RecordingModel(backend.model)
     for number, sentence in enumerate(sentences, start=1):
         recorder.replies = []
         started = clock()
-        result = extract(
-            sentence.text,
-            recorder,
-            now=sentence.now,
-            zone=sentence.zone,
-            coins=BUILT_IN_TABLE,
-            prompt=prompt,
-            asks_again=DEFAULT_ASKS_AGAIN,
-        )
+        result, trace = read_passage(sentence, recorder, prompt, method)
         seconds = clock() - started
-        line = sentence_line(sentence, result, recorder.replies, seconds)
+        line = sentence_line(sentence, result, recorder.replies, seconds, trace)
         append_line(path, line)
         scores = line["scores"]
         assert isinstance(scores, dict)
@@ -373,6 +485,12 @@ def _arguments(arguments: Sequence[str]) -> argparse.Namespace:
         help="the set to run: the debug set, or the writings set scored apart",
     )
     parser.add_argument("--prompt", default="first", choices=sorted(PROMPTS))
+    parser.add_argument(
+        "--method",
+        default=Method.ONE_LIST.value,
+        choices=[method.value for method in Method],
+        help="read each passage in one call, or split it into one segment per trade first",
+    )
     parser.add_argument("--model", default=None, help="the model to ask instead of the setting")
     parser.add_argument("--only", nargs="+", default=None, help="only these sentence ids")
     parser.add_argument("--resume", type=Path, default=None, help="carry on this results file")
@@ -388,9 +506,12 @@ def set_for(options: argparse.Namespace) -> tuple[Split, Path]:
     return Split.DEBUG, DEBUG_SET
 
 
-def _results_path(results_dir: Path, split: Split, prompt: str, started: datetime) -> Path:
+def _results_path(
+    results_dir: Path, split: Split, prompt: str, started: datetime, method: Method
+) -> Path:
     stamp = started.strftime("%Y%m%dT%H%M%SZ")
-    return results_dir / f"run-{stamp}-{split.value}-{prompt}.jsonl"
+    way = "" if method is Method.ONE_LIST else f"-{method.value}"
+    return results_dir / f"run-{stamp}-{split.value}-{prompt}{way}.jsonl"
 
 
 def _start_or_resume(
@@ -402,12 +523,15 @@ def _start_or_resume(
 ) -> tuple[Path, set[str]] | None:
     if options.resume is None:
         results_dir.mkdir(parents=True, exist_ok=True)
-        path = _results_path(results_dir, Split(str(conditions["set"])), options.prompt, started)
+        split = Split(str(conditions["set"]))
+        path = _results_path(results_dir, split, options.prompt, started, Method(options.method))
         append_line(path, conditions)
         return path, set()
     path = options.resume
     earlier = read_results(path)
-    changed = [key for key in _SAME_TO_RESUME if earlier.run.get(key) != conditions.get(key)]
+    # A run line without a method was made before there was a choice: one list.
+    before = {**earlier.run, "method": method_of(earlier.run).value}
+    changed = [key for key in _SAME_TO_RESUME if before.get(key) != conditions.get(key)]
     if changed:
         print(f"cannot resume {path.name}: changed since it began: {', '.join(changed)}", file=out)
         return None
@@ -442,7 +566,8 @@ def main(
         print(f"cannot start: {error}", file=out)
         return 2
     started = datetime.now(UTC)
-    conditions = run_conditions(split, set_file, options.prompt, chosen, started)
+    method = Method(options.method)
+    conditions = run_conditions(split, set_file, options.prompt, chosen, started, method)
     if options.only:
         conditions["only"] = list(options.only)
     begun = _start_or_resume(options, conditions, started, results_dir, out)
@@ -452,22 +577,27 @@ def main(
     print(f"results: {_relative(path)}", file=out, flush=True)
     todo = [s for s in sentences if s.id not in done]
     clock_start = time.monotonic()
-    run_sentences(todo, chosen, path, PROMPTS[options.prompt][0], out=out)
+    run_sentences(todo, chosen, path, PROMPTS[options.prompt][0], out=out, method=method)
+    _finish(path, len(todo), time.monotonic() - clock_start, out)
+    return 0
+
+
+def _finish(path: Path, sentences: int, seconds: float, out: TextIO) -> None:
+    """The end line, and the summary worked out from the file, saved beside it and printed."""
     finished = datetime.now(UTC)
     append_line(
         path,
         {
             "record": LineKind.END.value,
             "finished_at": finished.isoformat(timespec="seconds"),
-            "sentences_this_session": len(todo),
-            "seconds_this_session": round(time.monotonic() - clock_start, 3),
+            "sentences_this_session": sentences,
+            "seconds_this_session": round(seconds, 3),
         },
     )
     summary = summarize(read_results(path))
     saved = json.dumps(summary, ensure_ascii=False, indent=2) + "\n"
     summary_path(path).write_text(saved, encoding="utf-8")
     print(markdown(summary), file=out)
-    return 0
 
 
 if __name__ == "__main__":
