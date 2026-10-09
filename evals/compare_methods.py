@@ -22,9 +22,13 @@ So splitting first is picked only when it does strictly better.
 
     .venv/bin/python -m evals.compare_methods <one_list file> <split_first file> [--choose]
 
+For a passage whose split fell back because a piece is not a piece of the
+passage, the first such piece is shown beside the passage
+(``missed_pieces_markdown``), worked out again from the split's reply.
+
 Names defined here: ``MethodRow``, ``method_row``, ``method_markdown``,
 ``MethodChoice``, ``choose_method``, ``method_choice_markdown``,
-``split_markdown`` and ``main``.
+``split_markdown``, ``missed_pieces_markdown`` and ``main``.
 """
 
 from __future__ import annotations
@@ -42,6 +46,10 @@ from evals.gold import Group, Split
 from evals.methods import Method, method_of
 from evals.records import Results, read_results
 from evals.tables import rescore, summarize
+from ledger_hand.extraction.passage import Passage
+from ledger_hand.extraction.segments import PieceMissed, segments_of
+from ledger_hand.extraction.split_table import read_split_reply
+from ledger_hand.ports import FinishReason, ModelReply, ReplyRecord
 
 _NAMES = {Method.ONE_LIST: "one list", Method.SPLIT_FIRST: "split first"}
 _DASH = "-"
@@ -200,6 +208,49 @@ def split_markdown(one_list: Results, split_first: Results) -> str:
     return "\n".join(lines) + "\n"
 
 
+_MISSED_ROUTES = ("PIECE_NOT_IN_PASSAGE", "PIECE_CUTS_A_NUMBER")
+
+
+def _last_split_reply(line: Mapping[str, object]) -> str:
+    reads = line.get("reads") or []
+    replies = line.get("replies") or []
+    assert isinstance(reads, list) and isinstance(replies, list)
+    calls = [entry["call"] for entry in reads if entry.get("step") == "split"]
+    return str(replies[calls[-1]])
+
+
+def _first_missed(line: Mapping[str, object]) -> PieceMissed:
+    record = ReplyRecord(
+        model="",
+        elapsed_seconds=0.0,
+        prompt_tokens=None,
+        reply_tokens=None,
+        finish=FinishReason.STOPPED,
+    )
+    trades = read_split_reply(ModelReply(text=_last_split_reply(line), record=record))
+    assert isinstance(trades, tuple)
+    missed = segments_of(Passage(str(line["text"])), trades)
+    assert isinstance(missed, PieceMissed)
+    return missed
+
+
+def missed_pieces_markdown(split_first: Results) -> str:
+    """Each passage whose split fell back over a piece: the passage, and the first piece missed."""
+    lines = [
+        "| Sentence | First piece that is not a piece of the passage | Why |",
+        "| --- | --- | --- |",
+    ]
+    for line in split_first.sentences:
+        split = line.get("split") or {}
+        assert isinstance(split, dict)
+        if split.get("route") not in _MISSED_ROUTES:
+            continue
+        missed = _first_missed(line)
+        piece = missed.piece.replace("|", "\\|")
+        lines.append(f"| {line['id']}: {line['text']} | {piece} | {missed.miss.value} |")
+    return "\n".join(lines) + "\n"
+
+
 def _relative(path: Path) -> str:
     parts = path.resolve().parts
     return "/".join(parts[parts.index("evals") :]) if "evals" in parts else path.name
@@ -220,6 +271,7 @@ def main(arguments: Sequence[str], *, out: TextIO = sys.stdout) -> int:
     rows = [method_row(results, _relative(path)) for path, results in runs]
     print(method_markdown(rows), file=out)
     print(split_markdown(runs[0][1], runs[1][1]), file=out)
+    print(missed_pieces_markdown(runs[1][1]), file=out)
     if options.choose:
         try:
             print(method_choice_markdown(choose_method(rows)), file=out)

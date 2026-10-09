@@ -2935,6 +2935,141 @@ table (the split's table too). The model was loaded before the first run.
 Both runs were made at the same commit, `3a66d50`, one after the other on
 2026-10-09 between 05:52 and 05:58 UTC, the one-list run first.
 
+### The two ways on the debug set
+
+The first table holds the scores of the summary (see the top of this file),
+with the whole trades right of the passages of one trade, of two and of
+three or more apart. The second holds the wrong values with no issue, the
+three more counts (see the first experiment), the sentences in which a
+reply was cut off, the calls to the model (of them, the calls to split)
+and the seconds the sentences took, added up; calls, cut-off replies and
+seconds count every sentence of the set, the passages not to record
+included.
+
+| Way | Well-formed | Whole trades right | One trade | Two trades | Three or more | No-trade sentences right | Missed | Extra | Made up |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| one list | 26 / 26 (100.0%) | 31 / 34 (91.2%) | 13 / 15 (86.7%) | 10 / 10 (100.0%) | 8 / 9 (88.9%) | 3 / 3 (100.0%) | 0 | 0 | 2 / 140 (1.4%) |
+| split first | 26 / 26 (100.0%) | 31 / 34 (91.2%) | 13 / 15 (86.7%) | 10 / 10 (100.0%) | 8 / 9 (88.9%) | 3 / 3 (100.0%) | 0 | 2 | 2 / 140 (1.4%) |
+
+| Way | Wrong values with no issue | A total put as the price | Half copies (any) | Half copies (not right) | A time in another language | Sentences with a reply cut off | Calls | Calls to split | Seconds | Results file |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| one list | 2 | 2 | 0 | 0 | 2 | 0 | 30 | 0 | 115.8 | `evals/results/run-20261009T055241Z-debug-first.jsonl` |
+| split first | 2 | 2 | 0 | 0 | 2 | 0 | 64 | 30 | 182.8 | `evals/results/run-20261009T055442Z-debug-first-split_first.jsonl` |
+
+The rule, fixed before the two runs (`evals/compare_methods.py`): the most
+whole trades right; then the fewest wrong values with no issue; then the
+fewest trades missed and extra; then one list. So splitting first is
+picked only when it does strictly better.
+
+Picked by the rule: one list, settled at step 3.
+
+- Step 1, most whole trades right: one list, split first.
+- Step 2, fewest wrong values with no issue: one list, split first.
+- Step 3, fewest trades missed and extra: one list.
+
+Both ways have 31 of 34 trades whole. The two extra trades of split first
+are both in d16: each of its two segments starts with the passage's
+opening words, which say the coins were bought twice, and the extraction of
+each segment gave two rows. In the first segment the two rows are the same,
+and the second is marked as given twice; in the second segment, the second
+row holds only the shared fee, time and platform. Split first made 64
+calls (30 to split, 34 to extract) against 30, and its sentences took
+182.8 seconds against 115.8.
+
+### How each passage was split
+
+For every sentence of the split-first run: the trades the split listed,
+whether that is the number of gold trades, how many segments were
+extracted one by one, the route the passage took (`WHOLE`: fewer than
+two trades or segments, the whole passage extracted once;
+`PIECE_NOT_IN_PASSAGE`: the split fell back because a piece is not a
+piece of the passage), and the whole trades right of each way. The
+passages not to record count no score; the split listed one trade for
+each of d27, d28 and d29.
+
+| Sentence | Gold trades | Trades the split listed | Same number as gold | Segments extracted | Route | Whole right, one list | Whole right, split first |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| d01 | 1 | 1 | yes | 0 | WHOLE | 1 | 1 |
+| d02 | 1 | 1 | yes | 0 | WHOLE | 1 | 1 |
+| d03 | 1 | 1 | yes | 0 | WHOLE | 1 | 1 |
+| d04 | 1 | 1 | yes | 0 | WHOLE | 1 | 1 |
+| d05 | 1 | 1 | yes | 0 | WHOLE | 0 | 0 |
+| d06 | 1 | 1 | yes | 0 | WHOLE | 1 | 1 |
+| d07 | 1 | 1 | yes | 0 | WHOLE | 1 | 1 |
+| d08 | 1 | 1 | yes | 0 | WHOLE | 1 | 1 |
+| d09 | 1 | 1 | yes | 0 | WHOLE | 1 | 1 |
+| d10 | 1 | 1 | yes | 0 | WHOLE | 1 | 1 |
+| d11 | 1 | 1 | yes | 0 | WHOLE | 1 | 1 |
+| d12 | 1 | 1 | yes | 0 | WHOLE | 1 | 1 |
+| d13 | 1 | 1 | yes | 0 | WHOLE | 0 | 0 |
+| d14 | 1 | 1 | yes | 0 | WHOLE | 1 | 1 |
+| d15 | 1 | 1 | yes | 0 | WHOLE | 1 | 1 |
+| d16 | 2 | 2 | yes | 2 | SEGMENTS | 2 | 2 |
+| d17 | 2 | 2 | yes | 2 | SEGMENTS | 2 | 2 |
+| d18 | 2 | 2 | yes | 0 | PIECE_NOT_IN_PASSAGE | 2 | 2 |
+| d19 | 2 | 1 | no | 0 | WHOLE | 2 | 2 |
+| d20 | 2 | 2 | yes | 0 | PIECE_NOT_IN_PASSAGE | 2 | 2 |
+| d21 | 3 | 3 | yes | 3 | SEGMENTS | 3 | 3 |
+| d22 | 3 | 3 | yes | 0 | PIECE_NOT_IN_PASSAGE | 3 | 3 |
+| d23 | 3 | 3 | yes | 0 | PIECE_NOT_IN_PASSAGE | 2 | 2 |
+| d24 | 0 | 0 | yes | 0 | WHOLE | 0 | 0 |
+| d25 | 0 | 0 | yes | 0 | WHOLE | 0 | 0 |
+| d26 | 0 | 0 | yes | 0 | WHOLE | 0 | 0 |
+| d27 | 0 | 1 | no | 0 | WHOLE | - | - |
+| d28 | 0 | 1 | no | 0 | WHOLE | - | - |
+| d29 | 0 | 1 | no | 0 | WHOLE | - | - |
+| d30 | 0 | 0 | yes | 0 | WHOLE | - | - |
+
+Of the 8 passages with several trades, 3 were extracted segment by
+segment (d16, d17, d21); in 4 the split fell back, each over a piece that
+joins words standing apart in the passage or leaves a word out of it
+(below); in d19 the split listed one trade. A passage that falls back, or
+goes whole, is read by the same call as one list.
+
+| Sentence | First piece that is not a piece of the passage | Why |
+| --- | --- | --- |
+| d18: 昨天下午 3 点 sold 0.02 BTC at 63,900，今天早上 9 点又 buy back 0.025 BTC at 62,750，fee 都是 1.2U | fee 1.2U | the phrase is not a piece of the passage |
+| d20: Bought 0.3 BTC at 61,200 and 5 ETH at 2,390 last Saturday | Bought 5 ETH at 2,390 | the phrase is not a piece of the passage |
+| d22: Yesterday at 10:30 I bought 1 ETH at 2,350, 0.05 BTC at 62,100 and 20 SOL at 149.5, paying a flat 1 USDT fee on each | bought 0.05 BTC at 62,100 | the phrase is not a piece of the passage |
+| d23: 刚才连着 sell 了三笔：0.1 BTC @ 63,000，1.5 ETH @ 2,410，还有 TON 卖了 200 个，total 1,040 USDT | 刚才连着 sell 了三笔：1.5 ETH @ 2,410 | the phrase is not a piece of the passage |
+
+### The one-list run against the first experiment's run of `first`
+
+The same prompt, way, model and parameters, at another commit; between the
+two commits nothing changed in extraction but the files added for splitting.
+
+| Sentences in both runs | Same raw replies | Other raw replies | Same raw replies, other drafts or issues |
+| --- | --- | --- | --- |
+| 30 | 30 | 0 | 0 |
+
+| Sentence | Same raw replies | Same drafts and issues | Whole trades right, earlier | Whole trades right, later |
+| --- | --- | --- | --- | --- |
+
+### The final set
+
+Not run in this experiment. The rule picked one list; with it, the prompt
+(`first`), the way of reading a passage (one list) and the model
+(`qwen2.5:7b`, the same fingerprint) are those of the final-set run of
+the first experiment, at temperature 0, so that run stands for this
+experiment too (see "Final exam" above):
+
+| Version | Technique | Differs from `first` in | Well-formed | Whole trades right | One trade | Several trades | Missed | Extra | Made up | No-trade sentences right |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `first` | few-shot | the baseline: instructions and ten examples | 16 / 16 (100.0%) | 22 / 22 (100.0%) | 9 / 9 (100.0%) | 13 / 13 (100.0%) | 0 | 0 | 0 / 89 (0.0%) | 2 / 2 (100.0%) |
+
+| Version | Wrong values with no issue | A total put as the price | Half copies (any) | Half copies (not right) | A time in another language | Sentences with a reply cut off | Calls | Seconds | Results file |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `first` | 0 | 0 | 0 | 0 | 0 | 0 | 20 | 79.7 | `evals/results/run-20261009T030436Z-final-first.jsonl` |
+
+### A second model
+
+Not obtained: this machine has one model, `qwen2.5:7b`, and no other is
+downloaded for this experiment; the second model waits until one is
+named. The runner takes another model by name (`--model <name>`) and
+records its name and fingerprint in the run line; a name the model server
+does not have stops the run before any results file is written, with exit
+status 2 (`tests/evals/test_run_second_model.py`).
+
 ### The runs of the second experiment
 
 Each run has its own subsection with the tables its results file gives and

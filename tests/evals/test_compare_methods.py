@@ -139,3 +139,28 @@ def test_the_command_says_when_it_cannot_read(tmp_path: Path) -> None:
 
     assert compare_methods.main([str(tmp_path / "a"), str(tmp_path / "b")], out=out) == 2
     assert "cannot read" in out.getvalue()
+
+
+def test_a_split_that_fell_back_over_a_piece_shows_the_first_piece_missed(tmp_path: Path) -> None:
+    glued = json.dumps(
+        {"trades": [{"pieces": ["今天在 Bitget"]}, {"pieces": ["Bitget 卖了 50 个 LINK"]}]},
+        ensure_ascii=False,
+    )
+    steps = (glued, *D21_TABLES[:1], json.dumps({"trades": []}), *D21_TABLES[:1])
+    run(["--only", "d16", "d21", "--method", "split_first"], backend(*steps), tmp_path)
+    (path,) = tmp_path.glob("*.jsonl")
+
+    table = compare_methods.missed_pieces_markdown(read_results(path))
+
+    assert "| 今天在 Bitget | the phrase is not a piece of the passage |" in table
+    assert table.count("\n| d") == 1
+
+
+def test_a_piece_that_cuts_a_number_is_shown_with_its_reason(tmp_path: Path) -> None:
+    cut = json.dumps({"trades": [{"pieces": ["13"]}, {"pieces": ["26.1"]}]})
+    run(["--only", "d21", "--method", "split_first"], backend(cut, *D21_TABLES[:1]), tmp_path)
+    (path,) = tmp_path.glob("*.jsonl")
+
+    table = compare_methods.missed_pieces_markdown(read_results(path))
+
+    assert "| 13 | the phrase is in the passage only as part of a longer number |" in table
