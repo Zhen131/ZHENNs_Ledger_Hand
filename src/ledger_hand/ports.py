@@ -182,7 +182,9 @@ class ModelError(Exception):
     ``message`` says what happened in words. ``status`` is the HTTP status
     when the server answered with one, and ``snippet`` the start of what it
     sent, made printable, when that helps to see what went wrong. None of
-    these ever holds a key.
+    these ever holds a key. ``retry_after_seconds`` is how long the server
+    asked to wait before the next call, when it said (a rate-limited call
+    may); it is a finite number, 0 or more.
     """
 
     def __init__(
@@ -192,12 +194,18 @@ class ModelError(Exception):
         *,
         status: int | None = None,
         snippet: str | None = None,
+        retry_after_seconds: float | None = None,
     ) -> None:
+        if retry_after_seconds is not None:
+            _require_number("retry_after_seconds", retry_after_seconds)
+            if retry_after_seconds < 0:
+                raise ValueError("retry_after_seconds must be 0 or more")
         super().__init__(kind, message)
         self.kind = kind
         self.message = message
         self.status = status
         self.snippet = snippet
+        self.retry_after_seconds = retry_after_seconds
 
     def __str__(self) -> str:
         text = f"{self.kind.value}: {self.message}"
@@ -205,10 +213,15 @@ class ModelError(Exception):
             text += f" (status {self.status})"
         if self.snippet is not None:
             text += f"; the reply began {self.snippet!r}"
+        if self.retry_after_seconds is not None:
+            text += f"; the server asked to wait {self.retry_after_seconds:g} seconds"
         return text
 
     def __repr__(self) -> str:
-        return f"ModelError({self.kind.name}, {self.message!r}, status={self.status!r})"
+        shown = f"ModelError({self.kind.name}, {self.message!r}, status={self.status!r}"
+        if self.retry_after_seconds is not None:
+            shown += f", retry_after_seconds={self.retry_after_seconds!r}"
+        return shown + ")"
 
 
 class ModelPort(Protocol):

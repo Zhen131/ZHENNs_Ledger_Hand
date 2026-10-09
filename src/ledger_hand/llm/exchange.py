@@ -24,8 +24,10 @@ expanded: the request asks for no compression, and a body compressed anyway
 is kept as the bytes that came, which are then not JSON. So a small
 compressed body cannot swell into a huge one in memory before the cap sees
 it. ``failure_for_status`` sorts an answer whose status
-is not the success the caller expected: 429 is ``RATE_LIMITED``, 500 to 599
-is ``SERVER_ERROR``, and any other status is ``SERVER_ERROR`` with the raw
+is not the success the caller expected: 429 is ``RATE_LIMITED``, carrying
+the wait its Retry-After header asks for when it has one (read by
+``retry_after``, against the endpoint's wall clock); 500 to 599 is
+``SERVER_ERROR``, and any other status is ``SERVER_ERROR`` with the raw
 status and the start of the body. ``malformed`` builds the error for an
 answer that came back in the wrong shape.
 
@@ -46,6 +48,7 @@ from dataclasses import dataclass, field
 import httpx
 
 from ledger_hand.llm.error_text import detail, snippet
+from ledger_hand.llm.retry_after import RETRY_AFTER_HEADER, seconds_to_wait
 from ledger_hand.ports import ModelError, ModelErrorKind
 from ledger_hand.settings import Secret
 
@@ -56,21 +59,30 @@ MAX_ANSWER_BYTES = 4 * 1024 * 1024
 
 @dataclass(frozen=True, kw_only=True)
 class Endpoint:
-    """Where to send, with which key; and, for tests, the transport and the clock."""
+    """Where to send, with which key; and, for tests, the transport and the clocks.
+
+    ``clock`` measures time spent; ``wall_clock`` is the date and time, in
+    seconds since the epoch, that a Retry-After date is counted from.
+    """
 
     base_url: str
     api_key: Secret | None
     transport: httpx.BaseTransport | None = None
     clock: Callable[[], float] = field(default=time.monotonic)
+    wall_clock: Callable[[], float] = field(default=time.time)
 
 
 @dataclass(frozen=True)
 class Answer:
-    """What came back: the status, and the body or why it could not be read."""
+    """What came back: the status, and the body or why it could not be read.
+
+    ``retry_after`` is the Retry-After header as it came, when there was one.
+    """
 
     status: int
     body: bytes
     body_problem: str | None = None
+    retry_after: str | None = None
 
 
 def exchange(
@@ -113,8 +125,15 @@ def failure_for_status(answer: Answer, endpoint: Endpoint) -> ModelError:
     """The error for an answer whose status is not the success the caller expected."""
     shown = snippet(answer.body, endpoint.api_key)
     if answer.status == 429:
+        wait = seconds_to_wait(answer.retry_after, endpoint.wall_clock())
         message = "the model server refused the call because it was called too often"
-        return ModelError(ModelErrorKind.RATE_LIMITED, message, status=429, snippet=shown)
+        return ModelError(
+            ModelErrorKind.RATE_LIMITED,
+            message,
+            status=429,
+            snippet=shown,
+            retry_after_seconds=wait,
+        )
     if 500 <= answer.status <= 599:
         message = "the model server reported an internal error"
         return ModelError(ModelErrorKind.SERVER_ERROR, message, status=answer.status, snippet=shown)
@@ -156,18 +175,20 @@ def _read(
     response: httpx.Response, endpoint: Endpoint, deadline: float, timeout_seconds: float
 ) -> Answer:
     status = response.status_code
+    retry_after = response.headers.get(RETRY_AFTER_HEADER)
     pieces: list[bytes] = []
     size = 0
     for piece in response.iter_raw():
         size += len(piece)
         if size > MAX_ANSWER_BYTES:
-            return Answer(status, b"", f"is longer than {MAX_ANSWER_BYTES} bytes")
+            too_long = f"is longer than {MAX_ANSWER_BYTES} bytes"
+            return Answer(status, b"", too_long, retry_after=retry_after)
         pieces.append(piece)
         if endpoint.clock() > deadline:
             raise _timed_out(endpoint, timeout_seconds)
     if endpoint.clock() > deadline:
         raise _timed_out(endpoint, timeout_seconds)
-    return Answer(status, b"".join(pieces))
+    return Answer(status, b"".join(pieces), retry_after=retry_after)
 
 
 def _timed_out(endpoint: Endpoint, timeout_seconds: float) -> ModelError:

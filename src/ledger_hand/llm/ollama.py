@@ -47,8 +47,9 @@ def parameters_from(settings: ModelSettings) -> ModelParameters:
 class OllamaModel:
     """A model port that talks to an Ollama server; one try per call.
 
-    ``transport`` and ``clock`` are for tests: a fake transport instead of the
-    network, and a clock that does not have to tick.
+    ``transport``, ``clock`` and ``wall_clock`` are for tests: a fake
+    transport instead of the network, a clock that does not have to tick,
+    and the date a Retry-After date is counted from.
     """
 
     def __init__(
@@ -57,6 +58,7 @@ class OllamaModel:
         *,
         transport: httpx.BaseTransport | None = None,
         clock: Callable[[], float] = time.monotonic,
+        wall_clock: Callable[[], float] = time.time,
     ) -> None:
         if not isinstance(settings, ModelSettings):
             raise TypeError(f"settings must be ModelSettings, not {type(settings).__name__}")
@@ -67,6 +69,7 @@ class OllamaModel:
             api_key=settings.api_key,
             transport=transport,
             clock=clock,
+            wall_clock=wall_clock,
         )
 
     @property
