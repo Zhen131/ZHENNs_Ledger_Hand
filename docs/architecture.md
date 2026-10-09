@@ -15,18 +15,27 @@ the database each hide behind a port, and the user interface is the outermost
 layer. Swapping the model, the database or the interface must never require a
 change in `core/`.
 
-## Planned layout
+## Layout
 
-Only what is marked "exists" is in the repository today. Everything else is
-created by the change that first needs it; there are no empty folders or
-placeholder files.
+Everything below is in the repository and marked "exists", except `data/`,
+which the program makes when it first writes there and which is never
+committed. A folder or file is created by the change that first needs it;
+there are no empty folders or placeholder files.
 
 ```text
 pyproject.toml            dependencies and tool configuration, all in this one file   (exists)
-README.md                                                                             (exists)
+requirements.txt          the exact versions of every dependency, to rebuild the environment (exists)
+README.md                 what the program is, how to install, run and check it      (exists)
 .streamlit/config.toml    Streamlit's settings: nothing sent, this machine only, headless, no developer menu (exists)
 docs/                     documentation                                               (exists)
-scripts/                  the check script and the ledger tier; scripts outside the package (exists)
+    architecture.md       this file                                                   (exists)
+    known-gaps.md         known limits, each waiting for a decision                   (exists)
+    project-report.md     the project described for a reader new to it                (exists)
+scripts/                  scripts outside the package                                 (exists)
+    check.sh              every check, one tier at a time: quick, ledger, live        (exists)
+    ledger_check.py       the ledger tier, with ledger_validate.ts and ledger_offsets.ts (exists)
+    record_trades.py      record, save, list and export at the command line           (exists)
+    try_extraction.py     try extraction by hand with the real model                  (exists)
 data/                     run-time output: the book and the export files; never in Git
 src/ledger_hand/
     core/                 core rules: no network, database or user interface          (exists)
@@ -51,6 +60,7 @@ src/ledger_hand/
         reply_parser.py       reads a reply against the table; survives a garbled one (exists)
         passage.py            finds a copied phrase in the passage                    (exists)
         passage_numbers.py    the numbers written in a text                           (exists)
+        longer_numbers.py     whether a copied number is part of a longer one         (exists)
         row_draft.py          one row of the table to one draft                       (exists)
         unit_currency.py      which currency a unit word names                        (exists)
         issues.py             what was left empty and what to look at                 (exists)
@@ -78,6 +88,7 @@ src/ledger_hand/
         question_text.py      the facts, the model's sentence and its checks, the label (exists)
         templates.py          the program's own sentence for every question           (exists)
         prompts/              the persona prompt                                      (exists)
+            bookkeeper.py         wording a question, persona: a meticulous bookkeeper (exists)
     llm/                  plugs for the model port: a local model server and a cloud service (exists)
         ollama.py             the local plug: one chat call to Ollama, one try        (exists)
         ollama_request.py     what is sent: the body of one chat request              (exists)
@@ -101,6 +112,7 @@ src/ledger_hand/
         rows.py               a saved trade as the values of a row, and back          (exists)
         failures.py           SQLite's failures as the port's kinds                   (exists)
         upgrades/             the numbered upgrade scripts, never changed once committed (exists)
+            upgrade_0001.py       an empty file becomes a book of version 1           (exists)
     export/               writes the ledger's backup format as text                   (exists)
         backup.py             the whole file; refuses what the ledger would refuse    (exists)
         trade_entry.py        one saved trade in the ledger's fields                  (exists)
@@ -149,9 +161,18 @@ evals/                    prompt experiments: test sentences, scoring, runner, r
     extra_counts.py       three more counts beside the summary                     (exists)
     compare.py            prompt versions side by side; the rule that picks one    (exists)
     same_replies.py       two runs compared sentence by sentence                   (exists)
+    methods.py            the two ways of reading a passage: one list, split first (exists)
+    reads.py              every reply read for a passage, matched to its drafts    (exists)
+    compare_methods.py    the two ways side by side; the rule that picks one       (exists)
     results/              one results file per run, with its summary               (exists)
     RESULTS.md            the results record                                       (exists)
 tests/                    mirrors src; also holds the guardrails, fakes and golden samples  (exists)
+    conftest.py           stops every test but the live ones from reaching the network (exists)
+    guardrails/           the layering check, the hygiene scan and their gate tests   (exists)
+    core/                 tests of the core rules                                     (exists)
+    export/               tests of the backup format; the golden sample               (exists)
+    llm/                  tests of both plugs against fake servers; attacks on them   (exists)
+    ledger_check/         what the ledger tier checks, and tests of its logic         (exists)
     fakes/                stand-ins for the outside world: scripted models, a book in memory (exists)
     storage/              tests of the storage port against every plug; the golden book (exists)
     live/                 the live check against a real model, run by hand only       (exists)
@@ -365,6 +386,15 @@ the `time` module, calls a method that reads the clock or the machine's zone,
 or names an environment variable, and `asking/` imports only the standard
 library, the core and the ports file.
 
+The layering check's rules about the clock and the machine's zone cover
+`core/`, `extraction/` and `asking/`, and not yet `flows/`. Two of its older
+tests use a file in `flows/` as their example of a part those rules spare,
+so adding `flows/` means changing that example, which is left to the
+project owner. Until then the gate above is what keeps `flows/` off the
+clock and the machine's zone. It does not see three rare forms the layering
+check would: the method `datetime.now` named without being called, and
+`astimezone(None)` or `astimezone(tz=None)`. The code uses none of them.
+
 ## The eleven rules
 
 | # | Rule | Why |
@@ -541,6 +571,9 @@ formatting tool.
 - **Asking questions about the ledger:** one more file in `flows/`.
 - **Another kind of model server:** one more plug in `llm/`, one more value
   of `Plug` in the settings, and one more branch in `llm/connect.py`.
+- **Another model in an experiment:** no change to the code. Pull it into
+  Ollama by hand and name it with `--model` (`evals/run.py`); the run
+  records its name and fingerprint.
 - **A new folder or top-level module:** add its row to the layering table in
   `tests/guardrails/layering.py`, to the expected table in the tests next to
   it, and to the table above.
