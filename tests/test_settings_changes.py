@@ -88,6 +88,7 @@ def test_each_variable_names_its_own_field_of_the_settings() -> None:
 
 # For each variable, a value that is not its default.
 NOT_THE_DEFAULT = {
+    Variable.PLUG: "cloud",
     Variable.URL: "http://192.0.2.7:8080",
     Variable.NAME: "another-model",
     Variable.KEY: KEY,

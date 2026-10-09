@@ -50,13 +50,13 @@ def machine(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 def plugs(monkeypatch: pytest.MonkeyPatch) -> list[ModelSettings]:
     """The settings each model plug is built from, in order."""
     built: list[ModelSettings] = []
-    real = wiring.connect_local_model
+    real = wiring.connect_model
 
     def connect(settings: ModelSettings) -> ModelPort:
         built.append(settings)
         return real(settings)
 
-    monkeypatch.setattr(wiring, "connect_local_model", connect)
+    monkeypatch.setattr(wiring, "connect_model", connect)
     return built
 
 

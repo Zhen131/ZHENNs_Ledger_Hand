@@ -138,8 +138,12 @@ def test_a_status_code_can_have_a_sentence_of_its_own(monkeypatch: pytest.Monkey
     )
 
 
-def test_no_status_code_has_a_sentence_of_its_own_yet() -> None:
-    assert dict(failure_words.MODEL_FAILURES_BY_STATUS) == {}
+def test_no_status_code_has_a_sentence_of_its_own() -> None:
+    assert set(failure_words.MODEL_FAILURES_BY_STATUS) == {
+        (ModelErrorKind.SERVER_ERROR, 400),
+        (ModelErrorKind.SERVER_ERROR, 401),
+        (ModelErrorKind.SERVER_ERROR, 403),
+    }
 
 
 @pytest.mark.parametrize("step", [Step.SCREENING, Step.EXTRACTION])
