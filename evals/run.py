@@ -20,10 +20,11 @@ out afresh from the file (``tables``), saved beside it as
 
 The first line of the results file records the conditions of the run: the
 set file and its fingerprint (SHA-256), the prompt version, its files and
-their fingerprints, the commit of the repository and whether the work tree
-was clean, the model, its fingerprint and the Ollama version (asked through
-the local plug's ``ask_identity``), every parameter, and the moment the run
-began. Paths are written relative to the repository.
+their fingerprints, the fingerprint of the reply table it sends, the commit
+of the repository and whether the work tree was clean, the model, its
+fingerprint and the Ollama version (asked through the local plug's
+``ask_identity``), every parameter, and the moment the run began. Paths
+are written relative to the repository.
 
 Exit status: 0 the run finished; 2 it could not start (a wrong argument, a
 setting, or the model server could not say who it is).
@@ -73,7 +74,14 @@ from ledger_hand.extraction.extractor import (
     extract,
 )
 from ledger_hand.extraction.prompting import PromptVersion, example_reply
-from ledger_hand.extraction.prompts import first, first_examples
+from ledger_hand.extraction.prompts import (
+    first,
+    first_examples,
+    persona,
+    price_total,
+    stepwise,
+    zero_shot,
+)
 from ledger_hand.extraction.reply_parser import ReplyRows, read_reply
 from ledger_hand.llm.local import connect_local_model
 from ledger_hand.llm.ollama_identity import ask_identity
@@ -90,9 +98,14 @@ from ledger_hand.settings import ModelSettings, SettingsError, load_model_settin
 REPO_ROOT = Path(__file__).resolve().parents[1]
 RESULTS_DIR = REPO_ROOT / "evals" / "results"
 
-# The prompt versions an experiment can name, each with the files it is written in.
+# The prompt versions an experiment can name, each with the files its words are
+# written in: a version built on the first prompt lists the first prompt's files too.
 PROMPTS: Mapping[str, tuple[PromptVersion, tuple[ModuleType, ...]]] = {
     "first": (first.FIRST_PROMPT, (first, first_examples)),
+    "zero_shot": (zero_shot.ZERO_SHOT_PROMPT, (zero_shot, first)),
+    "persona": (persona.PERSONA_PROMPT, (persona, first, first_examples)),
+    "stepwise": (stepwise.STEPWISE_PROMPT, (stepwise, first, first_examples)),
+    "price_total": (price_total.PRICE_TOTAL_PROMPT, (price_total, first, first_examples)),
 }
 # The conditions that must be the same for a run to be carried on.
 _SAME_TO_RESUME = (
@@ -100,6 +113,7 @@ _SAME_TO_RESUME = (
     "set_sha256",
     "prompt",
     "prompt_content_sha256",
+    "reply_table_sha256",
     "commit",
     "model",
     "model_fingerprint",
@@ -185,6 +199,10 @@ def _prompt_content(prompt: PromptVersion) -> str:
     return json.dumps([prompt.instructions, examples, prompt.ask_again], ensure_ascii=False)
 
 
+def _reply_table(prompt: PromptVersion) -> str:
+    return json.dumps(prompt.reply_table, ensure_ascii=False)
+
+
 def _git(*arguments: str) -> str:
     done = subprocess.run(
         ["git", "-C", str(REPO_ROOT), *arguments],
@@ -216,6 +234,7 @@ def run_conditions(
         "prompt": prompt_name,
         "prompt_files": [{"path": _relative(f), "sha256": _sha256(f.read_bytes())} for f in files],
         "prompt_content_sha256": _sha256(_prompt_content(prompt).encode("utf-8")),
+        "reply_table_sha256": _sha256(_reply_table(prompt).encode("utf-8")),
         "commit": _git("rev-parse", "HEAD"),
         "worktree_clean": _worktree_clean(),
         "model": backend.name,
