@@ -45,7 +45,7 @@ from ledger_hand.extraction.extractor import (
     extract,
 )
 from ledger_hand.extraction.issues import Issue
-from ledger_hand.llm.local import connect_local_model
+from ledger_hand.llm.connect import connect_model
 from ledger_hand.ports import ModelPort, ReplyRecord
 from ledger_hand.settings import SettingsError, load_model_settings
 
@@ -69,7 +69,7 @@ def main(
             print("cannot tell the machine's time zone by a name the program takes", file=out)
             return 2
     if model is None:
-        model = _local_model(out)
+        model = _model(out)
         if model is None:
             return 2
     result = extract(passage, model, now=now or datetime.now(timezone.utc), zone=zone)
@@ -86,9 +86,9 @@ def _machine_zone() -> str | None:
     return name if is_zone_name(name) else None
 
 
-def _local_model(out: TextIO) -> ModelPort | None:
+def _model(out: TextIO) -> ModelPort | None:
     try:
-        return connect_local_model(load_model_settings())
+        return connect_model(load_model_settings())
     except SettingsError as error:
         print(f"setting refused: {error}", file=out)
         return None

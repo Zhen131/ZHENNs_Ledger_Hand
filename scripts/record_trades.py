@@ -75,7 +75,7 @@ from ledger_hand.flows.exporting import ExportOutcome, ExportResult, export
 from ledger_hand.flows.progress import Progress, Stage, TradeStatus, Tuning
 from ledger_hand.flows.recording import answer, start, tuning_from
 from ledger_hand.flows.saving import save
-from ledger_hand.llm.local import connect_local_model
+from ledger_hand.llm.connect import connect_model
 from ledger_hand.ports import ModelPort, StorageError, StoragePort
 from ledger_hand.settings import DataPlaces, SettingsError, load_data_places, load_model_settings
 from ledger_hand.storage.sqlite_store import SqliteStore
@@ -175,10 +175,11 @@ def _machine_zone() -> str | None:
 def _assembled(out: TextIO) -> tuple[ModelPort, Tuning] | None:
     try:
         settings = load_model_settings()
+        model = connect_model(settings)
     except SettingsError as error:
         print(f"setting refused: {error}", file=out)
         return None
-    return connect_local_model(settings), tuning_from(settings)
+    return model, tuning_from(settings)
 
 
 def _answers(source: str | None, lines: Iterator[str], out: TextIO) -> Iterator[str | None]:

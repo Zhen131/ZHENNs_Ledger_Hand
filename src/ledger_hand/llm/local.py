@@ -3,7 +3,10 @@
 ``connect_local_model`` builds the Ollama plug from the settings and wraps
 it so that the failures that may pass on their own are tried again, with the
 number of retries and the first wait the settings name. The result is all
-the rest of the program needs: something to ``chat`` with.
+the rest of the program needs: something to ``chat`` with. It builds the
+local plug whatever plug the settings choose: it is for the tools that only
+ever use the local one; the program itself goes through
+``connect.connect_model``.
 
 Building it sends nothing; the first call is the first contact with the
 server.

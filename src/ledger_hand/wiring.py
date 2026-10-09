@@ -1,7 +1,7 @@
 """Wiring: the one place that builds the program's parts from the settings and the machine.
 
-``assemble`` gives back ``Parts``: the model (the local plug the model
-settings name, trying again as they say), the tuning they name, the book
+``assemble`` gives back ``Parts``: the model (the plug the model settings
+choose, local or cloud, trying again as they say), the tuning they name, the book
 (the SQLite plug where the data settings keep it), the coin table, a
 function that reads the current moment from the machine's clock, the name
 of the machine's time zone, read with ``tzlocal``, and the settings and the
@@ -22,7 +22,11 @@ Building sends nothing and opens nothing: the model is first contacted by
 the first call to it, and the book is opened, or made, by its first use.
 A setting in the environment that is refused, a change that is refused,
 or a machine zone without a name the program takes, is an ``AssemblyError``
-that says which (``AssemblyProblem``).
+that says which (``AssemblyProblem``). Settings that do not fit the plug
+they choose (a cloud plug without an address of its own, or off this
+machine without https or a key) are refused the same way: as a setting
+when the environment's settings do not fit, as a change when the changes
+make them not fit.
 
 This is the only module of the package that may import ``tzlocal``, and only
 the interface may import this one. It does not draw anything or keep
@@ -45,7 +49,7 @@ from ledger_hand.core.coins import BUILT_IN_TABLE, CoinTable
 from ledger_hand.core.zones import is_zone_name
 from ledger_hand.flows.progress import Tuning
 from ledger_hand.flows.recording import tuning_from
-from ledger_hand.llm.local import connect_local_model
+from ledger_hand.llm.connect import check_plug, connect_model
 from ledger_hand.ports import ModelPort, StoragePort
 from ledger_hand.settings import (
     DataPlaces,
@@ -107,17 +111,19 @@ def assemble(changes: Mapping[Variable, str] | None = None) -> Parts:
     try:
         read = load_model_settings()
         places = load_data_places()
+        check_plug(read)
     except SettingsError as error:
         raise AssemblyError(AssemblyProblem.SETTING_REFUSED, str(error)) from error
     try:
         settings = apply_changes(read, changes or {})
+        model = connect_model(settings)
     except SettingsError as error:
         raise AssemblyError(AssemblyProblem.CHANGE_REFUSED, str(error)) from error
     zone = machine_zone()
     if zone is None:
         raise AssemblyError(AssemblyProblem.NO_ZONE_NAME)
     return Parts(
-        model=connect_local_model(settings),
+        model=model,
         tuning=tuning_from(settings),
         book=SqliteStore(places.book),
         coins=BUILT_IN_TABLE,
