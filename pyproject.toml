@@ -10,10 +10,12 @@ readme = "README.md"
 requires-python = ">=3.12"
 # Exact versions are pinned in requirements.txt; these are only lower bounds.
 # httpx talks to the model server; only llm/ may import it.
-# tzlocal reads the name of the machine's time zone; only scripts outside the
-# package may import it.
+# tzlocal reads the name of the machine's time zone; inside the package only
+# the wiring module may import it, and scripts outside the package may too.
+# streamlit draws the user interface; only ui/ may import it.
 dependencies = [
     "httpx>=0.28",
+    "streamlit>=1.65",
     "tzlocal>=5.4",
 ]
 

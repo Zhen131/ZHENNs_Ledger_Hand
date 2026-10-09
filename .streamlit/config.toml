@@ -1,0 +1,14 @@
+# Streamlit reads this file from the folder it is started in, so the
+# interface is started from the top of the repository (see README.md).
+
+[browser]
+# Send no usage statistics anywhere.
+gatherUsageStats = false
+
+[server]
+# Listen on this machine only, never on the network.
+address = "127.0.0.1"
+# Start without asking for an e-mail address at the terminal, without
+# writing a credentials file into the home folder and without opening a
+# browser: open http://127.0.0.1:8501 yourself.
+headless = true
