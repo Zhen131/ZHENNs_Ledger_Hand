@@ -5,7 +5,8 @@ the comparison and the version the fixed rule picks; the same tables for
 the writings set, with whole trades right for each way of writing and the
 set's coverage; the two parameter comparisons beside the runs they change
 one parameter of; and the first prompt's run against the baseline, sentence
-by sentence. Each is worked out again here from the results files alone and
+by sentence; and the one run of the final set, with the version the rule
+picked. Each is worked out again here from the results files alone and
 must stand in the record exactly. No model is called.
 """
 
@@ -42,6 +43,8 @@ PARAMETERS = (
     ("run-20261009T023913Z-debug-stepwise.jsonl", "run-20261009T025506Z-debug-stepwise.jsonl"),
 )
 BASELINE = "run-20261005T150537Z-debug-first.jsonl"
+# The one run of the final set, with the version the rule picked.
+FINAL = "run-20261009T030436Z-final-first.jsonl"
 
 
 def rows(names: tuple[str, ...]) -> list[Row]:
@@ -100,7 +103,17 @@ def test_the_first_prompt_against_the_baseline() -> None:
     assert compare_markdown(compared) in record()
 
 
+def test_the_final_exam_ran_the_picked_version_and_is_recorded() -> None:
+    final = read_results(RESULTS_DIR / FINAL)
+    picked = choose(rows(MAIN)).prompt
+
+    assert (final.run["set"], final.run["final_exam_switch"]) == (Split.FINAL.value, True)
+    assert final.run["prompt"] == picked
+    assert final.end is not None
+    assert rows_markdown(rows((FINAL,))) in record()
+
+
 def test_every_run_named_here_is_in_the_results_directory() -> None:
-    named = {*MAIN, *WRITINGS, BASELINE, *(name for pair in PARAMETERS for name in pair)}
+    named = {*MAIN, *WRITINGS, BASELINE, FINAL, *(name for pair in PARAMETERS for name in pair)}
 
     assert all(Path(RESULTS_DIR / name).is_file() for name in named)
