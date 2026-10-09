@@ -1,10 +1,13 @@
 # Known gaps
 
-Known limits of this program: places where a trade it accepts and exports
-may still be refused by the ledger, where two guards stand in for each
-other, and where a step that asks the model has a weakness that is known
-but not mended. Each one is described with the trades or passages it
-affects; where a choice is needed, it waits for the project owner.
+Known limits of this program as it stands: places where a trade it
+accepts and exports may still be refused by the ledger, where two guards
+stand in for each other, where a step that asks the model has a weakness
+that is known but not mended, and where the book, the export or the
+interface has a rough edge that is known but not yet changed. Each one is
+described with the trades or passages it affects; where a choice is needed,
+it waits for the project owner. How the model did in the experiments, and
+what was not measured, is in `docs/project-report.md`.
 
 ## Time zone database versions
 
@@ -105,3 +108,124 @@ was not checked against.
 through what is not recorded, on new passages is not measured. The live
 tier of the checks runs the debug set again (`tests/live/test_live_screening.py`).
 
+## Extraction: an English time written in Chinese
+
+**What it is.** Asked to copy the time of an English passage, the model
+sometimes writes it in Chinese: `yesterday` as `昨天`. It is the most
+common reason a trade did not come out whole in the experiments
+(`evals/RESULTS.md`).
+
+**How it is handled.** The phrase is not a piece of the passage, so the
+program leaves the time empty, says why, and asks for it. It costs a
+question, never a wrong time. No prompt version measured so far mended it.
+
+## Extraction: a total put as the price
+
+**What it is.** When a passage gives what was paid in all, the model
+sometimes copies that amount under price as well as, or instead of, under
+total. With `first` this happened twice on the debug set, with no issue
+about the field (`evals/RESULTS.md`, "A total put as the price").
+
+**Which trades it affects.** When the draft also has a quantity and a
+total, the check finds that the amounts disagree and asks which one is
+wrong. When the price is the only amount, the check asks for one more of
+quantity, price and total, and an answer can then make a record with that
+price.
+
+**What the user can do.** The table on the Record page shows the price and
+the total side by side, so a total under price shows; "Don't save" leaves
+that trade out. The prompt version `price_total` removed this error on the
+debug set but lost two other trades, so the rule fixed before the
+experiment did not pick it.
+
+## Reading an answer: a word such as "about" may be dropped
+
+**What it is.** When the rules cannot read an answer, the model copies the
+piece of it that gives the value. It may leave out a word that makes the
+value approximate when the word does not touch the number ("大概买了 2 个"
+copied as "2 个"); the program then takes the amount as exact.
+
+**Why it stands.** Seen in trials by hand, not measured. The prompt asks the
+model to keep such a word when it stands right next to the value, and the
+number reader is unsure of an amount that keeps it.
+
+## The book after a write was cut off
+
+**What it is.** When the program stops in the middle of writing the book
+(the power fails, the process is killed), SQLite leaves a journal file
+beside it, `ledger-hand-book.sqlite3-journal`, to roll the unfinished write
+back. The program first opens the book read-only, to read its mark and
+version before anything else, and a read-only connection cannot roll the
+journal back. So the book is refused as inaccessible, every time.
+
+**What it affects.** Nothing is lost: the book and its journal hold every
+trade saved before. But the program cannot use the book until the journal
+is rolled back.
+
+**What the user can do.** Keep a copy of the book and its journal file
+together, then open the book once with a SQLite tool that may write to it;
+SQLite rolls the journal back by itself. Do not delete the journal file.
+
+**Why it is not fixed here.** Rolling the journal back from the program
+means writing to a file before its mark and version are read, which the
+rule that a refused file is never written to forbids. Whether to bend that
+rule for this one case is a decision for the project owner.
+
+## A change in the time zone database can stop the whole book
+
+**What it is.** A trade known to the minute or second is kept with its
+offset from UTC and its zone. Reading it back checks the offset against the
+zone's rules in the time zone database Python uses then. If a later version
+of that database changes the rules of that zone at that moment, the trade no
+longer reads back, and the book reports itself damaged: no trade can be
+listed or exported, although the coins confirmed can still be read.
+
+**Which trades it affects.** Only trades known to the minute or second,
+recorded in a zone to which a later version of the database gives another
+offset at that moment than the version they were recorded with. Trades
+known only to the day carry no offset and are not affected.
+
+**Why it is not fixed here.** Reading such a trade back with a caution
+instead of refusing the book changes what the book promises about the
+trades it keeps; it waits for the project owner. It shares its root with
+"Time zone database versions" above.
+
+## Exporting needs hard links
+
+**What it is.** An export file is written under a temporary name and then
+given its own name with a hard link, which fails instead of replacing a
+file of that name. On a file system without hard links (some removable
+drives and network drives), every export fails as not written.
+
+**What it affects.** Nothing is marked as exported when the file is not
+written, so nothing is lost; the trades wait for the next export.
+
+**What the user can do.** Point `LEDGER_HAND_DATA_DIR` at a folder on a disk
+that has hard links.
+
+## The interface: three sentences that could be better
+
+- **A model that is not there, on a cloud service.** The sentence for a
+  model the server does not have also suggests installing it with
+  `ollama pull`, which applies to the local Ollama only. The sentence is
+  shared by both plugs.
+- **The model failing while it reads an answer.** The question is asked
+  again and nothing breaks, but the sentence ends with the failure's kind as
+  a code word, such as `(timed_out)`, rather than in plain words. The flow
+  does not keep the kind for the interface to look up.
+- **A setting refused in the environment.** The Settings page opens and
+  names the setting and its rule, but the setting cannot be corrected there:
+  the environment variable has to be corrected and the program started
+  again.
+
+## The experiment tools and cloud settings
+
+**What it is.** The experiment tools (`evals/run.py`) always use the local
+plug, because they ask Ollama itself for the model's fingerprint, but they
+read the address and the key from the settings. Run with cloud settings
+left in the shell, they send Ollama's own requests, with that key, to the
+cloud address, where they only fail.
+
+**What the user can do.** Unset the cloud settings before running an
+experiment (the README says so). Refusing to run with them set is a change
+still to be made.
