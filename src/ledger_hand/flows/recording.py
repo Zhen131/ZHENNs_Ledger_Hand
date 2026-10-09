@@ -31,6 +31,9 @@ The steps, each handing back a new ``Progress``:
   counts as skipped), whether or not anything was asked about it, so that a
   wrong value seen in the records can be kept out. ``cancel`` drops the
   whole passage, and ``finish`` makes the records final.
+- ``retuned`` hands back the passage with the model to be called as a new
+  tuning says from its next step on, for settings changed while it is
+  being recorded; nothing else about it changes.
 
 When the model fails, or its replies cannot be read, while judging or
 extracting, nothing is kept and the passage ends there; nothing is skipped
@@ -43,7 +46,7 @@ keeps them with the trades that use them (``saving``). Nothing is written
 anywhere here, and a book handed in is only read.
 
 Names defined here: ``start``, ``answer``, ``remove``, ``cancel``,
-``finish`` and ``tuning_from``.
+``finish``, ``retuned`` and ``tuning_from``.
 """
 
 from __future__ import annotations
@@ -369,3 +372,11 @@ def finish(progress: Progress) -> Progress:
     if progress.stage is not Stage.REVIEWING:
         raise ValueError(f"the records are final only once all is settled: {progress.stage.value}")
     return dataclasses.replace(progress, stage=Stage.DONE, note=None)
+
+
+def retuned(progress: Progress, tuning: Tuning) -> Progress:
+    """``progress`` with the model called as ``tuning`` says from its next step on."""
+    if progress.setting.tuning == tuning:
+        return progress
+    setting = dataclasses.replace(progress.setting, tuning=tuning)
+    return dataclasses.replace(progress, setting=setting)
