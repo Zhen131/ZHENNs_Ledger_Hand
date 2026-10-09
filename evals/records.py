@@ -13,6 +13,9 @@ gave (the drafts, the issues, the phrases the model wrote for each draft),
 the model's raw replies and a record of each call, and how long it took. It
 also holds the scores worked out when it was written, for reading; the
 summary is always worked out afresh from the drafts and the gold answer.
+A line written since the two ways of reading a passage were compared also
+holds the record of every reply read (``reads``); the phrases of each draft
+are then taken from it, and from ``copied`` in a line without it.
 
 This module turns drafts, issues and scores into JSON values and back. It
 reads and writes no file except through ``read_results`` and
@@ -44,6 +47,7 @@ from evals.gold import (
     Split,
     trade_from_json,
 )
+from evals.reads import copied_from_reads
 from evals.scoring import Produced, ResultKind, SentenceScore
 from ledger_hand.core.numbers import Caution, Doubt, write_number
 from ledger_hand.core.timeparse import Refusal, TimeCaution
@@ -228,14 +232,22 @@ def produced_from_line(line: Mapping[str, object]) -> Produced:
     """What extraction gave, as a line records it."""
     drafts = line.get("drafts") or []
     issues = line.get("issues") or []
-    copied = line.get("copied") or []
-    assert isinstance(drafts, list) and isinstance(issues, list) and isinstance(copied, list)
+    assert isinstance(drafts, list) and isinstance(issues, list)
     return Produced(
         kind=ResultKind(line["result"]),
         drafts=tuple(draft_from_json(draft) for draft in drafts),
         issues=tuple(issue_from_json(issue) for issue in issues),
-        copied=tuple({Field(name): str(text) for name, text in row.items()} for row in copied),
+        copied=_copied_of_line(line),
     )
+
+
+def _copied_of_line(line: Mapping[str, object]) -> tuple[Mapping[Field, str], ...]:
+    """The phrases of each draft: from the record of every reply read, or else from ``copied``."""
+    if "reads" in line:
+        return copied_from_reads(line["reads"])
+    copied = line.get("copied") or []
+    assert isinstance(copied, list)
+    return tuple({Field(name): str(text) for name, text in row.items()} for row in copied)
 
 
 @dataclass(frozen=True)
