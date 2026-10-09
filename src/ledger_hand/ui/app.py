@@ -35,7 +35,7 @@ def main() -> None:
     except AssemblyError as error:
         st.error(sayings.assembly_failed(error))
         return
-    talk, table = st.columns([2, 3], gap="large")
+    talk, table = st.columns([1, 2], gap="large")
     with talk:
         chat.draw()
     with table:

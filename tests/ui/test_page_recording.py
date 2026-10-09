@@ -164,7 +164,7 @@ def test_a_price_worked_out_from_the_quantity_and_the_total_is_marked(tmp_path: 
     (only,) = shown_table(page)
     assert (only["Quantity"], only["Price"], only["Total"]) == ("0.5", "3420 *", "1710")
     assert only["Status"] == "complete"
-    assert "* worked out by the program" in [c.value for c in page.caption][0]
+    assert "An amount marked * was worked out by the program" in [c.value for c in page.caption][0]
 
 
 def test_the_mark_appears_only_once_the_trade_has_passed_the_check(tmp_path: Path) -> None:

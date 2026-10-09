@@ -1,10 +1,10 @@
 """The table of what will be recorded: one row per trade, with Don't save, Save and Discard all.
 
 ``rows`` turns a ``Progress`` into the table's cells, one row per trade in
-passage order: the time, the coin, buy or sell, the quantity, the price and
-the total side by side (so a total written where the price belongs shows at
-a glance), the fee and its coin, the platform, the note and where the trade
-stands. A trade that is complete shows its record; any other shows its
+passage order: where the trade stands, the time, the coin, buy or sell, the
+quantity, the price and the total side by side (so a total written where the
+price belongs shows at a glance), the fee and its coin, the platform and the
+note. A trade that is complete shows its record; any other shows its
 draft as it stands, with blanks where nothing is known yet. The amount the
 program worked out from the other two is marked, read from the record, so
 the mark appears only once the trade has passed the check.
@@ -39,8 +39,10 @@ SAVE_KEY = "save_button"
 DISCARD_KEY = "discard_all_button"
 DONT_SAVE_KEY = "dont_save_trade_{number}"
 
+# Where a trade stands comes first, so it is in sight however narrow the window.
 COLUMNS = (
     "#",
+    "Status",
     "Time",
     "Coin",
     "Side",
@@ -51,10 +53,12 @@ COLUMNS = (
     "Fee coin",
     "Platform",
     "Note",
-    "Status",
 )
 CALCULATED_MARK = " *"
-_LEGEND = "* worked out by the program from the other two amounts"
+# The star stands alone in the sentence, so the caption does not read it as Markdown.
+_LEGEND = "An amount marked * was worked out by the program from the other two."
+# Wide enough for a date, a time and a zone name, and for a status with its reason.
+_WIDTHS = {"#": 40, "Status": 140, "Time": 220}
 _AMOUNT_COLUMNS = {Amount.QUANTITY: "Quantity", Amount.PRICE: "Price", Amount.TOTAL: "Total"}
 _STATUS = {
     TradeStatus.OPEN: "asking",
@@ -77,7 +81,11 @@ def draw(progress: Progress | None) -> None:
     # The key is on a container: a table that cannot be selected from takes none of its own.
     with st.container(key=TABLE_KEY):
         st.dataframe(
-            {column: [row[column] for row in found] for column in COLUMNS}, hide_index=True
+            {column: [row[column] for row in found] for column in COLUMNS},
+            hide_index=True,
+            column_config={
+                name: st.column_config.TextColumn(width=width) for name, width in _WIDTHS.items()
+            },
         )
     st.caption(_LEGEND)
     if progress is not None and progress.trades:
@@ -138,7 +146,7 @@ def _row(number: int, trade: TradeState) -> dict[str, str]:
             "Platform": draft.platform or "",
             "Note": draft.note or "",
         }
-    return {"#": str(number), **cells, "Status": _status(trade)}
+    return {"#": str(number), "Status": _status(trade), **cells}
 
 
 def _status(trade: TradeState) -> str:
