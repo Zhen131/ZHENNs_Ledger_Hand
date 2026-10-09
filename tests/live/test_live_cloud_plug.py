@@ -6,8 +6,11 @@ OpenAI-style chat endpoint the cloud plug speaks, under ``/v1`` of its own
 address, so the cloud plug's request (its path, its fields, the reply table
 in ``response_format``) can be tried against a real server without leaving
 this machine and without a real key. The address is the one the settings
-name with ``/v1`` after it: by default Ollama on this machine. The key is
-an invented one, which Ollama does not check; no cloud service is called.
+name with ``/v1`` after it: by default Ollama on this machine. When that
+address is not on this machine (127.0.0.1, localhost or ::1), say because a
+cloud address was left set in the shell, nothing is sent and the check is
+skipped, saying why: it must never carry its invented key to a cloud
+service. The key is an invented one, which Ollama does not check.
 
 It builds the plug the way the program does (the plug setting switched to
 cloud, through ``connect_model``), with no retries, so the server is asked
@@ -21,11 +24,12 @@ from __future__ import annotations
 
 import dataclasses
 import json
+from urllib.parse import urlsplit
 
 import pytest
 
 from ledger_hand.llm.cloud_request import CHAT_PATH
-from ledger_hand.llm.connect import connect_model
+from ledger_hand.llm.connect import LOOPBACK_HOSTS, connect_model
 from ledger_hand.ports import ModelError
 from ledger_hand.settings import Plug, Secret, load_model_settings
 from tests.live.schema_check import problems_with
@@ -41,6 +45,11 @@ OPENAI_STYLE_PATH = "/v1"
 
 def test_the_cloud_plug_gets_a_valid_reply_from_the_local_openai_style_endpoint() -> None:
     local = load_model_settings()
+    if urlsplit(local.base_url).hostname not in LOOPBACK_HOSTS:
+        pytest.skip(
+            f"the address the settings name, {local.base_url}, is not on this machine; this "
+            "check sends only to a server on this machine, never to a cloud service"
+        )
     settings = dataclasses.replace(
         local,
         plug=Plug.CLOUD,

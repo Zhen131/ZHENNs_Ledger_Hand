@@ -615,7 +615,10 @@ Ollama also answers the OpenAI-style chat endpoint under `/v1` of its
 address, so the cloud plug is pointed there, with an invented key that
 Ollama does not check, and asked the same small question once, with no
 retries; the reply must be valid JSON that follows the table. No cloud
-service is called. When the server cannot be reached, it fails with a
+service is called: when the address the settings name is not on this
+machine (a cloud address left set in the shell, say), that check sends
+nothing and is skipped, saying why. Unset the cloud settings before running
+the live tier: every other live check talks to the address they name. When the server cannot be reached, it fails with a
 message that starts with `unreachable`.
 The first call after the model has been idle includes loading it into
 memory, which takes several seconds more than the calls after it.
