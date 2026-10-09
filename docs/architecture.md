@@ -74,14 +74,21 @@ src/ledger_hand/
         question_text.py      the facts, the model's sentence and its checks, the label (exists)
         templates.py          the program's own sentence for every question           (exists)
         prompts/              the persona prompt                                      (exists)
-    llm/                  plugs for the model port: a local model server; later a cloud one (exists)
+    llm/                  plugs for the model port: a local model server and a cloud service (exists)
         ollama.py             the local plug: one chat call to Ollama, one try        (exists)
         ollama_request.py     what is sent: the body of one chat request              (exists)
         ollama_reply.py       what comes back: the reply, or the kind of failure      (exists)
+        cloud.py              the cloud plug: one call to an OpenAI-style chat endpoint (exists)
+        cloud_request.py      what it sends: the body of one chat request             (exists)
+        cloud_reply.py        what comes back: the reply, or the kind of failure      (exists)
+        request_body.py       what both plugs share in writing a request              (exists)
+        reply_json.py         what both plugs share in reading a reply                (exists)
         exchange.py           one HTTP exchange; sorts failed connections and statuses (exists)
         error_text.py         a server's words made safe to show, the key hidden      (exists)
+        retry_after.py        how long a rate-limited server asks to wait             (exists)
         retry.py              tries again after failures that may pass on their own   (exists)
-        local.py              the local plug assembled from the settings, with retries (exists)
+        connect.py            the plug the settings choose, checked, with retries     (exists)
+        local.py              the local plug alone, assembled with retries            (exists)
         ollama_identity.py    the server's version and the model's fingerprint        (exists)
     storage/              plug for the storage port: SQLite, with numbered upgrade scripts (exists)
         sqlite_store.py       the plug: every operation of the port, one connection each (exists)
@@ -407,10 +414,10 @@ was built with from the settings. Every failure is a `ModelError` whose
 | --- | --- |
 | `UNREACHABLE` | The connection cannot be made (refused, or the name does not resolve), or the address is one httpx cannot use. |
 | `TIMED_OUT` | Connecting, sending or a wait for the answer passed the time allowed, or the answer was not complete once that time had passed. |
-| `MODEL_NOT_FOUND` | Ollama answers 404 with a JSON `error` that says "not found"; or the model is not in the server's list when its fingerprint is asked for. |
-| `RATE_LIMITED` | The server answers 429. |
-| `SERVER_ERROR` | The server answers 500 to 599. Also every failure that fits no other kind, with the raw status, error and start of the answer attached: any other status, a connection that breaks off mid-answer, broken HTTP. |
-| `MALFORMED_REPLY` | Status 200, but the answer is not UTF-8, not JSON, not an object, has no message or no text, has blank text or text that is not valid Unicode, is not marked done, or is longer than the cap. |
+| `MODEL_NOT_FOUND` | Ollama answers 404 with a JSON `error` text that says "not found" and names a model; a cloud service answers 404 with a JSON `error` object whose `code` is `model_not_found`, or whose `message` names a model and says "not found" or "does not exist"; or the model is not in the local server's list when its fingerprint is asked for. A 404 that does not say so (`{"error": "Not Found"}` from something else at the address) is a `SERVER_ERROR`. |
+| `RATE_LIMITED` | The server answers 429. The error carries the wait the server's `Retry-After` header asks for (seconds or a date), when it has one, as `retry_after_seconds`. |
+| `SERVER_ERROR` | The server answers 500 to 599. Also every failure that fits no other kind, with the raw status, error and start of the answer attached: any other status (among them a key refused with 401 or 403 and a request refused with 400, which the interface says by status), a connection that breaks off mid-answer, broken HTTP. |
+| `MALFORMED_REPLY` | Status 200, but the answer is not UTF-8, not JSON, not an object, has no message or no text (for the cloud plug: no choices, or a first choice without them), has blank text or text that is not valid Unicode, is not marked done (the local plug), or is longer than the cap. |
 
 Each kind is recognised by what it positively looks like; what is not
 recognised falls to `SERVER_ERROR` (or, for an answer with status 200, to
@@ -420,9 +427,33 @@ are not turned into one.
 
 `llm/retry.py` tries a call again after `TIMED_OUT`, `RATE_LIMITED` and
 `SERVER_ERROR`, a limited number of times, each wait twice the one before.
-The other three are raised at once: waiting does not mend them, and on this
-machine `UNREACHABLE` means the server is not running, which the person at
-the keyboard should hear straight away.
+A `SERVER_ERROR` whose status is 400 to 499 is not tried again: the server
+said the request itself is wrong (a key refused, a field not taken), and
+the same request will be wrong again. A `RATE_LIMITED` error that carries
+the wait its server asked for is waited for that long instead of the
+doubling wait, up to `LONGEST_ASKED_WAIT_SECONDS` (a minute); a longer wait
+is not sat through, and the error is raised at once with the wait, so that
+the person can be told when to try again. Every wait counts as one retry.
+The other three kinds are raised at once: waiting does not mend them, and
+on this machine `UNREACHABLE` means the server is not running, which the
+person at the keyboard should hear straight away.
+
+There are two plugs. The local plug (`llm/ollama.py`) talks to Ollama's own
+chat endpoint; the cloud plug (`llm/cloud.py`) talks to the OpenAI-style
+chat endpoint most cloud services offer, `POST <address>/chat/completions`,
+with the key as a bearer token and a reply schema as a strict JSON schema in
+`response_format`. Both go through `llm/exchange.py`, so the cap on the
+answer, the time allowed, no proxy from the environment, no redirect
+followed and the key hidden in every error hold for both. Which plug is
+used is a setting, `LEDGER_HAND_MODEL_PLUG` (`local` by default, or
+`cloud`). `llm/connect.py` builds the plug it chooses, wrapped in the
+retries, and checks first that the settings fit a cloud plug: an address of
+its own, and off this machine https and a key. That check is made where the
+plug is built rather than where the settings are read, so that every
+variable is still read on its own; settings that do not fit are a
+`SettingsError` naming the variable to set. The experiment tools keep using
+the local plug alone (`llm/local.py`), because they ask Ollama for the
+model's fingerprint.
 
 Whether a reply's text is valid JSON that follows the schema is not checked
 by the plug. A model reply is untrusted input (rule 6), and the code that
@@ -503,7 +534,8 @@ formatting tool.
 - **Voice input:** a new folder of its own that turns speech into text; the
   text then takes the existing path.
 - **Asking questions about the ledger:** one more file in `flows/`.
-- **A cloud model:** one more plug in `llm/`, chosen through settings.
+- **Another kind of model server:** one more plug in `llm/`, one more value
+  of `Plug` in the settings, and one more branch in `llm/connect.py`.
 - **A new folder or top-level module:** add its row to the layering table in
   `tests/guardrails/layering.py`, to the expected table in the tests next to
   it, and to the table above.

@@ -2,15 +2,17 @@
 
 ## What this is
 
-Ledger Hand is being built as a small program that runs entirely on your own
-machine and has one chat box. You type a trade the way you would say it, for
+Ledger Hand is being built as a small program that runs on your own machine
+and has one chat box. You type a trade the way you would say it, for
 example "bought 0.02 BTC at 94,900 at 9:40, fee 2 USDT", and it works out the
 coin, the side, the amount, the price, the fee and the time. It shows the
 result in a preview table, saves only when you confirm, and exports a JSON
 file in the import format of the Local-First Trading Ledger. A passage that
 mentions several trades is split into several entries. The language model
-runs locally. Ledger Hand never writes into the ledger application itself; it
-only hands over a file.
+runs locally by default, so nothing typed leaves the machine; a cloud
+service can be chosen instead (see "Switching to a cloud model"). Ledger
+Hand never writes into the ledger application itself; it only hands over a
+file.
 
 ## Where it stands
 
@@ -86,26 +88,35 @@ talk to the model port in `src/ledger_hand/ports.py`: send a list of
 messages, optionally a JSON schema the reply has to follow, and the sampling
 parameters; get back the reply's text and a short record of the call (which
 model answered, how long it took, how many tokens it read and wrote, and
-whether it stopped by itself or was cut off at the length limit). The one
-plug today, in `src/ledger_hand/llm/`, talks to a local Ollama server
-through its own chat endpoint and waits for the whole reply.
-`connect_local_model(load_model_settings())` builds it. Every failure is one
-`ModelError` with one of six kinds: `unreachable` (nothing answers at the
-address: the server is not running, or the name does not resolve),
-`timed_out`, `model_not_found`, `rate_limited`, `server_error` (also for
-anything no other kind fits, with the raw status and the start of the
-answer attached) and `malformed_reply` (not JSON, a field missing, empty
-text, too long, not valid text). No odd answer makes the plug raise
-anything else or wait without end. Timed out, rate limited and server error
-are tried again a few times, with waits that double each time. What the
-reply's text says is not checked here: a model reply is untrusted input, and
-whoever asked checks it. A small function asks the server for its version
-and the model's fingerprint, for the records of an experiment.
+whether it stopped by itself or was cut off at the length limit). Two
+plugs, in `src/ledger_hand/llm/`, sit behind it. The local plug, the
+default, talks to a local Ollama server through its own chat endpoint; the
+cloud plug talks to the OpenAI-style chat endpoint most cloud services
+offer (see "Switching to a cloud model" below). Both wait for the whole
+reply. `connect_model(load_model_settings())` builds the plug the settings
+choose. Every failure is one `ModelError` with one of six kinds:
+`unreachable` (nothing answers at the address: the server is not running,
+or the name does not resolve), `timed_out`, `model_not_found`,
+`rate_limited` (with the wait the server asked for, when it said),
+`server_error` (also for anything no other kind fits, with the raw status
+and the start of the answer attached) and `malformed_reply` (not JSON, a
+field missing, empty text, too long, not valid text). No odd answer makes a
+plug raise anything else or wait without end. Timed out, rate limited and
+server error are tried again a few times, with waits that double each time;
+a server that says how long to wait (its Retry-After header) is waited for
+that long instead, up to a minute, and one that asks for longer is not
+waited for at all. A request the server turns down as wrong, with a status
+from 400 to 499 other than 429 (a key refused, a field not taken), is not
+tried again: it would be turned down again. What the reply's text says is
+not checked here: a model reply is untrusted input, and whoever asked
+checks it. A small function asks the local server for its version and the
+model's fingerprint, for the records of an experiment.
 
 Where the model is, which one, its key and the default parameters are
 settings read from environment variables (see "Model settings" below);
 `src/ledger_hand/settings.py` is the only place in the package that reads
-them. A key is never printed and never appears in an error.
+them. A key is never printed and never appears in an error, not even when
+a server writes it back escaped as JSON, percent-encoded or as HTML.
 
 **A passage becomes drafts.** `extract` in `src/ledger_hand/extraction/`
 takes a passage as typed, a model port, the current moment, the time zone's
@@ -297,13 +308,13 @@ check and the hygiene scan).
 | `src/ledger_hand/ports.py` | The two ports. The model port: messages, parameters, the reply and its record, and the error with its six kinds. The storage port: its operations and the error with its eight kinds; the shapes it takes and gives are in `core/book.py`. Only shapes; it sends and stores nothing. |
 | `src/ledger_hand/settings.py` | The only place in the package that reads environment variables: the model settings, their defaults and their checks, what each sets and why its default is what it is (as data, `ABOUT`), changes from the settings page read the same way (`apply_changes`), and where the data is kept. |
 | `src/ledger_hand/storage/` | The SQLite plug for the storage port (`sqlite_store.py`): opening a book, its version and its mark (`book_file.py`), a trade as a row and back (`rows.py`), SQLite's failures as the port's kinds (`failures.py`), and the numbered upgrade scripts (`upgrades/`). The only part that may import sqlite3. |
-| `src/ledger_hand/llm/` | The local plug for the model port: the plug itself (`ollama.py`), what is sent (`ollama_request.py`) and how what comes back is read (`ollama_reply.py`), one HTTP exchange and how its failures are sorted (`exchange.py`), making a server's words safe to show (`error_text.py`), trying again (`retry.py`), the assembled local model (`local.py`), and the server's version and the model's fingerprint (`ollama_identity.py`). The only part that may import httpx. |
+| `src/ledger_hand/llm/` | The plugs for the model port. The local plug (`ollama.py`), what it sends (`ollama_request.py`) and how what comes back is read (`ollama_reply.py`); the cloud plug (`cloud.py`), what it sends (`cloud_request.py`) and how what comes back is read (`cloud_reply.py`); what both share in writing a request (`request_body.py`) and reading a reply (`reply_json.py`); one HTTP exchange and how its failures are sorted (`exchange.py`), making a server's words safe to show (`error_text.py`), reading how long a server asks to wait (`retry_after.py`), trying again (`retry.py`), the plug the settings choose, checked and assembled (`connect.py`), the assembled local model alone (`local.py`), and the local server's version and the model's fingerprint (`ollama_identity.py`). The only part that may import httpx. |
 | `src/ledger_hand/extraction/` | A passage to drafts: the entry point (`extractor.py`), the table the model fills (`reply_table.py`) and how its reply is read (`reply_parser.py`), finding a copied phrase in the passage (`passage.py`) and the numbers written in a text (`passage_numbers.py`), one row to one draft (`row_draft.py`), which currency a unit names (`unit_currency.py`), the issues (`issues.py`), the messages a prompt version makes (`prompting.py`), and the prompt versions with their examples (`prompts/`). Also the check of a passage before it is sent (`passage_check.py`), judging a passage (`screening.py`, with the list the model fills in `screen_table.py`), and reading an answer to a question (`answer_phrase.py`, with its word lists in `answer_words.py` and what the model copies in `answer_table.py`). Reads no clock, no zone of the machine and no environment variable. |
 | `src/ledger_hand/asking/` | Wording a follow-up question: the facts, the model's sentence and its checks (`question_text.py`), the program's own sentences (`templates.py`) and the prompt (`prompts/bookkeeper.py`). Imports only `core/` and the ports file; reads no clock. |
 | `src/ledger_hand/flows/` | Recording a passage from start to records (`recording.py`): the state it hands back (`progress.py`), putting a question together (`questions.py`) and putting an answer back (`filling.py`). Saving the records (`saving.py`) with new identifiers (`identifiers.py`), a passage's fingerprint (`fingerprint.py`), the confirmed coins between the book and the coin table (`coin_book.py`), and exporting (`exporting.py`) into a new file that never replaces another (`export_file.py`). |
 | `src/ledger_hand/wiring.py` | The wiring module: builds the model, the book, the coin table, the clock and the machine's zone from the settings, with the settings page's changes put in, for the interface to hand to the flows. The only part of the package that may import tzlocal. |
 | `src/ledger_hand/ui/` | The interface, two Streamlit pages: the entry (`app.py`), the Record page (`record_page.py`) with the chat (`chat.py`), the table and its buttons (`preview.py`) and Export (`export_panel.py`); the Settings page (`settings_page.py`) and its inputs (`settings_form.py`); what happens on a message or a click (`turns.py`), what the program says (`sayings.py`), the plain sentence for every failure (`failure_words.py`), a setting's value as it is shown (`setting_text.py`), the last word after Export or a change of setting (`notes.py`) and what is kept between reruns (`session.py`). The only part that may import Streamlit. |
-| `tests/` | The tests. `tests/core/`, `tests/export/`, `tests/llm/`, `tests/extraction/`, `tests/asking/`, `tests/storage/` and `tests/flows/` have one test module per module, or more; `tests/llm/` also has a fake Ollama server and a batch of attacks on the plug, and `tests/extraction/` a batch of attacks on extraction. `tests/storage/` runs the same tests of the storage port against the SQLite plug and the in-memory stand-in, and holds the golden book. `tests/flows/` also tests the script for recording trades. `tests/ui/` runs the pages headless with Streamlit's own test runner, against fake models and a book in a temporary folder (Export, the settings page, every failure, the reminders), checks the plain sentence for every failure, and checks the settings file. `tests/evals/` tests the experiment kit and the test sentences. |
+| `tests/` | The tests. `tests/core/`, `tests/export/`, `tests/llm/`, `tests/extraction/`, `tests/asking/`, `tests/storage/` and `tests/flows/` have one test module per module, or more; `tests/llm/` also has a fake Ollama server, the pieces of a fake cloud service and a batch of attacks on each plug, and `tests/extraction/` a batch of attacks on extraction. `tests/storage/` runs the same tests of the storage port against the SQLite plug and the in-memory stand-in, and holds the golden book. `tests/flows/` also tests the script for recording trades. `tests/ui/` runs the pages headless with Streamlit's own test runner, against fake models and a book in a temporary folder (Export, the settings page, every failure, the reminders), checks the plain sentence for every failure, and checks the settings file. `tests/evals/` tests the experiment kit and the test sentences. |
 | `tests/conftest.py` | Stops every test that is not marked `live_model` from reaching the network. |
 | `tests/fakes/` | Stand-ins for the outside world: a scripted model that plays back replies and errors in order and records what it was asked, a model that answers each kind of call (judging, extraction, wording a question, reading an answer) from its own script, and a book kept in memory that can be made to fail. |
 | `tests/live/` | The live check, which talks to a real model, the small schema check it uses, the smoke test of extraction, the check of judging the debug set, the smoke test of the page, and the check of the settings page against an address nobody listens on. |
@@ -421,15 +432,20 @@ file holds, which would leave it with these trades only.
 
 ### The settings page
 
-Settings, at the top of the page beside Record, lists every model setting
-(see "Model settings" below) with its value now, its default, what it sets
-and why its default is what it is; the key only says whether there is one.
+Settings, at the top of the page beside Record, says first which plug
+talks to the model now (local or cloud), at which address, and whether
+there is a key. Then it lists every model setting (see "Model settings"
+below) with its value now, its default, what it sets and why its default is
+what it is; the key only says whether there is one.
 Every setting but the key can be changed there: type the new value, as it
 would be written in the environment, and press Apply. A blank value takes
 the default. The values are read and checked exactly as the environment's
 are; a value that is refused is named with its rule, and nothing changes.
-Once applied, the next call to the model uses it, even in the middle of a
-passage. "Back to the environment and the defaults" drops every change.
+So is a switch to the cloud plug whose address or key do not fit it (see
+"Switching to a cloud model" below); the key itself can only be set in the
+environment. Once applied, the next call to the model uses it, even in the
+middle of a passage. "Back to the environment and the defaults" drops every
+change.
 
 A change lasts for the browser tab only: opening the page again, or
 starting the program again, goes back to the environment variables and the
@@ -452,7 +468,9 @@ the step that failed.
 | No model answered | The address asked; whether Ollama is running; the address on the Settings page |
 | The model took too long | The time allowed; the first call has to load the model and can be slow; try again, or allow more time on the Settings page |
 | The model is not there | The model's name and the address; check the name, or install it with `ollama pull` |
-| Called too often | The server turned the call away; wait a little, then try again |
+| Called too often | The server turned the call away; wait a little, then try again. When the server said how long to wait: that many seconds |
+| The key refused (status 401 or 403) | The address; check `LEDGER_HAND_MODEL_KEY` in the environment and that the key may use the model, then start the program again |
+| The request refused (status 400) | The address and the start of what the server answered; check the model's name; a service that does not take the reply table refuses every call this way |
 | The server failed | Its status code, when it gave one; try again, or look at the server's own log |
 | A reply not in the agreed form | The reply could not be used; try again, or put the passage another way |
 | Replies that cannot be read as a table | The same, said apart |
@@ -469,7 +487,8 @@ the step that failed.
 | An export file written but not marked | Where it is; the next export writes the trades again |
 
 The sentences are in `src/ledger_hand/ui/failure_words.py`, one for each
-kind of each failure; a test walks every kind, so a new one cannot go
+kind of each failure, and one for each status a cloud service turns a call
+down with (401, 403, 400); a test walks every kind, so a new one cannot go
 without a sentence. None of them ever shows the key.
 
 ## Running the checks
@@ -803,8 +822,8 @@ settings page, for the browser tab only (see "The settings page" above).
 | `LEDGER_HAND_MODEL_MAX_REPLY_TOKENS` | `1024` | The longest reply, in tokens, the pieces of words a model counts in. A whole number, 1 or more. | Room for a JSON list of about ten trades. A reply that reaches it is marked as cut off rather than passed on as if it were whole. |
 | `LEDGER_HAND_MODEL_CONTEXT_TOKENS` | `16384` | How much the model reads at once, in tokens. A whole number, 1 or more. | Ollama's own default (2048 or 4096, depending on the version) is too short for a prompt with examples and a schema, and Ollama drops the start of a prompt that does not fit, without an error. Measured with qwen2.5:7b, which reads up to 32768: the first prompt with its examples is about 1,750 tokens, and the longest passage the ledger keeps, 16,384 characters of Chinese, about 11,600 (English text takes fewer). With a full reply that is about 14,400, which leaves some 2,000 to spare; a longer window costs memory. |
 | `LEDGER_HAND_MODEL_TIMEOUT_SECONDS` | `120` | How long to wait for the whole reply, in seconds. Above 0. Not sent to the model. | Leaves room for loading the model into memory on the first call (a cold start takes seconds to tens of seconds) and then writing a full-length reply. |
-| `LEDGER_HAND_MODEL_RETRIES` | `2` | How many times a call that timed out, was rate limited or met a server error is tried again. 0 to 10. | Three tries in all, for the failures that may pass on their own, without keeping the person waiting for long. |
-| `LEDGER_HAND_MODEL_RETRY_WAIT_SECONDS` | `1` | The wait before the first retry, in seconds; each later wait is twice the one before. 0 or more. | A second gives a busy server a moment to recover, and with each wait twice the one before, two retries add three seconds at most. |
+| `LEDGER_HAND_MODEL_RETRIES` | `2` | How many times a call that timed out, was rate limited or met a server error is tried again; a request the server turned down as wrong, with a status from 400 to 499 other than 429, is not. 0 to 10. | Three tries in all, for the failures that may pass on their own, without keeping the person waiting for long. |
+| `LEDGER_HAND_MODEL_RETRY_WAIT_SECONDS` | `1` | The wait before the first retry, in seconds; each later wait is twice the one before. A server that says how long to wait is waited for that long instead, up to a minute. 0 or more. | A second gives a busy server a moment to recover, and with each wait twice the one before, two retries add three seconds at most when the server does not say how long to wait. |
 | `LEDGER_HAND_MODEL_QUESTION_TEMPERATURE` | `0.7` | The temperature for wording a follow-up question. 0 or more. | Wording a follow-up question is the one call where some variety reads more naturally than the same sentence every time. What is asked, and every fact the question may use, are fixed by the program before the model writes, and a sentence that strays is replaced by the program's own, so a higher temperature changes only the wording. Judging a passage, extraction and reading an answer keep LEDGER_HAND_MODEL_TEMPERATURE, 0 by default. |
 
 Numbers are written with plain digits and at most one point (`0.7`, `45`),
@@ -823,6 +842,81 @@ long past the time allowed.
 The plug ignores the proxy settings of the environment (`HTTP_PROXY` and the
 like), so a request for the model on this machine never leaves it through a
 proxy.
+
+## Switching to a cloud model
+
+By default the model runs on this machine, through Ollama, and nothing that
+is typed leaves it. The program can instead talk to a cloud service through
+the chat endpoint most of them offer, first made by OpenAI
+(`POST <address>/chat/completions`). Nothing else changes: the same
+prompts, the same checks of every reply, the same questions.
+
+**Once you switch, everything you type is sent to that service:** each
+passage, each answer to a question, and the prompts with their examples. Do
+not switch for passages you would not hand to that service.
+
+To switch, set three variables before the program starts (see "Model
+settings" above for all of them):
+
+```sh
+export LEDGER_HAND_MODEL_PLUG=cloud
+export LEDGER_HAND_MODEL_URL=https://api.example.com/v1   # the service's address, with its version
+export LEDGER_HAND_MODEL_KEY=...                          # the key the service gave you
+export LEDGER_HAND_MODEL_NAME=...                         # a model the service offers
+```
+
+`api.example.com` stands for the service's own address; the program names
+no service and has no cloud address of its own. Only
+`LEDGER_HAND_MODEL_PLUG` switches: setting an address or a key alone
+leaves the local plug in use. The plug, the address and the model can also
+be changed on the settings page, for the browser tab only; the key cannot.
+Unsetting `LEDGER_HAND_MODEL_PLUG`, or "Back to the environment and the
+defaults" when the switch was made on the page, goes back to the local
+model.
+
+The program refuses to build the cloud plug, and says which variable to
+set, when the address is still the local Ollama's own, when an address off
+this machine does not start with `https://` (the key and every passage
+would travel unencrypted), or when an address off this machine has no key.
+A server on this machine that offers the same endpoint (`127.0.0.1`,
+`localhost` or `::1`) may go without https and without a key. Reading the
+settings checks each variable on its own; these checks are made when the
+plug is built, so a refusal names the variable to change.
+
+What is sent with each call: the model's name, the messages, `temperature`,
+`top_p` and `max_tokens` (the longest reply), and, when the program wants a
+reply in the shape of a table, that table as a JSON schema in
+`response_format` (type `json_schema`, `strict` true). The key goes in the
+`Authorization: Bearer` header and nowhere else. How much the model reads
+at once (`LEDGER_HAND_MODEL_CONTEXT_TOKENS`) is not sent: the endpoint has
+no such field, and the service decides it. The time allowed is how long
+this side waits, as for the local model.
+
+When the service answers 429, "called too often", the program waits as long
+as its `Retry-After` header asks (in seconds or as a date), up to a minute,
+then tries again; each such wait counts as one of the retries. A longer wait
+is not sat through: the page says how many seconds the service asked for.
+Without the header the waits double as for the local model. A key the
+service does not take (401, 403) and a request it turns down (400) are said
+in plain words at once and not tried again; a model the service does not
+have (404 saying so) is said as a missing model.
+
+Known limits:
+
+- Some services' newer endpoints name the longest reply
+  `max_completion_tokens`. This plug sends `max_tokens`, the name every such
+  service takes; a model that takes only the newer name turns the call down
+  with 400.
+- A service that does not take a reply table as a strict JSON schema in
+  `response_format` refuses every call with 400. There is no second way of
+  asking (such as plain JSON without the table); the page says the call was
+  turned down and quotes the start of the service's answer.
+- The cloud plug is tested against a fake transport only: every test feeds
+  it answers shaped like a cloud service's, and no test calls a real one.
+  The live tier checks the local model only.
+- The experiment tools (`evals/run.py`) always use the local plug, because
+  they ask Ollama itself for the model's fingerprint. Unset the cloud
+  settings before running an experiment.
 
 ## Where the data is kept
 

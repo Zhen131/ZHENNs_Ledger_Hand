@@ -274,16 +274,19 @@ ABOUT: Mapping[Variable, About] = MappingProxyType(
         Variable.RETRIES: About(
             "retries",
             "How many times a call that timed out, was rate limited or met a server error "
-            f"is tried again. 0 to {MAX_RETRIES}.",
+            "is tried again; a request the server turned down as wrong, with a status from "
+            f"400 to 499 other than 429, is not. 0 to {MAX_RETRIES}.",
             "Three tries in all, for the failures that may pass on their own, without "
             "keeping the person waiting for long.",
         ),
         Variable.RETRY_WAIT_SECONDS: About(
             "retry_wait_seconds",
             "The wait before the first retry, in seconds; each later wait is twice the one "
-            "before. 0 or more.",
+            "before. A server that says how long to wait is waited for that long instead, up "
+            "to a minute. 0 or more.",
             "A second gives a busy server a moment to recover, and with each wait twice "
-            "the one before, two retries add three seconds at most.",
+            "the one before, two retries add three seconds at most when the server does not "
+            "say how long to wait.",
         ),
         Variable.QUESTION_TEMPERATURE: About(
             "question_temperature",
