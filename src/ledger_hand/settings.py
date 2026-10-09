@@ -11,6 +11,13 @@ because a misspelt name would otherwise be ignored without a word.
 The key, if there is one, is kept in a ``Secret``: printing it, or printing
 the settings, shows a placeholder, and no error message here ever repeats it.
 
+``apply_changes`` puts changes made on the interface's settings page into
+settings already read: each value is read and checked exactly as the same
+variable is read from the environment, a blank value takes the default, and
+the key cannot be changed that way. Nothing is written back to the
+environment or anywhere else, so a change lasts only as long as whoever
+holds the settings it returns.
+
 ``load_data_places`` reads where the program keeps its data: the folder
 named by ``LEDGER_HAND_DATA_DIR``, or ``data`` in the current working
 directory when it is not set. The book (the SQLite file of saved trades) and
@@ -19,17 +26,20 @@ the model settings' prefix, so it is not one of them, and the other
 ``LEDGER_HAND_`` variables the scripts read are left alone as before. Reading
 it makes nothing: the folders are made by whatever first writes there.
 
-Every default is a named constant below, with the reason for its value. Tests
-compare against these names, never against the numbers, so a default is
-tuned here and nowhere else.
+Every default is a named constant below. Tests compare against these
+names, never against the numbers, so a default is tuned here and nowhere
+else. What each variable sets and the reason for its default are kept as
+data, in ``ABOUT``, and only there: the settings page and the README's table
+of settings show them as written there.
 
 This module only reads and checks settings. It does not talk to the model,
 store anything or know about the other parts of the package.
 
 Names defined here: ``ENV_PREFIX``, ``Variable``, the ``DEFAULT_...``
 constants, ``MAX_RETRIES``, ``Secret``, ``SettingsError``, ``ModelSettings``,
-``load_model_settings``, ``DATA_DIRECTORY_VARIABLE``, ``BOOK_FILE_NAME``,
-``EXPORTS_DIRECTORY_NAME``, ``DataPlaces`` and ``load_data_places``.
+``About``, ``ABOUT``, ``load_model_settings``, ``apply_changes``,
+``DATA_DIRECTORY_VARIABLE``, ``BOOK_FILE_NAME``, ``EXPORTS_DIRECTORY_NAME``,
+``DataPlaces`` and ``load_data_places``.
 """
 
 from __future__ import annotations
@@ -39,8 +49,9 @@ import math
 import os
 import re
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
+from types import MappingProxyType
 from urllib.parse import urlsplit
 
 ENV_PREFIX = "LEDGER_HAND_MODEL_"
@@ -62,45 +73,19 @@ class Variable(enum.Enum):
     QUESTION_TEMPERATURE = ENV_PREFIX + "QUESTION_TEMPERATURE"
 
 
-# Ollama's own address on this machine: the model runs locally by default.
+# The defaults. The reason for each is in ``ABOUT`` below, and only there.
 DEFAULT_BASE_URL = "http://127.0.0.1:11434"
-# The model the project was built and measured with.
 DEFAULT_MODEL = "qwen2.5:7b"
-# Extraction has to give the same answer to the same text, so the model
-# always takes its likeliest word.
 DEFAULT_TEMPERATURE = 0.0
-# Keeps every word in play, so the temperature alone says how adventurous the
-# model is. At temperature 0 it changes nothing.
 DEFAULT_TOP_P = 1.0
-# Room for a JSON list of about ten trades. A reply that reaches it is marked
-# as cut off rather than passed on as if it were whole.
 DEFAULT_MAX_REPLY_TOKENS = 1024
-# Ollama's own default (2048 or 4096, depending on the version) is too short
-# for a prompt with examples and a schema, and Ollama drops the start of a
-# prompt that does not fit, without an error. qwen2.5:7b reads up to 32768;
-# a longer window costs memory. Measured with qwen2.5:7b: the first prompt
-# with its examples is about 1,750 tokens, and Chinese text about 0.7 tokens
-# a character (English about 0.3). So the longest passage the ledger keeps,
-# 16,384 characters of Chinese, comes to about 11,600 tokens; with the prompt
-# and a full reply that is about 14,400, which leaves some 2,000 to spare.
 DEFAULT_CONTEXT_TOKENS = 16384
-# Leaves room for loading the model into memory on the first call (a cold
-# start takes seconds to tens of seconds) and then writing a full-length reply.
 DEFAULT_TIMEOUT_SECONDS = 120.0
-# Retries after the first try, for the failures that may pass on their own
-# (timed out, rate limited, server error): three tries in all.
 DEFAULT_RETRIES = 2
-# The wait before the first retry; each later wait is twice the one before.
 DEFAULT_RETRY_WAIT_SECONDS = 1.0
+DEFAULT_QUESTION_TEMPERATURE = 0.7
 # The most retries a setting may ask for, so that the waits stay finite.
 MAX_RETRIES = 10
-# Wording a follow-up question is the one call where some variety reads more
-# naturally than the same sentence every time. What is asked, and every fact
-# the question may use, are fixed by the program before the model writes,
-# and a sentence that strays is replaced by the program's own; so a higher
-# temperature changes only the wording. Judging a passage, extraction and
-# reading an answer keep the temperature above, which is 0 by default.
-DEFAULT_QUESTION_TEMPERATURE = 0.7
 
 _WHOLE_NUMBER = re.compile(r"[0-9]{1,9}")
 _PLAIN_NUMBER = re.compile(r"[0-9]{1,9}(?:\.[0-9]{1,9})?")
@@ -189,53 +174,166 @@ class ModelSettings:
         )
 
 
+@dataclass(frozen=True)
+class About:
+    """One variable: the ``ModelSettings`` field it sets, what it sets, and why its default."""
+
+    field: str
+    sets: str
+    reason: str
+
+
+ABOUT: Mapping[Variable, About] = MappingProxyType(
+    {
+        Variable.URL: About(
+            "base_url",
+            "Where the model server is: an http or https address, with no user name, "
+            "password, query or fragment.",
+            "Ollama's own address on this machine, so by default the model runs locally "
+            "and nothing that is typed leaves the machine.",
+        ),
+        Variable.NAME: About(
+            "model",
+            "Which model to ask.",
+            "The model the program was built and measured with.",
+        ),
+        Variable.KEY: About(
+            "api_key",
+            "A key, sent as a bearer token, for a server that needs one. Never shown, "
+            "and set in the environment only.",
+            "None: the local Ollama needs no key.",
+        ),
+        Variable.TEMPERATURE: About(
+            "temperature",
+            "How adventurous the model is when it judges a passage, extracts the trades "
+            "and reads an answer. 0 or more.",
+            "Extraction has to give the same answer to the same text, so the model "
+            "always takes its likeliest word.",
+        ),
+        Variable.TOP_P: About(
+            "top_p",
+            "Keeps only the likeliest words whose chances add up to this. Above 0, at most 1.",
+            "Keeps every word in play, so the temperature alone says how adventurous the "
+            "model is; at temperature 0 it changes nothing.",
+        ),
+        Variable.MAX_REPLY_TOKENS: About(
+            "max_reply_tokens",
+            "The longest reply, in tokens, the pieces of words a model counts in. "
+            "A whole number, 1 or more.",
+            "Room for a JSON list of about ten trades. A reply that reaches it is marked "
+            "as cut off rather than passed on as if it were whole.",
+        ),
+        Variable.CONTEXT_TOKENS: About(
+            "context_tokens",
+            "How much the model reads at once, in tokens. A whole number, 1 or more.",
+            "Ollama's own default (2048 or 4096, depending on the version) is too short "
+            "for a prompt with examples and a schema, and Ollama drops the start of a "
+            "prompt that does not fit, without an error. Measured with qwen2.5:7b, which "
+            "reads up to 32768: the first prompt with its examples is about 1,750 tokens, "
+            "and the longest passage the ledger keeps, 16,384 characters of Chinese, about "
+            "11,600 (English text takes fewer). With a full reply that is about 14,400, "
+            "which leaves some 2,000 to spare; a longer window costs memory.",
+        ),
+        Variable.TIMEOUT_SECONDS: About(
+            "timeout_seconds",
+            "How long to wait for the whole reply, in seconds. Above 0. Not sent to the model.",
+            "Leaves room for loading the model into memory on the first call (a cold start "
+            "takes seconds to tens of seconds) and then writing a full-length reply.",
+        ),
+        Variable.RETRIES: About(
+            "retries",
+            "How many times a call that timed out, was rate limited or met a server error "
+            f"is tried again. 0 to {MAX_RETRIES}.",
+            "Three tries in all, for the failures that may pass on their own, without "
+            "keeping the person waiting for long.",
+        ),
+        Variable.RETRY_WAIT_SECONDS: About(
+            "retry_wait_seconds",
+            "The wait before the first retry, in seconds; each later wait is twice the one "
+            "before. 0 or more.",
+            "A second gives a busy server a moment to recover, and with each wait twice "
+            "the one before, two retries add three seconds at most.",
+        ),
+        Variable.QUESTION_TEMPERATURE: About(
+            "question_temperature",
+            "The temperature for wording a follow-up question. 0 or more.",
+            "Wording a follow-up question is the one call where some variety reads more "
+            "naturally than the same sentence every time. What is asked, and every fact "
+            "the question may use, are fixed by the program before the model writes, and "
+            "a sentence that strays is replaced by the program's own, so a higher "
+            "temperature changes only the wording. Judging a passage, extraction and "
+            f"reading an answer keep {Variable.TEMPERATURE.value}, 0 by default.",
+        ),
+    }
+)
+
+
 def load_model_settings(environ: Mapping[str, str] | None = None) -> ModelSettings:
     """The model settings from ``environ``, or from the process's environment when ``None``."""
     source = os.environ if environ is None else environ
     _refuse_unknown_variables(source)
     given = {variable: _given(source, variable) for variable in Variable}
-    key = given[Variable.KEY]
     return ModelSettings(
-        base_url=_or(given[Variable.URL], DEFAULT_BASE_URL, _strip_trailing_slash),
-        model=_or(given[Variable.NAME], DEFAULT_MODEL, str),
-        api_key=None if key is None else Secret(key),
-        temperature=_or(
-            given[Variable.TEMPERATURE], DEFAULT_TEMPERATURE, _number(Variable.TEMPERATURE)
-        ),
-        top_p=_or(given[Variable.TOP_P], DEFAULT_TOP_P, _number(Variable.TOP_P)),
-        max_reply_tokens=_or(
-            given[Variable.MAX_REPLY_TOKENS],
-            DEFAULT_MAX_REPLY_TOKENS,
-            _whole(Variable.MAX_REPLY_TOKENS),
-        ),
-        context_tokens=_or(
-            given[Variable.CONTEXT_TOKENS], DEFAULT_CONTEXT_TOKENS, _whole(Variable.CONTEXT_TOKENS)
-        ),
-        timeout_seconds=_or(
-            given[Variable.TIMEOUT_SECONDS],
-            DEFAULT_TIMEOUT_SECONDS,
-            _number(Variable.TIMEOUT_SECONDS),
-        ),
-        retries=_or(given[Variable.RETRIES], DEFAULT_RETRIES, _whole(Variable.RETRIES)),
-        retry_wait_seconds=_or(
-            given[Variable.RETRY_WAIT_SECONDS],
-            DEFAULT_RETRY_WAIT_SECONDS,
-            _number(Variable.RETRY_WAIT_SECONDS),
-        ),
-        question_temperature=_or(
-            given[Variable.QUESTION_TEMPERATURE],
-            DEFAULT_QUESTION_TEMPERATURE,
-            _number(Variable.QUESTION_TEMPERATURE),
-        ),
+        **{
+            ABOUT[variable].field: _read(variable, text)
+            for variable, text in given.items()
+            if text is not None
+        }
     )
+
+
+def apply_changes(settings: ModelSettings, changes: Mapping[Variable, str]) -> ModelSettings:
+    """``settings`` with ``changes`` put in, each read and checked as the environment's would be.
+
+    A value of nothing but blanks takes the variable's default, as an empty
+    environment variable does. The key cannot be changed this way. A value
+    in the wrong form or out of range raises ``SettingsError``, naming the
+    variable and its rule; ``settings`` itself never changes.
+    """
+    if not isinstance(settings, ModelSettings):
+        raise TypeError(f"settings must be ModelSettings, not {type(settings).__name__}")
+    values: dict[str, object] = {}
+    for variable, text in changes.items():
+        if not isinstance(variable, Variable):
+            raise SettingsError(f"unknown setting {variable!r}; the known ones are {_known()}")
+        if variable is Variable.KEY:
+            raise SettingsError(
+                f"{Variable.KEY.value}: the key is set in the environment only; "
+                "it cannot be changed here"
+            )
+        if not isinstance(text, str):
+            raise SettingsError(f"{variable.value}: a value is text, not {type(text).__name__}")
+        field = ABOUT[variable].field
+        given = text.strip()
+        values[field] = getattr(_DEFAULTS, field) if not given else _read(variable, given)
+    return replace(settings, **values)
+
+
+def _known() -> str:
+    return ", ".join(sorted(variable.value for variable in Variable))
+
+
+def _read(variable: Variable, text: str) -> object:
+    """``text``, already stripped and not empty, read as ``variable``'s value; not yet checked."""
+    if variable is Variable.URL:
+        return _strip_trailing_slash(text)
+    if variable is Variable.NAME:
+        return text
+    if variable is Variable.KEY:
+        return Secret(text)
+    if variable in _WHOLE_VARIABLES:
+        return _whole(variable)(text)
+    return _number(variable)(text)
+
+
+_WHOLE_VARIABLES = frozenset({Variable.MAX_REPLY_TOKENS, Variable.CONTEXT_TOKENS, Variable.RETRIES})
 
 
 def _refuse_unknown_variables(source: Mapping[str, str]) -> None:
     known = {variable.value for variable in Variable}
     unknown = sorted(name for name in source if name.startswith(ENV_PREFIX) and name not in known)
     if unknown:
-        listed = ", ".join(sorted(known))
-        raise SettingsError(f"unknown setting {', '.join(unknown)}; the known ones are {listed}")
+        raise SettingsError(f"unknown setting {', '.join(unknown)}; the known ones are {_known()}")
 
 
 def _given(source: Mapping[str, str], variable: Variable) -> str | None:
@@ -244,10 +342,6 @@ def _given(source: Mapping[str, str], variable: Variable) -> str | None:
     if value is None or not value.strip():
         return None
     return value.strip()
-
-
-def _or[T](text: str | None, default: T, convert: Callable[[str], T]) -> T:
-    return default if text is None else convert(text)
 
 
 def _strip_trailing_slash(text: str) -> str:
@@ -342,6 +436,11 @@ def _check_whole(
         raise SettingsError(
             f"{variable.value}: {value} is out of range; it must be {lowest} or more{top}"
         )
+
+
+# What a blank value on the settings page stands for, as a blank variable does.
+# Made last, once every check it runs is defined.
+_DEFAULTS = ModelSettings()
 
 
 # --- where the data is kept --------------------------------------------------

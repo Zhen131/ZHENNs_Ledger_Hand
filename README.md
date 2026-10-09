@@ -649,23 +649,26 @@ or out of range stops the program with a message that names the variable,
 and so does a variable that starts with `LEDGER_HAND_MODEL_` but is not one
 of these, because a misspelt name would otherwise be ignored without a word.
 
-| Variable | Default | What it sets |
-| --- | --- | --- |
-| `LEDGER_HAND_MODEL_URL` | `http://127.0.0.1:11434` | Where the model server is: Ollama on this machine. An `http` or `https` address, with no user name, password, query or fragment. |
-| `LEDGER_HAND_MODEL_NAME` | `qwen2.5:7b` | Which model to ask. |
-| `LEDGER_HAND_MODEL_KEY` | (none) | A key, sent as a bearer token, for a server that needs one. The local Ollama does not. Never printed. |
-| `LEDGER_HAND_MODEL_TEMPERATURE` | `0` | How adventurous the model is; 0 gives the same answer to the same text, which extraction needs. 0 or more. |
-| `LEDGER_HAND_MODEL_TOP_P` | `1` | Keeps only the likeliest words whose chances add up to this; 1 keeps all of them, so the temperature alone decides. Above 0, at most 1. |
-| `LEDGER_HAND_MODEL_MAX_REPLY_TOKENS` | `1024` | The longest reply, in tokens; room for a JSON list of about ten trades. A reply that reaches it is marked as cut off. |
-| `LEDGER_HAND_MODEL_CONTEXT_TOKENS` | `16384` | How much the model reads at once, in tokens: room for the extraction prompt (about 1,750 tokens with qwen2.5:7b), the longest passage the ledger keeps and a full reply. Ollama's own default is shorter, and it drops the start of a prompt that does not fit without saying so. |
-| `LEDGER_HAND_MODEL_TIMEOUT_SECONDS` | `120` | How long to wait for the whole reply. Leaves room for loading the model on the first call. Not sent to the model. |
-| `LEDGER_HAND_MODEL_RETRIES` | `2` | How many times a call that timed out, was rate limited or met a server error is tried again. 0 to 10. |
-| `LEDGER_HAND_MODEL_RETRY_WAIT_SECONDS` | `1` | The wait before the first retry; each later wait is twice the one before. |
-| `LEDGER_HAND_MODEL_QUESTION_TEMPERATURE` | `0.7` | The temperature for wording a follow-up question, the one call where some variety reads better than the same sentence every time. What is asked, and every fact the question may use, are the program's, and a sentence that strays is replaced by the program's own, so only the wording changes. Judging a passage, extraction and reading an answer use `LEDGER_HAND_MODEL_TEMPERATURE`. 0 or more. |
+| Variable | Default | What it sets | Why this default |
+| --- | --- | --- | --- |
+| `LEDGER_HAND_MODEL_URL` | `http://127.0.0.1:11434` | Where the model server is: an http or https address, with no user name, password, query or fragment. | Ollama's own address on this machine, so by default the model runs locally and nothing that is typed leaves the machine. |
+| `LEDGER_HAND_MODEL_NAME` | `qwen2.5:7b` | Which model to ask. | The model the program was built and measured with. |
+| `LEDGER_HAND_MODEL_KEY` | (none) | A key, sent as a bearer token, for a server that needs one. Never shown, and set in the environment only. | None: the local Ollama needs no key. |
+| `LEDGER_HAND_MODEL_TEMPERATURE` | `0` | How adventurous the model is when it judges a passage, extracts the trades and reads an answer. 0 or more. | Extraction has to give the same answer to the same text, so the model always takes its likeliest word. |
+| `LEDGER_HAND_MODEL_TOP_P` | `1` | Keeps only the likeliest words whose chances add up to this. Above 0, at most 1. | Keeps every word in play, so the temperature alone says how adventurous the model is; at temperature 0 it changes nothing. |
+| `LEDGER_HAND_MODEL_MAX_REPLY_TOKENS` | `1024` | The longest reply, in tokens, the pieces of words a model counts in. A whole number, 1 or more. | Room for a JSON list of about ten trades. A reply that reaches it is marked as cut off rather than passed on as if it were whole. |
+| `LEDGER_HAND_MODEL_CONTEXT_TOKENS` | `16384` | How much the model reads at once, in tokens. A whole number, 1 or more. | Ollama's own default (2048 or 4096, depending on the version) is too short for a prompt with examples and a schema, and Ollama drops the start of a prompt that does not fit, without an error. Measured with qwen2.5:7b, which reads up to 32768: the first prompt with its examples is about 1,750 tokens, and the longest passage the ledger keeps, 16,384 characters of Chinese, about 11,600 (English text takes fewer). With a full reply that is about 14,400, which leaves some 2,000 to spare; a longer window costs memory. |
+| `LEDGER_HAND_MODEL_TIMEOUT_SECONDS` | `120` | How long to wait for the whole reply, in seconds. Above 0. Not sent to the model. | Leaves room for loading the model into memory on the first call (a cold start takes seconds to tens of seconds) and then writing a full-length reply. |
+| `LEDGER_HAND_MODEL_RETRIES` | `2` | How many times a call that timed out, was rate limited or met a server error is tried again. 0 to 10. | Three tries in all, for the failures that may pass on their own, without keeping the person waiting for long. |
+| `LEDGER_HAND_MODEL_RETRY_WAIT_SECONDS` | `1` | The wait before the first retry, in seconds; each later wait is twice the one before. 0 or more. | A second gives a busy server a moment to recover, and with each wait twice the one before, two retries add three seconds at most. |
+| `LEDGER_HAND_MODEL_QUESTION_TEMPERATURE` | `0.7` | The temperature for wording a follow-up question. 0 or more. | Wording a follow-up question is the one call where some variety reads more naturally than the same sentence every time. What is asked, and every fact the question may use, are fixed by the program before the model writes, and a sentence that strays is replaced by the program's own, so a higher temperature changes only the wording. Judging a passage, extraction and reading an answer keep LEDGER_HAND_MODEL_TEMPERATURE, 0 by default. |
 
 Numbers are written with plain digits and at most one point (`0.7`, `45`),
 with no sign or exponent. The defaults are named constants in
-`src/ledger_hand/settings.py`, each with the reason for its value.
+`src/ledger_hand/settings.py`. What each variable sets and why its default
+is what it is are kept there once, as data (`ABOUT`); this table and the
+interface's settings page show them as written there, and a test checks
+this table against them.
 
 The time allowed is counted from sending. Connecting, sending and each wait
 for the next piece of the reply are each cut off at the time allowed, and a
