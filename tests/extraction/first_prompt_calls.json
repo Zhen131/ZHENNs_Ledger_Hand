@@ -1,0 +1,1882 @@
+{
+  "prompt": "first",
+  "extractions": [
+    {
+      "passage": "今天上午 10 点在 OKX 买了 0.3 ETH，3,150 一个，手续费 0.5U",
+      "asks_again": 1,
+      "calls": [
+        {
+          "messages": [
+            {
+              "role": "system",
+              "content": "You copy the details of crypto spot trades out of a short passage that one person wrote about their own trades. You never calculate, convert, translate, correct or guess anything.\n\nReply with one JSON object: {\"trades\": [...]}, with one row for each trade the passage mentions. If it mentions no trade, reply {\"trades\": []}.\n\nEvery row has the same eleven fields. \"side\" is \"buy\" when the coin was bought (bought, buy, 买, 买入, 加仓), \"sell\" when it was sold (sold, sell, 卖, 卖出, 止盈, 清仓), and \"\" when the passage does not say. Every other field holds a piece of the passage copied character for character, or \"\" when the passage does not say it:\n\n- coin: the coin bought or sold, as the passage calls it.\n- quantity: how much of the coin: the number, with the unit written right after it if there is one.\n- price: the price of one coin: the number, with the currency sign or word written right next to it if there is one.\n- total: the whole amount paid or received, without the fee: the number, with the currency sign or word written right next to it if there is one.\n- price_currency: the currency of the price or total, only when the passage names it apart from those numbers.\n- fee: the fee: the number, with the currency word written right after it if there is one.\n- fee_currency: the currency the fee was paid in, only when the passage names it apart from the fee's number.\n- time: when the trade happened: only the words that say the day and the time, in the passage's own words (\"last night\", \"昨天晚上 9 点 40\", \"Oct 2 at 14:05\").\n- platform: the exchange or app the trade was made on.\n- opinion: the person's own view, reason or feeling about the trade.\n\nRules:\n1. Copy, never rewrite. Keep every digit, comma, point, letter, unit and word exactly as the passage writes it. Never translate: what you copy from English words stays English, and what you copy from Chinese words stays Chinese. Do not turn Chinese numbers into digits or digits into words, and never drop a \"k\", a \"w\" or a \"万\" from a number.\n2. Leave a field \"\" when the passage does not say it. Never fill in a market price, a date, a fee or a currency the passage does not write.\n3. Each field is one unbroken piece of the passage.\n4. A detail said once for several trades, such as the day, the exchange or a shared fee, is copied into each of those rows.\n5. Each row holds only what belongs to its own trade. Two coins, or two separate buys or sells, are two rows.\n"
+            },
+            {
+              "role": "user",
+              "content": "昨天晚上 9 点 40 在币安买了 0.02 个比特币，价格 61,250，手续费 1.2 USDT，感觉还会涨"
+            },
+            {
+              "role": "assistant",
+              "content": "{\"trades\": [{\"side\": \"buy\", \"coin\": \"比特币\", \"quantity\": \"0.02 个比特币\", \"price\": \"61,250\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"1.2 USDT\", \"fee_currency\": \"\", \"time\": \"昨天晚上 9 点 40\", \"platform\": \"币安\", \"opinion\": \"感觉还会涨\"}]}"
+            },
+            {
+              "role": "user",
+              "content": "Sold 150 SOL at 182.4 on Kraken last night, taking some profit"
+            },
+            {
+              "role": "assistant",
+              "content": "{\"trades\": [{\"side\": \"sell\", \"coin\": \"SOL\", \"quantity\": \"150 SOL\", \"price\": \"182.4\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"\", \"fee_currency\": \"\", \"time\": \"last night\", \"platform\": \"Kraken\", \"opinion\": \"taking some profit\"}]}"
+            },
+            {
+              "role": "user",
+              "content": "今天下午 3 点 buy 了 2 ETH @ 3,420 USDT，fee 付的 BNB 0.004"
+            },
+            {
+              "role": "assistant",
+              "content": "{\"trades\": [{\"side\": \"buy\", \"coin\": \"ETH\", \"quantity\": \"2 ETH\", \"price\": \"3,420 USDT\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"0.004\", \"fee_currency\": \"BNB\", \"time\": \"今天下午 3 点\", \"platform\": \"\", \"opinion\": \"\"}]}"
+            },
+            {
+              "role": "user",
+              "content": "昨天在 OKX 先买了 0.5 ETH，价格 3,380，又买了 200 个 ARB，0.92 一个，两笔手续费都是 0.1U"
+            },
+            {
+              "role": "assistant",
+              "content": "{\"trades\": [{\"side\": \"buy\", \"coin\": \"ETH\", \"quantity\": \"0.5 ETH\", \"price\": \"3,380\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"0.1U\", \"fee_currency\": \"\", \"time\": \"昨天\", \"platform\": \"OKX\", \"opinion\": \"\"}, {\"side\": \"buy\", \"coin\": \"ARB\", \"quantity\": \"200 个 ARB\", \"price\": \"0.92\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"0.1U\", \"fee_currency\": \"\", \"time\": \"昨天\", \"platform\": \"OKX\", \"opinion\": \"\"}]}"
+            },
+            {
+              "role": "user",
+              "content": "Swapped out of LINK today: sold 40 LINK at 14.6, then bought 0.25 ETH at 2,340"
+            },
+            {
+              "role": "assistant",
+              "content": "{\"trades\": [{\"side\": \"sell\", \"coin\": \"LINK\", \"quantity\": \"40 LINK\", \"price\": \"14.6\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"\", \"fee_currency\": \"\", \"time\": \"today\", \"platform\": \"\", \"opinion\": \"\"}, {\"side\": \"buy\", \"coin\": \"ETH\", \"quantity\": \"0.25 ETH\", \"price\": \"2,340\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"\", \"fee_currency\": \"\", \"time\": \"today\", \"platform\": \"\", \"opinion\": \"\"}]}"
+            },
+            {
+              "role": "user",
+              "content": "今天行情好无聊，啥也没做，晚上看会儿书"
+            },
+            {
+              "role": "assistant",
+              "content": "{\"trades\": []}"
+            },
+            {
+              "role": "user",
+              "content": "BTC touched 70k this morning, crazy. Not touching it."
+            },
+            {
+              "role": "assistant",
+              "content": "{\"trades\": []}"
+            },
+            {
+              "role": "user",
+              "content": "买了点大饼"
+            },
+            {
+              "role": "assistant",
+              "content": "{\"trades\": [{\"side\": \"buy\", \"coin\": \"大饼\", \"quantity\": \"\", \"price\": \"\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"\", \"fee_currency\": \"\", \"time\": \"\", \"platform\": \"\", \"opinion\": \"\"}]}"
+            },
+            {
+              "role": "user",
+              "content": "Bought DOGE for 500 USDT in total on Oct 2, fee was 3 DOGE"
+            },
+            {
+              "role": "assistant",
+              "content": "{\"trades\": [{\"side\": \"buy\", \"coin\": \"DOGE\", \"quantity\": \"\", \"price\": \"\", \"total\": \"500 USDT\", \"price_currency\": \"\", \"fee\": \"3 DOGE\", \"fee_currency\": \"\", \"time\": \"Oct 2\", \"platform\": \"\", \"opinion\": \"\"}]}"
+            },
+            {
+              "role": "user",
+              "content": "刚才 sold 0.3 BTC，止盈一部分，at 67.2k"
+            },
+            {
+              "role": "assistant",
+              "content": "{\"trades\": [{\"side\": \"sell\", \"coin\": \"BTC\", \"quantity\": \"0.3 BTC\", \"price\": \"67.2k\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"\", \"fee_currency\": \"\", \"time\": \"刚才\", \"platform\": \"\", \"opinion\": \"止盈一部分\"}]}"
+            },
+            {
+              "role": "user",
+              "content": "今天上午 10 点在 OKX 买了 0.3 ETH，3,150 一个，手续费 0.5U"
+            }
+          ],
+          "reply_schema": {
+            "type": "object",
+            "properties": {
+              "trades": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "side": {
+                      "type": "string",
+                      "enum": [
+                        "buy",
+                        "sell",
+                        ""
+                      ]
+                    },
+                    "coin": {
+                      "type": "string"
+                    },
+                    "quantity": {
+                      "type": "string"
+                    },
+                    "price": {
+                      "type": "string"
+                    },
+                    "total": {
+                      "type": "string"
+                    },
+                    "price_currency": {
+                      "type": "string"
+                    },
+                    "fee": {
+                      "type": "string"
+                    },
+                    "fee_currency": {
+                      "type": "string"
+                    },
+                    "time": {
+                      "type": "string"
+                    },
+                    "platform": {
+                      "type": "string"
+                    },
+                    "opinion": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "side",
+                    "coin",
+                    "quantity",
+                    "price",
+                    "total",
+                    "price_currency",
+                    "fee",
+                    "fee_currency",
+                    "time",
+                    "platform",
+                    "opinion"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "trades"
+            ],
+            "additionalProperties": false
+          },
+          "parameters": null
+        }
+      ]
+    },
+    {
+      "passage": "Sold 2,000 ADA at 0.41 yesterday on Kraken",
+      "asks_again": 1,
+      "calls": [
+        {
+          "messages": [
+            {
+              "role": "system",
+              "content": "You copy the details of crypto spot trades out of a short passage that one person wrote about their own trades. You never calculate, convert, translate, correct or guess anything.\n\nReply with one JSON object: {\"trades\": [...]}, with one row for each trade the passage mentions. If it mentions no trade, reply {\"trades\": []}.\n\nEvery row has the same eleven fields. \"side\" is \"buy\" when the coin was bought (bought, buy, 买, 买入, 加仓), \"sell\" when it was sold (sold, sell, 卖, 卖出, 止盈, 清仓), and \"\" when the passage does not say. Every other field holds a piece of the passage copied character for character, or \"\" when the passage does not say it:\n\n- coin: the coin bought or sold, as the passage calls it.\n- quantity: how much of the coin: the number, with the unit written right after it if there is one.\n- price: the price of one coin: the number, with the currency sign or word written right next to it if there is one.\n- total: the whole amount paid or received, without the fee: the number, with the currency sign or word written right next to it if there is one.\n- price_currency: the currency of the price or total, only when the passage names it apart from those numbers.\n- fee: the fee: the number, with the currency word written right after it if there is one.\n- fee_currency: the currency the fee was paid in, only when the passage names it apart from the fee's number.\n- time: when the trade happened: only the words that say the day and the time, in the passage's own words (\"last night\", \"昨天晚上 9 点 40\", \"Oct 2 at 14:05\").\n- platform: the exchange or app the trade was made on.\n- opinion: the person's own view, reason or feeling about the trade.\n\nRules:\n1. Copy, never rewrite. Keep every digit, comma, point, letter, unit and word exactly as the passage writes it. Never translate: what you copy from English words stays English, and what you copy from Chinese words stays Chinese. Do not turn Chinese numbers into digits or digits into words, and never drop a \"k\", a \"w\" or a \"万\" from a number.\n2. Leave a field \"\" when the passage does not say it. Never fill in a market price, a date, a fee or a currency the passage does not write.\n3. Each field is one unbroken piece of the passage.\n4. A detail said once for several trades, such as the day, the exchange or a shared fee, is copied into each of those rows.\n5. Each row holds only what belongs to its own trade. Two coins, or two separate buys or sells, are two rows.\n"
+            },
+            {
+              "role": "user",
+              "content": "昨天晚上 9 点 40 在币安买了 0.02 个比特币，价格 61,250，手续费 1.2 USDT，感觉还会涨"
+            },
+            {
+              "role": "assistant",
+              "content": "{\"trades\": [{\"side\": \"buy\", \"coin\": \"比特币\", \"quantity\": \"0.02 个比特币\", \"price\": \"61,250\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"1.2 USDT\", \"fee_currency\": \"\", \"time\": \"昨天晚上 9 点 40\", \"platform\": \"币安\", \"opinion\": \"感觉还会涨\"}]}"
+            },
+            {
+              "role": "user",
+              "content": "Sold 150 SOL at 182.4 on Kraken last night, taking some profit"
+            },
+            {
+              "role": "assistant",
+              "content": "{\"trades\": [{\"side\": \"sell\", \"coin\": \"SOL\", \"quantity\": \"150 SOL\", \"price\": \"182.4\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"\", \"fee_currency\": \"\", \"time\": \"last night\", \"platform\": \"Kraken\", \"opinion\": \"taking some profit\"}]}"
+            },
+            {
+              "role": "user",
+              "content": "今天下午 3 点 buy 了 2 ETH @ 3,420 USDT，fee 付的 BNB 0.004"
+            },
+            {
+              "role": "assistant",
+              "content": "{\"trades\": [{\"side\": \"buy\", \"coin\": \"ETH\", \"quantity\": \"2 ETH\", \"price\": \"3,420 USDT\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"0.004\", \"fee_currency\": \"BNB\", \"time\": \"今天下午 3 点\", \"platform\": \"\", \"opinion\": \"\"}]}"
+            },
+            {
+              "role": "user",
+              "content": "昨天在 OKX 先买了 0.5 ETH，价格 3,380，又买了 200 个 ARB，0.92 一个，两笔手续费都是 0.1U"
+            },
+            {
+              "role": "assistant",
+              "content": "{\"trades\": [{\"side\": \"buy\", \"coin\": \"ETH\", \"quantity\": \"0.5 ETH\", \"price\": \"3,380\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"0.1U\", \"fee_currency\": \"\", \"time\": \"昨天\", \"platform\": \"OKX\", \"opinion\": \"\"}, {\"side\": \"buy\", \"coin\": \"ARB\", \"quantity\": \"200 个 ARB\", \"price\": \"0.92\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"0.1U\", \"fee_currency\": \"\", \"time\": \"昨天\", \"platform\": \"OKX\", \"opinion\": \"\"}]}"
+            },
+            {
+              "role": "user",
+              "content": "Swapped out of LINK today: sold 40 LINK at 14.6, then bought 0.25 ETH at 2,340"
+            },
+            {
+              "role": "assistant",
+              "content": "{\"trades\": [{\"side\": \"sell\", \"coin\": \"LINK\", \"quantity\": \"40 LINK\", \"price\": \"14.6\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"\", \"fee_currency\": \"\", \"time\": \"today\", \"platform\": \"\", \"opinion\": \"\"}, {\"side\": \"buy\", \"coin\": \"ETH\", \"quantity\": \"0.25 ETH\", \"price\": \"2,340\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"\", \"fee_currency\": \"\", \"time\": \"today\", \"platform\": \"\", \"opinion\": \"\"}]}"
+            },
+            {
+              "role": "user",
+              "content": "今天行情好无聊，啥也没做，晚上看会儿书"
+            },
+            {
+              "role": "assistant",
+              "content": "{\"trades\": []}"
+            },
+            {
+              "role": "user",
+              "content": "BTC touched 70k this morning, crazy. Not touching it."
+            },
+            {
+              "role": "assistant",
+              "content": "{\"trades\": []}"
+            },
+            {
+              "role": "user",
+              "content": "买了点大饼"
+            },
+            {
+              "role": "assistant",
+              "content": "{\"trades\": [{\"side\": \"buy\", \"coin\": \"大饼\", \"quantity\": \"\", \"price\": \"\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"\", \"fee_currency\": \"\", \"time\": \"\", \"platform\": \"\", \"opinion\": \"\"}]}"
+            },
+            {
+              "role": "user",
+              "content": "Bought DOGE for 500 USDT in total on Oct 2, fee was 3 DOGE"
+            },
+            {
+              "role": "assistant",
+              "content": "{\"trades\": [{\"side\": \"buy\", \"coin\": \"DOGE\", \"quantity\": \"\", \"price\": \"\", \"total\": \"500 USDT\", \"price_currency\": \"\", \"fee\": \"3 DOGE\", \"fee_currency\": \"\", \"time\": \"Oct 2\", \"platform\": \"\", \"opinion\": \"\"}]}"
+            },
+            {
+              "role": "user",
+              "content": "刚才 sold 0.3 BTC，止盈一部分，at 67.2k"
+            },
+            {
+              "role": "assistant",
+              "content": "{\"trades\": [{\"side\": \"sell\", \"coin\": \"BTC\", \"quantity\": \"0.3 BTC\", \"price\": \"67.2k\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"\", \"fee_currency\": \"\", \"time\": \"刚才\", \"platform\": \"\", \"opinion\": \"止盈一部分\"}]}"
+            },
+            {
+              "role": "user",
+              "content": "Sold 2,000 ADA at 0.41 yesterday on Kraken"
+            }
+          ],
+          "reply_schema": {
+            "type": "object",
+            "properties": {
+              "trades": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "side": {
+                      "type": "string",
+                      "enum": [
+                        "buy",
+                        "sell",
+                        ""
+                      ]
+                    },
+                    "coin": {
+                      "type": "string"
+                    },
+                    "quantity": {
+                      "type": "string"
+                    },
+                    "price": {
+                      "type": "string"
+                    },
+                    "total": {
+                      "type": "string"
+                    },
+                    "price_currency": {
+                      "type": "string"
+                    },
+                    "fee": {
+                      "type": "string"
+                    },
+                    "fee_currency": {
+                      "type": "string"
+                    },
+                    "time": {
+                      "type": "string"
+                    },
+                    "platform": {
+                      "type": "string"
+                    },
+                    "opinion": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "side",
+                    "coin",
+                    "quantity",
+                    "price",
+                    "total",
+                    "price_currency",
+                    "fee",
+                    "fee_currency",
+                    "time",
+                    "platform",
+                    "opinion"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "trades"
+            ],
+            "additionalProperties": false
+          },
+          "parameters": null
+        },
+        {
+          "messages": [
+            {
+              "role": "system",
+              "content": "You copy the details of crypto spot trades out of a short passage that one person wrote about their own trades. You never calculate, convert, translate, correct or guess anything.\n\nReply with one JSON object: {\"trades\": [...]}, with one row for each trade the passage mentions. If it mentions no trade, reply {\"trades\": []}.\n\nEvery row has the same eleven fields. \"side\" is \"buy\" when the coin was bought (bought, buy, 买, 买入, 加仓), \"sell\" when it was sold (sold, sell, 卖, 卖出, 止盈, 清仓), and \"\" when the passage does not say. Every other field holds a piece of the passage copied character for character, or \"\" when the passage does not say it:\n\n- coin: the coin bought or sold, as the passage calls it.\n- quantity: how much of the coin: the number, with the unit written right after it if there is one.\n- price: the price of one coin: the number, with the currency sign or word written right next to it if there is one.\n- total: the whole amount paid or received, without the fee: the number, with the currency sign or word written right next to it if there is one.\n- price_currency: the currency of the price or total, only when the passage names it apart from those numbers.\n- fee: the fee: the number, with the currency word written right after it if there is one.\n- fee_currency: the currency the fee was paid in, only when the passage names it apart from the fee's number.\n- time: when the trade happened: only the words that say the day and the time, in the passage's own words (\"last night\", \"昨天晚上 9 点 40\", \"Oct 2 at 14:05\").\n- platform: the exchange or app the trade was made on.\n- opinion: the person's own view, reason or feeling about the trade.\n\nRules:\n1. Copy, never rewrite. Keep every digit, comma, point, letter, unit and word exactly as the passage writes it. Never translate: what you copy from English words stays English, and what you copy from Chinese words stays Chinese. Do not turn Chinese numbers into digits or digits into words, and never drop a \"k\", a \"w\" or a \"万\" from a number.\n2. Leave a field \"\" when the passage does not say it. Never fill in a market price, a date, a fee or a currency the passage does not write.\n3. Each field is one unbroken piece of the passage.\n4. A detail said once for several trades, such as the day, the exchange or a shared fee, is copied into each of those rows.\n5. Each row holds only what belongs to its own trade. Two coins, or two separate buys or sells, are two rows.\n"
+            },
+            {
+              "role": "user",
+              "content": "昨天晚上 9 点 40 在币安买了 0.02 个比特币，价格 61,250，手续费 1.2 USDT，感觉还会涨"
+            },
+            {
+              "role": "assistant",
+              "content": "{\"trades\": [{\"side\": \"buy\", \"coin\": \"比特币\", \"quantity\": \"0.02 个比特币\", \"price\": \"61,250\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"1.2 USDT\", \"fee_currency\": \"\", \"time\": \"昨天晚上 9 点 40\", \"platform\": \"币安\", \"opinion\": \"感觉还会涨\"}]}"
+            },
+            {
+              "role": "user",
+              "content": "Sold 150 SOL at 182.4 on Kraken last night, taking some profit"
+            },
+            {
+              "role": "assistant",
+              "content": "{\"trades\": [{\"side\": \"sell\", \"coin\": \"SOL\", \"quantity\": \"150 SOL\", \"price\": \"182.4\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"\", \"fee_currency\": \"\", \"time\": \"last night\", \"platform\": \"Kraken\", \"opinion\": \"taking some profit\"}]}"
+            },
+            {
+              "role": "user",
+              "content": "今天下午 3 点 buy 了 2 ETH @ 3,420 USDT，fee 付的 BNB 0.004"
+            },
+            {
+              "role": "assistant",
+              "content": "{\"trades\": [{\"side\": \"buy\", \"coin\": \"ETH\", \"quantity\": \"2 ETH\", \"price\": \"3,420 USDT\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"0.004\", \"fee_currency\": \"BNB\", \"time\": \"今天下午 3 点\", \"platform\": \"\", \"opinion\": \"\"}]}"
+            },
+            {
+              "role": "user",
+              "content": "昨天在 OKX 先买了 0.5 ETH，价格 3,380，又买了 200 个 ARB，0.92 一个，两笔手续费都是 0.1U"
+            },
+            {
+              "role": "assistant",
+              "content": "{\"trades\": [{\"side\": \"buy\", \"coin\": \"ETH\", \"quantity\": \"0.5 ETH\", \"price\": \"3,380\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"0.1U\", \"fee_currency\": \"\", \"time\": \"昨天\", \"platform\": \"OKX\", \"opinion\": \"\"}, {\"side\": \"buy\", \"coin\": \"ARB\", \"quantity\": \"200 个 ARB\", \"price\": \"0.92\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"0.1U\", \"fee_currency\": \"\", \"time\": \"昨天\", \"platform\": \"OKX\", \"opinion\": \"\"}]}"
+            },
+            {
+              "role": "user",
+              "content": "Swapped out of LINK today: sold 40 LINK at 14.6, then bought 0.25 ETH at 2,340"
+            },
+            {
+              "role": "assistant",
+              "content": "{\"trades\": [{\"side\": \"sell\", \"coin\": \"LINK\", \"quantity\": \"40 LINK\", \"price\": \"14.6\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"\", \"fee_currency\": \"\", \"time\": \"today\", \"platform\": \"\", \"opinion\": \"\"}, {\"side\": \"buy\", \"coin\": \"ETH\", \"quantity\": \"0.25 ETH\", \"price\": \"2,340\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"\", \"fee_currency\": \"\", \"time\": \"today\", \"platform\": \"\", \"opinion\": \"\"}]}"
+            },
+            {
+              "role": "user",
+              "content": "今天行情好无聊，啥也没做，晚上看会儿书"
+            },
+            {
+              "role": "assistant",
+              "content": "{\"trades\": []}"
+            },
+            {
+              "role": "user",
+              "content": "BTC touched 70k this morning, crazy. Not touching it."
+            },
+            {
+              "role": "assistant",
+              "content": "{\"trades\": []}"
+            },
+            {
+              "role": "user",
+              "content": "买了点大饼"
+            },
+            {
+              "role": "assistant",
+              "content": "{\"trades\": [{\"side\": \"buy\", \"coin\": \"大饼\", \"quantity\": \"\", \"price\": \"\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"\", \"fee_currency\": \"\", \"time\": \"\", \"platform\": \"\", \"opinion\": \"\"}]}"
+            },
+            {
+              "role": "user",
+              "content": "Bought DOGE for 500 USDT in total on Oct 2, fee was 3 DOGE"
+            },
+            {
+              "role": "assistant",
+              "content": "{\"trades\": [{\"side\": \"buy\", \"coin\": \"DOGE\", \"quantity\": \"\", \"price\": \"\", \"total\": \"500 USDT\", \"price_currency\": \"\", \"fee\": \"3 DOGE\", \"fee_currency\": \"\", \"time\": \"Oct 2\", \"platform\": \"\", \"opinion\": \"\"}]}"
+            },
+            {
+              "role": "user",
+              "content": "刚才 sold 0.3 BTC，止盈一部分，at 67.2k"
+            },
+            {
+              "role": "assistant",
+              "content": "{\"trades\": [{\"side\": \"sell\", \"coin\": \"BTC\", \"quantity\": \"0.3 BTC\", \"price\": \"67.2k\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"\", \"fee_currency\": \"\", \"time\": \"刚才\", \"platform\": \"\", \"opinion\": \"止盈一部分\"}]}"
+            },
+            {
+              "role": "user",
+              "content": "Sold 2,000 ADA at 0.41 yesterday on Kraken"
+            },
+            {
+              "role": "user",
+              "content": "Your last answer could not be used: the reply is not valid JSON. Answer again with only the JSON object {\"trades\": [...]}, following the rules above."
+            }
+          ],
+          "reply_schema": {
+            "type": "object",
+            "properties": {
+              "trades": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "side": {
+                      "type": "string",
+                      "enum": [
+                        "buy",
+                        "sell",
+                        ""
+                      ]
+                    },
+                    "coin": {
+                      "type": "string"
+                    },
+                    "quantity": {
+                      "type": "string"
+                    },
+                    "price": {
+                      "type": "string"
+                    },
+                    "total": {
+                      "type": "string"
+                    },
+                    "price_currency": {
+                      "type": "string"
+                    },
+                    "fee": {
+                      "type": "string"
+                    },
+                    "fee_currency": {
+                      "type": "string"
+                    },
+                    "time": {
+                      "type": "string"
+                    },
+                    "platform": {
+                      "type": "string"
+                    },
+                    "opinion": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "side",
+                    "coin",
+                    "quantity",
+                    "price",
+                    "total",
+                    "price_currency",
+                    "fee",
+                    "fee_currency",
+                    "time",
+                    "platform",
+                    "opinion"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "trades"
+            ],
+            "additionalProperties": false
+          },
+          "parameters": null
+        }
+      ]
+    },
+    {
+      "passage": "刚 buy 了 50 个 SOL，at 141.2",
+      "asks_again": 2,
+      "calls": [
+        {
+          "messages": [
+            {
+              "role": "system",
+              "content": "You copy the details of crypto spot trades out of a short passage that one person wrote about their own trades. You never calculate, convert, translate, correct or guess anything.\n\nReply with one JSON object: {\"trades\": [...]}, with one row for each trade the passage mentions. If it mentions no trade, reply {\"trades\": []}.\n\nEvery row has the same eleven fields. \"side\" is \"buy\" when the coin was bought (bought, buy, 买, 买入, 加仓), \"sell\" when it was sold (sold, sell, 卖, 卖出, 止盈, 清仓), and \"\" when the passage does not say. Every other field holds a piece of the passage copied character for character, or \"\" when the passage does not say it:\n\n- coin: the coin bought or sold, as the passage calls it.\n- quantity: how much of the coin: the number, with the unit written right after it if there is one.\n- price: the price of one coin: the number, with the currency sign or word written right next to it if there is one.\n- total: the whole amount paid or received, without the fee: the number, with the currency sign or word written right next to it if there is one.\n- price_currency: the currency of the price or total, only when the passage names it apart from those numbers.\n- fee: the fee: the number, with the currency word written right after it if there is one.\n- fee_currency: the currency the fee was paid in, only when the passage names it apart from the fee's number.\n- time: when the trade happened: only the words that say the day and the time, in the passage's own words (\"last night\", \"昨天晚上 9 点 40\", \"Oct 2 at 14:05\").\n- platform: the exchange or app the trade was made on.\n- opinion: the person's own view, reason or feeling about the trade.\n\nRules:\n1. Copy, never rewrite. Keep every digit, comma, point, letter, unit and word exactly as the passage writes it. Never translate: what you copy from English words stays English, and what you copy from Chinese words stays Chinese. Do not turn Chinese numbers into digits or digits into words, and never drop a \"k\", a \"w\" or a \"万\" from a number.\n2. Leave a field \"\" when the passage does not say it. Never fill in a market price, a date, a fee or a currency the passage does not write.\n3. Each field is one unbroken piece of the passage.\n4. A detail said once for several trades, such as the day, the exchange or a shared fee, is copied into each of those rows.\n5. Each row holds only what belongs to its own trade. Two coins, or two separate buys or sells, are two rows.\n"
+            },
+            {
+              "role": "user",
+              "content": "昨天晚上 9 点 40 在币安买了 0.02 个比特币，价格 61,250，手续费 1.2 USDT，感觉还会涨"
+            },
+            {
+              "role": "assistant",
+              "content": "{\"trades\": [{\"side\": \"buy\", \"coin\": \"比特币\", \"quantity\": \"0.02 个比特币\", \"price\": \"61,250\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"1.2 USDT\", \"fee_currency\": \"\", \"time\": \"昨天晚上 9 点 40\", \"platform\": \"币安\", \"opinion\": \"感觉还会涨\"}]}"
+            },
+            {
+              "role": "user",
+              "content": "Sold 150 SOL at 182.4 on Kraken last night, taking some profit"
+            },
+            {
+              "role": "assistant",
+              "content": "{\"trades\": [{\"side\": \"sell\", \"coin\": \"SOL\", \"quantity\": \"150 SOL\", \"price\": \"182.4\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"\", \"fee_currency\": \"\", \"time\": \"last night\", \"platform\": \"Kraken\", \"opinion\": \"taking some profit\"}]}"
+            },
+            {
+              "role": "user",
+              "content": "今天下午 3 点 buy 了 2 ETH @ 3,420 USDT，fee 付的 BNB 0.004"
+            },
+            {
+              "role": "assistant",
+              "content": "{\"trades\": [{\"side\": \"buy\", \"coin\": \"ETH\", \"quantity\": \"2 ETH\", \"price\": \"3,420 USDT\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"0.004\", \"fee_currency\": \"BNB\", \"time\": \"今天下午 3 点\", \"platform\": \"\", \"opinion\": \"\"}]}"
+            },
+            {
+              "role": "user",
+              "content": "昨天在 OKX 先买了 0.5 ETH，价格 3,380，又买了 200 个 ARB，0.92 一个，两笔手续费都是 0.1U"
+            },
+            {
+              "role": "assistant",
+              "content": "{\"trades\": [{\"side\": \"buy\", \"coin\": \"ETH\", \"quantity\": \"0.5 ETH\", \"price\": \"3,380\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"0.1U\", \"fee_currency\": \"\", \"time\": \"昨天\", \"platform\": \"OKX\", \"opinion\": \"\"}, {\"side\": \"buy\", \"coin\": \"ARB\", \"quantity\": \"200 个 ARB\", \"price\": \"0.92\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"0.1U\", \"fee_currency\": \"\", \"time\": \"昨天\", \"platform\": \"OKX\", \"opinion\": \"\"}]}"
+            },
+            {
+              "role": "user",
+              "content": "Swapped out of LINK today: sold 40 LINK at 14.6, then bought 0.25 ETH at 2,340"
+            },
+            {
+              "role": "assistant",
+              "content": "{\"trades\": [{\"side\": \"sell\", \"coin\": \"LINK\", \"quantity\": \"40 LINK\", \"price\": \"14.6\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"\", \"fee_currency\": \"\", \"time\": \"today\", \"platform\": \"\", \"opinion\": \"\"}, {\"side\": \"buy\", \"coin\": \"ETH\", \"quantity\": \"0.25 ETH\", \"price\": \"2,340\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"\", \"fee_currency\": \"\", \"time\": \"today\", \"platform\": \"\", \"opinion\": \"\"}]}"
+            },
+            {
+              "role": "user",
+              "content": "今天行情好无聊，啥也没做，晚上看会儿书"
+            },
+            {
+              "role": "assistant",
+              "content": "{\"trades\": []}"
+            },
+            {
+              "role": "user",
+              "content": "BTC touched 70k this morning, crazy. Not touching it."
+            },
+            {
+              "role": "assistant",
+              "content": "{\"trades\": []}"
+            },
+            {
+              "role": "user",
+              "content": "买了点大饼"
+            },
+            {
+              "role": "assistant",
+              "content": "{\"trades\": [{\"side\": \"buy\", \"coin\": \"大饼\", \"quantity\": \"\", \"price\": \"\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"\", \"fee_currency\": \"\", \"time\": \"\", \"platform\": \"\", \"opinion\": \"\"}]}"
+            },
+            {
+              "role": "user",
+              "content": "Bought DOGE for 500 USDT in total on Oct 2, fee was 3 DOGE"
+            },
+            {
+              "role": "assistant",
+              "content": "{\"trades\": [{\"side\": \"buy\", \"coin\": \"DOGE\", \"quantity\": \"\", \"price\": \"\", \"total\": \"500 USDT\", \"price_currency\": \"\", \"fee\": \"3 DOGE\", \"fee_currency\": \"\", \"time\": \"Oct 2\", \"platform\": \"\", \"opinion\": \"\"}]}"
+            },
+            {
+              "role": "user",
+              "content": "刚才 sold 0.3 BTC，止盈一部分，at 67.2k"
+            },
+            {
+              "role": "assistant",
+              "content": "{\"trades\": [{\"side\": \"sell\", \"coin\": \"BTC\", \"quantity\": \"0.3 BTC\", \"price\": \"67.2k\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"\", \"fee_currency\": \"\", \"time\": \"刚才\", \"platform\": \"\", \"opinion\": \"止盈一部分\"}]}"
+            },
+            {
+              "role": "user",
+              "content": "刚 buy 了 50 个 SOL，at 141.2"
+            }
+          ],
+          "reply_schema": {
+            "type": "object",
+            "properties": {
+              "trades": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "side": {
+                      "type": "string",
+                      "enum": [
+                        "buy",
+                        "sell",
+                        ""
+                      ]
+                    },
+                    "coin": {
+                      "type": "string"
+                    },
+                    "quantity": {
+                      "type": "string"
+                    },
+                    "price": {
+                      "type": "string"
+                    },
+                    "total": {
+                      "type": "string"
+                    },
+                    "price_currency": {
+                      "type": "string"
+                    },
+                    "fee": {
+                      "type": "string"
+                    },
+                    "fee_currency": {
+                      "type": "string"
+                    },
+                    "time": {
+                      "type": "string"
+                    },
+                    "platform": {
+                      "type": "string"
+                    },
+                    "opinion": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "side",
+                    "coin",
+                    "quantity",
+                    "price",
+                    "total",
+                    "price_currency",
+                    "fee",
+                    "fee_currency",
+                    "time",
+                    "platform",
+                    "opinion"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "trades"
+            ],
+            "additionalProperties": false
+          },
+          "parameters": null
+        },
+        {
+          "messages": [
+            {
+              "role": "system",
+              "content": "You copy the details of crypto spot trades out of a short passage that one person wrote about their own trades. You never calculate, convert, translate, correct or guess anything.\n\nReply with one JSON object: {\"trades\": [...]}, with one row for each trade the passage mentions. If it mentions no trade, reply {\"trades\": []}.\n\nEvery row has the same eleven fields. \"side\" is \"buy\" when the coin was bought (bought, buy, 买, 买入, 加仓), \"sell\" when it was sold (sold, sell, 卖, 卖出, 止盈, 清仓), and \"\" when the passage does not say. Every other field holds a piece of the passage copied character for character, or \"\" when the passage does not say it:\n\n- coin: the coin bought or sold, as the passage calls it.\n- quantity: how much of the coin: the number, with the unit written right after it if there is one.\n- price: the price of one coin: the number, with the currency sign or word written right next to it if there is one.\n- total: the whole amount paid or received, without the fee: the number, with the currency sign or word written right next to it if there is one.\n- price_currency: the currency of the price or total, only when the passage names it apart from those numbers.\n- fee: the fee: the number, with the currency word written right after it if there is one.\n- fee_currency: the currency the fee was paid in, only when the passage names it apart from the fee's number.\n- time: when the trade happened: only the words that say the day and the time, in the passage's own words (\"last night\", \"昨天晚上 9 点 40\", \"Oct 2 at 14:05\").\n- platform: the exchange or app the trade was made on.\n- opinion: the person's own view, reason or feeling about the trade.\n\nRules:\n1. Copy, never rewrite. Keep every digit, comma, point, letter, unit and word exactly as the passage writes it. Never translate: what you copy from English words stays English, and what you copy from Chinese words stays Chinese. Do not turn Chinese numbers into digits or digits into words, and never drop a \"k\", a \"w\" or a \"万\" from a number.\n2. Leave a field \"\" when the passage does not say it. Never fill in a market price, a date, a fee or a currency the passage does not write.\n3. Each field is one unbroken piece of the passage.\n4. A detail said once for several trades, such as the day, the exchange or a shared fee, is copied into each of those rows.\n5. Each row holds only what belongs to its own trade. Two coins, or two separate buys or sells, are two rows.\n"
+            },
+            {
+              "role": "user",
+              "content": "昨天晚上 9 点 40 在币安买了 0.02 个比特币，价格 61,250，手续费 1.2 USDT，感觉还会涨"
+            },
+            {
+              "role": "assistant",
+              "content": "{\"trades\": [{\"side\": \"buy\", \"coin\": \"比特币\", \"quantity\": \"0.02 个比特币\", \"price\": \"61,250\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"1.2 USDT\", \"fee_currency\": \"\", \"time\": \"昨天晚上 9 点 40\", \"platform\": \"币安\", \"opinion\": \"感觉还会涨\"}]}"
+            },
+            {
+              "role": "user",
+              "content": "Sold 150 SOL at 182.4 on Kraken last night, taking some profit"
+            },
+            {
+              "role": "assistant",
+              "content": "{\"trades\": [{\"side\": \"sell\", \"coin\": \"SOL\", \"quantity\": \"150 SOL\", \"price\": \"182.4\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"\", \"fee_currency\": \"\", \"time\": \"last night\", \"platform\": \"Kraken\", \"opinion\": \"taking some profit\"}]}"
+            },
+            {
+              "role": "user",
+              "content": "今天下午 3 点 buy 了 2 ETH @ 3,420 USDT，fee 付的 BNB 0.004"
+            },
+            {
+              "role": "assistant",
+              "content": "{\"trades\": [{\"side\": \"buy\", \"coin\": \"ETH\", \"quantity\": \"2 ETH\", \"price\": \"3,420 USDT\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"0.004\", \"fee_currency\": \"BNB\", \"time\": \"今天下午 3 点\", \"platform\": \"\", \"opinion\": \"\"}]}"
+            },
+            {
+              "role": "user",
+              "content": "昨天在 OKX 先买了 0.5 ETH，价格 3,380，又买了 200 个 ARB，0.92 一个，两笔手续费都是 0.1U"
+            },
+            {
+              "role": "assistant",
+              "content": "{\"trades\": [{\"side\": \"buy\", \"coin\": \"ETH\", \"quantity\": \"0.5 ETH\", \"price\": \"3,380\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"0.1U\", \"fee_currency\": \"\", \"time\": \"昨天\", \"platform\": \"OKX\", \"opinion\": \"\"}, {\"side\": \"buy\", \"coin\": \"ARB\", \"quantity\": \"200 个 ARB\", \"price\": \"0.92\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"0.1U\", \"fee_currency\": \"\", \"time\": \"昨天\", \"platform\": \"OKX\", \"opinion\": \"\"}]}"
+            },
+            {
+              "role": "user",
+              "content": "Swapped out of LINK today: sold 40 LINK at 14.6, then bought 0.25 ETH at 2,340"
+            },
+            {
+              "role": "assistant",
+              "content": "{\"trades\": [{\"side\": \"sell\", \"coin\": \"LINK\", \"quantity\": \"40 LINK\", \"price\": \"14.6\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"\", \"fee_currency\": \"\", \"time\": \"today\", \"platform\": \"\", \"opinion\": \"\"}, {\"side\": \"buy\", \"coin\": \"ETH\", \"quantity\": \"0.25 ETH\", \"price\": \"2,340\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"\", \"fee_currency\": \"\", \"time\": \"today\", \"platform\": \"\", \"opinion\": \"\"}]}"
+            },
+            {
+              "role": "user",
+              "content": "今天行情好无聊，啥也没做，晚上看会儿书"
+            },
+            {
+              "role": "assistant",
+              "content": "{\"trades\": []}"
+            },
+            {
+              "role": "user",
+              "content": "BTC touched 70k this morning, crazy. Not touching it."
+            },
+            {
+              "role": "assistant",
+              "content": "{\"trades\": []}"
+            },
+            {
+              "role": "user",
+              "content": "买了点大饼"
+            },
+            {
+              "role": "assistant",
+              "content": "{\"trades\": [{\"side\": \"buy\", \"coin\": \"大饼\", \"quantity\": \"\", \"price\": \"\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"\", \"fee_currency\": \"\", \"time\": \"\", \"platform\": \"\", \"opinion\": \"\"}]}"
+            },
+            {
+              "role": "user",
+              "content": "Bought DOGE for 500 USDT in total on Oct 2, fee was 3 DOGE"
+            },
+            {
+              "role": "assistant",
+              "content": "{\"trades\": [{\"side\": \"buy\", \"coin\": \"DOGE\", \"quantity\": \"\", \"price\": \"\", \"total\": \"500 USDT\", \"price_currency\": \"\", \"fee\": \"3 DOGE\", \"fee_currency\": \"\", \"time\": \"Oct 2\", \"platform\": \"\", \"opinion\": \"\"}]}"
+            },
+            {
+              "role": "user",
+              "content": "刚才 sold 0.3 BTC，止盈一部分，at 67.2k"
+            },
+            {
+              "role": "assistant",
+              "content": "{\"trades\": [{\"side\": \"sell\", \"coin\": \"BTC\", \"quantity\": \"0.3 BTC\", \"price\": \"67.2k\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"\", \"fee_currency\": \"\", \"time\": \"刚才\", \"platform\": \"\", \"opinion\": \"止盈一部分\"}]}"
+            },
+            {
+              "role": "user",
+              "content": "刚 buy 了 50 个 SOL，at 141.2"
+            },
+            {
+              "role": "user",
+              "content": "Your last answer could not be used: the model stopped at the length limit, so the reply is not whole. Answer again with only the JSON object {\"trades\": [...]}, following the rules above."
+            }
+          ],
+          "reply_schema": {
+            "type": "object",
+            "properties": {
+              "trades": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "side": {
+                      "type": "string",
+                      "enum": [
+                        "buy",
+                        "sell",
+                        ""
+                      ]
+                    },
+                    "coin": {
+                      "type": "string"
+                    },
+                    "quantity": {
+                      "type": "string"
+                    },
+                    "price": {
+                      "type": "string"
+                    },
+                    "total": {
+                      "type": "string"
+                    },
+                    "price_currency": {
+                      "type": "string"
+                    },
+                    "fee": {
+                      "type": "string"
+                    },
+                    "fee_currency": {
+                      "type": "string"
+                    },
+                    "time": {
+                      "type": "string"
+                    },
+                    "platform": {
+                      "type": "string"
+                    },
+                    "opinion": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "side",
+                    "coin",
+                    "quantity",
+                    "price",
+                    "total",
+                    "price_currency",
+                    "fee",
+                    "fee_currency",
+                    "time",
+                    "platform",
+                    "opinion"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "trades"
+            ],
+            "additionalProperties": false
+          },
+          "parameters": null
+        },
+        {
+          "messages": [
+            {
+              "role": "system",
+              "content": "You copy the details of crypto spot trades out of a short passage that one person wrote about their own trades. You never calculate, convert, translate, correct or guess anything.\n\nReply with one JSON object: {\"trades\": [...]}, with one row for each trade the passage mentions. If it mentions no trade, reply {\"trades\": []}.\n\nEvery row has the same eleven fields. \"side\" is \"buy\" when the coin was bought (bought, buy, 买, 买入, 加仓), \"sell\" when it was sold (sold, sell, 卖, 卖出, 止盈, 清仓), and \"\" when the passage does not say. Every other field holds a piece of the passage copied character for character, or \"\" when the passage does not say it:\n\n- coin: the coin bought or sold, as the passage calls it.\n- quantity: how much of the coin: the number, with the unit written right after it if there is one.\n- price: the price of one coin: the number, with the currency sign or word written right next to it if there is one.\n- total: the whole amount paid or received, without the fee: the number, with the currency sign or word written right next to it if there is one.\n- price_currency: the currency of the price or total, only when the passage names it apart from those numbers.\n- fee: the fee: the number, with the currency word written right after it if there is one.\n- fee_currency: the currency the fee was paid in, only when the passage names it apart from the fee's number.\n- time: when the trade happened: only the words that say the day and the time, in the passage's own words (\"last night\", \"昨天晚上 9 点 40\", \"Oct 2 at 14:05\").\n- platform: the exchange or app the trade was made on.\n- opinion: the person's own view, reason or feeling about the trade.\n\nRules:\n1. Copy, never rewrite. Keep every digit, comma, point, letter, unit and word exactly as the passage writes it. Never translate: what you copy from English words stays English, and what you copy from Chinese words stays Chinese. Do not turn Chinese numbers into digits or digits into words, and never drop a \"k\", a \"w\" or a \"万\" from a number.\n2. Leave a field \"\" when the passage does not say it. Never fill in a market price, a date, a fee or a currency the passage does not write.\n3. Each field is one unbroken piece of the passage.\n4. A detail said once for several trades, such as the day, the exchange or a shared fee, is copied into each of those rows.\n5. Each row holds only what belongs to its own trade. Two coins, or two separate buys or sells, are two rows.\n"
+            },
+            {
+              "role": "user",
+              "content": "昨天晚上 9 点 40 在币安买了 0.02 个比特币，价格 61,250，手续费 1.2 USDT，感觉还会涨"
+            },
+            {
+              "role": "assistant",
+              "content": "{\"trades\": [{\"side\": \"buy\", \"coin\": \"比特币\", \"quantity\": \"0.02 个比特币\", \"price\": \"61,250\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"1.2 USDT\", \"fee_currency\": \"\", \"time\": \"昨天晚上 9 点 40\", \"platform\": \"币安\", \"opinion\": \"感觉还会涨\"}]}"
+            },
+            {
+              "role": "user",
+              "content": "Sold 150 SOL at 182.4 on Kraken last night, taking some profit"
+            },
+            {
+              "role": "assistant",
+              "content": "{\"trades\": [{\"side\": \"sell\", \"coin\": \"SOL\", \"quantity\": \"150 SOL\", \"price\": \"182.4\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"\", \"fee_currency\": \"\", \"time\": \"last night\", \"platform\": \"Kraken\", \"opinion\": \"taking some profit\"}]}"
+            },
+            {
+              "role": "user",
+              "content": "今天下午 3 点 buy 了 2 ETH @ 3,420 USDT，fee 付的 BNB 0.004"
+            },
+            {
+              "role": "assistant",
+              "content": "{\"trades\": [{\"side\": \"buy\", \"coin\": \"ETH\", \"quantity\": \"2 ETH\", \"price\": \"3,420 USDT\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"0.004\", \"fee_currency\": \"BNB\", \"time\": \"今天下午 3 点\", \"platform\": \"\", \"opinion\": \"\"}]}"
+            },
+            {
+              "role": "user",
+              "content": "昨天在 OKX 先买了 0.5 ETH，价格 3,380，又买了 200 个 ARB，0.92 一个，两笔手续费都是 0.1U"
+            },
+            {
+              "role": "assistant",
+              "content": "{\"trades\": [{\"side\": \"buy\", \"coin\": \"ETH\", \"quantity\": \"0.5 ETH\", \"price\": \"3,380\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"0.1U\", \"fee_currency\": \"\", \"time\": \"昨天\", \"platform\": \"OKX\", \"opinion\": \"\"}, {\"side\": \"buy\", \"coin\": \"ARB\", \"quantity\": \"200 个 ARB\", \"price\": \"0.92\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"0.1U\", \"fee_currency\": \"\", \"time\": \"昨天\", \"platform\": \"OKX\", \"opinion\": \"\"}]}"
+            },
+            {
+              "role": "user",
+              "content": "Swapped out of LINK today: sold 40 LINK at 14.6, then bought 0.25 ETH at 2,340"
+            },
+            {
+              "role": "assistant",
+              "content": "{\"trades\": [{\"side\": \"sell\", \"coin\": \"LINK\", \"quantity\": \"40 LINK\", \"price\": \"14.6\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"\", \"fee_currency\": \"\", \"time\": \"today\", \"platform\": \"\", \"opinion\": \"\"}, {\"side\": \"buy\", \"coin\": \"ETH\", \"quantity\": \"0.25 ETH\", \"price\": \"2,340\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"\", \"fee_currency\": \"\", \"time\": \"today\", \"platform\": \"\", \"opinion\": \"\"}]}"
+            },
+            {
+              "role": "user",
+              "content": "今天行情好无聊，啥也没做，晚上看会儿书"
+            },
+            {
+              "role": "assistant",
+              "content": "{\"trades\": []}"
+            },
+            {
+              "role": "user",
+              "content": "BTC touched 70k this morning, crazy. Not touching it."
+            },
+            {
+              "role": "assistant",
+              "content": "{\"trades\": []}"
+            },
+            {
+              "role": "user",
+              "content": "买了点大饼"
+            },
+            {
+              "role": "assistant",
+              "content": "{\"trades\": [{\"side\": \"buy\", \"coin\": \"大饼\", \"quantity\": \"\", \"price\": \"\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"\", \"fee_currency\": \"\", \"time\": \"\", \"platform\": \"\", \"opinion\": \"\"}]}"
+            },
+            {
+              "role": "user",
+              "content": "Bought DOGE for 500 USDT in total on Oct 2, fee was 3 DOGE"
+            },
+            {
+              "role": "assistant",
+              "content": "{\"trades\": [{\"side\": \"buy\", \"coin\": \"DOGE\", \"quantity\": \"\", \"price\": \"\", \"total\": \"500 USDT\", \"price_currency\": \"\", \"fee\": \"3 DOGE\", \"fee_currency\": \"\", \"time\": \"Oct 2\", \"platform\": \"\", \"opinion\": \"\"}]}"
+            },
+            {
+              "role": "user",
+              "content": "刚才 sold 0.3 BTC，止盈一部分，at 67.2k"
+            },
+            {
+              "role": "assistant",
+              "content": "{\"trades\": [{\"side\": \"sell\", \"coin\": \"BTC\", \"quantity\": \"0.3 BTC\", \"price\": \"67.2k\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"\", \"fee_currency\": \"\", \"time\": \"刚才\", \"platform\": \"\", \"opinion\": \"止盈一部分\"}]}"
+            },
+            {
+              "role": "user",
+              "content": "刚 buy 了 50 个 SOL，at 141.2"
+            },
+            {
+              "role": "user",
+              "content": "Your last answer could not be used: the reply is not an object with a list under 'trades'. Answer again with only the JSON object {\"trades\": [...]}, following the rules above."
+            }
+          ],
+          "reply_schema": {
+            "type": "object",
+            "properties": {
+              "trades": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "side": {
+                      "type": "string",
+                      "enum": [
+                        "buy",
+                        "sell",
+                        ""
+                      ]
+                    },
+                    "coin": {
+                      "type": "string"
+                    },
+                    "quantity": {
+                      "type": "string"
+                    },
+                    "price": {
+                      "type": "string"
+                    },
+                    "total": {
+                      "type": "string"
+                    },
+                    "price_currency": {
+                      "type": "string"
+                    },
+                    "fee": {
+                      "type": "string"
+                    },
+                    "fee_currency": {
+                      "type": "string"
+                    },
+                    "time": {
+                      "type": "string"
+                    },
+                    "platform": {
+                      "type": "string"
+                    },
+                    "opinion": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "side",
+                    "coin",
+                    "quantity",
+                    "price",
+                    "total",
+                    "price_currency",
+                    "fee",
+                    "fee_currency",
+                    "time",
+                    "platform",
+                    "opinion"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "trades"
+            ],
+            "additionalProperties": false
+          },
+          "parameters": null
+        }
+      ]
+    }
+  ],
+  "asking_again": [
+    {
+      "problem": "CUT_OFF",
+      "messages": [
+        {
+          "role": "system",
+          "content": "You copy the details of crypto spot trades out of a short passage that one person wrote about their own trades. You never calculate, convert, translate, correct or guess anything.\n\nReply with one JSON object: {\"trades\": [...]}, with one row for each trade the passage mentions. If it mentions no trade, reply {\"trades\": []}.\n\nEvery row has the same eleven fields. \"side\" is \"buy\" when the coin was bought (bought, buy, 买, 买入, 加仓), \"sell\" when it was sold (sold, sell, 卖, 卖出, 止盈, 清仓), and \"\" when the passage does not say. Every other field holds a piece of the passage copied character for character, or \"\" when the passage does not say it:\n\n- coin: the coin bought or sold, as the passage calls it.\n- quantity: how much of the coin: the number, with the unit written right after it if there is one.\n- price: the price of one coin: the number, with the currency sign or word written right next to it if there is one.\n- total: the whole amount paid or received, without the fee: the number, with the currency sign or word written right next to it if there is one.\n- price_currency: the currency of the price or total, only when the passage names it apart from those numbers.\n- fee: the fee: the number, with the currency word written right after it if there is one.\n- fee_currency: the currency the fee was paid in, only when the passage names it apart from the fee's number.\n- time: when the trade happened: only the words that say the day and the time, in the passage's own words (\"last night\", \"昨天晚上 9 点 40\", \"Oct 2 at 14:05\").\n- platform: the exchange or app the trade was made on.\n- opinion: the person's own view, reason or feeling about the trade.\n\nRules:\n1. Copy, never rewrite. Keep every digit, comma, point, letter, unit and word exactly as the passage writes it. Never translate: what you copy from English words stays English, and what you copy from Chinese words stays Chinese. Do not turn Chinese numbers into digits or digits into words, and never drop a \"k\", a \"w\" or a \"万\" from a number.\n2. Leave a field \"\" when the passage does not say it. Never fill in a market price, a date, a fee or a currency the passage does not write.\n3. Each field is one unbroken piece of the passage.\n4. A detail said once for several trades, such as the day, the exchange or a shared fee, is copied into each of those rows.\n5. Each row holds only what belongs to its own trade. Two coins, or two separate buys or sells, are two rows.\n"
+        },
+        {
+          "role": "user",
+          "content": "昨天晚上 9 点 40 在币安买了 0.02 个比特币，价格 61,250，手续费 1.2 USDT，感觉还会涨"
+        },
+        {
+          "role": "assistant",
+          "content": "{\"trades\": [{\"side\": \"buy\", \"coin\": \"比特币\", \"quantity\": \"0.02 个比特币\", \"price\": \"61,250\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"1.2 USDT\", \"fee_currency\": \"\", \"time\": \"昨天晚上 9 点 40\", \"platform\": \"币安\", \"opinion\": \"感觉还会涨\"}]}"
+        },
+        {
+          "role": "user",
+          "content": "Sold 150 SOL at 182.4 on Kraken last night, taking some profit"
+        },
+        {
+          "role": "assistant",
+          "content": "{\"trades\": [{\"side\": \"sell\", \"coin\": \"SOL\", \"quantity\": \"150 SOL\", \"price\": \"182.4\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"\", \"fee_currency\": \"\", \"time\": \"last night\", \"platform\": \"Kraken\", \"opinion\": \"taking some profit\"}]}"
+        },
+        {
+          "role": "user",
+          "content": "今天下午 3 点 buy 了 2 ETH @ 3,420 USDT，fee 付的 BNB 0.004"
+        },
+        {
+          "role": "assistant",
+          "content": "{\"trades\": [{\"side\": \"buy\", \"coin\": \"ETH\", \"quantity\": \"2 ETH\", \"price\": \"3,420 USDT\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"0.004\", \"fee_currency\": \"BNB\", \"time\": \"今天下午 3 点\", \"platform\": \"\", \"opinion\": \"\"}]}"
+        },
+        {
+          "role": "user",
+          "content": "昨天在 OKX 先买了 0.5 ETH，价格 3,380，又买了 200 个 ARB，0.92 一个，两笔手续费都是 0.1U"
+        },
+        {
+          "role": "assistant",
+          "content": "{\"trades\": [{\"side\": \"buy\", \"coin\": \"ETH\", \"quantity\": \"0.5 ETH\", \"price\": \"3,380\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"0.1U\", \"fee_currency\": \"\", \"time\": \"昨天\", \"platform\": \"OKX\", \"opinion\": \"\"}, {\"side\": \"buy\", \"coin\": \"ARB\", \"quantity\": \"200 个 ARB\", \"price\": \"0.92\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"0.1U\", \"fee_currency\": \"\", \"time\": \"昨天\", \"platform\": \"OKX\", \"opinion\": \"\"}]}"
+        },
+        {
+          "role": "user",
+          "content": "Swapped out of LINK today: sold 40 LINK at 14.6, then bought 0.25 ETH at 2,340"
+        },
+        {
+          "role": "assistant",
+          "content": "{\"trades\": [{\"side\": \"sell\", \"coin\": \"LINK\", \"quantity\": \"40 LINK\", \"price\": \"14.6\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"\", \"fee_currency\": \"\", \"time\": \"today\", \"platform\": \"\", \"opinion\": \"\"}, {\"side\": \"buy\", \"coin\": \"ETH\", \"quantity\": \"0.25 ETH\", \"price\": \"2,340\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"\", \"fee_currency\": \"\", \"time\": \"today\", \"platform\": \"\", \"opinion\": \"\"}]}"
+        },
+        {
+          "role": "user",
+          "content": "今天行情好无聊，啥也没做，晚上看会儿书"
+        },
+        {
+          "role": "assistant",
+          "content": "{\"trades\": []}"
+        },
+        {
+          "role": "user",
+          "content": "BTC touched 70k this morning, crazy. Not touching it."
+        },
+        {
+          "role": "assistant",
+          "content": "{\"trades\": []}"
+        },
+        {
+          "role": "user",
+          "content": "买了点大饼"
+        },
+        {
+          "role": "assistant",
+          "content": "{\"trades\": [{\"side\": \"buy\", \"coin\": \"大饼\", \"quantity\": \"\", \"price\": \"\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"\", \"fee_currency\": \"\", \"time\": \"\", \"platform\": \"\", \"opinion\": \"\"}]}"
+        },
+        {
+          "role": "user",
+          "content": "Bought DOGE for 500 USDT in total on Oct 2, fee was 3 DOGE"
+        },
+        {
+          "role": "assistant",
+          "content": "{\"trades\": [{\"side\": \"buy\", \"coin\": \"DOGE\", \"quantity\": \"\", \"price\": \"\", \"total\": \"500 USDT\", \"price_currency\": \"\", \"fee\": \"3 DOGE\", \"fee_currency\": \"\", \"time\": \"Oct 2\", \"platform\": \"\", \"opinion\": \"\"}]}"
+        },
+        {
+          "role": "user",
+          "content": "刚才 sold 0.3 BTC，止盈一部分，at 67.2k"
+        },
+        {
+          "role": "assistant",
+          "content": "{\"trades\": [{\"side\": \"sell\", \"coin\": \"BTC\", \"quantity\": \"0.3 BTC\", \"price\": \"67.2k\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"\", \"fee_currency\": \"\", \"time\": \"刚才\", \"platform\": \"\", \"opinion\": \"止盈一部分\"}]}"
+        },
+        {
+          "role": "user",
+          "content": "今天上午 10 点在 OKX 买了 0.3 ETH，3,150 一个，手续费 0.5U"
+        },
+        {
+          "role": "user",
+          "content": "Your last answer could not be used: the model stopped at the length limit, so the reply is not whole. Answer again with only the JSON object {\"trades\": [...]}, following the rules above."
+        }
+      ]
+    },
+    {
+      "problem": "TOO_LONG",
+      "messages": [
+        {
+          "role": "system",
+          "content": "You copy the details of crypto spot trades out of a short passage that one person wrote about their own trades. You never calculate, convert, translate, correct or guess anything.\n\nReply with one JSON object: {\"trades\": [...]}, with one row for each trade the passage mentions. If it mentions no trade, reply {\"trades\": []}.\n\nEvery row has the same eleven fields. \"side\" is \"buy\" when the coin was bought (bought, buy, 买, 买入, 加仓), \"sell\" when it was sold (sold, sell, 卖, 卖出, 止盈, 清仓), and \"\" when the passage does not say. Every other field holds a piece of the passage copied character for character, or \"\" when the passage does not say it:\n\n- coin: the coin bought or sold, as the passage calls it.\n- quantity: how much of the coin: the number, with the unit written right after it if there is one.\n- price: the price of one coin: the number, with the currency sign or word written right next to it if there is one.\n- total: the whole amount paid or received, without the fee: the number, with the currency sign or word written right next to it if there is one.\n- price_currency: the currency of the price or total, only when the passage names it apart from those numbers.\n- fee: the fee: the number, with the currency word written right after it if there is one.\n- fee_currency: the currency the fee was paid in, only when the passage names it apart from the fee's number.\n- time: when the trade happened: only the words that say the day and the time, in the passage's own words (\"last night\", \"昨天晚上 9 点 40\", \"Oct 2 at 14:05\").\n- platform: the exchange or app the trade was made on.\n- opinion: the person's own view, reason or feeling about the trade.\n\nRules:\n1. Copy, never rewrite. Keep every digit, comma, point, letter, unit and word exactly as the passage writes it. Never translate: what you copy from English words stays English, and what you copy from Chinese words stays Chinese. Do not turn Chinese numbers into digits or digits into words, and never drop a \"k\", a \"w\" or a \"万\" from a number.\n2. Leave a field \"\" when the passage does not say it. Never fill in a market price, a date, a fee or a currency the passage does not write.\n3. Each field is one unbroken piece of the passage.\n4. A detail said once for several trades, such as the day, the exchange or a shared fee, is copied into each of those rows.\n5. Each row holds only what belongs to its own trade. Two coins, or two separate buys or sells, are two rows.\n"
+        },
+        {
+          "role": "user",
+          "content": "昨天晚上 9 点 40 在币安买了 0.02 个比特币，价格 61,250，手续费 1.2 USDT，感觉还会涨"
+        },
+        {
+          "role": "assistant",
+          "content": "{\"trades\": [{\"side\": \"buy\", \"coin\": \"比特币\", \"quantity\": \"0.02 个比特币\", \"price\": \"61,250\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"1.2 USDT\", \"fee_currency\": \"\", \"time\": \"昨天晚上 9 点 40\", \"platform\": \"币安\", \"opinion\": \"感觉还会涨\"}]}"
+        },
+        {
+          "role": "user",
+          "content": "Sold 150 SOL at 182.4 on Kraken last night, taking some profit"
+        },
+        {
+          "role": "assistant",
+          "content": "{\"trades\": [{\"side\": \"sell\", \"coin\": \"SOL\", \"quantity\": \"150 SOL\", \"price\": \"182.4\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"\", \"fee_currency\": \"\", \"time\": \"last night\", \"platform\": \"Kraken\", \"opinion\": \"taking some profit\"}]}"
+        },
+        {
+          "role": "user",
+          "content": "今天下午 3 点 buy 了 2 ETH @ 3,420 USDT，fee 付的 BNB 0.004"
+        },
+        {
+          "role": "assistant",
+          "content": "{\"trades\": [{\"side\": \"buy\", \"coin\": \"ETH\", \"quantity\": \"2 ETH\", \"price\": \"3,420 USDT\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"0.004\", \"fee_currency\": \"BNB\", \"time\": \"今天下午 3 点\", \"platform\": \"\", \"opinion\": \"\"}]}"
+        },
+        {
+          "role": "user",
+          "content": "昨天在 OKX 先买了 0.5 ETH，价格 3,380，又买了 200 个 ARB，0.92 一个，两笔手续费都是 0.1U"
+        },
+        {
+          "role": "assistant",
+          "content": "{\"trades\": [{\"side\": \"buy\", \"coin\": \"ETH\", \"quantity\": \"0.5 ETH\", \"price\": \"3,380\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"0.1U\", \"fee_currency\": \"\", \"time\": \"昨天\", \"platform\": \"OKX\", \"opinion\": \"\"}, {\"side\": \"buy\", \"coin\": \"ARB\", \"quantity\": \"200 个 ARB\", \"price\": \"0.92\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"0.1U\", \"fee_currency\": \"\", \"time\": \"昨天\", \"platform\": \"OKX\", \"opinion\": \"\"}]}"
+        },
+        {
+          "role": "user",
+          "content": "Swapped out of LINK today: sold 40 LINK at 14.6, then bought 0.25 ETH at 2,340"
+        },
+        {
+          "role": "assistant",
+          "content": "{\"trades\": [{\"side\": \"sell\", \"coin\": \"LINK\", \"quantity\": \"40 LINK\", \"price\": \"14.6\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"\", \"fee_currency\": \"\", \"time\": \"today\", \"platform\": \"\", \"opinion\": \"\"}, {\"side\": \"buy\", \"coin\": \"ETH\", \"quantity\": \"0.25 ETH\", \"price\": \"2,340\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"\", \"fee_currency\": \"\", \"time\": \"today\", \"platform\": \"\", \"opinion\": \"\"}]}"
+        },
+        {
+          "role": "user",
+          "content": "今天行情好无聊，啥也没做，晚上看会儿书"
+        },
+        {
+          "role": "assistant",
+          "content": "{\"trades\": []}"
+        },
+        {
+          "role": "user",
+          "content": "BTC touched 70k this morning, crazy. Not touching it."
+        },
+        {
+          "role": "assistant",
+          "content": "{\"trades\": []}"
+        },
+        {
+          "role": "user",
+          "content": "买了点大饼"
+        },
+        {
+          "role": "assistant",
+          "content": "{\"trades\": [{\"side\": \"buy\", \"coin\": \"大饼\", \"quantity\": \"\", \"price\": \"\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"\", \"fee_currency\": \"\", \"time\": \"\", \"platform\": \"\", \"opinion\": \"\"}]}"
+        },
+        {
+          "role": "user",
+          "content": "Bought DOGE for 500 USDT in total on Oct 2, fee was 3 DOGE"
+        },
+        {
+          "role": "assistant",
+          "content": "{\"trades\": [{\"side\": \"buy\", \"coin\": \"DOGE\", \"quantity\": \"\", \"price\": \"\", \"total\": \"500 USDT\", \"price_currency\": \"\", \"fee\": \"3 DOGE\", \"fee_currency\": \"\", \"time\": \"Oct 2\", \"platform\": \"\", \"opinion\": \"\"}]}"
+        },
+        {
+          "role": "user",
+          "content": "刚才 sold 0.3 BTC，止盈一部分，at 67.2k"
+        },
+        {
+          "role": "assistant",
+          "content": "{\"trades\": [{\"side\": \"sell\", \"coin\": \"BTC\", \"quantity\": \"0.3 BTC\", \"price\": \"67.2k\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"\", \"fee_currency\": \"\", \"time\": \"刚才\", \"platform\": \"\", \"opinion\": \"止盈一部分\"}]}"
+        },
+        {
+          "role": "user",
+          "content": "今天上午 10 点在 OKX 买了 0.3 ETH，3,150 一个，手续费 0.5U"
+        },
+        {
+          "role": "user",
+          "content": "Your last answer could not be used: the reply is longer than any answer to one passage. Answer again with only the JSON object {\"trades\": [...]}, following the rules above."
+        }
+      ]
+    },
+    {
+      "problem": "NOT_JSON",
+      "messages": [
+        {
+          "role": "system",
+          "content": "You copy the details of crypto spot trades out of a short passage that one person wrote about their own trades. You never calculate, convert, translate, correct or guess anything.\n\nReply with one JSON object: {\"trades\": [...]}, with one row for each trade the passage mentions. If it mentions no trade, reply {\"trades\": []}.\n\nEvery row has the same eleven fields. \"side\" is \"buy\" when the coin was bought (bought, buy, 买, 买入, 加仓), \"sell\" when it was sold (sold, sell, 卖, 卖出, 止盈, 清仓), and \"\" when the passage does not say. Every other field holds a piece of the passage copied character for character, or \"\" when the passage does not say it:\n\n- coin: the coin bought or sold, as the passage calls it.\n- quantity: how much of the coin: the number, with the unit written right after it if there is one.\n- price: the price of one coin: the number, with the currency sign or word written right next to it if there is one.\n- total: the whole amount paid or received, without the fee: the number, with the currency sign or word written right next to it if there is one.\n- price_currency: the currency of the price or total, only when the passage names it apart from those numbers.\n- fee: the fee: the number, with the currency word written right after it if there is one.\n- fee_currency: the currency the fee was paid in, only when the passage names it apart from the fee's number.\n- time: when the trade happened: only the words that say the day and the time, in the passage's own words (\"last night\", \"昨天晚上 9 点 40\", \"Oct 2 at 14:05\").\n- platform: the exchange or app the trade was made on.\n- opinion: the person's own view, reason or feeling about the trade.\n\nRules:\n1. Copy, never rewrite. Keep every digit, comma, point, letter, unit and word exactly as the passage writes it. Never translate: what you copy from English words stays English, and what you copy from Chinese words stays Chinese. Do not turn Chinese numbers into digits or digits into words, and never drop a \"k\", a \"w\" or a \"万\" from a number.\n2. Leave a field \"\" when the passage does not say it. Never fill in a market price, a date, a fee or a currency the passage does not write.\n3. Each field is one unbroken piece of the passage.\n4. A detail said once for several trades, such as the day, the exchange or a shared fee, is copied into each of those rows.\n5. Each row holds only what belongs to its own trade. Two coins, or two separate buys or sells, are two rows.\n"
+        },
+        {
+          "role": "user",
+          "content": "昨天晚上 9 点 40 在币安买了 0.02 个比特币，价格 61,250，手续费 1.2 USDT，感觉还会涨"
+        },
+        {
+          "role": "assistant",
+          "content": "{\"trades\": [{\"side\": \"buy\", \"coin\": \"比特币\", \"quantity\": \"0.02 个比特币\", \"price\": \"61,250\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"1.2 USDT\", \"fee_currency\": \"\", \"time\": \"昨天晚上 9 点 40\", \"platform\": \"币安\", \"opinion\": \"感觉还会涨\"}]}"
+        },
+        {
+          "role": "user",
+          "content": "Sold 150 SOL at 182.4 on Kraken last night, taking some profit"
+        },
+        {
+          "role": "assistant",
+          "content": "{\"trades\": [{\"side\": \"sell\", \"coin\": \"SOL\", \"quantity\": \"150 SOL\", \"price\": \"182.4\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"\", \"fee_currency\": \"\", \"time\": \"last night\", \"platform\": \"Kraken\", \"opinion\": \"taking some profit\"}]}"
+        },
+        {
+          "role": "user",
+          "content": "今天下午 3 点 buy 了 2 ETH @ 3,420 USDT，fee 付的 BNB 0.004"
+        },
+        {
+          "role": "assistant",
+          "content": "{\"trades\": [{\"side\": \"buy\", \"coin\": \"ETH\", \"quantity\": \"2 ETH\", \"price\": \"3,420 USDT\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"0.004\", \"fee_currency\": \"BNB\", \"time\": \"今天下午 3 点\", \"platform\": \"\", \"opinion\": \"\"}]}"
+        },
+        {
+          "role": "user",
+          "content": "昨天在 OKX 先买了 0.5 ETH，价格 3,380，又买了 200 个 ARB，0.92 一个，两笔手续费都是 0.1U"
+        },
+        {
+          "role": "assistant",
+          "content": "{\"trades\": [{\"side\": \"buy\", \"coin\": \"ETH\", \"quantity\": \"0.5 ETH\", \"price\": \"3,380\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"0.1U\", \"fee_currency\": \"\", \"time\": \"昨天\", \"platform\": \"OKX\", \"opinion\": \"\"}, {\"side\": \"buy\", \"coin\": \"ARB\", \"quantity\": \"200 个 ARB\", \"price\": \"0.92\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"0.1U\", \"fee_currency\": \"\", \"time\": \"昨天\", \"platform\": \"OKX\", \"opinion\": \"\"}]}"
+        },
+        {
+          "role": "user",
+          "content": "Swapped out of LINK today: sold 40 LINK at 14.6, then bought 0.25 ETH at 2,340"
+        },
+        {
+          "role": "assistant",
+          "content": "{\"trades\": [{\"side\": \"sell\", \"coin\": \"LINK\", \"quantity\": \"40 LINK\", \"price\": \"14.6\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"\", \"fee_currency\": \"\", \"time\": \"today\", \"platform\": \"\", \"opinion\": \"\"}, {\"side\": \"buy\", \"coin\": \"ETH\", \"quantity\": \"0.25 ETH\", \"price\": \"2,340\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"\", \"fee_currency\": \"\", \"time\": \"today\", \"platform\": \"\", \"opinion\": \"\"}]}"
+        },
+        {
+          "role": "user",
+          "content": "今天行情好无聊，啥也没做，晚上看会儿书"
+        },
+        {
+          "role": "assistant",
+          "content": "{\"trades\": []}"
+        },
+        {
+          "role": "user",
+          "content": "BTC touched 70k this morning, crazy. Not touching it."
+        },
+        {
+          "role": "assistant",
+          "content": "{\"trades\": []}"
+        },
+        {
+          "role": "user",
+          "content": "买了点大饼"
+        },
+        {
+          "role": "assistant",
+          "content": "{\"trades\": [{\"side\": \"buy\", \"coin\": \"大饼\", \"quantity\": \"\", \"price\": \"\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"\", \"fee_currency\": \"\", \"time\": \"\", \"platform\": \"\", \"opinion\": \"\"}]}"
+        },
+        {
+          "role": "user",
+          "content": "Bought DOGE for 500 USDT in total on Oct 2, fee was 3 DOGE"
+        },
+        {
+          "role": "assistant",
+          "content": "{\"trades\": [{\"side\": \"buy\", \"coin\": \"DOGE\", \"quantity\": \"\", \"price\": \"\", \"total\": \"500 USDT\", \"price_currency\": \"\", \"fee\": \"3 DOGE\", \"fee_currency\": \"\", \"time\": \"Oct 2\", \"platform\": \"\", \"opinion\": \"\"}]}"
+        },
+        {
+          "role": "user",
+          "content": "刚才 sold 0.3 BTC，止盈一部分，at 67.2k"
+        },
+        {
+          "role": "assistant",
+          "content": "{\"trades\": [{\"side\": \"sell\", \"coin\": \"BTC\", \"quantity\": \"0.3 BTC\", \"price\": \"67.2k\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"\", \"fee_currency\": \"\", \"time\": \"刚才\", \"platform\": \"\", \"opinion\": \"止盈一部分\"}]}"
+        },
+        {
+          "role": "user",
+          "content": "今天上午 10 点在 OKX 买了 0.3 ETH，3,150 一个，手续费 0.5U"
+        },
+        {
+          "role": "user",
+          "content": "Your last answer could not be used: the reply is not valid JSON. Answer again with only the JSON object {\"trades\": [...]}, following the rules above."
+        }
+      ]
+    },
+    {
+      "problem": "REPEATED_KEY",
+      "messages": [
+        {
+          "role": "system",
+          "content": "You copy the details of crypto spot trades out of a short passage that one person wrote about their own trades. You never calculate, convert, translate, correct or guess anything.\n\nReply with one JSON object: {\"trades\": [...]}, with one row for each trade the passage mentions. If it mentions no trade, reply {\"trades\": []}.\n\nEvery row has the same eleven fields. \"side\" is \"buy\" when the coin was bought (bought, buy, 买, 买入, 加仓), \"sell\" when it was sold (sold, sell, 卖, 卖出, 止盈, 清仓), and \"\" when the passage does not say. Every other field holds a piece of the passage copied character for character, or \"\" when the passage does not say it:\n\n- coin: the coin bought or sold, as the passage calls it.\n- quantity: how much of the coin: the number, with the unit written right after it if there is one.\n- price: the price of one coin: the number, with the currency sign or word written right next to it if there is one.\n- total: the whole amount paid or received, without the fee: the number, with the currency sign or word written right next to it if there is one.\n- price_currency: the currency of the price or total, only when the passage names it apart from those numbers.\n- fee: the fee: the number, with the currency word written right after it if there is one.\n- fee_currency: the currency the fee was paid in, only when the passage names it apart from the fee's number.\n- time: when the trade happened: only the words that say the day and the time, in the passage's own words (\"last night\", \"昨天晚上 9 点 40\", \"Oct 2 at 14:05\").\n- platform: the exchange or app the trade was made on.\n- opinion: the person's own view, reason or feeling about the trade.\n\nRules:\n1. Copy, never rewrite. Keep every digit, comma, point, letter, unit and word exactly as the passage writes it. Never translate: what you copy from English words stays English, and what you copy from Chinese words stays Chinese. Do not turn Chinese numbers into digits or digits into words, and never drop a \"k\", a \"w\" or a \"万\" from a number.\n2. Leave a field \"\" when the passage does not say it. Never fill in a market price, a date, a fee or a currency the passage does not write.\n3. Each field is one unbroken piece of the passage.\n4. A detail said once for several trades, such as the day, the exchange or a shared fee, is copied into each of those rows.\n5. Each row holds only what belongs to its own trade. Two coins, or two separate buys or sells, are two rows.\n"
+        },
+        {
+          "role": "user",
+          "content": "昨天晚上 9 点 40 在币安买了 0.02 个比特币，价格 61,250，手续费 1.2 USDT，感觉还会涨"
+        },
+        {
+          "role": "assistant",
+          "content": "{\"trades\": [{\"side\": \"buy\", \"coin\": \"比特币\", \"quantity\": \"0.02 个比特币\", \"price\": \"61,250\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"1.2 USDT\", \"fee_currency\": \"\", \"time\": \"昨天晚上 9 点 40\", \"platform\": \"币安\", \"opinion\": \"感觉还会涨\"}]}"
+        },
+        {
+          "role": "user",
+          "content": "Sold 150 SOL at 182.4 on Kraken last night, taking some profit"
+        },
+        {
+          "role": "assistant",
+          "content": "{\"trades\": [{\"side\": \"sell\", \"coin\": \"SOL\", \"quantity\": \"150 SOL\", \"price\": \"182.4\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"\", \"fee_currency\": \"\", \"time\": \"last night\", \"platform\": \"Kraken\", \"opinion\": \"taking some profit\"}]}"
+        },
+        {
+          "role": "user",
+          "content": "今天下午 3 点 buy 了 2 ETH @ 3,420 USDT，fee 付的 BNB 0.004"
+        },
+        {
+          "role": "assistant",
+          "content": "{\"trades\": [{\"side\": \"buy\", \"coin\": \"ETH\", \"quantity\": \"2 ETH\", \"price\": \"3,420 USDT\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"0.004\", \"fee_currency\": \"BNB\", \"time\": \"今天下午 3 点\", \"platform\": \"\", \"opinion\": \"\"}]}"
+        },
+        {
+          "role": "user",
+          "content": "昨天在 OKX 先买了 0.5 ETH，价格 3,380，又买了 200 个 ARB，0.92 一个，两笔手续费都是 0.1U"
+        },
+        {
+          "role": "assistant",
+          "content": "{\"trades\": [{\"side\": \"buy\", \"coin\": \"ETH\", \"quantity\": \"0.5 ETH\", \"price\": \"3,380\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"0.1U\", \"fee_currency\": \"\", \"time\": \"昨天\", \"platform\": \"OKX\", \"opinion\": \"\"}, {\"side\": \"buy\", \"coin\": \"ARB\", \"quantity\": \"200 个 ARB\", \"price\": \"0.92\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"0.1U\", \"fee_currency\": \"\", \"time\": \"昨天\", \"platform\": \"OKX\", \"opinion\": \"\"}]}"
+        },
+        {
+          "role": "user",
+          "content": "Swapped out of LINK today: sold 40 LINK at 14.6, then bought 0.25 ETH at 2,340"
+        },
+        {
+          "role": "assistant",
+          "content": "{\"trades\": [{\"side\": \"sell\", \"coin\": \"LINK\", \"quantity\": \"40 LINK\", \"price\": \"14.6\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"\", \"fee_currency\": \"\", \"time\": \"today\", \"platform\": \"\", \"opinion\": \"\"}, {\"side\": \"buy\", \"coin\": \"ETH\", \"quantity\": \"0.25 ETH\", \"price\": \"2,340\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"\", \"fee_currency\": \"\", \"time\": \"today\", \"platform\": \"\", \"opinion\": \"\"}]}"
+        },
+        {
+          "role": "user",
+          "content": "今天行情好无聊，啥也没做，晚上看会儿书"
+        },
+        {
+          "role": "assistant",
+          "content": "{\"trades\": []}"
+        },
+        {
+          "role": "user",
+          "content": "BTC touched 70k this morning, crazy. Not touching it."
+        },
+        {
+          "role": "assistant",
+          "content": "{\"trades\": []}"
+        },
+        {
+          "role": "user",
+          "content": "买了点大饼"
+        },
+        {
+          "role": "assistant",
+          "content": "{\"trades\": [{\"side\": \"buy\", \"coin\": \"大饼\", \"quantity\": \"\", \"price\": \"\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"\", \"fee_currency\": \"\", \"time\": \"\", \"platform\": \"\", \"opinion\": \"\"}]}"
+        },
+        {
+          "role": "user",
+          "content": "Bought DOGE for 500 USDT in total on Oct 2, fee was 3 DOGE"
+        },
+        {
+          "role": "assistant",
+          "content": "{\"trades\": [{\"side\": \"buy\", \"coin\": \"DOGE\", \"quantity\": \"\", \"price\": \"\", \"total\": \"500 USDT\", \"price_currency\": \"\", \"fee\": \"3 DOGE\", \"fee_currency\": \"\", \"time\": \"Oct 2\", \"platform\": \"\", \"opinion\": \"\"}]}"
+        },
+        {
+          "role": "user",
+          "content": "刚才 sold 0.3 BTC，止盈一部分，at 67.2k"
+        },
+        {
+          "role": "assistant",
+          "content": "{\"trades\": [{\"side\": \"sell\", \"coin\": \"BTC\", \"quantity\": \"0.3 BTC\", \"price\": \"67.2k\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"\", \"fee_currency\": \"\", \"time\": \"刚才\", \"platform\": \"\", \"opinion\": \"止盈一部分\"}]}"
+        },
+        {
+          "role": "user",
+          "content": "今天上午 10 点在 OKX 买了 0.3 ETH，3,150 一个，手续费 0.5U"
+        },
+        {
+          "role": "user",
+          "content": "Your last answer could not be used: the reply writes the same key twice in one object. Answer again with only the JSON object {\"trades\": [...]}, following the rules above."
+        }
+      ]
+    },
+    {
+      "problem": "NO_TRADES_LIST",
+      "messages": [
+        {
+          "role": "system",
+          "content": "You copy the details of crypto spot trades out of a short passage that one person wrote about their own trades. You never calculate, convert, translate, correct or guess anything.\n\nReply with one JSON object: {\"trades\": [...]}, with one row for each trade the passage mentions. If it mentions no trade, reply {\"trades\": []}.\n\nEvery row has the same eleven fields. \"side\" is \"buy\" when the coin was bought (bought, buy, 买, 买入, 加仓), \"sell\" when it was sold (sold, sell, 卖, 卖出, 止盈, 清仓), and \"\" when the passage does not say. Every other field holds a piece of the passage copied character for character, or \"\" when the passage does not say it:\n\n- coin: the coin bought or sold, as the passage calls it.\n- quantity: how much of the coin: the number, with the unit written right after it if there is one.\n- price: the price of one coin: the number, with the currency sign or word written right next to it if there is one.\n- total: the whole amount paid or received, without the fee: the number, with the currency sign or word written right next to it if there is one.\n- price_currency: the currency of the price or total, only when the passage names it apart from those numbers.\n- fee: the fee: the number, with the currency word written right after it if there is one.\n- fee_currency: the currency the fee was paid in, only when the passage names it apart from the fee's number.\n- time: when the trade happened: only the words that say the day and the time, in the passage's own words (\"last night\", \"昨天晚上 9 点 40\", \"Oct 2 at 14:05\").\n- platform: the exchange or app the trade was made on.\n- opinion: the person's own view, reason or feeling about the trade.\n\nRules:\n1. Copy, never rewrite. Keep every digit, comma, point, letter, unit and word exactly as the passage writes it. Never translate: what you copy from English words stays English, and what you copy from Chinese words stays Chinese. Do not turn Chinese numbers into digits or digits into words, and never drop a \"k\", a \"w\" or a \"万\" from a number.\n2. Leave a field \"\" when the passage does not say it. Never fill in a market price, a date, a fee or a currency the passage does not write.\n3. Each field is one unbroken piece of the passage.\n4. A detail said once for several trades, such as the day, the exchange or a shared fee, is copied into each of those rows.\n5. Each row holds only what belongs to its own trade. Two coins, or two separate buys or sells, are two rows.\n"
+        },
+        {
+          "role": "user",
+          "content": "昨天晚上 9 点 40 在币安买了 0.02 个比特币，价格 61,250，手续费 1.2 USDT，感觉还会涨"
+        },
+        {
+          "role": "assistant",
+          "content": "{\"trades\": [{\"side\": \"buy\", \"coin\": \"比特币\", \"quantity\": \"0.02 个比特币\", \"price\": \"61,250\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"1.2 USDT\", \"fee_currency\": \"\", \"time\": \"昨天晚上 9 点 40\", \"platform\": \"币安\", \"opinion\": \"感觉还会涨\"}]}"
+        },
+        {
+          "role": "user",
+          "content": "Sold 150 SOL at 182.4 on Kraken last night, taking some profit"
+        },
+        {
+          "role": "assistant",
+          "content": "{\"trades\": [{\"side\": \"sell\", \"coin\": \"SOL\", \"quantity\": \"150 SOL\", \"price\": \"182.4\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"\", \"fee_currency\": \"\", \"time\": \"last night\", \"platform\": \"Kraken\", \"opinion\": \"taking some profit\"}]}"
+        },
+        {
+          "role": "user",
+          "content": "今天下午 3 点 buy 了 2 ETH @ 3,420 USDT，fee 付的 BNB 0.004"
+        },
+        {
+          "role": "assistant",
+          "content": "{\"trades\": [{\"side\": \"buy\", \"coin\": \"ETH\", \"quantity\": \"2 ETH\", \"price\": \"3,420 USDT\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"0.004\", \"fee_currency\": \"BNB\", \"time\": \"今天下午 3 点\", \"platform\": \"\", \"opinion\": \"\"}]}"
+        },
+        {
+          "role": "user",
+          "content": "昨天在 OKX 先买了 0.5 ETH，价格 3,380，又买了 200 个 ARB，0.92 一个，两笔手续费都是 0.1U"
+        },
+        {
+          "role": "assistant",
+          "content": "{\"trades\": [{\"side\": \"buy\", \"coin\": \"ETH\", \"quantity\": \"0.5 ETH\", \"price\": \"3,380\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"0.1U\", \"fee_currency\": \"\", \"time\": \"昨天\", \"platform\": \"OKX\", \"opinion\": \"\"}, {\"side\": \"buy\", \"coin\": \"ARB\", \"quantity\": \"200 个 ARB\", \"price\": \"0.92\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"0.1U\", \"fee_currency\": \"\", \"time\": \"昨天\", \"platform\": \"OKX\", \"opinion\": \"\"}]}"
+        },
+        {
+          "role": "user",
+          "content": "Swapped out of LINK today: sold 40 LINK at 14.6, then bought 0.25 ETH at 2,340"
+        },
+        {
+          "role": "assistant",
+          "content": "{\"trades\": [{\"side\": \"sell\", \"coin\": \"LINK\", \"quantity\": \"40 LINK\", \"price\": \"14.6\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"\", \"fee_currency\": \"\", \"time\": \"today\", \"platform\": \"\", \"opinion\": \"\"}, {\"side\": \"buy\", \"coin\": \"ETH\", \"quantity\": \"0.25 ETH\", \"price\": \"2,340\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"\", \"fee_currency\": \"\", \"time\": \"today\", \"platform\": \"\", \"opinion\": \"\"}]}"
+        },
+        {
+          "role": "user",
+          "content": "今天行情好无聊，啥也没做，晚上看会儿书"
+        },
+        {
+          "role": "assistant",
+          "content": "{\"trades\": []}"
+        },
+        {
+          "role": "user",
+          "content": "BTC touched 70k this morning, crazy. Not touching it."
+        },
+        {
+          "role": "assistant",
+          "content": "{\"trades\": []}"
+        },
+        {
+          "role": "user",
+          "content": "买了点大饼"
+        },
+        {
+          "role": "assistant",
+          "content": "{\"trades\": [{\"side\": \"buy\", \"coin\": \"大饼\", \"quantity\": \"\", \"price\": \"\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"\", \"fee_currency\": \"\", \"time\": \"\", \"platform\": \"\", \"opinion\": \"\"}]}"
+        },
+        {
+          "role": "user",
+          "content": "Bought DOGE for 500 USDT in total on Oct 2, fee was 3 DOGE"
+        },
+        {
+          "role": "assistant",
+          "content": "{\"trades\": [{\"side\": \"buy\", \"coin\": \"DOGE\", \"quantity\": \"\", \"price\": \"\", \"total\": \"500 USDT\", \"price_currency\": \"\", \"fee\": \"3 DOGE\", \"fee_currency\": \"\", \"time\": \"Oct 2\", \"platform\": \"\", \"opinion\": \"\"}]}"
+        },
+        {
+          "role": "user",
+          "content": "刚才 sold 0.3 BTC，止盈一部分，at 67.2k"
+        },
+        {
+          "role": "assistant",
+          "content": "{\"trades\": [{\"side\": \"sell\", \"coin\": \"BTC\", \"quantity\": \"0.3 BTC\", \"price\": \"67.2k\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"\", \"fee_currency\": \"\", \"time\": \"刚才\", \"platform\": \"\", \"opinion\": \"止盈一部分\"}]}"
+        },
+        {
+          "role": "user",
+          "content": "今天上午 10 点在 OKX 买了 0.3 ETH，3,150 一个，手续费 0.5U"
+        },
+        {
+          "role": "user",
+          "content": "Your last answer could not be used: the reply is not an object with a list under 'trades'. Answer again with only the JSON object {\"trades\": [...]}, following the rules above."
+        }
+      ]
+    },
+    {
+      "problem": "TOO_MANY_ROWS",
+      "messages": [
+        {
+          "role": "system",
+          "content": "You copy the details of crypto spot trades out of a short passage that one person wrote about their own trades. You never calculate, convert, translate, correct or guess anything.\n\nReply with one JSON object: {\"trades\": [...]}, with one row for each trade the passage mentions. If it mentions no trade, reply {\"trades\": []}.\n\nEvery row has the same eleven fields. \"side\" is \"buy\" when the coin was bought (bought, buy, 买, 买入, 加仓), \"sell\" when it was sold (sold, sell, 卖, 卖出, 止盈, 清仓), and \"\" when the passage does not say. Every other field holds a piece of the passage copied character for character, or \"\" when the passage does not say it:\n\n- coin: the coin bought or sold, as the passage calls it.\n- quantity: how much of the coin: the number, with the unit written right after it if there is one.\n- price: the price of one coin: the number, with the currency sign or word written right next to it if there is one.\n- total: the whole amount paid or received, without the fee: the number, with the currency sign or word written right next to it if there is one.\n- price_currency: the currency of the price or total, only when the passage names it apart from those numbers.\n- fee: the fee: the number, with the currency word written right after it if there is one.\n- fee_currency: the currency the fee was paid in, only when the passage names it apart from the fee's number.\n- time: when the trade happened: only the words that say the day and the time, in the passage's own words (\"last night\", \"昨天晚上 9 点 40\", \"Oct 2 at 14:05\").\n- platform: the exchange or app the trade was made on.\n- opinion: the person's own view, reason or feeling about the trade.\n\nRules:\n1. Copy, never rewrite. Keep every digit, comma, point, letter, unit and word exactly as the passage writes it. Never translate: what you copy from English words stays English, and what you copy from Chinese words stays Chinese. Do not turn Chinese numbers into digits or digits into words, and never drop a \"k\", a \"w\" or a \"万\" from a number.\n2. Leave a field \"\" when the passage does not say it. Never fill in a market price, a date, a fee or a currency the passage does not write.\n3. Each field is one unbroken piece of the passage.\n4. A detail said once for several trades, such as the day, the exchange or a shared fee, is copied into each of those rows.\n5. Each row holds only what belongs to its own trade. Two coins, or two separate buys or sells, are two rows.\n"
+        },
+        {
+          "role": "user",
+          "content": "昨天晚上 9 点 40 在币安买了 0.02 个比特币，价格 61,250，手续费 1.2 USDT，感觉还会涨"
+        },
+        {
+          "role": "assistant",
+          "content": "{\"trades\": [{\"side\": \"buy\", \"coin\": \"比特币\", \"quantity\": \"0.02 个比特币\", \"price\": \"61,250\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"1.2 USDT\", \"fee_currency\": \"\", \"time\": \"昨天晚上 9 点 40\", \"platform\": \"币安\", \"opinion\": \"感觉还会涨\"}]}"
+        },
+        {
+          "role": "user",
+          "content": "Sold 150 SOL at 182.4 on Kraken last night, taking some profit"
+        },
+        {
+          "role": "assistant",
+          "content": "{\"trades\": [{\"side\": \"sell\", \"coin\": \"SOL\", \"quantity\": \"150 SOL\", \"price\": \"182.4\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"\", \"fee_currency\": \"\", \"time\": \"last night\", \"platform\": \"Kraken\", \"opinion\": \"taking some profit\"}]}"
+        },
+        {
+          "role": "user",
+          "content": "今天下午 3 点 buy 了 2 ETH @ 3,420 USDT，fee 付的 BNB 0.004"
+        },
+        {
+          "role": "assistant",
+          "content": "{\"trades\": [{\"side\": \"buy\", \"coin\": \"ETH\", \"quantity\": \"2 ETH\", \"price\": \"3,420 USDT\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"0.004\", \"fee_currency\": \"BNB\", \"time\": \"今天下午 3 点\", \"platform\": \"\", \"opinion\": \"\"}]}"
+        },
+        {
+          "role": "user",
+          "content": "昨天在 OKX 先买了 0.5 ETH，价格 3,380，又买了 200 个 ARB，0.92 一个，两笔手续费都是 0.1U"
+        },
+        {
+          "role": "assistant",
+          "content": "{\"trades\": [{\"side\": \"buy\", \"coin\": \"ETH\", \"quantity\": \"0.5 ETH\", \"price\": \"3,380\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"0.1U\", \"fee_currency\": \"\", \"time\": \"昨天\", \"platform\": \"OKX\", \"opinion\": \"\"}, {\"side\": \"buy\", \"coin\": \"ARB\", \"quantity\": \"200 个 ARB\", \"price\": \"0.92\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"0.1U\", \"fee_currency\": \"\", \"time\": \"昨天\", \"platform\": \"OKX\", \"opinion\": \"\"}]}"
+        },
+        {
+          "role": "user",
+          "content": "Swapped out of LINK today: sold 40 LINK at 14.6, then bought 0.25 ETH at 2,340"
+        },
+        {
+          "role": "assistant",
+          "content": "{\"trades\": [{\"side\": \"sell\", \"coin\": \"LINK\", \"quantity\": \"40 LINK\", \"price\": \"14.6\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"\", \"fee_currency\": \"\", \"time\": \"today\", \"platform\": \"\", \"opinion\": \"\"}, {\"side\": \"buy\", \"coin\": \"ETH\", \"quantity\": \"0.25 ETH\", \"price\": \"2,340\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"\", \"fee_currency\": \"\", \"time\": \"today\", \"platform\": \"\", \"opinion\": \"\"}]}"
+        },
+        {
+          "role": "user",
+          "content": "今天行情好无聊，啥也没做，晚上看会儿书"
+        },
+        {
+          "role": "assistant",
+          "content": "{\"trades\": []}"
+        },
+        {
+          "role": "user",
+          "content": "BTC touched 70k this morning, crazy. Not touching it."
+        },
+        {
+          "role": "assistant",
+          "content": "{\"trades\": []}"
+        },
+        {
+          "role": "user",
+          "content": "买了点大饼"
+        },
+        {
+          "role": "assistant",
+          "content": "{\"trades\": [{\"side\": \"buy\", \"coin\": \"大饼\", \"quantity\": \"\", \"price\": \"\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"\", \"fee_currency\": \"\", \"time\": \"\", \"platform\": \"\", \"opinion\": \"\"}]}"
+        },
+        {
+          "role": "user",
+          "content": "Bought DOGE for 500 USDT in total on Oct 2, fee was 3 DOGE"
+        },
+        {
+          "role": "assistant",
+          "content": "{\"trades\": [{\"side\": \"buy\", \"coin\": \"DOGE\", \"quantity\": \"\", \"price\": \"\", \"total\": \"500 USDT\", \"price_currency\": \"\", \"fee\": \"3 DOGE\", \"fee_currency\": \"\", \"time\": \"Oct 2\", \"platform\": \"\", \"opinion\": \"\"}]}"
+        },
+        {
+          "role": "user",
+          "content": "刚才 sold 0.3 BTC，止盈一部分，at 67.2k"
+        },
+        {
+          "role": "assistant",
+          "content": "{\"trades\": [{\"side\": \"sell\", \"coin\": \"BTC\", \"quantity\": \"0.3 BTC\", \"price\": \"67.2k\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"\", \"fee_currency\": \"\", \"time\": \"刚才\", \"platform\": \"\", \"opinion\": \"止盈一部分\"}]}"
+        },
+        {
+          "role": "user",
+          "content": "今天上午 10 点在 OKX 买了 0.3 ETH，3,150 一个，手续费 0.5U"
+        },
+        {
+          "role": "user",
+          "content": "Your last answer could not be used: the reply lists more rows than one passage can hold. Answer again with only the JSON object {\"trades\": [...]}, following the rules above."
+        }
+      ]
+    },
+    {
+      "problem": "ROW_NOT_AN_OBJECT",
+      "messages": [
+        {
+          "role": "system",
+          "content": "You copy the details of crypto spot trades out of a short passage that one person wrote about their own trades. You never calculate, convert, translate, correct or guess anything.\n\nReply with one JSON object: {\"trades\": [...]}, with one row for each trade the passage mentions. If it mentions no trade, reply {\"trades\": []}.\n\nEvery row has the same eleven fields. \"side\" is \"buy\" when the coin was bought (bought, buy, 买, 买入, 加仓), \"sell\" when it was sold (sold, sell, 卖, 卖出, 止盈, 清仓), and \"\" when the passage does not say. Every other field holds a piece of the passage copied character for character, or \"\" when the passage does not say it:\n\n- coin: the coin bought or sold, as the passage calls it.\n- quantity: how much of the coin: the number, with the unit written right after it if there is one.\n- price: the price of one coin: the number, with the currency sign or word written right next to it if there is one.\n- total: the whole amount paid or received, without the fee: the number, with the currency sign or word written right next to it if there is one.\n- price_currency: the currency of the price or total, only when the passage names it apart from those numbers.\n- fee: the fee: the number, with the currency word written right after it if there is one.\n- fee_currency: the currency the fee was paid in, only when the passage names it apart from the fee's number.\n- time: when the trade happened: only the words that say the day and the time, in the passage's own words (\"last night\", \"昨天晚上 9 点 40\", \"Oct 2 at 14:05\").\n- platform: the exchange or app the trade was made on.\n- opinion: the person's own view, reason or feeling about the trade.\n\nRules:\n1. Copy, never rewrite. Keep every digit, comma, point, letter, unit and word exactly as the passage writes it. Never translate: what you copy from English words stays English, and what you copy from Chinese words stays Chinese. Do not turn Chinese numbers into digits or digits into words, and never drop a \"k\", a \"w\" or a \"万\" from a number.\n2. Leave a field \"\" when the passage does not say it. Never fill in a market price, a date, a fee or a currency the passage does not write.\n3. Each field is one unbroken piece of the passage.\n4. A detail said once for several trades, such as the day, the exchange or a shared fee, is copied into each of those rows.\n5. Each row holds only what belongs to its own trade. Two coins, or two separate buys or sells, are two rows.\n"
+        },
+        {
+          "role": "user",
+          "content": "昨天晚上 9 点 40 在币安买了 0.02 个比特币，价格 61,250，手续费 1.2 USDT，感觉还会涨"
+        },
+        {
+          "role": "assistant",
+          "content": "{\"trades\": [{\"side\": \"buy\", \"coin\": \"比特币\", \"quantity\": \"0.02 个比特币\", \"price\": \"61,250\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"1.2 USDT\", \"fee_currency\": \"\", \"time\": \"昨天晚上 9 点 40\", \"platform\": \"币安\", \"opinion\": \"感觉还会涨\"}]}"
+        },
+        {
+          "role": "user",
+          "content": "Sold 150 SOL at 182.4 on Kraken last night, taking some profit"
+        },
+        {
+          "role": "assistant",
+          "content": "{\"trades\": [{\"side\": \"sell\", \"coin\": \"SOL\", \"quantity\": \"150 SOL\", \"price\": \"182.4\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"\", \"fee_currency\": \"\", \"time\": \"last night\", \"platform\": \"Kraken\", \"opinion\": \"taking some profit\"}]}"
+        },
+        {
+          "role": "user",
+          "content": "今天下午 3 点 buy 了 2 ETH @ 3,420 USDT，fee 付的 BNB 0.004"
+        },
+        {
+          "role": "assistant",
+          "content": "{\"trades\": [{\"side\": \"buy\", \"coin\": \"ETH\", \"quantity\": \"2 ETH\", \"price\": \"3,420 USDT\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"0.004\", \"fee_currency\": \"BNB\", \"time\": \"今天下午 3 点\", \"platform\": \"\", \"opinion\": \"\"}]}"
+        },
+        {
+          "role": "user",
+          "content": "昨天在 OKX 先买了 0.5 ETH，价格 3,380，又买了 200 个 ARB，0.92 一个，两笔手续费都是 0.1U"
+        },
+        {
+          "role": "assistant",
+          "content": "{\"trades\": [{\"side\": \"buy\", \"coin\": \"ETH\", \"quantity\": \"0.5 ETH\", \"price\": \"3,380\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"0.1U\", \"fee_currency\": \"\", \"time\": \"昨天\", \"platform\": \"OKX\", \"opinion\": \"\"}, {\"side\": \"buy\", \"coin\": \"ARB\", \"quantity\": \"200 个 ARB\", \"price\": \"0.92\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"0.1U\", \"fee_currency\": \"\", \"time\": \"昨天\", \"platform\": \"OKX\", \"opinion\": \"\"}]}"
+        },
+        {
+          "role": "user",
+          "content": "Swapped out of LINK today: sold 40 LINK at 14.6, then bought 0.25 ETH at 2,340"
+        },
+        {
+          "role": "assistant",
+          "content": "{\"trades\": [{\"side\": \"sell\", \"coin\": \"LINK\", \"quantity\": \"40 LINK\", \"price\": \"14.6\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"\", \"fee_currency\": \"\", \"time\": \"today\", \"platform\": \"\", \"opinion\": \"\"}, {\"side\": \"buy\", \"coin\": \"ETH\", \"quantity\": \"0.25 ETH\", \"price\": \"2,340\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"\", \"fee_currency\": \"\", \"time\": \"today\", \"platform\": \"\", \"opinion\": \"\"}]}"
+        },
+        {
+          "role": "user",
+          "content": "今天行情好无聊，啥也没做，晚上看会儿书"
+        },
+        {
+          "role": "assistant",
+          "content": "{\"trades\": []}"
+        },
+        {
+          "role": "user",
+          "content": "BTC touched 70k this morning, crazy. Not touching it."
+        },
+        {
+          "role": "assistant",
+          "content": "{\"trades\": []}"
+        },
+        {
+          "role": "user",
+          "content": "买了点大饼"
+        },
+        {
+          "role": "assistant",
+          "content": "{\"trades\": [{\"side\": \"buy\", \"coin\": \"大饼\", \"quantity\": \"\", \"price\": \"\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"\", \"fee_currency\": \"\", \"time\": \"\", \"platform\": \"\", \"opinion\": \"\"}]}"
+        },
+        {
+          "role": "user",
+          "content": "Bought DOGE for 500 USDT in total on Oct 2, fee was 3 DOGE"
+        },
+        {
+          "role": "assistant",
+          "content": "{\"trades\": [{\"side\": \"buy\", \"coin\": \"DOGE\", \"quantity\": \"\", \"price\": \"\", \"total\": \"500 USDT\", \"price_currency\": \"\", \"fee\": \"3 DOGE\", \"fee_currency\": \"\", \"time\": \"Oct 2\", \"platform\": \"\", \"opinion\": \"\"}]}"
+        },
+        {
+          "role": "user",
+          "content": "刚才 sold 0.3 BTC，止盈一部分，at 67.2k"
+        },
+        {
+          "role": "assistant",
+          "content": "{\"trades\": [{\"side\": \"sell\", \"coin\": \"BTC\", \"quantity\": \"0.3 BTC\", \"price\": \"67.2k\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"\", \"fee_currency\": \"\", \"time\": \"刚才\", \"platform\": \"\", \"opinion\": \"止盈一部分\"}]}"
+        },
+        {
+          "role": "user",
+          "content": "今天上午 10 点在 OKX 买了 0.3 ETH，3,150 一个，手续费 0.5U"
+        },
+        {
+          "role": "user",
+          "content": "Your last answer could not be used: a row of the reply is not an object. Answer again with only the JSON object {\"trades\": [...]}, following the rules above."
+        }
+      ]
+    },
+    {
+      "problem": "CELL_NOT_TEXT",
+      "messages": [
+        {
+          "role": "system",
+          "content": "You copy the details of crypto spot trades out of a short passage that one person wrote about their own trades. You never calculate, convert, translate, correct or guess anything.\n\nReply with one JSON object: {\"trades\": [...]}, with one row for each trade the passage mentions. If it mentions no trade, reply {\"trades\": []}.\n\nEvery row has the same eleven fields. \"side\" is \"buy\" when the coin was bought (bought, buy, 买, 买入, 加仓), \"sell\" when it was sold (sold, sell, 卖, 卖出, 止盈, 清仓), and \"\" when the passage does not say. Every other field holds a piece of the passage copied character for character, or \"\" when the passage does not say it:\n\n- coin: the coin bought or sold, as the passage calls it.\n- quantity: how much of the coin: the number, with the unit written right after it if there is one.\n- price: the price of one coin: the number, with the currency sign or word written right next to it if there is one.\n- total: the whole amount paid or received, without the fee: the number, with the currency sign or word written right next to it if there is one.\n- price_currency: the currency of the price or total, only when the passage names it apart from those numbers.\n- fee: the fee: the number, with the currency word written right after it if there is one.\n- fee_currency: the currency the fee was paid in, only when the passage names it apart from the fee's number.\n- time: when the trade happened: only the words that say the day and the time, in the passage's own words (\"last night\", \"昨天晚上 9 点 40\", \"Oct 2 at 14:05\").\n- platform: the exchange or app the trade was made on.\n- opinion: the person's own view, reason or feeling about the trade.\n\nRules:\n1. Copy, never rewrite. Keep every digit, comma, point, letter, unit and word exactly as the passage writes it. Never translate: what you copy from English words stays English, and what you copy from Chinese words stays Chinese. Do not turn Chinese numbers into digits or digits into words, and never drop a \"k\", a \"w\" or a \"万\" from a number.\n2. Leave a field \"\" when the passage does not say it. Never fill in a market price, a date, a fee or a currency the passage does not write.\n3. Each field is one unbroken piece of the passage.\n4. A detail said once for several trades, such as the day, the exchange or a shared fee, is copied into each of those rows.\n5. Each row holds only what belongs to its own trade. Two coins, or two separate buys or sells, are two rows.\n"
+        },
+        {
+          "role": "user",
+          "content": "昨天晚上 9 点 40 在币安买了 0.02 个比特币，价格 61,250，手续费 1.2 USDT，感觉还会涨"
+        },
+        {
+          "role": "assistant",
+          "content": "{\"trades\": [{\"side\": \"buy\", \"coin\": \"比特币\", \"quantity\": \"0.02 个比特币\", \"price\": \"61,250\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"1.2 USDT\", \"fee_currency\": \"\", \"time\": \"昨天晚上 9 点 40\", \"platform\": \"币安\", \"opinion\": \"感觉还会涨\"}]}"
+        },
+        {
+          "role": "user",
+          "content": "Sold 150 SOL at 182.4 on Kraken last night, taking some profit"
+        },
+        {
+          "role": "assistant",
+          "content": "{\"trades\": [{\"side\": \"sell\", \"coin\": \"SOL\", \"quantity\": \"150 SOL\", \"price\": \"182.4\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"\", \"fee_currency\": \"\", \"time\": \"last night\", \"platform\": \"Kraken\", \"opinion\": \"taking some profit\"}]}"
+        },
+        {
+          "role": "user",
+          "content": "今天下午 3 点 buy 了 2 ETH @ 3,420 USDT，fee 付的 BNB 0.004"
+        },
+        {
+          "role": "assistant",
+          "content": "{\"trades\": [{\"side\": \"buy\", \"coin\": \"ETH\", \"quantity\": \"2 ETH\", \"price\": \"3,420 USDT\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"0.004\", \"fee_currency\": \"BNB\", \"time\": \"今天下午 3 点\", \"platform\": \"\", \"opinion\": \"\"}]}"
+        },
+        {
+          "role": "user",
+          "content": "昨天在 OKX 先买了 0.5 ETH，价格 3,380，又买了 200 个 ARB，0.92 一个，两笔手续费都是 0.1U"
+        },
+        {
+          "role": "assistant",
+          "content": "{\"trades\": [{\"side\": \"buy\", \"coin\": \"ETH\", \"quantity\": \"0.5 ETH\", \"price\": \"3,380\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"0.1U\", \"fee_currency\": \"\", \"time\": \"昨天\", \"platform\": \"OKX\", \"opinion\": \"\"}, {\"side\": \"buy\", \"coin\": \"ARB\", \"quantity\": \"200 个 ARB\", \"price\": \"0.92\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"0.1U\", \"fee_currency\": \"\", \"time\": \"昨天\", \"platform\": \"OKX\", \"opinion\": \"\"}]}"
+        },
+        {
+          "role": "user",
+          "content": "Swapped out of LINK today: sold 40 LINK at 14.6, then bought 0.25 ETH at 2,340"
+        },
+        {
+          "role": "assistant",
+          "content": "{\"trades\": [{\"side\": \"sell\", \"coin\": \"LINK\", \"quantity\": \"40 LINK\", \"price\": \"14.6\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"\", \"fee_currency\": \"\", \"time\": \"today\", \"platform\": \"\", \"opinion\": \"\"}, {\"side\": \"buy\", \"coin\": \"ETH\", \"quantity\": \"0.25 ETH\", \"price\": \"2,340\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"\", \"fee_currency\": \"\", \"time\": \"today\", \"platform\": \"\", \"opinion\": \"\"}]}"
+        },
+        {
+          "role": "user",
+          "content": "今天行情好无聊，啥也没做，晚上看会儿书"
+        },
+        {
+          "role": "assistant",
+          "content": "{\"trades\": []}"
+        },
+        {
+          "role": "user",
+          "content": "BTC touched 70k this morning, crazy. Not touching it."
+        },
+        {
+          "role": "assistant",
+          "content": "{\"trades\": []}"
+        },
+        {
+          "role": "user",
+          "content": "买了点大饼"
+        },
+        {
+          "role": "assistant",
+          "content": "{\"trades\": [{\"side\": \"buy\", \"coin\": \"大饼\", \"quantity\": \"\", \"price\": \"\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"\", \"fee_currency\": \"\", \"time\": \"\", \"platform\": \"\", \"opinion\": \"\"}]}"
+        },
+        {
+          "role": "user",
+          "content": "Bought DOGE for 500 USDT in total on Oct 2, fee was 3 DOGE"
+        },
+        {
+          "role": "assistant",
+          "content": "{\"trades\": [{\"side\": \"buy\", \"coin\": \"DOGE\", \"quantity\": \"\", \"price\": \"\", \"total\": \"500 USDT\", \"price_currency\": \"\", \"fee\": \"3 DOGE\", \"fee_currency\": \"\", \"time\": \"Oct 2\", \"platform\": \"\", \"opinion\": \"\"}]}"
+        },
+        {
+          "role": "user",
+          "content": "刚才 sold 0.3 BTC，止盈一部分，at 67.2k"
+        },
+        {
+          "role": "assistant",
+          "content": "{\"trades\": [{\"side\": \"sell\", \"coin\": \"BTC\", \"quantity\": \"0.3 BTC\", \"price\": \"67.2k\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"\", \"fee_currency\": \"\", \"time\": \"刚才\", \"platform\": \"\", \"opinion\": \"止盈一部分\"}]}"
+        },
+        {
+          "role": "user",
+          "content": "今天上午 10 点在 OKX 买了 0.3 ETH，3,150 一个，手续费 0.5U"
+        },
+        {
+          "role": "user",
+          "content": "Your last answer could not be used: a field of a row holds something other than valid text. Answer again with only the JSON object {\"trades\": [...]}, following the rules above."
+        }
+      ]
+    },
+    {
+      "problem": "SIDE_NOT_ALLOWED",
+      "messages": [
+        {
+          "role": "system",
+          "content": "You copy the details of crypto spot trades out of a short passage that one person wrote about their own trades. You never calculate, convert, translate, correct or guess anything.\n\nReply with one JSON object: {\"trades\": [...]}, with one row for each trade the passage mentions. If it mentions no trade, reply {\"trades\": []}.\n\nEvery row has the same eleven fields. \"side\" is \"buy\" when the coin was bought (bought, buy, 买, 买入, 加仓), \"sell\" when it was sold (sold, sell, 卖, 卖出, 止盈, 清仓), and \"\" when the passage does not say. Every other field holds a piece of the passage copied character for character, or \"\" when the passage does not say it:\n\n- coin: the coin bought or sold, as the passage calls it.\n- quantity: how much of the coin: the number, with the unit written right after it if there is one.\n- price: the price of one coin: the number, with the currency sign or word written right next to it if there is one.\n- total: the whole amount paid or received, without the fee: the number, with the currency sign or word written right next to it if there is one.\n- price_currency: the currency of the price or total, only when the passage names it apart from those numbers.\n- fee: the fee: the number, with the currency word written right after it if there is one.\n- fee_currency: the currency the fee was paid in, only when the passage names it apart from the fee's number.\n- time: when the trade happened: only the words that say the day and the time, in the passage's own words (\"last night\", \"昨天晚上 9 点 40\", \"Oct 2 at 14:05\").\n- platform: the exchange or app the trade was made on.\n- opinion: the person's own view, reason or feeling about the trade.\n\nRules:\n1. Copy, never rewrite. Keep every digit, comma, point, letter, unit and word exactly as the passage writes it. Never translate: what you copy from English words stays English, and what you copy from Chinese words stays Chinese. Do not turn Chinese numbers into digits or digits into words, and never drop a \"k\", a \"w\" or a \"万\" from a number.\n2. Leave a field \"\" when the passage does not say it. Never fill in a market price, a date, a fee or a currency the passage does not write.\n3. Each field is one unbroken piece of the passage.\n4. A detail said once for several trades, such as the day, the exchange or a shared fee, is copied into each of those rows.\n5. Each row holds only what belongs to its own trade. Two coins, or two separate buys or sells, are two rows.\n"
+        },
+        {
+          "role": "user",
+          "content": "昨天晚上 9 点 40 在币安买了 0.02 个比特币，价格 61,250，手续费 1.2 USDT，感觉还会涨"
+        },
+        {
+          "role": "assistant",
+          "content": "{\"trades\": [{\"side\": \"buy\", \"coin\": \"比特币\", \"quantity\": \"0.02 个比特币\", \"price\": \"61,250\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"1.2 USDT\", \"fee_currency\": \"\", \"time\": \"昨天晚上 9 点 40\", \"platform\": \"币安\", \"opinion\": \"感觉还会涨\"}]}"
+        },
+        {
+          "role": "user",
+          "content": "Sold 150 SOL at 182.4 on Kraken last night, taking some profit"
+        },
+        {
+          "role": "assistant",
+          "content": "{\"trades\": [{\"side\": \"sell\", \"coin\": \"SOL\", \"quantity\": \"150 SOL\", \"price\": \"182.4\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"\", \"fee_currency\": \"\", \"time\": \"last night\", \"platform\": \"Kraken\", \"opinion\": \"taking some profit\"}]}"
+        },
+        {
+          "role": "user",
+          "content": "今天下午 3 点 buy 了 2 ETH @ 3,420 USDT，fee 付的 BNB 0.004"
+        },
+        {
+          "role": "assistant",
+          "content": "{\"trades\": [{\"side\": \"buy\", \"coin\": \"ETH\", \"quantity\": \"2 ETH\", \"price\": \"3,420 USDT\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"0.004\", \"fee_currency\": \"BNB\", \"time\": \"今天下午 3 点\", \"platform\": \"\", \"opinion\": \"\"}]}"
+        },
+        {
+          "role": "user",
+          "content": "昨天在 OKX 先买了 0.5 ETH，价格 3,380，又买了 200 个 ARB，0.92 一个，两笔手续费都是 0.1U"
+        },
+        {
+          "role": "assistant",
+          "content": "{\"trades\": [{\"side\": \"buy\", \"coin\": \"ETH\", \"quantity\": \"0.5 ETH\", \"price\": \"3,380\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"0.1U\", \"fee_currency\": \"\", \"time\": \"昨天\", \"platform\": \"OKX\", \"opinion\": \"\"}, {\"side\": \"buy\", \"coin\": \"ARB\", \"quantity\": \"200 个 ARB\", \"price\": \"0.92\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"0.1U\", \"fee_currency\": \"\", \"time\": \"昨天\", \"platform\": \"OKX\", \"opinion\": \"\"}]}"
+        },
+        {
+          "role": "user",
+          "content": "Swapped out of LINK today: sold 40 LINK at 14.6, then bought 0.25 ETH at 2,340"
+        },
+        {
+          "role": "assistant",
+          "content": "{\"trades\": [{\"side\": \"sell\", \"coin\": \"LINK\", \"quantity\": \"40 LINK\", \"price\": \"14.6\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"\", \"fee_currency\": \"\", \"time\": \"today\", \"platform\": \"\", \"opinion\": \"\"}, {\"side\": \"buy\", \"coin\": \"ETH\", \"quantity\": \"0.25 ETH\", \"price\": \"2,340\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"\", \"fee_currency\": \"\", \"time\": \"today\", \"platform\": \"\", \"opinion\": \"\"}]}"
+        },
+        {
+          "role": "user",
+          "content": "今天行情好无聊，啥也没做，晚上看会儿书"
+        },
+        {
+          "role": "assistant",
+          "content": "{\"trades\": []}"
+        },
+        {
+          "role": "user",
+          "content": "BTC touched 70k this morning, crazy. Not touching it."
+        },
+        {
+          "role": "assistant",
+          "content": "{\"trades\": []}"
+        },
+        {
+          "role": "user",
+          "content": "买了点大饼"
+        },
+        {
+          "role": "assistant",
+          "content": "{\"trades\": [{\"side\": \"buy\", \"coin\": \"大饼\", \"quantity\": \"\", \"price\": \"\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"\", \"fee_currency\": \"\", \"time\": \"\", \"platform\": \"\", \"opinion\": \"\"}]}"
+        },
+        {
+          "role": "user",
+          "content": "Bought DOGE for 500 USDT in total on Oct 2, fee was 3 DOGE"
+        },
+        {
+          "role": "assistant",
+          "content": "{\"trades\": [{\"side\": \"buy\", \"coin\": \"DOGE\", \"quantity\": \"\", \"price\": \"\", \"total\": \"500 USDT\", \"price_currency\": \"\", \"fee\": \"3 DOGE\", \"fee_currency\": \"\", \"time\": \"Oct 2\", \"platform\": \"\", \"opinion\": \"\"}]}"
+        },
+        {
+          "role": "user",
+          "content": "刚才 sold 0.3 BTC，止盈一部分，at 67.2k"
+        },
+        {
+          "role": "assistant",
+          "content": "{\"trades\": [{\"side\": \"sell\", \"coin\": \"BTC\", \"quantity\": \"0.3 BTC\", \"price\": \"67.2k\", \"total\": \"\", \"price_currency\": \"\", \"fee\": \"\", \"fee_currency\": \"\", \"time\": \"刚才\", \"platform\": \"\", \"opinion\": \"止盈一部分\"}]}"
+        },
+        {
+          "role": "user",
+          "content": "今天上午 10 点在 OKX 买了 0.3 ETH，3,150 一个，手续费 0.5U"
+        },
+        {
+          "role": "user",
+          "content": "Your last answer could not be used: the side of a row is not 'buy', 'sell' or empty. Answer again with only the JSON object {\"trades\": [...]}, following the rules above."
+        }
+      ]
+    }
+  ]
+}
