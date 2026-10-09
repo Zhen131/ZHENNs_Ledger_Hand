@@ -1461,3 +1461,192 @@ Results file: `evals/results/run-20261009T024502Z-writings-first.jsonl`, with it
 | w20: Bought 0.1 BTC at 95,400，2 SOL at 150, both on OKX today, fee 0 | 2 | time | 今天 | (empty) | today | 2026-10-08 (day) |
 
 </details>
+
+### Run: writings set, prompt `zero_shot`
+
+Results file: `evals/results/run-20261009T024611Z-writings-zero_shot.jsonl`, with its summary in `run-20261009T024611Z-writings-zero_shot.summary.json`.
+
+<details>
+<summary>The generated tables of this run</summary>
+
+#### Run
+| Condition | Value |
+| --- | --- |
+| set | writings |
+| final_exam_switch | False |
+| set_file | evals/sets/writings.json |
+| set_sha256 | 7ac6a2027ec4434f140db02e51a3a46ca27da7dc89da06b3088866351f38ffce |
+| prompt | zero_shot |
+| prompt file src/ledger_hand/extraction/prompts/zero_shot.py | sha256 b5f309ca198e98cef953f38cd62cbffafe65cb6e7fc036371e5deaf1392b54a5 |
+| prompt file src/ledger_hand/extraction/prompts/first.py | sha256 e09ca774e7a4455891a9a8980c6932d3b9691f53c00cc189c3dfbcbbfb7368ba |
+| prompt_content_sha256 | f2d6c2b077e3a8a7d6bee5c2aeb7bb6eaf1588f73a1c93d21668c6f4f9569c88 |
+| reply_table_sha256 | e3870b098001b51896b9671f15ef57491df1f7834c0b880d7588ae65b6548e70 |
+| commit | e63dc184168241d5fb5ed2c14c1c98e8adbfd5d4 |
+| worktree_clean | True |
+| model | qwen2.5:7b |
+| model_fingerprint | 845dbda0ea48ed749caafd9e6037047aa19acfcfd82e704d7ca97d631a0b697e |
+| server_version | 0.34.3 |
+| base_url | http://127.0.0.1:11434 |
+| parameter temperature | 0.0 |
+| parameter top_p | 1.0 |
+| parameter max_reply_tokens | 1024 |
+| parameter context_tokens | 16384 |
+| parameter timeout_seconds | 120.0 |
+| parameter retries | 2 |
+| parameter retry_wait_seconds | 1.0 |
+| parameter asks_again | 1 |
+| coin_table | built-in |
+| started_at | 2026-10-09T02:46:11+00:00 |
+| sentences | 20 |
+| sum_of_sentence_seconds | 79.201 |
+| first_sentence_seconds | 2.938 |
+| longest_sentence_seconds | 7.579 |
+| finished_at | 2026-10-09T02:47:30+00:00 |
+| seconds_of_the_last_session | 79.237 |
+
+#### Scores by group
+| Group | Sentences | Well-formed | Whole trades right | Missed | Extra | Made up | No-trade sentences right |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| all scored sentences | 20 | 20 / 20 (100.0%) | 14 / 22 (63.6%) | 0 | 0 | 1 / 93 (1.1%) | 0 / 0 (-) |
+| one trade | 18 | 18 / 18 (100.0%) | 14 / 18 (77.8%) | 0 | 0 | 1 / 77 (1.3%) | 0 / 0 (-) |
+| several trades | 2 | 2 / 2 (100.0%) | 0 / 4 (0.0%) | 0 | 0 | 0 / 16 (0.0%) | 0 / 0 (-) |
+| - two trades | 2 | 2 / 2 (100.0%) | 0 / 4 (0.0%) | 0 | 0 | 0 / 16 (0.0%) | 0 / 0 (-) |
+| - three or more trades | 0 | 0 / 0 (-) | 0 / 0 (-) | 0 | 0 | 0 / 0 (-) | 0 / 0 (-) |
+| no trade (talk) | 0 | 0 / 0 (-) | 0 / 0 (-) | 0 | 0 | 0 / 0 (-) | 0 / 0 (-) |
+| Chinese | 8 | 8 / 8 (100.0%) | 7 / 9 (77.8%) | 0 | 0 | 0 / 38 (0.0%) | 0 / 0 (-) |
+| English | 10 | 10 / 10 (100.0%) | 5 / 11 (45.5%) | 0 | 0 | 1 / 46 (2.2%) | 0 / 0 (-) |
+| mixed | 2 | 2 / 2 (100.0%) | 2 / 2 (100.0%) | 0 | 0 | 0 / 9 (0.0%) | 0 / 0 (-) |
+
+#### Each field, all scored sentences
+| Field | Right / pairs |
+| --- | --- |
+| side | 22 / 22 (100.0%) |
+| coin | 22 / 22 (100.0%) |
+| quantity | 22 / 22 (100.0%) |
+| price | 21 / 22 (95.5%) |
+| total | 22 / 22 (100.0%) |
+| price_currency | 22 / 22 (100.0%) |
+| fee | 19 / 22 (86.4%) |
+| fee_currency | 20 / 22 (90.9%) |
+| time | 15 / 22 (68.2%) |
+| platform | 22 / 22 (100.0%) |
+| opinion | 22 / 22 (100.0%) |
+
+#### Every field of every pair, by kind
+| Kind | Fields |
+| --- | --- |
+| RIGHT: right | 229 |
+| LEFT_EMPTY_WITH_REASON: left empty by the program, with the reason in the issues | 5 |
+| - because the model's phrase is not a piece of the passage | 5 |
+| - because the model's phrase cuts a number of the passage | 0 |
+| - because the number reader was unsure of the phrase or could not read it | 0 |
+| - because the time reader refused the phrase or gave two candidates | 0 |
+| - because another issue about the field | 0 |
+| LEFT_EMPTY_BY_MODEL: left empty, with no issue: the model copied nothing that gives it | 7 |
+| WRONG_WITH_ISSUE: a wrong value in the draft, with an issue about the field | 0 |
+| WRONG_SILENT: a wrong value in the draft, with no issue about the field | 0 |
+| MADE_UP: a value in the draft where the gold answer is empty | 1 |
+| - of them with an issue about the field | 0 |
+
+#### Wrong values in drafts with no issue about them (1)
+| Sentence | Draft | Field | Model copied | Draft holds | Gold | Kind |
+| --- | --- | --- | --- | --- | --- | --- |
+| w08: Sold 80 SOL for 1.2 万 USDT in total yesterday, fee 6 USDT | 1 | price | 1.2 万 | 12000 | (empty) | MADE_UP |
+
+#### Half copies: the model copied part of the gold phrase (0)
+| Sentence | Draft | Field | Model copied | Draft holds | Gold | Kind |
+| --- | --- | --- | --- | --- | --- | --- |
+
+#### Fields the program left empty (5; the model's phrase was exactly the gold phrase in 0)
+| Sentence | Draft | Field | Model copied | Gold phrase | Reason | Model copied exactly the gold phrase |
+| --- | --- | --- | --- | --- | --- | --- |
+| w08 | 1 | time | 昨天 | yesterday | NOT_IN_PASSAGE | no |
+| w12 | 1 | time | 昨天 | yesterday | NOT_IN_PASSAGE | no |
+| w16 | 1 | time | 昨天 | yesterday | NOT_IN_PASSAGE | no |
+| w20 | 1 | time | 今天 | today | NOT_IN_PASSAGE | no |
+| w20 | 2 | time | 今天 | today | NOT_IN_PASSAGE | no |
+
+#### Passages not to record (not in any score above)
+| Sentence | Kind | Result | Drafts | What the check of a draft says |
+| --- | --- | --- | --- | --- |
+
+#### Every scored sentence
+| Sentence | Language | Result | Gold trades | Drafts | Whole right | Missed | Extra | Fields not right (gold trade.field:kind) |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| w01 | zh | extracted | 1 | 1 | 1 | 0 | 0 | - |
+| w02 | mixed | extracted | 1 | 1 | 1 | 0 | 0 | - |
+| w03 | en | extracted | 1 | 1 | 1 | 0 | 0 | - |
+| w04 | en | extracted | 1 | 1 | 1 | 0 | 0 | - |
+| w05 | zh | extracted | 1 | 1 | 1 | 0 | 0 | - |
+| w06 | zh | extracted | 1 | 1 | 1 | 0 | 0 | - |
+| w07 | en | extracted | 1 | 1 | 0 | 0 | 0 | 1.fee:LEFT_EMPTY_BY_MODEL |
+| w08 | en | extracted | 1 | 1 | 0 | 0 | 0 | 1.price:MADE_UP, 1.time:LEFT_EMPTY_WITH_REASON |
+| w09 | zh | extracted | 1 | 1 | 1 | 0 | 0 | - |
+| w10 | zh | extracted | 1 | 1 | 1 | 0 | 0 | - |
+| w11 | en | extracted | 1 | 1 | 1 | 0 | 0 | - |
+| w12 | en | extracted | 1 | 1 | 0 | 0 | 0 | 1.time:LEFT_EMPTY_WITH_REASON |
+| w13 | mixed | extracted | 1 | 1 | 1 | 0 | 0 | - |
+| w14 | zh | extracted | 1 | 1 | 1 | 0 | 0 | - |
+| w15 | en | extracted | 1 | 1 | 1 | 0 | 0 | - |
+| w16 | en | extracted | 1 | 1 | 0 | 0 | 0 | 1.time:LEFT_EMPTY_WITH_REASON |
+| w17 | zh | extracted | 1 | 1 | 1 | 0 | 0 | - |
+| w18 | zh | extracted | 2 | 2 | 0 | 0 | 0 | 1.fee:LEFT_EMPTY_BY_MODEL, 1.fee_currency:LEFT_EMPTY_BY_MODEL, 1.time:LEFT_EMPTY_BY_MODEL, 2.fee:LEFT_EMPTY_BY_MODEL, 2.fee_currency:LEFT_EMPTY_BY_MODEL, 2.time:LEFT_EMPTY_BY_MODEL |
+| w19 | en | extracted | 1 | 1 | 1 | 0 | 0 | - |
+| w20 | en | extracted | 2 | 2 | 0 | 0 | 0 | 1.time:LEFT_EMPTY_WITH_REASON, 2.time:LEFT_EMPTY_WITH_REASON |
+
+#### Three more counts
+| Count | Cases |
+| --- | --- |
+| A total put as the price | 1 |
+| Half copies, any field whose phrase is part of the gold phrase | 29 |
+| Half copies, only fields not right (as in the summary) | 0 |
+| A time written in another language | 5 |
+
+#### A total put as the price (1; gold is the total)
+| Sentence | Draft | Field | Model copied | Draft holds | Gold phrase | Gold |
+| --- | --- | --- | --- | --- | --- | --- |
+| w08: Sold 80 SOL for 1.2 万 USDT in total yesterday, fee 6 USDT | 1 | price | 1.2 万 | 12000 | 1.2 万 USDT | 12000 |
+
+#### Half copies, counted the second way (29)
+| Sentence | Draft | Field | Model copied | Draft holds | Gold phrase | Gold | Field right |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| w01: 前天在币安买了 2 w 个 DOGE，0.16 一个，手续费 1U | 1 | quantity | 2 w | (empty) | 2 w 个 DOGE | (empty) | yes |
+| w02: 昨天 sold 了 4.5 k 个 XRP at 0.52，fee 0.3 USDT | 1 | quantity | 4.5 k | (empty) | 4.5 k 个 XRP | (empty) | yes |
+| w02: 昨天 sold 了 4.5 k 个 XRP at 0.52，fee 0.3 USDT | 1 | fee | 0.3 | 0.3 | 0.3 USDT | 0.3 | yes |
+| w03: Bought 3 k ADA at 0.38 on Kraken this morning, fee 1 USDT | 1 | quantity | 3 k | (empty) | 3 k ADA | (empty) | yes |
+| w03: Bought 3 k ADA at 0.38 on Kraken this morning, fee 1 USDT | 1 | fee | 1 | 1 | 1 USDT | 1 | yes |
+| w04: Sold 0.2 BTC at 97.5 k yesterday at 15:20, fee 0 | 1 | quantity | 0.2 | 0.2 | 0.2 BTC | 0.2 | yes |
+| w05: 上周五买了 200 万 SHIB，一共花了 30 U，手续费 0 | 1 | quantity | 200 万 | 2000000 | 200 万 SHIB | 2000000 | yes |
+| w06: 今天下午 4 点在 OKX 卖了 5 万 个 DOGE，价格 0.17，手续费 2 U | 1 | quantity | 5 万 | 50000 | 5 万 个 DOGE | 50000 | yes |
+| w06: 今天下午 4 点在 OKX 卖了 5 万 个 DOGE，价格 0.17，手续费 2 U | 1 | fee | 2 | 2 | 2 U | 2 | yes |
+| w07: Picked up 50 万 PEPE at 0.0000098 on Monday, fee 0 | 1 | quantity | 50 万 | 500000 | 50 万 PEPE | 500000 | yes |
+| w07: Picked up 50 万 PEPE at 0.0000098 on Monday, fee 0 | 1 | time | Monday | 2026-10-05 (day) | on Monday | 2026-10-05 (day) | yes |
+| w08: Sold 80 SOL for 1.2 万 USDT in total yesterday, fee 6 USDT | 1 | quantity | 80 | 80 | 80 SOL | 80 | yes |
+| w08: Sold 80 SOL for 1.2 万 USDT in total yesterday, fee 6 USDT | 1 | fee | 6 | 6 | 6 USDT | 6 | yes |
+| w09: 昨天晚上 8 点入了 0.03 个 BTC，单价 95 800，手续费 2.9 USDT | 1 | quantity | 0.03 个 | 0.03 | 0.03 个 BTC | 0.03 | yes |
+| w09: 昨天晚上 8 点入了 0.03 个 BTC，单价 95 800，手续费 2.9 USDT | 1 | fee | 2.9 | 2.9 | 2.9 USDT | 2.9 | yes |
+| w10: 今天在 OKX 卖了 1.2 个 ETH，成交价 3 450 | 1 | quantity | 1.2 个 | 1.2 | 1.2 个 ETH | 1.2 | yes |
+| w11: Bought 0.05 BTC at 96 300 this afternoon, fee 2 USDT | 1 | fee | 2 | 2 | 2 USDT | 2 | yes |
+| w12: Sold 2 ETH for 6 900 in total on Bybit yesterday, fee 3 USDT | 1 | quantity | 2 | 2 | 2 ETH | 2 | yes |
+| w12: Sold 2 ETH for 6 900 in total on Bybit yesterday, fee 3 USDT | 1 | fee | 3 | 3 | 3 USDT | 3 | yes |
+| w14: ETH 卖出 0.8 3520，前天下午 2 点半，手续费 0.9 U | 1 | fee | 0.9 | 0.9 | 0.9 U | 0.9 | yes |
+| w15: Bought SOL 12 148.5 this morning on Binance, fee 0.2 USDT | 1 | fee | 0.2 | 0.2 | 0.2 USDT | 0.2 | yes |
+| w16: Sold LINK 25 14.2 yesterday, fee 0.1 LINK | 1 | fee | 0.1 | 0.1 | 0.1 LINK | 0.1 | yes |
+| w17: 昨天买了 0.02 个 BTC，价格 95，200，手续费 1U | 1 | quantity | 0.02 个 | 0.02 | 0.02 个 BTC | 0.02 | yes |
+| w18: 今天连着卖了两笔：0.2 BTC @ 96,000，3 ETH @ 3,480，手续费都是 1U | 1 | quantity | 0.2 | 0.2 | 0.2 BTC | 0.2 | yes |
+| w18: 今天连着卖了两笔：0.2 BTC @ 96,000，3 ETH @ 3,480，手续费都是 1U | 2 | quantity | 3 | 3 | 3 ETH | 3 | yes |
+| w19: Sold 0.5 ETH at 3，510 today, fee 0.6 USDT | 1 | quantity | 0.5 | 0.5 | 0.5 ETH | 0.5 | yes |
+| w19: Sold 0.5 ETH at 3，510 today, fee 0.6 USDT | 1 | fee | 0.6 | 0.6 | 0.6 USDT | 0.6 | yes |
+| w20: Bought 0.1 BTC at 95,400，2 SOL at 150, both on OKX today, fee 0 | 1 | quantity | 0.1 | 0.1 | 0.1 BTC | 0.1 | yes |
+| w20: Bought 0.1 BTC at 95,400，2 SOL at 150, both on OKX today, fee 0 | 2 | quantity | 2 | 2 | 2 SOL | 2 | yes |
+
+#### A time written in another language (5)
+| Sentence | Draft | Field | Model copied | Draft holds | Gold phrase | Gold |
+| --- | --- | --- | --- | --- | --- | --- |
+| w08: Sold 80 SOL for 1.2 万 USDT in total yesterday, fee 6 USDT | 1 | time | 昨天 | (empty) | yesterday | 2026-10-07 (day) |
+| w12: Sold 2 ETH for 6 900 in total on Bybit yesterday, fee 3 USDT | 1 | time | 昨天 | (empty) | yesterday | 2026-10-07 (day) |
+| w16: Sold LINK 25 14.2 yesterday, fee 0.1 LINK | 1 | time | 昨天 | (empty) | yesterday | 2026-10-07 (day) |
+| w20: Bought 0.1 BTC at 95,400，2 SOL at 150, both on OKX today, fee 0 | 1 | time | 今天 | (empty) | today | 2026-10-08 (day) |
+| w20: Bought 0.1 BTC at 95,400，2 SOL at 150, both on OKX today, fee 0 | 2 | time | 今天 | (empty) | today | 2026-10-08 (day) |
+
+</details>
