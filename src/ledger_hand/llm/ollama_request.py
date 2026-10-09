@@ -7,19 +7,20 @@ whole reply comes back at once. ``OPTION_FIELDS`` says which parameter goes
 into which field. ``timeout_seconds`` is not among them: it is how long this
 side waits, and is never sent.
 
-``encode`` turns the body into the bytes that are sent. A schema or a
-message that cannot be written as JSON text is the caller's mistake and is
-refused with ``ValueError`` before anything is sent.
+A call in the wrong shape is refused before anything is sent, by the
+checks every plug shares (``request_body.check_call``). ``encode``, also
+shared and kept in ``request_body``, turns the body into the bytes that are
+sent; it can be imported from here as well.
 
-Names defined here: ``CHAT_PATH``, ``OPTION_FIELDS``, ``chat_body``,
-``encode``.
+Names defined here: ``CHAT_PATH``, ``OPTION_FIELDS``, ``chat_body``.
 """
 
 from __future__ import annotations
 
-import json
-from collections.abc import Mapping, Sequence
+from collections.abc import Sequence
 
+from ledger_hand.llm.request_body import check_call
+from ledger_hand.llm.request_body import encode as encode
 from ledger_hand.ports import JsonSchema, Message, ModelParameters
 
 CHAT_PATH = "/api/chat"
@@ -40,17 +41,7 @@ def chat_body(
     parameters: ModelParameters,
 ) -> dict[str, object]:
     """The request body for one call, as plain JSON values."""
-    if isinstance(messages, str | bytes) or not isinstance(messages, Sequence):
-        raise TypeError("messages must be a sequence of Message")
-    if not messages:
-        raise ValueError("a call needs at least one message")
-    for message in messages:
-        if not isinstance(message, Message):
-            raise TypeError(f"messages must be Message, not {type(message).__name__}")
-    if reply_schema is not None and not isinstance(reply_schema, Mapping):
-        raise TypeError(f"a reply schema is a mapping, not {type(reply_schema).__name__}")
-    if not isinstance(parameters, ModelParameters):
-        raise TypeError(f"parameters must be ModelParameters, not {type(parameters).__name__}")
+    check_call(messages, reply_schema, parameters)
     body: dict[str, object] = {
         "model": model,
         "messages": [
@@ -62,12 +53,3 @@ def chat_body(
     if reply_schema is not None:
         body["format"] = reply_schema
     return body
-
-
-def encode(body: Mapping[str, object]) -> bytes:
-    """The body as UTF-8 JSON text; ``ValueError`` when it cannot be written as JSON."""
-    try:
-        text = json.dumps(body, ensure_ascii=False, allow_nan=False, separators=(",", ":"))
-        return text.encode("utf-8")
-    except (TypeError, ValueError, RecursionError) as error:
-        raise ValueError(f"the request cannot be written as JSON: {error}") from None

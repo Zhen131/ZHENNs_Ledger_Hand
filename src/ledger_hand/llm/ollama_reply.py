@@ -24,21 +24,26 @@ model's name, ``None``, ``NOT_REPORTED``) rather than failing the call: the
 text is what matters.
 
 Whether the text is valid JSON that follows a schema is not checked here; a
-model reply is untrusted input, and the caller checks it.
+model reply is untrusted input, and the caller checks it. Reading the body
+as JSON, and the fields every chat reply shares, are in ``reply_json``.
 
-Names defined here: ``read_chat_answer``, ``read_json_object``.
+Names defined here: ``read_chat_answer``.
 """
 
 from __future__ import annotations
 
-import json
-
 from ledger_hand.llm.error_text import snippet
 from ledger_hand.llm.exchange import Answer, Endpoint, failure_for_status, malformed
+from ledger_hand.llm.reply_json import (
+    count,
+    is_valid_unicode,
+    json_object_or_none,
+    model_name,
+    read_json_object,
+)
 from ledger_hand.ports import FinishReason, ModelError, ModelErrorKind, ModelReply, ReplyRecord
 
 _FINISH_REASONS = {"stop": FinishReason.STOPPED, "length": FinishReason.LENGTH_LIMIT}
-_MAX_MODEL_NAME = 256
 
 
 def read_chat_answer(
@@ -63,75 +68,27 @@ def read_chat_answer(
         raise malformed("has no text in its message", answer, endpoint)
     if not text.strip():
         raise malformed("has an empty reply", answer, endpoint)
-    if not _is_valid_unicode(text):
+    if not is_valid_unicode(text):
         raise malformed("has a reply that is not valid Unicode text", answer, endpoint)
     if data.get("done") is not True:
         raise malformed("is not marked as complete", answer, endpoint)
     record = ReplyRecord(
-        model=_model_name(data.get("model"), requested_model),
+        model=model_name(data.get("model"), requested_model),
         elapsed_seconds=elapsed_seconds,
-        prompt_tokens=_count(data.get("prompt_eval_count")),
-        reply_tokens=_count(data.get("eval_count")),
+        prompt_tokens=count(data.get("prompt_eval_count")),
+        reply_tokens=count(data.get("eval_count")),
         finish=_finish(data.get("done_reason")),
     )
     return ModelReply(text=text, record=record)
 
 
-def read_json_object(answer: Answer, endpoint: Endpoint) -> dict[str, object]:
-    """The body as a JSON object, or ``MALFORMED_REPLY`` saying why it is not one."""
-    if answer.body_problem is not None:
-        raise malformed(answer.body_problem, answer, endpoint)
-    try:
-        text = answer.body.decode("utf-8")
-    except UnicodeDecodeError:
-        raise malformed("is not UTF-8 text", answer, endpoint) from None
-    try:
-        data = json.loads(text, parse_constant=_refuse_constant)
-    except (ValueError, RecursionError):
-        raise malformed("is not JSON", answer, endpoint) from None
-    if not isinstance(data, dict):
-        raise malformed("is not a JSON object", answer, endpoint)
-    return data
-
-
 def _says_not_found(answer: Answer) -> bool:
-    if answer.body_problem is not None:
-        return False
-    try:
-        data = json.loads(answer.body.decode("utf-8"), parse_constant=_refuse_constant)
-    except (ValueError, RecursionError):
-        return False
-    error = data.get("error") if isinstance(data, dict) else None
+    data = json_object_or_none(answer)
+    error = None if data is None else data.get("error")
     if not isinstance(error, str):
         return False
     said = error.lower()
     return "not found" in said and "model" in said
-
-
-def _refuse_constant(name: str) -> object:
-    # NaN and Infinity are not JSON, though Python's reader takes them by default.
-    raise ValueError(f"{name} is not JSON")
-
-
-def _is_valid_unicode(text: str) -> bool:
-    """False for text holding a lone surrogate, which JSON can carry but UTF-8 cannot."""
-    try:
-        text.encode("utf-8")
-    except UnicodeEncodeError:
-        return False
-    return True
-
-
-def _model_name(value: object, requested_model: str) -> str:
-    if isinstance(value, str) and value.isprintable() and 0 < len(value) <= _MAX_MODEL_NAME:
-        return value
-    return requested_model
-
-
-def _count(value: object) -> int | None:
-    if isinstance(value, int) and not isinstance(value, bool) and value >= 0:
-        return value
-    return None
 
 
 def _finish(value: object) -> FinishReason:

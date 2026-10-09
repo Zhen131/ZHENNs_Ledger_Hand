@@ -28,7 +28,8 @@ import httpx
 
 from ledger_hand.llm.exchange import Endpoint, exchange
 from ledger_hand.llm.ollama_reply import read_chat_answer
-from ledger_hand.llm.ollama_request import CHAT_PATH, chat_body, encode
+from ledger_hand.llm.ollama_request import CHAT_PATH, chat_body
+from ledger_hand.llm.request_body import encode
 from ledger_hand.ports import JsonSchema, Message, ModelParameters, ModelReply
 from ledger_hand.settings import ModelSettings
 

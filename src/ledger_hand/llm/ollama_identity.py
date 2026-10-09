@@ -31,7 +31,7 @@ from dataclasses import dataclass
 import httpx
 
 from ledger_hand.llm.exchange import Answer, Endpoint, exchange, failure_for_status, malformed
-from ledger_hand.llm.ollama_reply import read_json_object
+from ledger_hand.llm.reply_json import read_json_object
 from ledger_hand.ports import ModelError, ModelErrorKind
 from ledger_hand.settings import ModelSettings
 
