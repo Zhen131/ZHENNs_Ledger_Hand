@@ -38,6 +38,7 @@ class Area(enum.Enum):
     STORAGE = "storage"
     SETTINGS = "settings"
     FLOWS = "flows"
+    WIRING = "wiring"
     UI = "ui"
 
 
@@ -113,6 +114,22 @@ PORTS_STDLIB = frozenset({"__future__", "abc", "collections", "dataclasses", "en
 _EVERY_AREA = frozenset(Area)
 _CORE_AND_PORTS = frozenset({Area.CORE, Area.PORTS})
 _PLUG_IMPORTS = frozenset({Area.CORE, Area.PORTS, Area.SETTINGS})
+# Written out one by one, so that a new area is not open to the flows until
+# it is added here. The wiring module reads the clock and the machine's zone
+# and imports the flows; the flows never import it back.
+_FLOWS_IMPORTS = frozenset(
+    {
+        Area.ROOT,
+        Area.CORE,
+        Area.PORTS,
+        Area.EXTRACTION,
+        Area.ASKING,
+        Area.EXPORT,
+        Area.LLM,
+        Area.STORAGE,
+        Area.SETTINGS,
+    }
+)
 
 LAYERING_TABLE: dict[Area, AreaRule] = {
     Area.CORE: AreaRule(areas=frozenset(), stdlib=CORE_STDLIB),
@@ -123,7 +140,8 @@ LAYERING_TABLE: dict[Area, AreaRule] = {
     Area.LLM: AreaRule(areas=_PLUG_IMPORTS, stdlib=ANY_STDLIB),
     Area.STORAGE: AreaRule(areas=_PLUG_IMPORTS, stdlib=ANY_STDLIB),
     Area.SETTINGS: AreaRule(areas=frozenset(), stdlib=ANY_STDLIB),
-    Area.FLOWS: AreaRule(areas=_EVERY_AREA - {Area.UI}, stdlib=ANY_STDLIB),
+    Area.FLOWS: AreaRule(areas=_FLOWS_IMPORTS, stdlib=ANY_STDLIB),
+    Area.WIRING: AreaRule(areas=_EVERY_AREA - {Area.UI}, stdlib=ANY_STDLIB),
     Area.UI: AreaRule(areas=_EVERY_AREA, stdlib=ANY_STDLIB),
     Area.ROOT: AreaRule(areas=frozenset(), stdlib=ANY_STDLIB),
 }
@@ -134,7 +152,7 @@ RESERVED_MODULES: dict[str, frozenset[Area]] = {
     "streamlit": frozenset({Area.UI}),
     "httpx": frozenset({Area.LLM}),
     "sqlite3": frozenset({Area.STORAGE}),
-    "tzlocal": frozenset(),
+    "tzlocal": frozenset({Area.WIRING}),
 }
 
 # Top-level directories that may import the package but never the reverse.

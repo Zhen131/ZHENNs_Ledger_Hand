@@ -31,6 +31,7 @@ AREA_FILE = {
     "storage": "storage/store.py",
     "settings": "settings.py",
     "flows": "flows/record.py",
+    "wiring": "wiring.py",
     "ui": "ui/app.py",
 }
 AREAS = tuple(AREA_FILE)
@@ -68,6 +69,19 @@ MAY_IMPORT = {
         "storage",
         "settings",
         "flows",
+        "wiring",
+    },
+    "wiring": {
+        "root",
+        "core",
+        "ports",
+        "extraction",
+        "asking",
+        "export",
+        "llm",
+        "storage",
+        "settings",
+        "flows",
     },
     "root": set(),
 }
@@ -77,7 +91,7 @@ RESERVED_FOR = {
     "streamlit": {"ui"},
     "httpx": {"llm"},
     "sqlite3": {"storage"},
-    "tzlocal": set(),
+    "tzlocal": {"wiring"},
 }
 
 # Kinds of module the core must never be allowed to import.
@@ -627,7 +641,7 @@ def test_reading_packaged_files_is_not_a_hidden_import(tmp_path: Path) -> None:
 # --- areas the table does not know ------------------------------------------
 
 
-@pytest.mark.parametrize("relative", ["voice/recorder.py", "wiring.py", "__main__.py"])
+@pytest.mark.parametrize("relative", ["voice/recorder.py", "assembly.py", "__main__.py"])
 def test_code_outside_the_table_is_reported(tmp_path: Path, relative: str) -> None:
     assert reasons(tmp_path, {relative: ""}) == [Reason.UNKNOWN_AREA]
 
