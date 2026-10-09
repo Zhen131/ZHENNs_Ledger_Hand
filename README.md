@@ -166,6 +166,19 @@ with the first; a rule fixed beforehand picked one version, and only that
 one ran the final set, once. `evals/RESULTS.md` has the tables. The product
 still records passages with the first prompt.
 
+**Splitting a passage first.** `split_then_extract` in
+`src/ledger_hand/extraction/splitting.py` is the other way to read a passage
+that reports several trades: the model first copies out the pieces of the
+passage each trade needs (prompt `split-1`), the program builds one segment
+per trade from the passage's own text, each segment goes through `extract`
+on its own, and the rows of all of them are read once more against the
+whole passage. When the split lists fewer than two trades, or goes wrong
+(a piece that is not a piece of the passage, a reply that cannot be read),
+the whole passage is extracted once, as without splitting. It was measured
+against the one call on the debug set; a rule fixed beforehand compared the
+two, and `evals/RESULTS.md` has the tables. The product still reads a
+passage in one call.
+
 **Judging a passage first.** `screen` in
 `src/ledger_hand/extraction/screening.py` asks the model which kinds of thing
 a passage reports, from one fixed list: a filled spot trade, futures or
@@ -309,7 +322,7 @@ check and the hygiene scan).
 | `src/ledger_hand/settings.py` | The only place in the package that reads environment variables: the model settings, their defaults and their checks, what each sets and why its default is what it is (as data, `ABOUT`), changes from the settings page read the same way (`apply_changes`), and where the data is kept. |
 | `src/ledger_hand/storage/` | The SQLite plug for the storage port (`sqlite_store.py`): opening a book, its version and its mark (`book_file.py`), a trade as a row and back (`rows.py`), SQLite's failures as the port's kinds (`failures.py`), and the numbered upgrade scripts (`upgrades/`). The only part that may import sqlite3. |
 | `src/ledger_hand/llm/` | The plugs for the model port. The local plug (`ollama.py`), what it sends (`ollama_request.py`) and how what comes back is read (`ollama_reply.py`); the cloud plug (`cloud.py`), what it sends (`cloud_request.py`) and how what comes back is read (`cloud_reply.py`); what both share in writing a request (`request_body.py`) and reading a reply (`reply_json.py`); one HTTP exchange and how its failures are sorted (`exchange.py`), making a server's words safe to show (`error_text.py`) and finding the key in them however it was written back (`key_forms.py`), reading how long a server asks to wait (`retry_after.py`), trying again (`retry.py`), the plug the settings choose, checked and assembled (`connect.py`), the assembled local model alone (`local.py`), and the local server's version and the model's fingerprint (`ollama_identity.py`). The only part that may import httpx. |
-| `src/ledger_hand/extraction/` | A passage to drafts: the entry point (`extractor.py`), the table the model fills (`reply_table.py`) and how its reply is read (`reply_parser.py`), finding a copied phrase in the passage (`passage.py`) and the numbers written in a text (`passage_numbers.py`), one row to one draft (`row_draft.py`), which currency a unit names (`unit_currency.py`), the issues (`issues.py`), the messages a prompt version makes (`prompting.py`), and the prompt versions with their examples (`prompts/`). Also the check of a passage before it is sent (`passage_check.py`), judging a passage (`screening.py`, with the list the model fills in `screen_table.py`), and reading an answer to a question (`answer_phrase.py`, with its word lists in `answer_words.py` and what the model copies in `answer_table.py`). Reads no clock, no zone of the machine and no environment variable. |
+| `src/ledger_hand/extraction/` | A passage to drafts: the entry point (`extractor.py`), the table the model fills (`reply_table.py`) and how its reply is read (`reply_parser.py`), finding a copied phrase in the passage (`passage.py`) and the numbers written in a text (`passage_numbers.py`), one row to one draft (`row_draft.py`), which currency a unit names (`unit_currency.py`), the issues (`issues.py`), the messages a prompt version makes (`prompting.py`), and the prompt versions with their examples (`prompts/`). Also the check of a passage before it is sent (`passage_check.py`), judging a passage (`screening.py`, with the list the model fills in `screen_table.py`), reading an answer to a question (`answer_phrase.py`, with its word lists in `answer_words.py` and what the model copies in `answer_table.py`), and splitting a passage first, for experiments (`splitting.py`, with the pieces the model copies in `split_table.py` and the segments made of them in `segments.py`). Reads no clock, no zone of the machine and no environment variable. |
 | `src/ledger_hand/asking/` | Wording a follow-up question: the facts, the model's sentence and its checks (`question_text.py`), the program's own sentences (`templates.py`) and the prompt (`prompts/bookkeeper.py`). Imports only `core/` and the ports file; reads no clock. |
 | `src/ledger_hand/flows/` | Recording a passage from start to records (`recording.py`): the state it hands back (`progress.py`), putting a question together (`questions.py`) and putting an answer back (`filling.py`). Saving the records (`saving.py`) with new identifiers (`identifiers.py`), a passage's fingerprint (`fingerprint.py`), the confirmed coins between the book and the coin table (`coin_book.py`), and exporting (`exporting.py`) into a new file that never replaces another (`export_file.py`). |
 | `src/ledger_hand/wiring.py` | The wiring module: builds the model, the book, the coin table, the clock and the machine's zone from the settings, with the settings page's changes put in, for the interface to hand to the flows. The only part of the package that may import tzlocal. |
@@ -317,11 +330,11 @@ check and the hygiene scan).
 | `tests/` | The tests. `tests/core/`, `tests/export/`, `tests/llm/`, `tests/extraction/`, `tests/asking/`, `tests/storage/` and `tests/flows/` have one test module per module, or more; `tests/llm/` also has a fake Ollama server, the pieces of a fake cloud service and a batch of attacks on each plug, and `tests/extraction/` a batch of attacks on extraction. `tests/storage/` runs the same tests of the storage port against the SQLite plug and the in-memory stand-in, and holds the golden book. `tests/flows/` also tests the script for recording trades. `tests/ui/` runs the pages headless with Streamlit's own test runner, against fake models and a book in a temporary folder (Export, the settings page, every failure, the reminders), checks the plain sentence for every failure, and checks the settings file. `tests/evals/` tests the experiment kit and the test sentences. |
 | `tests/conftest.py` | Stops every test that is not marked `live_model` from reaching the network. |
 | `tests/fakes/` | Stand-ins for the outside world: a scripted model that plays back replies and errors in order and records what it was asked, a model that answers each kind of call (judging, extraction, wording a question, reading an answer) from its own script, and a book kept in memory that can be made to fail. |
-| `tests/live/` | The live check, which talks to a real model, the small schema check it uses, the smoke test of extraction, the check of judging the debug set, the smoke test of the page, the check of the settings page against an address nobody listens on, and one call of the cloud plug to the local Ollama's OpenAI-style endpoint. |
+| `tests/live/` | The live check, which talks to a real model, the small schema check it uses, the smoke test of extraction, the check of judging the debug set, the smoke test of the page, the check of the settings page against an address nobody listens on, one call of the cloud plug to the local Ollama's OpenAI-style endpoint, and a run that names a model the server does not have. |
 | `tests/export/samples.py`, `tests/export/attack.py`, `tests/export/golden/` | Invented trades to export, batches of edge cases made to find where this program and the ledger part ways, both shared with the ledger tier, and the golden sample. A golden sample is never edited once committed; a new format version gets one of its own. |
 | `tests/guardrails/` | The layering check and the hygiene scan, the tests that prove they catch what they should, and the two gate tests that apply them to this repository. |
 | `scripts/check.sh` | One command that runs all checks. |
-| `evals/` | The experiment kit, outside the package: the test sentences and their gold answers (`sets/debug.json`, `sets/final.json`, read by `gold.py`), what they cover (`coverage.py`), the small set of hard ways of writing a number (`sets/writings.json`, described by `writings.py`), judging one field (`cells.py`), pairing drafts with gold trades (`matching.py`), the scores (`scoring.py`), the results file (`records.py`), the summary and its tables (`tables.py`), the runner (`run.py`), the summary worked out again (`summarize.py`), three more counts beside the summary (`extra_counts.py`), prompt versions side by side with the rule that picks one (`compare.py`), and two runs compared sentence by sentence (`same_replies.py`). |
+| `evals/` | The experiment kit, outside the package: the test sentences and their gold answers (`sets/debug.json`, `sets/final.json`, read by `gold.py`), what they cover (`coverage.py`), the small set of hard ways of writing a number (`sets/writings.json`, described by `writings.py`), judging one field (`cells.py`), pairing drafts with gold trades (`matching.py`), the scores (`scoring.py`), the results file (`records.py`), the summary and its tables (`tables.py`), the runner (`run.py`), the summary worked out again (`summarize.py`), three more counts beside the summary (`extra_counts.py`), prompt versions side by side with the rule that picks one (`compare.py`), two runs compared sentence by sentence (`same_replies.py`), the two ways of reading a passage (`methods.py`) side by side with the rule that picks one (`compare_methods.py`), and the record of every reply read for a passage (`reads.py`). |
 | `evals/results/` | One results file per run (`*.jsonl`) and its summary (`*.summary.json`). In Git: all of it is invented data. |
 | `evals/RESULTS.md` | The results record: what each run measured, with the tables its results file gives. |
 | `scripts/try_extraction.py` | Try extraction by hand: a passage in, the drafts, the issues and a record of each call to the model out (see "Trying extraction by hand" below). |
@@ -721,6 +734,7 @@ wording is a new version.
 | `persona` (`extraction/prompts/persona.py`) | Extraction, for experiments only | A role (persona): a paragraph before `first`'s instructions |
 | `stepwise` (`extraction/prompts/stepwise.py`) | Extraction, for experiments only | Step by step (chain of thought): `first` asks for a written analysis, in a field `steps` of its own reply table, before the rows |
 | `price_total` (`extraction/prompts/price_total.py`) | Extraction, for experiments only | A changed content: `first` and one more rule, that a total is never the price |
+| `split-1` (`extraction/prompts/split.py`) | Splitting a passage, for experiments only: copy the pieces of the passage each trade needs | A few examples (few-shot), in the same file |
 | `screen-1` (`extraction/prompts/screen.py`) | Judging a passage: which kinds of thing it reports | No example at all (zero-shot) |
 | `answer-1` (`extraction/prompts/answer.py`) | Reading an answer the rules could not: copy the one piece that gives what was asked | No example at all (zero-shot) |
 | `bookkeeper-1` (`asking/prompts/bookkeeper.py`) | Wording a follow-up question | A role (persona): a meticulous bookkeeper who asks for one thing at a time |
@@ -742,11 +756,14 @@ names the version used for each step.
 .venv/bin/python -m evals.run --model qwen2.5:7b --prompt first
 .venv/bin/python -m evals.run --prompt stepwise  # any version: first, zero_shot, persona, stepwise, price_total
 .venv/bin/python -m evals.run --set writings --prompt first
+.venv/bin/python -m evals.run --method split_first     # split each passage first; default one_list
+.venv/bin/python -m evals.run --model <another model>  # any model the server has
 .venv/bin/python -m evals.run --resume evals/results/<file>.jsonl
 .venv/bin/python -m evals.summarize evals/results/<file>.jsonl [--check]
 .venv/bin/python -m evals.extra_counts evals/results/<file>.jsonl
 .venv/bin/python -m evals.compare evals/results/<file>.jsonl ... [--choose]
 .venv/bin/python -m evals.same_replies evals/results/<earlier>.jsonl evals/results/<later>.jsonl
+.venv/bin/python -m evals.compare_methods evals/results/<one list>.jsonl evals/results/<split first>.jsonl [--choose]
 ```
 
 Run these from the top of the repository, with the model server running.
@@ -759,16 +776,32 @@ the prompt is settled, so that the scores are not tuned to it. `--only`
 runs some sentences of the set by their ids. `--prompt` names the prompt
 version; the parameters are the settings' (set one with its environment
 variable, such as `LEDGER_HAND_MODEL_TEMPERATURE`, to run a parameter
-comparison).
+comparison). `--method` chooses how each passage is read: `one_list`, the
+default and the product's way, sends the whole passage in one call;
+`split_first` splits it into one segment per trade first (prompt
+`split-1`) and extracts each segment on its own, and the results file
+name ends in `-split_first`. `--model` names another model the server has
+instead of the setting's, which is how a second model is run: the run line
+records the name given and that model's fingerprint, and a name the server
+does not have stops the run before any results file is written (exit
+status 2). Nothing is downloaded: a model is pulled into Ollama by hand
+first.
 
 The first line of the results file records the conditions: the set and
 its fingerprint, the prompt version with its files and their fingerprints
 (a version built on `first` lists `first`'s files too), the fingerprint of
 the reply table it sends, the commit and whether the work tree was clean,
 the model, its fingerprint and the server's version, every parameter
-(temperature included, as the settings give it) and when the run began. Each sentence's line is added the
+(temperature included, as the settings give it) and when the run began;
+also the way each passage is read and, when it is split first, the split
+prompt with its file and fingerprints. Each sentence's line is added the
 moment it is done: the model's raw replies, the drafts, the issues, the
-phrases the model copied, the scores and how long it took. A run cut short
+phrases the model copied, the scores and how long it took; also the record
+of every reply read (`reads`: which call split the passage and which
+extracted a segment, the rows each reply gave and the draft each row
+became), from which the scores take each draft's phrases, and when the
+passage was split first, how (`split`: the route, the trades the split
+listed, the segments). A run cut short
 can be carried on with `--resume`, under the same conditions only. The
 summary is saved beside the results file and printed as tables;
 `evals.summarize` works it out again from the file alone, and `--check`
@@ -782,6 +815,13 @@ the fewest trades missed and extra; then the first of `first`,
 `price_total`, `persona`, `zero_shot`, `stepwise`, so that a new version is
 picked only when it does strictly better than `first`. `evals.same_replies`
 tells two runs' raw replies apart from what the program made of them.
+`evals.compare_methods` lays a one-list run and a split-first run side by
+side (by number of trades, with the calls to split counted apart), shows
+how each passage was split and, with `--choose`, applies the rule fixed
+before the second prompt experiment: the most whole trades right; then the
+fewest wrong values with no issue; then the fewest trades missed and extra;
+then one list, so that splitting first is picked only when it does strictly
+better.
 
 The debug set took about two minutes with `qwen2.5:7b` on the machine it
 was built on, with the model already loaded (`stepwise`, which writes its
@@ -795,10 +835,15 @@ test sentence to a model. The writings set is tested the same way, and one
 test runs one of its sentences through the scripted model. It also checks that every committed run is
 finished, that its saved summary is the one its results file gives, and
 that `evals/RESULTS.md` shows exactly the tables each results file gives,
-the three more counts of every run after the baseline, and the comparison of
-the first prompt experiment as its results files give it. A sample of what
-`first` sends to the model (`tests/extraction/first_prompt_calls.json`) is
-compared byte for byte, so the baseline cannot move unnoticed.
+the three more counts of every run after the baseline, and the comparisons of
+the two prompt experiments as their results files give them. Each committed
+line that holds the record of every reply read must hold, one per draft,
+exactly the phrases that record gives, and the runs made before that record
+existed must give the same summaries and counts as before. The split prompt
+is checked, like the others, to hold no test sentence nor any clause of one.
+A sample of what `first` sends to the model
+(`tests/extraction/first_prompt_calls.json`) is compared byte for byte, so
+the baseline cannot move unnoticed.
 
 To let the tool fix formatting instead of only reporting it:
 
