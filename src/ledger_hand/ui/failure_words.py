@@ -13,9 +13,12 @@ A model failure of one kind may be said differently for each status code
 the server answered with: ``MODEL_FAILURES_BY_STATUS`` is looked up first,
 by kind and status. It holds the statuses with which a cloud service turns
 a call down as a server error: a key refused (401, 403) and a request
-refused (400), the latter with the start of what the server answered. A
-rate-limited call whose server said how long to wait is said with that wait
-(``RATE_LIMITED_FOR``).
+refused (400), the latter with the start of what the server answered. Next
+comes ``MODEL_FAILURES_BY_PLUG``, by kind and the plug the settings choose:
+a model the cloud service does not have is not one to install with Ollama.
+A rate-limited call whose server said how long to wait is said with that
+wait (``RATE_LIMITED_FOR``). A failure known only by its kind, without a
+status code or a wait, is looked up the same way (``model_kind_trouble``).
 
 What a sentence fills in comes from the settings the parts were built from
 (the address, the model's name, the time allowed) or from the failure itself
@@ -26,9 +29,10 @@ once more here, in every form a server may write it back, although the
 plugs never let it through.
 
 Names defined here: ``MODEL_FAILURES``, ``MODEL_FAILURES_BY_STATUS``,
-``RATE_LIMITED_FOR``, ``REPLY_UNREADABLE``, ``PASSAGE_REFUSALS``, ``STORAGE_FAILURES``,
-``ASSEMBLY_FAILURES``, ``WRITE_FAILURES``, ``model_failed``,
-``model_trouble``, ``passage_refused``, ``book_trouble``,
+``MODEL_FAILURES_BY_PLUG``, ``RATE_LIMITED_FOR``, ``REPLY_UNREADABLE``,
+``PASSAGE_REFUSALS``, ``STORAGE_FAILURES``, ``ASSEMBLY_FAILURES``,
+``WRITE_FAILURES``, ``model_failed``, ``model_trouble``,
+``model_kind_trouble``, ``passage_refused``, ``book_trouble``,
 ``assembly_failed``, ``export_refused``, ``export_not_written`` and
 ``export_not_marked``.
 """
@@ -47,7 +51,7 @@ from ledger_hand.flows.export_file import WriteProblem
 from ledger_hand.flows.progress import Failure
 from ledger_hand.llm.error_text import hide
 from ledger_hand.ports import ModelError, ModelErrorKind, StorageError, StorageErrorKind
-from ledger_hand.settings import DATA_DIRECTORY_VARIABLE, ModelSettings, Variable
+from ledger_hand.settings import DATA_DIRECTORY_VARIABLE, ModelSettings, Plug, Variable
 from ledger_hand.ui.setting_text import written
 from ledger_hand.wiring import AssemblyError, AssemblyProblem
 
@@ -102,6 +106,17 @@ MODEL_FAILURES_BY_STATUS: Mapping[tuple[ModelErrorKind, int], str] = MappingProx
             "The model server at {address} turned the request down as it was sent{status}."
             "{said} Check the model's name on the Settings page. A service that does not "
             "take the reply table this program sends turns every call down this way."
+        ),
+    }
+)
+
+# The same, said for one plug of one kind; looked up after the status codes. A
+# cloud service keeps its own list of models; none of them is installed here.
+MODEL_FAILURES_BY_PLUG: Mapping[tuple[ModelErrorKind, Plug], str] = MappingProxyType(
+    {
+        (ModelErrorKind.MODEL_NOT_FOUND, Plug.CLOUD): (
+            "The service at {address} has no model named {model}. Check the name on the "
+            "Settings page against the service's own list of models."
         ),
     }
 )
@@ -212,25 +227,50 @@ def model_failed(failure: Failure, settings: ModelSettings) -> str:
 
 
 def model_trouble(error: ModelError, settings: ModelSettings) -> str:
-    """The sentence for ``error``: by its kind and status code if there is one, else its kind.
+    """The sentence for ``error``: by its kind and status code if there is one, then by its
+    kind and the plug the settings choose, else by its kind.
 
     A rate-limited call whose server said how long to wait is said with the
     wait, in whole seconds, rounded up.
     """
+    template = _template(error.kind, error.status, error.retry_after_seconds, settings.plug)
+    return _filled(template, settings, error)
+
+
+def model_kind_trouble(kind: ModelErrorKind, settings: ModelSettings) -> str:
+    """The sentence for a model failure known only by its kind, looked up as ``model_trouble`` does.
+
+    With no status code and no wait, it is the kind's sentence for the plug the
+    settings choose, or else the kind's own.
+    """
+    return _filled(_template(kind, None, None, settings.plug), settings, None)
+
+
+def _template(
+    kind: ModelErrorKind, status: int | None, wait_seconds: float | None, plug: Plug
+) -> str:
+    """By kind and status, then by kind and plug, then a rate-limited call's wait, then by kind."""
     template = None
-    if error.status is not None:
-        template = MODEL_FAILURES_BY_STATUS.get((error.kind, error.status))
-    if template is None and error.kind is ModelErrorKind.RATE_LIMITED:
-        template = None if error.retry_after_seconds is None else RATE_LIMITED_FOR
+    if status is not None:
+        template = MODEL_FAILURES_BY_STATUS.get((kind, status))
     if template is None:
-        template = MODEL_FAILURES[error.kind]
+        template = MODEL_FAILURES_BY_PLUG.get((kind, plug))
+    if template is None and kind is ModelErrorKind.RATE_LIMITED:
+        template = None if wait_seconds is None else RATE_LIMITED_FOR
+    if template is None:
+        template = MODEL_FAILURES[kind]
+    return template
+
+
+def _filled(template: str, settings: ModelSettings, error: ModelError | None) -> str:
+    """``template`` with the settings' values, and the failure's own when there is one."""
     return template.format(
         address=settings.base_url,
         model=settings.model,
         seconds=written(settings.timeout_seconds),
-        status="" if error.status is None else f" (status {error.status})",
-        said=_said(error, settings),
-        wait=_wait(error),
+        status="" if error is None or error.status is None else f" (status {error.status})",
+        said="" if error is None else _said(error, settings),
+        wait="" if error is None else _wait(error),
     )
 
 
