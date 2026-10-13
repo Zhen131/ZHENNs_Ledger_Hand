@@ -32,7 +32,7 @@ from ledger_hand.core.trade import OccurredTime, TradeDraft, TradeRecord
 from ledger_hand.extraction.extractor import DEFAULT_ASKS_AGAIN, PassageProblem
 from ledger_hand.extraction.issues import Issue, IssueKind
 from ledger_hand.extraction.screening import Report
-from ledger_hand.ports import ModelError, ModelParameters, ReplyRecord
+from ledger_hand.ports import ModelError, ModelErrorKind, ModelParameters, ReplyRecord
 
 type Asked = AskCell | ConfirmCoin | AskWhichCell
 
@@ -145,6 +145,9 @@ class Question:
     ``writer`` says. ``choices`` are the answers to choose from, and
     ``candidates`` the two moments behind them, when the time is asked with
     them. ``again`` says why the same question is asked again.
+    ``model_failure`` is the kind of the model's failure when the last answer
+    could not be read because the model could not be asked to read it, and
+    ``None`` otherwise.
     """
 
     trade: int
@@ -156,6 +159,7 @@ class Question:
     choices: tuple[str, ...] = ()
     candidates: tuple[OccurredTime, ...] = ()
     again: str | None = None
+    model_failure: ModelErrorKind | None = None
 
     @property
     def text(self) -> str:

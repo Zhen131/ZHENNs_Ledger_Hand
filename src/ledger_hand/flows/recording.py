@@ -24,9 +24,10 @@ The steps, each handing back a new ``Progress``:
 - ``answer`` reads the answer (``extraction.answer_phrase``), puts it back
   into the trade (``filling``) and checks the trade again; then the next
   question follows. An answer that cannot be used gets the same question
-  again, with the reason. "skip" leaves the trade out; "cancel" drops the
-  whole passage. Once every trade is settled, an answer is read as "done",
-  "cancel" or "remove N".
+  again, with the reason, and with the kind of the model's failure when
+  the model could not be asked to read it. "skip" leaves the trade out;
+  "cancel" drops the whole passage. Once every trade is settled, an answer
+  is read as "done", "cancel" or "remove N".
 - ``remove`` leaves out a recorded trade once every trade is settled (it
   counts as skipped), whether or not anything was asked about it, so that a
   wrong value seen in the records can be kept out. ``cancel`` drops the
@@ -62,6 +63,7 @@ from ledger_hand.core.trade import OccurredTime, TradeRecord
 from ledger_hand.core.validation import check_draft
 from ledger_hand.core.zones import is_zone_name
 from ledger_hand.extraction.answer_phrase import (
+    AnswerProblem,
     AnswerReading,
     AnswerSetting,
     Command,
@@ -98,7 +100,7 @@ from ledger_hand.flows.progress import (
     Tuning,
 )
 from ledger_hand.flows.questions import make_question
-from ledger_hand.ports import ModelParameters, ModelPort, ReplyRecord, StoragePort
+from ledger_hand.ports import ModelErrorKind, ModelParameters, ModelPort, ReplyRecord, StoragePort
 from ledger_hand.settings import ModelSettings
 
 _PROMPT_OF = {
@@ -296,7 +298,7 @@ def _answered(
             return cancel(progress)
         return _settle(progress, question.trade, TradeStatus.SKIPPED, model)
     if isinstance(outcome, NotRead):
-        return _asked_again(progress, question, _reason(outcome))
+        return _asked_again(progress, question, outcome)
     if isinstance(outcome, TwoTimes):
         return _asking(
             progress, question.trade, question.asked, model, (outcome.earlier, outcome.later)
@@ -321,9 +323,18 @@ def _reason(outcome: NotRead) -> str:
     return reason
 
 
-def _asked_again(progress: Progress, question: Question, reason: str) -> Progress:
-    again = dataclasses.replace(question, again=reason)
+def _asked_again(progress: Progress, question: Question, outcome: NotRead) -> Progress:
+    again = dataclasses.replace(
+        question, again=_reason(outcome), model_failure=_model_failure(outcome)
+    )
     return dataclasses.replace(progress, question=again)
+
+
+def _model_failure(outcome: NotRead) -> ModelErrorKind | None:
+    """The kind of the model's failure, when that is why the answer could not be read."""
+    if outcome.problem is AnswerProblem.MODEL_FAILED and isinstance(outcome.cause, ModelErrorKind):
+        return outcome.cause
+    return None
 
 
 def _settle(progress: Progress, position: int, status: TradeStatus, model: ModelPort) -> Progress:

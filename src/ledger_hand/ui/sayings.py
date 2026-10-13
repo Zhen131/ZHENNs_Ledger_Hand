@@ -10,7 +10,8 @@ the ledger leaves a fee paid in a third coin out of the cost; why nothing
 was sent or nothing could be done; what became of the passage and of an
 export. Nothing here works out anything about a trade; it only chooses the
 words to show for what the flow, or the core, says. A failure is said in
-the words of ``failure_words``.
+the words of ``failure_words``, a model's failure while reading an answer
+among them.
 
 The words are plain text: the chat shows them without Markdown, so a
 passage's own words come back exactly as typed.
@@ -53,9 +54,18 @@ def after_start(progress: Progress, settings: ModelSettings) -> str:
 
 
 def after_answer(progress: Progress, settings: ModelSettings) -> str:
-    """What is said once an answer has been read: why it is asked again, or what comes next."""
+    """What is said once an answer has been read: why it is asked again, or what comes next.
+
+    When the model could not be asked to read the answer, the failure is said
+    by its kind, in the words of ``failure_words``, for the plug ``settings``
+    choose.
+    """
     question = progress.question
     if progress.stage is Stage.ASKING and question is not None and question.again is not None:
+        if question.model_failure is not None:
+            trouble = failure_words.model_kind_trouble(question.model_failure, settings)
+            why = f"The model could not be asked to read that answer. {trouble}"
+            return _joined([why, *_asking(progress)])
         return _joined([f"That answer could not be used: {question.again}.", *_asking(progress)])
     return _joined(_where_it_stands(progress, settings))
 
