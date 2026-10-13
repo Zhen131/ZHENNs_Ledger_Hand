@@ -172,24 +172,28 @@ means writing to a file before its mark and version are read, which the
 rule that a refused file is never written to forbids. Whether to bend that
 rule for this one case is a decision for the project owner.
 
-## A change in the time zone database can stop the whole book
+## A change in the time zone database can stop listing and exporting
 
 **What it is.** A trade known to the minute or second is kept with its
 offset from UTC and its zone. Reading it back checks the offset against the
 zone's rules in the time zone database Python uses then. If a later version
 of that database changes the rules of that zone at that moment, the trade no
-longer reads back, and the book reports itself damaged: no trade can be
-listed or exported, although the coins confirmed can still be read.
+longer reads back, and every reading of the book that reaches that trade
+reports the book damaged: no trade can be listed, and while that trade is
+not exported yet, nothing can be exported either. Saving new trades, the
+reminder of a passage saved before and the coins confirmed still work, and
+once that trade has been exported, the trades not exported yet are exported
+as usual.
 
 **Which trades it affects.** Only trades known to the minute or second,
 recorded in a zone to which a later version of the database gives another
 offset at that moment than the version they were recorded with. Trades
 known only to the day carry no offset and are not affected.
 
-**Why it is not fixed here.** Reading such a trade back with a caution
-instead of refusing the book changes what the book promises about the
-trades it keeps; it waits for the project owner. It shares its root with
-"Time zone database versions" above.
+**Why it is not fixed here.** Reading such a trade back with a caution,
+instead of failing every reading that reaches it, changes what the book
+promises about the trades it keeps; the project owner has left it for
+later. It shares its root with "Time zone database versions" above.
 
 ## Exporting needs hard links
 
