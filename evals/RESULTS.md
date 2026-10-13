@@ -3764,8 +3764,8 @@ seconds each.
 **2. Longest reply 4,096 tokens** (instead of 1,024; set with
 `LEDGER_HAND_MODEL_MAX_REPLY_TOKENS=4096`), at commit `d49e730`, from
 10:53:45 to 12:32:49 UTC. With 2,048 tokens 16 sentences still ended in an
-empty reply; this gives the reply room enough, so that the 120 seconds a
-call is given decide instead.
+empty reply; this gives the reply four times the room of the defaults, so
+that the 120 seconds a call is given are what limits it instead.
 
 | Version | Technique | Differs from `first` in | Well-formed | Whole trades right | One trade | Several trades | Missed | Extra | Made up | No-trade sentences right |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
