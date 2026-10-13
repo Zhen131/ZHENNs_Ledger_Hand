@@ -464,7 +464,7 @@ def test_core_handling_time_passed_in_from_outside_passes(tmp_path: Path, source
 
 @pytest.mark.parametrize("source", CLOCK_READS + LOCAL_ZONE_READS)
 def test_clock_and_zone_rules_apply_to_core_only(tmp_path: Path, source: str) -> None:
-    assert check(tmp_path, {"flows/record.py": source}) == []
+    assert check(tmp_path, {"ui/app.py": source}) == []
 
 
 # More ways of reaching the machine's zone: the zone's name given by keyword or
@@ -522,7 +522,7 @@ def test_core_naming_a_zone_another_way_passes(tmp_path: Path, source: str) -> N
 
 @pytest.mark.parametrize("source", MORE_LOCAL_ZONE_READS)
 def test_more_zone_rules_apply_to_core_only(tmp_path: Path, source: str) -> None:
-    assert check(tmp_path, {"flows/record.py": source}) == []
+    assert check(tmp_path, {"ui/app.py": source}) == []
 
 
 # --- core: builtins that reach outside --------------------------------------
@@ -846,7 +846,7 @@ def test_an_environment_read_names_the_line(tmp_path: Path) -> None:
 
 # Written out by hand: the areas that read neither the clock nor the
 # machine's time zone. The core is checked above; extraction is checked here.
-CLOCK_FREE = {"core", "extraction", "asking"}
+CLOCK_FREE = {"core", "extraction", "asking", "flows"}
 EXTRACTION_FILE = AREA_FILE["extraction"]
 
 TIME_MODULE_CLOCK_READS = [

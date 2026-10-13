@@ -5,9 +5,9 @@ each import the layering table below does not allow. For ``core/`` it also
 reports reads of the clock or of the machine's time zone, and builtins that
 reach outside the program.
 In ``core/`` it reports floating-point numbers as well.
-For ``extraction/`` and ``asking/`` it reports reads of the clock and of the
-machine's time zone too, including those through the ``time`` module, which
-they may import for other uses.
+For ``extraction/``, ``asking/`` and ``flows/`` it reports reads of the clock
+and of the machine's time zone too, including those through the ``time``
+module, which they may import for other uses.
 Everywhere but ``settings.py`` it reports reads of environment variables.
 
 It only reads source text; it never imports or runs the package under check,
@@ -172,7 +172,7 @@ _FLOAT_MAKERS = frozenset({"float", "complex", "__float__", "__complex__", "from
 ENVIRONMENT_AREAS = frozenset({Area.SETTINGS})
 # Areas that are handed the current moment and the zone and never read them
 # from the machine.
-CLOCK_FREE_AREAS = frozenset({Area.CORE, Area.EXTRACTION, Area.ASKING})
+CLOCK_FREE_AREAS = frozenset({Area.CORE, Area.EXTRACTION, Area.ASKING, Area.FLOWS})
 # The clock-free areas that may import the time module for other uses, and
 # so are checked for its reads of the clock and the zone. The core may not
 # import the module at all, which is reported as such.
