@@ -1,0 +1,552 @@
+[
+  {
+    "id": "u01",
+    "text": "今晚23:41在OKX买入ADA，花了30USDT，成交96.6494个，均价0.3104，手续费0.0966494ADA。ADA是我目前亏损最多的币种-45%，现在低位购买目的是拉低ADA平均持仓成本",
+    "now": "2026-09-14T23:58:00+02:00",
+    "zone": "Europe/Budapest",
+    "language": "zh",
+    "group": "scored",
+    "features": [
+      "currency_word",
+      "day_word_with_clock"
+    ],
+    "trades": [
+      {
+        "side": "buy",
+        "coin": [
+          "ADA",
+          "ADA"
+        ],
+        "quantity": [
+          "96.6494个",
+          "96.6494"
+        ],
+        "price": [
+          "0.3104",
+          "0.3104"
+        ],
+        "total": [
+          "30USDT",
+          "30"
+        ],
+        "price_currency": [
+          "USDT",
+          "USDT"
+        ],
+        "fee": [
+          "0.0966494ADA",
+          "0.0966494"
+        ],
+        "fee_currency": [
+          "ADA",
+          "ADA"
+        ],
+        "time": [
+          "今晚23:41",
+          "2026-09-14T23:41:00+02:00",
+          "minute"
+        ],
+        "platform": [
+          "OKX",
+          "OKX"
+        ],
+        "opinion": [
+          "ADA是我目前亏损最多的币种-45%，现在低位购买目的是拉低ADA平均持仓成本",
+          "ADA是我目前亏损最多的币种-45%，现在低位购买目的是拉低ADA平均持仓成本"
+        ],
+        "missing": []
+      }
+    ]
+  },
+  {
+    "id": "u02",
+    "text": "ADA又跌了，在OKX再补20U，均价0.2968，手续费0.0673ADA，还是想把平均成本拉下来",
+    "now": "2026-09-20T13:15:00+02:00",
+    "zone": "Europe/Budapest",
+    "language": "zh",
+    "group": "scored",
+    "features": [
+      "currency_word"
+    ],
+    "trades": [
+      {
+        "side": "buy",
+        "coin": [
+          "ADA",
+          "ADA"
+        ],
+        "price": [
+          "0.2968",
+          "0.2968"
+        ],
+        "total": [
+          "20U",
+          "20"
+        ],
+        "price_currency": [
+          "U",
+          "USDT"
+        ],
+        "fee": [
+          "0.0673ADA",
+          "0.0673"
+        ],
+        "fee_currency": [
+          "ADA",
+          "ADA"
+        ],
+        "platform": [
+          "OKX",
+          "OKX"
+        ],
+        "opinion": [
+          "还是想把平均成本拉下来",
+          "还是想把平均成本拉下来"
+        ],
+        "missing": [
+          "OCCURRED"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "u03",
+    "text": "看到博主加密庞克说他要做多了，虽然他说的是做多BTC，但是我就想买点ADA，毕竟目前我ADA是亏损最大的。10:18在OKX买的，50USDT，均价0.3218，手续费0.1553ADA",
+    "now": "2026-09-23T10:40:00+02:00",
+    "zone": "Europe/Budapest",
+    "language": "zh",
+    "group": "scored",
+    "features": [
+      "currency_word",
+      "day_word_with_clock"
+    ],
+    "trades": [
+      {
+        "side": "buy",
+        "coin": [
+          "ADA",
+          "ADA"
+        ],
+        "price": [
+          "0.3218",
+          "0.3218"
+        ],
+        "total": [
+          "50USDT",
+          "50"
+        ],
+        "price_currency": [
+          "USDT",
+          "USDT"
+        ],
+        "fee": [
+          "0.1553ADA",
+          "0.1553"
+        ],
+        "fee_currency": [
+          "ADA",
+          "ADA"
+        ],
+        "time": [
+          "10:18",
+          "2026-09-23T10:18:00+02:00",
+          "minute"
+        ],
+        "platform": [
+          "OKX",
+          "OKX"
+        ],
+        "opinion": [
+          "看到博主加密庞克说他要做多了，虽然他说的是做多BTC，但是我就想买点ADA，毕竟目前我ADA是亏损最大的",
+          "看到博主加密庞克说他要做多了，虽然他说的是做多BTC，但是我就想买点ADA，毕竟目前我ADA是亏损最大的"
+        ],
+        "missing": []
+      }
+    ]
+  },
+  {
+    "id": "u04",
+    "text": "9月25号21:06在OKX买了318.4713个ADA，0.314一个，手续费0.3184713ADA，跟着博主看多",
+    "now": "2026-09-26T09:00:00+02:00",
+    "zone": "Europe/Budapest",
+    "language": "zh",
+    "group": "scored",
+    "features": [
+      "per_piece",
+      "written_date"
+    ],
+    "trades": [
+      {
+        "side": "buy",
+        "coin": [
+          "ADA",
+          "ADA"
+        ],
+        "quantity": [
+          "318.4713个ADA",
+          "318.4713"
+        ],
+        "price": [
+          "0.314",
+          "0.314"
+        ],
+        "fee": [
+          "0.3184713ADA",
+          "0.3184713"
+        ],
+        "fee_currency": [
+          "ADA",
+          "ADA"
+        ],
+        "time": [
+          "9月25号21:06",
+          "2026-09-25T21:06:00+02:00",
+          "minute"
+        ],
+        "platform": [
+          "OKX",
+          "OKX"
+        ],
+        "opinion": [
+          "跟着博主看多",
+          "跟着博主看多"
+        ],
+        "missing": []
+      }
+    ]
+  },
+  {
+    "id": "u05",
+    "text": "BTC 60000有支撑，买点，毕竟在牛市初期，无论是60,000还是62,000或是等到突破66,000之后回调的60,000都是一样的。今早8点05分OKX买入0.00040811BTC，花了25USDT，均价61,258.60，手续费0.0000004BTC",
+    "now": "2026-09-30T08:20:00+02:00",
+    "zone": "Europe/Budapest",
+    "language": "zh",
+    "group": "scored",
+    "features": [
+      "thousands_comma",
+      "currency_word",
+      "day_word_with_clock"
+    ],
+    "trades": [
+      {
+        "side": "buy",
+        "coin": [
+          "BTC",
+          "BTC"
+        ],
+        "quantity": [
+          "0.00040811BTC",
+          "0.00040811"
+        ],
+        "price": [
+          "61,258.60",
+          "61258.60"
+        ],
+        "total": [
+          "25USDT",
+          "25"
+        ],
+        "price_currency": [
+          "USDT",
+          "USDT"
+        ],
+        "fee": [
+          "0.0000004BTC",
+          "0.0000004"
+        ],
+        "fee_currency": [
+          "BTC",
+          "BTC"
+        ],
+        "time": [
+          "今早8点05分",
+          "2026-09-30T08:05:00+02:00",
+          "minute"
+        ],
+        "platform": [
+          "OKX",
+          "OKX"
+        ],
+        "opinion": [
+          "BTC 60000有支撑，买点，毕竟在牛市初期，无论是60,000还是62,000或是等到突破66,000之后回调的60,000都是一样的",
+          "BTC 60000有支撑，买点，毕竟在牛市初期，无论是60,000还是62,000或是等到突破66,000之后回调的60,000都是一样的"
+        ],
+        "missing": []
+      }
+    ]
+  },
+  {
+    "id": "u06",
+    "text": "BTC又回到6万附近了，OKX补了30U，成交价60,412，牛市初期不怕",
+    "now": "2026-10-02T19:45:00+02:00",
+    "zone": "Europe/Budapest",
+    "language": "zh",
+    "group": "scored",
+    "features": [
+      "thousands_comma",
+      "currency_word",
+      "unrelated_number"
+    ],
+    "trades": [
+      {
+        "side": "buy",
+        "coin": [
+          "BTC",
+          "BTC"
+        ],
+        "price": [
+          "60,412",
+          "60412"
+        ],
+        "total": [
+          "30U",
+          "30"
+        ],
+        "price_currency": [
+          "U",
+          "USDT"
+        ],
+        "platform": [
+          "OKX",
+          "OKX"
+        ],
+        "opinion": [
+          "牛市初期不怕",
+          "牛市初期不怕"
+        ],
+        "missing": [
+          "FEE",
+          "OCCURRED"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "u07",
+    "text": "一个周之前设置的限单触发了，因为我觉得60000是个强支撑位。今天凌晨4点07分OKX成交，100USDT买到0.00165837BTC，均价60,300，手续费0.00000133BTC",
+    "now": "2026-10-05T16:50:00+02:00",
+    "zone": "Europe/Budapest",
+    "language": "zh",
+    "group": "scored",
+    "features": [
+      "thousands_comma",
+      "currency_word",
+      "day_word_with_clock"
+    ],
+    "trades": [
+      {
+        "side": "buy",
+        "coin": [
+          "BTC",
+          "BTC"
+        ],
+        "quantity": [
+          "0.00165837BTC",
+          "0.00165837"
+        ],
+        "price": [
+          "60,300",
+          "60300"
+        ],
+        "total": [
+          "100USDT",
+          "100"
+        ],
+        "price_currency": [
+          "USDT",
+          "USDT"
+        ],
+        "fee": [
+          "0.00000133BTC",
+          "0.00000133"
+        ],
+        "fee_currency": [
+          "BTC",
+          "BTC"
+        ],
+        "time": [
+          "今天凌晨4点07分",
+          "2026-10-05T04:07:00+02:00",
+          "minute"
+        ],
+        "platform": [
+          "OKX",
+          "OKX"
+        ],
+        "opinion": [
+          "一个周之前设置的限单触发了，因为我觉得60000是个强支撑位",
+          "一个周之前设置的限单触发了，因为我觉得60000是个强支撑位"
+        ],
+        "missing": []
+      }
+    ]
+  },
+  {
+    "id": "u08",
+    "text": "在OKX挂了个BTC限价单，59,500买100U，觉得这里是强支撑，等它触发",
+    "now": "2026-09-28T22:10:00+02:00",
+    "zone": "Europe/Budapest",
+    "language": "zh",
+    "group": "not_to_record",
+    "kind": "open_order",
+    "features": [],
+    "trades": []
+  },
+  {
+    "id": "u09",
+    "text": "BTC跌破60000了，今天下午3点50在OKX补仓BTC，100USDT买到0.00167785BTC，均价59,600，手续费0.00000168BTC；好久没买ETH了，顺手20USDT买了0.008291ETH，均价2,412.25，手续费0.00000829ETH",
+    "now": "2026-10-06T16:05:00+02:00",
+    "zone": "Europe/Budapest",
+    "language": "zh",
+    "group": "scored",
+    "features": [
+      "thousands_comma",
+      "currency_word",
+      "day_word_with_clock",
+      "shared_detail"
+    ],
+    "trades": [
+      {
+        "side": "buy",
+        "coin": [
+          "BTC",
+          "BTC"
+        ],
+        "quantity": [
+          "0.00167785BTC",
+          "0.00167785"
+        ],
+        "price": [
+          "59,600",
+          "59600"
+        ],
+        "total": [
+          "100USDT",
+          "100"
+        ],
+        "price_currency": [
+          "USDT",
+          "USDT"
+        ],
+        "fee": [
+          "0.00000168BTC",
+          "0.00000168"
+        ],
+        "fee_currency": [
+          "BTC",
+          "BTC"
+        ],
+        "time": [
+          "今天下午3点50",
+          "2026-10-06T15:50:00+02:00",
+          "minute"
+        ],
+        "platform": [
+          "OKX",
+          "OKX"
+        ],
+        "opinion": [
+          "BTC跌破60000了",
+          "BTC跌破60000了"
+        ],
+        "missing": []
+      },
+      {
+        "side": "buy",
+        "coin": [
+          "ETH",
+          "ETH"
+        ],
+        "quantity": [
+          "0.008291ETH",
+          "0.008291"
+        ],
+        "price": [
+          "2,412.25",
+          "2412.25"
+        ],
+        "total": [
+          "20USDT",
+          "20"
+        ],
+        "price_currency": [
+          "USDT",
+          "USDT"
+        ],
+        "fee": [
+          "0.00000829ETH",
+          "0.00000829"
+        ],
+        "fee_currency": [
+          "ETH",
+          "ETH"
+        ],
+        "time": [
+          "今天下午3点50",
+          "2026-10-06T15:50:00+02:00",
+          "minute"
+        ],
+        "platform": [
+          "OKX",
+          "OKX"
+        ],
+        "opinion": [
+          "好久没买ETH了",
+          "好久没买ETH了"
+        ],
+        "missing": []
+      }
+    ]
+  },
+  {
+    "id": "u10",
+    "text": "今天下午OKX顺手25U买了点ETH，2,388一个，跟着BTC一起补仓",
+    "now": "2026-10-09T21:30:00+02:00",
+    "zone": "Europe/Budapest",
+    "language": "zh",
+    "group": "scored",
+    "features": [
+      "thousands_comma",
+      "currency_word",
+      "per_piece",
+      "date_only"
+    ],
+    "trades": [
+      {
+        "side": "buy",
+        "coin": [
+          "ETH",
+          "ETH"
+        ],
+        "price": [
+          "2,388",
+          "2388"
+        ],
+        "total": [
+          "25U",
+          "25"
+        ],
+        "price_currency": [
+          "U",
+          "USDT"
+        ],
+        "time": [
+          "今天下午",
+          "2026-10-09",
+          "day"
+        ],
+        "platform": [
+          "OKX",
+          "OKX"
+        ],
+        "opinion": [
+          "跟着BTC一起补仓",
+          "跟着BTC一起补仓"
+        ],
+        "missing": [
+          "FEE"
+        ]
+      }
+    ]
+  }
+]

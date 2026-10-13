@@ -3,6 +3,7 @@
     .venv/bin/python -m evals.run                      # the debug set, the first prompt
     .venv/bin/python -m evals.run --prompt first --model qwen2.5:7b
     .venv/bin/python -m evals.run --set writings --prompt stepwise
+    .venv/bin/python -m evals.run --set voice --model qwen3-vl:8b
     .venv/bin/python -m evals.run --method split_first # split first, then extract
     .venv/bin/python -m evals.run --resume evals/results/<file>.jsonl
 
@@ -12,9 +13,9 @@ parameters (temperature and the rest) are the settings' too. Only the local
 plug is used: the run asks Ollama itself for the model's fingerprint, so
 settings that choose the cloud plug (``LEDGER_HAND_MODEL_PLUG=cloud``) are
 refused before anything is sent. The set is the debug set, unless ``--set``
-names the writings set (``writings``), which is scored apart. The final set
-is run only with ``--final-exam``, and the results file then says so: it is
-kept for the last run of an experiment.
+names the writings set (``writings``) or the voice set (``voice``), each
+scored apart. The final set is run only with ``--final-exam``, and the
+results file then says so: it is kept for the last run of an experiment.
 
 Each passage is read one of two ways (``--method``, see ``methods``): the
 whole passage in one call (``one_list``, the default and the product's way),
@@ -82,6 +83,7 @@ from evals.records import (
 from evals.scoring import Produced, ResultKind, score_sentence
 from evals.summarize import summary_path
 from evals.tables import markdown, summarize
+from evals.voice import VOICE_SET
 from evals.writings import WRITINGS_SET
 from ledger_hand.core.coins import BUILT_IN_TABLE
 from ledger_hand.core.trade import TradeRecord
@@ -495,8 +497,8 @@ def _arguments(arguments: Sequence[str]) -> argparse.Namespace:
     chosen_set.add_argument(
         "--set",
         default=Split.DEBUG.value,
-        choices=[Split.DEBUG.value, Split.WRITINGS.value],
-        help="the set to run: the debug set, or the writings set scored apart",
+        choices=[Split.DEBUG.value, Split.WRITINGS.value, Split.VOICE.value],
+        help="the set to run: the debug set, or the writings or the voice set, each scored apart",
     )
     parser.add_argument("--prompt", default="first", choices=sorted(PROMPTS))
     parser.add_argument(
@@ -517,6 +519,8 @@ def set_for(options: argparse.Namespace) -> tuple[Split, Path]:
         return Split.FINAL, FINAL_SET
     if options.set == Split.WRITINGS.value:
         return Split.WRITINGS, WRITINGS_SET
+    if options.set == Split.VOICE.value:
+        return Split.VOICE, VOICE_SET
     return Split.DEBUG, DEBUG_SET
 
 
