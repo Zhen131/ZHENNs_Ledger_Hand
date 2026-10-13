@@ -8,10 +8,13 @@
 
 Run from the top of the repository. The model is the one the settings name
 (see "Model settings" in the README), unless ``--model`` names another; the
-parameters (temperature and the rest) are the settings' too. The set is the
-debug set, unless ``--set`` names the writings set (``writings``), which is
-scored apart. The final set is run only with ``--final-exam``, and the
-results file then says so: it is kept for the last run of an experiment.
+parameters (temperature and the rest) are the settings' too. Only the local
+plug is used: the run asks Ollama itself for the model's fingerprint, so
+settings that choose the cloud plug (``LEDGER_HAND_MODEL_PLUG=cloud``) are
+refused before anything is sent. The set is the debug set, unless ``--set``
+names the writings set (``writings``), which is scored apart. The final set
+is run only with ``--final-exam``, and the results file then says so: it is
+kept for the last run of an experiment.
 
 Each passage is read one of two ways (``--method``, see ``methods``): the
 whole passage in one call (``one_list``, the default and the product's way),
@@ -40,7 +43,8 @@ was split first, how it went (``split``): the route, the trades the split
 listed and the segments.
 
 Exit status: 0 the run finished; 2 it could not start (a wrong argument, a
-setting, or the model server could not say who it is).
+setting, settings that choose the cloud plug, or the model server could not
+say who it is).
 
 Names defined here: ``main``, ``Backend``, ``RecordingModel``,
 ``PROMPTS``, ``SPLIT_PROMPT``, ``RESULTS_DIR``, ``Trace``,
@@ -119,7 +123,7 @@ from ledger_hand.ports import (
     ModelPort,
     ModelReply,
 )
-from ledger_hand.settings import ModelSettings, SettingsError, load_model_settings
+from ledger_hand.settings import ModelSettings, Plug, SettingsError, Variable, load_model_settings
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 RESULTS_DIR = REPO_ROOT / "evals" / "results"
@@ -199,8 +203,18 @@ def _parameters(settings: ModelSettings) -> dict[str, object]:
 
 
 def local_backend(model_name: str | None) -> Backend:
-    """The model the settings name (or ``model_name``), asked who it is first."""
+    """The model the settings name (or ``model_name``), asked who it is first.
+
+    Raises ``SettingsError``, before anything is sent, when the settings
+    choose a plug other than the local one.
+    """
     settings = load_model_settings()
+    if settings.plug is not Plug.LOCAL:
+        raise SettingsError(
+            f"{Variable.PLUG.value} is {settings.plug.value}, but the experiment tools use the "
+            f"{Plug.LOCAL.value} plug only: they ask Ollama itself for the model's fingerprint. "
+            f"Unset {Variable.PLUG.value}, or set it to {Plug.LOCAL.value}, to run them."
+        )
     if model_name:
         settings = replace(settings, model=model_name)
     identity = ask_identity(settings)
