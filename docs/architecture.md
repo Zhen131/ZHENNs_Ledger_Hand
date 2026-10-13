@@ -387,13 +387,13 @@ or names an environment variable, and `asking/` imports only the standard
 library, the core and the ports file.
 
 The layering check's rules about the clock and the machine's zone cover
-`core/`, `extraction/` and `asking/`, and not yet `flows/`. Two of its older
-tests use a file in `flows/` as their example of a part those rules spare,
-so adding `flows/` means changing that example, which is left to the
-project owner. Until then the gate above is what keeps `flows/` off the
-clock and the machine's zone. It does not see three rare forms the layering
-check would: the method `datetime.now` named without being called, and
-`astimezone(None)` or `astimezone(tz=None)`. The code uses none of them.
+`core/`, `extraction/`, `asking/` and `flows/`: in `flows/` it reports the
+same reads as in `extraction/` and `asking/`, those through the `time`
+module among them. The gate above is a second guard beside it. Its judging
+is one function that its own tests feed every form the layering tests list,
+and it sees the forms it once missed: the methods `now`, `utcnow` and
+`today` of `datetime` or `date` named without being called, and
+`astimezone(None)` or `astimezone(tz=None)`.
 
 ## The eleven rules
 
@@ -488,7 +488,8 @@ plug is built rather than where the settings are read, so that every
 variable is still read on its own; settings that do not fit are a
 `SettingsError` naming the variable to set. The experiment tools keep using
 the local plug alone (`llm/local.py`), because they ask Ollama for the
-model's fingerprint.
+model's fingerprint; with the cloud plug set they refuse to start, before
+anything is sent, with a `SettingsError` that names `LEDGER_HAND_MODEL_PLUG`.
 
 Whether a reply's text is valid JSON that follows the schema is not checked
 by the plug. A model reply is untrusted input (rule 6), and the code that
@@ -534,6 +535,19 @@ cannot write. A file that is newer, not a database or not this program's is
 refused without one byte written; a missing or empty file becomes a new book
 of the current version. These numbers are the book's own and none of the
 ledger's four version numbers.
+
+One exception lets the book be written before it is checked: a write cut
+off part way leaves SQLite's journal beside the book, and a connection that
+cannot write cannot roll it back (SQLite says `SQLITE_READONLY_ROLLBACK`).
+Only then, and only when the first 100 bytes of the file, read straight from
+the disk, are SQLite's header with this program's mark and a version from 1
+to `BOOK_VERSION`, the file is opened once for writing, so that SQLite rolls
+the write back and removes the journal; the program never touches the
+journal itself. The file is then checked again from the start, once: empty
+again (a new book cut off while it was being made), it becomes a new book.
+A file refused on that second look has been written by the rollback, and its
+refusal says so. Any other file with a journal beside it is refused, and
+neither file is written.
 
 **Upgrade scripts.** `storage/upgrades/upgrade_NNNN.py`, numbered from 1 with
 no gap: script `n` turns a book of version `n - 1` into one of version `n`.

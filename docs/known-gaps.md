@@ -154,23 +154,43 @@ amount that keeps it. How often it happens is not measured.
 
 **What it is.** When the program stops in the middle of writing the book
 (the power fails, the process is killed), SQLite leaves a journal file
-beside it, `ledger-hand-book.sqlite3-journal`, to roll the unfinished write
-back. The program first opens the book read-only, to read its mark and
-version before anything else, and a read-only connection cannot roll the
-journal back. So the book is refused as inaccessible, every time.
+beside it, `ledger-hand-book.sqlite3-journal`, holding what the book was
+before that write. The program's first look at the book cannot write, so it
+cannot roll the journal back. When that is the only reason the book cannot
+be read, and the file's header, read straight from the disk, is SQLite's
+with this program's mark and a version it knows, the program opens the book
+once for writing: SQLite rolls the unfinished write back and removes the
+journal, and the book is then checked again from the start. That is the one
+case in which a file is written to before it is checked; any other file
+with a journal beside it is refused as before, and neither is written to.
+Three rough edges remain.
 
-**What it affects.** Nothing is lost: the book and its journal hold every
-trade saved before. But the program cannot use the book until the journal
-is rolled back.
+- **Refused after the rollback.** When the check after the rollback refuses
+  the book (its tables are not those of its version, or SQLite finds it
+  damaged), the rollback has already written to it: what the tables are
+  cannot be read before the journal is rolled back. The book's own message
+  then says that SQLite first rolled back a write cut off part way, but the
+  page's sentence for the kind, shown beside it, is the usual one: for a
+  file that is not this program's book it says the file "was left as it
+  is", and for a damaged book that the program "does not write to it".
+- **A folder that cannot be written.** SQLite rolls the book back, but
+  cannot remove the journal, which takes a folder it may write to. The book
+  is then refused as inaccessible (SQLite's `SQLITE_IOERR_DELETE`), and the
+  journal stays; each later opening rolls the book back again, to the same
+  bytes, and fails the same way, until the folder can be written.
+- **A file this program does not read.** A file that is not a database, or
+  not this program's book, or a book of a newer version, is refused with
+  its journal left beside it; this program never rolls back a journal it
+  cannot first show to belong to one of its own books.
 
-**What the user can do.** Keep a copy of the book and its journal file
-together, then open the book once with a SQLite tool that may write to it;
-SQLite rolls the journal back by itself. Do not delete the journal file.
+**What it affects.** Nothing that was saved is lost in any of these: a
+rollback only takes the book back to what it held before the write that was
+cut off.
 
-**Why it is not fixed here.** Rolling the journal back from the program
-means writing to a file before its mark and version are read, which the
-rule that a refused file is never written to forbids. Whether to bend that
-rule for this one case is a decision for the project owner.
+**What the user can do.** For a folder that cannot be written, make it
+writable and open the book again. For a file this program does not read,
+keep a copy of the file and its journal together; do not delete the
+journal file.
 
 ## A change in the time zone database can stop listing and exporting
 
@@ -208,29 +228,28 @@ written, so nothing is lost; the trades wait for the next export.
 **What the user can do.** Point `LEDGER_HAND_DATA_DIR` at a folder on a disk
 that has hard links.
 
-## The interface: three sentences that could be better
+## The interface: two sentences that could be better
 
-- **A model that is not there, on a cloud service.** The sentence for a
-  model the server does not have also suggests installing it with
-  `ollama pull`, which applies to the local Ollama only. The sentence is
-  shared by both plugs.
-- **The model failing while it reads an answer.** The question is asked
-  again and nothing breaks, but the sentence ends with the failure's kind as
-  a code word, such as `(timed_out)`, rather than in plain words. The flow
-  does not keep the kind for the interface to look up.
+- **The model failing while it reads an answer.** The page says the kind
+  of failure in plain words and asks the question again, but it goes by the
+  kind alone: the flow keeps the kind, not the status code or the wait the
+  server asked for. So a key refused (401, 403), a request refused (400) and
+  a rate limit with its wait are each said there in their kind's general
+  sentence, not in the sentence the page uses for them elsewhere. The
+  command line (`scripts/record_trades.py`) still prints the reason with the
+  kind's code word, such as `(timed_out)`.
 - **A setting refused in the environment.** The Settings page opens and
   names the setting and its rule, but the setting cannot be corrected there:
   the environment variable has to be corrected and the program started
   again.
 
-## The experiment tools and cloud settings
+## The experiment tools measure local models only
 
-**What it is.** The experiment tools (`evals/run.py`) always use the local
-plug, because they ask Ollama itself for the model's fingerprint, but they
-read the address and the key from the settings. Run with cloud settings
-left in the shell, they send Ollama's own requests, with that key, to the
-cloud address, where they only fail.
+**What it is.** The experiment tools (`evals/run.py`) use the local plug
+only, because they ask Ollama itself for the model's fingerprint, which a
+cloud service has no way of giving. So a model on a cloud service cannot be
+measured with them. With the cloud plug set (`LEDGER_HAND_MODEL_PLUG=cloud`)
+they refuse to start, before anything is sent, and say why.
 
-**What the user can do.** Unset the cloud settings before running an
-experiment (the README says so). Refusing to run with them set is a change
-still to be made.
+**What the user can do.** Unset `LEDGER_HAND_MODEL_PLUG`, or set it to
+`local`, before running an experiment.

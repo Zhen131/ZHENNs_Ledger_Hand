@@ -198,7 +198,7 @@ the step that failed.
 | --- | --- |
 | No model answered | The address asked; whether Ollama is running; the address on the Settings page |
 | The model took too long | The time allowed; the first call has to load the model and can be slow; try again, or allow more time on the Settings page |
-| The model is not there | The model's name and the address; check the name, or install it with `ollama pull` |
+| The model is not there | The model's name and the address. With the local plug: check the name, or install it with `ollama pull`. With the cloud plug: check the name on the Settings page against the service's own list of models |
 | Called too often | The server turned the call away; wait a little, then try again. When the server said how long to wait: that many seconds |
 | The key refused (status 401 or 403) | The address; check `LEDGER_HAND_MODEL_KEY` in the environment and that the key may use the model, then start the program again |
 | The request refused (status 400) | The address and the start of what the server answered; check the model's name; a service that does not take the reply table refuses every call this way |
@@ -218,9 +218,19 @@ the step that failed.
 | An export file written but not marked | Where it is; the next export writes the trades again |
 
 The sentences are in `src/ledger_hand/ui/failure_words.py`, one for each
-kind of each failure, and one for each status a cloud service turns a call
-down with (401, 403, 400); a test walks every kind, so a new one cannot go
-without a sentence. None of them ever shows the key.
+kind of each failure, one for each status a cloud service turns a call
+down with (401, 403, 400), and one for a model the cloud service does not
+have, which says nothing of Ollama; a test walks every kind, so a new one
+cannot go without a sentence. None of them ever shows the key.
+
+When the model fails while it reads an answer to a question, the page says
+that kind of failure in its own sentence, looked up the same way, and asks
+the question again. That sentence goes by the kind alone, not by the status
+code or the wait the server asked for, so a refused key, a refused request
+or a rate limit with its wait is said in the kind's general sentence there.
+The command line (`scripts/record_trades.py`) still prints the reason with
+the kind's code word, such as `(asked again: the model could not be asked
+to read the answer (timed_out))`.
 
 ## Recording at the command line
 
@@ -230,7 +240,9 @@ runs extraction alone. Both ask the model the settings name, so the model
 server has to be running, and both are run from the top of the repository.
 `.venv/bin/python scripts/record_trades.py --help` lists its options.
 `scripts/try_extraction.py` has no options: everything after its name is
-the passage.
+the passage, except `--help` or `-h` given alone, which prints how to use
+it (giving a passage, standard input, the exit statuses) and reads nothing
+else.
 
 ### Trying extraction by hand
 
@@ -331,7 +343,7 @@ The script takes one argument, the tier: `quick` (the default), `ledger` or
 | `format` | `ruff format --check .` | Formatting is left to the tool. |
 | `lint` | `ruff check .` | Basic errors, import order, naming, common pitfalls, needless complexity, boolean flag parameters, overlong functions. |
 | `types` | `mypy` | Strict type checking of `core/` and `ports.py`. |
-| `layering` | `pytest tests/guardrails/test_repo_layering.py` | Each part of the package imports only what the layering table allows; `core/` reads no clock and uses no floating-point number; `extraction/` and `asking/` read no clock and no zone of the machine; only `settings.py` reads environment variables; only `ui/` imports Streamlit and only the wiring module imports tzlocal. |
+| `layering` | `pytest tests/guardrails/test_repo_layering.py` | Each part of the package imports only what the layering table allows; `core/` reads no clock and uses no floating-point number; `extraction/`, `asking/` and `flows/` read no clock and no zone of the machine; only `settings.py` reads environment variables; only `ui/` imports Streamlit and only the wiring module imports tzlocal. |
 | `hygiene` | `pytest tests/guardrails/test_repo_hygiene.py` | No machine-specific paths, private work-log identifiers or tool-attribution text in any file Git tracks or would add. |
 | `tests` | `pytest` | Every test except the live ones, including the tests of the two guardrails themselves. No test reaches the network: the model plug is tested against a fake transport, and a test that tries to connect fails on the spot. |
 
@@ -438,10 +450,13 @@ its first question. Last, it tries the cloud plug against the same server:
 Ollama also answers the OpenAI-style chat endpoint under `/v1` of its
 address, so the cloud plug is pointed there, with an invented key that
 Ollama does not check, and asked the same small question once, with no
-retries; the reply must be valid JSON that follows the table. No cloud
-service is called: when the address the settings name is not on this
-machine (a cloud address left set in the shell, say), that check sends
-nothing and is skipped, saying why. Unset the cloud settings before running
+retries; the reply must be valid JSON that follows the table. It also asks
+for a model the server does not have, through both plugs, and prints the
+kind, the status code and the sentence the page would show: through the
+local plug it names `ollama pull`, through the cloud plug it says nothing of
+Ollama. No cloud service is called: when the address the settings name is
+not on this machine (a cloud address left set in the shell, say), those two
+checks send nothing and are skipped, saying why. Unset the cloud settings before running
 the live tier: every other live check talks to the address they name. When the server cannot be reached, it fails with a
 message that starts with `unreachable`.
 The first call after the model has been idle includes loading it into
@@ -757,9 +772,11 @@ Known limits:
   tier sends it once to the local Ollama's OpenAI-style endpoint (`/v1`),
   which shows that the request is in a form such a server takes, but not
   how any one service answers.
-- The experiment tools (`evals/run.py`) always use the local plug, because
-  they ask Ollama itself for the model's fingerprint. Unset the cloud
-  settings before running an experiment.
+- The experiment tools (`evals/run.py`) use the local plug only, because
+  they ask Ollama itself for the model's fingerprint. With the cloud plug
+  set (`LEDGER_HAND_MODEL_PLUG=cloud`) they refuse to start, before anything
+  is sent, and say so with exit status 2. Unset it, or set it to `local`,
+  before running an experiment.
 
 ## How it works, part by part
 
@@ -984,7 +1001,16 @@ moments in UTC to the microsecond. The book carries its own version number
 header, and both are read before anything else: a file that is newer than
 this program, not a database or not this program's book is refused, and not
 one byte of it is written; a missing or empty file becomes a new book, with
-its folder. Numbered upgrade scripts (`storage/upgrades/`) bring an older
+its folder. There is one exception: a write cut off part way (the process
+killed, the power lost) leaves SQLite's journal beside the book
+(`ledger-hand-book.sqlite3-journal`), which the read-only first look cannot
+roll back. When that is the only reason the book cannot be read, and the
+file's first 100 bytes, read straight from the disk, show SQLite's header
+with this program's mark and a version it knows, the book is opened once
+for writing so that SQLite itself rolls the write back and removes the
+journal; then it is checked again from the start. Any other file with a
+journal beside it is refused as before, and neither file is written to.
+Numbered upgrade scripts (`storage/upgrades/`) bring an older
 book up to date, one transaction each, and are never changed once
 committed; neither is the golden sample of each version
 (`tests/storage/golden/`). Every failure of the book is one `StorageError`
@@ -1077,7 +1103,7 @@ check and the hygiene scan).
 | `tests/` | The tests. `tests/core/`, `tests/export/`, `tests/llm/`, `tests/extraction/`, `tests/asking/`, `tests/storage/` and `tests/flows/` have one test module per module, or more; `tests/llm/` also has a fake Ollama server, the pieces of a fake cloud service and a batch of attacks on each plug, and `tests/extraction/` a batch of attacks on extraction. `tests/storage/` runs the same tests of the storage port against the SQLite plug and the in-memory stand-in, and holds the golden book. `tests/flows/` also tests the script for recording trades. `tests/ui/` runs the pages headless with Streamlit's own test runner, against fake models and a book in a temporary folder (Export, the settings page, every failure, the reminders), checks the plain sentence for every failure, and checks the settings file. `tests/evals/` tests the experiment kit and the test sentences. |
 | `tests/conftest.py` | Stops every test that is not marked `live_model` from reaching the network. |
 | `tests/fakes/` | Stand-ins for the outside world: a scripted model that plays back replies and errors in order and records what it was asked, a model that answers each kind of call (judging, extraction, wording a question, reading an answer) from its own script, and a book kept in memory that can be made to fail. |
-| `tests/live/` | The live check, which talks to a real model, the small schema check it uses, the smoke test of extraction, the check of judging the debug set, the smoke test of the page, the check of the settings page against an address nobody listens on, one call of the cloud plug to the local Ollama's OpenAI-style endpoint, and a run that names a model the server does not have. |
+| `tests/live/` | The live check, which talks to a real model, the small schema check it uses, the smoke test of extraction, the check of judging the debug set, the smoke test of the page, the check of the settings page against an address nobody listens on, one call of the cloud plug to the local Ollama's OpenAI-style endpoint, a model the server does not have asked for through both plugs, and a run that names a model the server does not have. |
 | `tests/export/samples.py`, `tests/export/attack.py`, `tests/export/golden/` | Invented trades to export, batches of edge cases made to find where this program and the ledger part ways, both shared with the ledger tier, and the golden sample. A golden sample is never edited once committed; a new format version gets one of its own. |
 | `tests/guardrails/` | The layering check and the hygiene scan, the tests that prove they catch what they should, and the two gate tests that apply them to this repository. |
 | `scripts/check.sh` | One command that runs all checks. |
