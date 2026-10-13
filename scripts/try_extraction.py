@@ -2,13 +2,16 @@
 
     .venv/bin/python scripts/try_extraction.py "9:40 bought 0.02 BTC at 94,900, fee 2 USDT"
     echo "昨天卖了 2 ETH，价格 3,420" | .venv/bin/python scripts/try_extraction.py
+    .venv/bin/python scripts/try_extraction.py --help
 
 The passage is the arguments, joined by spaces, or else everything on
 standard input. It is sent to the model the settings name (see "Model
 settings" in the README; by default ``qwen2.5:7b`` on this machine's
 Ollama), and what comes back is printed: each draft, field by field, the
 issues, and one line for each call to the model saying how long it took and
-how many tokens it read and wrote.
+how many tokens it read and wrote. ``--help`` or ``-h``, given alone, prints
+this text instead and reads nothing else (no input, no setting, no clock, no
+zone, no model); given with other words, it is part of the passage.
 
 The current moment is read from the machine's clock and the time zone is the
 machine's own, read with ``tzlocal``. Both are read here, outside the
@@ -17,10 +20,10 @@ stops the script; it is never replaced by another zone.
 
 Nothing is written to disk, and the passage is not kept anywhere.
 
-Exit status: 0 the passage was read (even when it holds no trade); 1 it was
-not: the passage was refused, every reply missed the table, or the model
-failed; 2 the script could not start: a setting is wrong or the machine's
-zone is not a zone name the program takes.
+Exit status: 0 the passage was read (even when it holds no trade), or this
+text was printed; 1 it was not: the passage was refused, every reply missed
+the table, or the model failed; 2 the script could not start: a setting is
+wrong or the machine's zone is not a zone name the program takes.
 """
 
 from __future__ import annotations
@@ -50,6 +53,10 @@ from ledger_hand.ports import ModelPort, ReplyRecord
 from ledger_hand.settings import SettingsError, load_model_settings
 
 _NOTHING = "-"
+# Given as the only argument, these ask for this script's description
+# instead of a passage. Told apart by hand, not with argparse, so that every
+# other passage is taken word for word, dashes and all.
+_ASKING_FOR_HELP = frozenset({"--help", "-h"})
 
 
 def main(
@@ -62,6 +69,9 @@ def main(
     zone: str | None = None,
 ) -> int:
     """Run the script; the keyword arguments stand in for the outside world in tests."""
+    if len(arguments) == 1 and arguments[0] in _ASKING_FOR_HELP:
+        print((__doc__ or "usage: scripts/try_extraction.py [passage]").strip(), file=out)
+        return 0
     passage = " ".join(arguments) if arguments else read_input()
     if zone is None:
         zone = _machine_zone()
