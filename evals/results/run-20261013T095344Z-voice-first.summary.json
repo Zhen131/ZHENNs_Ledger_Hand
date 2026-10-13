@@ -1,0 +1,641 @@
+{
+  "run": {
+    "record": "run",
+    "set": "voice",
+    "final_exam_switch": false,
+    "set_file": "evals/sets/voice.json",
+    "set_sha256": "884e678672d4fcedc2d36da18e96e7e70261785936b4fc48cd2a3259d2b35196",
+    "prompt": "first",
+    "prompt_files": [
+      {
+        "path": "src/ledger_hand/extraction/prompts/first.py",
+        "sha256": "e09ca774e7a4455891a9a8980c6932d3b9691f53c00cc189c3dfbcbbfb7368ba"
+      },
+      {
+        "path": "src/ledger_hand/extraction/prompts/first_examples.py",
+        "sha256": "3088812302b7895fac2c1c65a60a9f703bdfcec40b9cb556b7cf8ef5ec682c32"
+      }
+    ],
+    "prompt_content_sha256": "7a510f4aaf16f7830ea5df2ec2071a276006565014e61bf295aa44a57a297112",
+    "reply_table_sha256": "e3870b098001b51896b9671f15ef57491df1f7834c0b880d7588ae65b6548e70",
+    "method": "one_list",
+    "commit": "4235809224ccfd2d3454765b74c6a05f3d83691c",
+    "worktree_clean": true,
+    "model": "qwen3-vl:8b",
+    "model_fingerprint": "901cae73216286ea8c5aba8b46d307ff7188f737285ec500c795a12f05225d28",
+    "server_version": "0.34.3",
+    "base_url": "http://127.0.0.1:11434",
+    "parameters": {
+      "temperature": 0.0,
+      "top_p": 1.0,
+      "max_reply_tokens": 1024,
+      "context_tokens": 16384,
+      "timeout_seconds": 120.0,
+      "retries": 2,
+      "retry_wait_seconds": 1.0,
+      "asks_again": 1
+    },
+    "coin_table": "built-in",
+    "started_at": "2026-10-13T09:53:44+00:00"
+  },
+  "timing": {
+    "sentences": 10,
+    "sum_of_sentence_seconds": 460.341,
+    "first_sentence_seconds": 45.316,
+    "longest_sentence_seconds": 54.74,
+    "finished_at": "2026-10-13T10:01:24+00:00",
+    "seconds_of_the_last_session": 460.432
+  },
+  "finished": true,
+  "groups": {
+    "all scored sentences": {
+      "sentences": 9,
+      "well_formed": 1,
+      "gold_trades": 10,
+      "drafts": 1,
+      "pairs": 1,
+      "whole_right": 0,
+      "missed": 9,
+      "extra": 0,
+      "gold_empty_fields": 3,
+      "made_up_fields": 1,
+      "no_trade_sentences": 0,
+      "no_trade_right": 0,
+      "field_right": {
+        "side": 1,
+        "coin": 1,
+        "quantity": 0,
+        "price": 0,
+        "total": 0,
+        "price_currency": 0,
+        "fee": 1,
+        "fee_currency": 1,
+        "time": 1,
+        "platform": 1,
+        "opinion": 1
+      },
+      "outcomes": {
+        "RIGHT": 7,
+        "LEFT_EMPTY_WITH_REASON": 2,
+        "LEFT_EMPTY_BY_MODEL": 1,
+        "WRONG_WITH_ISSUE": 0,
+        "WRONG_SILENT": 0,
+        "MADE_UP": 1
+      },
+      "empty_reasons": {
+        "NOT_IN_PASSAGE": 0,
+        "CUTS_A_NUMBER": 0,
+        "NUMBER_NOT_READ": 2,
+        "TIME_NOT_READ": 0,
+        "OTHER": 0
+      },
+      "half_copies": {
+        "RIGHT": 0,
+        "LEFT_EMPTY_WITH_REASON": 0,
+        "LEFT_EMPTY_BY_MODEL": 0,
+        "WRONG_WITH_ISSUE": 0,
+        "WRONG_SILENT": 0,
+        "MADE_UP": 0
+      }
+    },
+    "one trade": {
+      "sentences": 8,
+      "well_formed": 1,
+      "gold_trades": 8,
+      "drafts": 1,
+      "pairs": 1,
+      "whole_right": 0,
+      "missed": 7,
+      "extra": 0,
+      "gold_empty_fields": 3,
+      "made_up_fields": 1,
+      "no_trade_sentences": 0,
+      "no_trade_right": 0,
+      "field_right": {
+        "side": 1,
+        "coin": 1,
+        "quantity": 0,
+        "price": 0,
+        "total": 0,
+        "price_currency": 0,
+        "fee": 1,
+        "fee_currency": 1,
+        "time": 1,
+        "platform": 1,
+        "opinion": 1
+      },
+      "outcomes": {
+        "RIGHT": 7,
+        "LEFT_EMPTY_WITH_REASON": 2,
+        "LEFT_EMPTY_BY_MODEL": 1,
+        "WRONG_WITH_ISSUE": 0,
+        "WRONG_SILENT": 0,
+        "MADE_UP": 1
+      },
+      "empty_reasons": {
+        "NOT_IN_PASSAGE": 0,
+        "CUTS_A_NUMBER": 0,
+        "NUMBER_NOT_READ": 2,
+        "TIME_NOT_READ": 0,
+        "OTHER": 0
+      },
+      "half_copies": {
+        "RIGHT": 0,
+        "LEFT_EMPTY_WITH_REASON": 0,
+        "LEFT_EMPTY_BY_MODEL": 0,
+        "WRONG_WITH_ISSUE": 0,
+        "WRONG_SILENT": 0,
+        "MADE_UP": 0
+      }
+    },
+    "several trades": {
+      "sentences": 1,
+      "well_formed": 0,
+      "gold_trades": 2,
+      "drafts": 0,
+      "pairs": 0,
+      "whole_right": 0,
+      "missed": 2,
+      "extra": 0,
+      "gold_empty_fields": 0,
+      "made_up_fields": 0,
+      "no_trade_sentences": 0,
+      "no_trade_right": 0,
+      "field_right": {
+        "side": 0,
+        "coin": 0,
+        "quantity": 0,
+        "price": 0,
+        "total": 0,
+        "price_currency": 0,
+        "fee": 0,
+        "fee_currency": 0,
+        "time": 0,
+        "platform": 0,
+        "opinion": 0
+      },
+      "outcomes": {
+        "RIGHT": 0,
+        "LEFT_EMPTY_WITH_REASON": 0,
+        "LEFT_EMPTY_BY_MODEL": 0,
+        "WRONG_WITH_ISSUE": 0,
+        "WRONG_SILENT": 0,
+        "MADE_UP": 0
+      },
+      "empty_reasons": {
+        "NOT_IN_PASSAGE": 0,
+        "CUTS_A_NUMBER": 0,
+        "NUMBER_NOT_READ": 0,
+        "TIME_NOT_READ": 0,
+        "OTHER": 0
+      },
+      "half_copies": {
+        "RIGHT": 0,
+        "LEFT_EMPTY_WITH_REASON": 0,
+        "LEFT_EMPTY_BY_MODEL": 0,
+        "WRONG_WITH_ISSUE": 0,
+        "WRONG_SILENT": 0,
+        "MADE_UP": 0
+      }
+    },
+    "  two trades": {
+      "sentences": 1,
+      "well_formed": 0,
+      "gold_trades": 2,
+      "drafts": 0,
+      "pairs": 0,
+      "whole_right": 0,
+      "missed": 2,
+      "extra": 0,
+      "gold_empty_fields": 0,
+      "made_up_fields": 0,
+      "no_trade_sentences": 0,
+      "no_trade_right": 0,
+      "field_right": {
+        "side": 0,
+        "coin": 0,
+        "quantity": 0,
+        "price": 0,
+        "total": 0,
+        "price_currency": 0,
+        "fee": 0,
+        "fee_currency": 0,
+        "time": 0,
+        "platform": 0,
+        "opinion": 0
+      },
+      "outcomes": {
+        "RIGHT": 0,
+        "LEFT_EMPTY_WITH_REASON": 0,
+        "LEFT_EMPTY_BY_MODEL": 0,
+        "WRONG_WITH_ISSUE": 0,
+        "WRONG_SILENT": 0,
+        "MADE_UP": 0
+      },
+      "empty_reasons": {
+        "NOT_IN_PASSAGE": 0,
+        "CUTS_A_NUMBER": 0,
+        "NUMBER_NOT_READ": 0,
+        "TIME_NOT_READ": 0,
+        "OTHER": 0
+      },
+      "half_copies": {
+        "RIGHT": 0,
+        "LEFT_EMPTY_WITH_REASON": 0,
+        "LEFT_EMPTY_BY_MODEL": 0,
+        "WRONG_WITH_ISSUE": 0,
+        "WRONG_SILENT": 0,
+        "MADE_UP": 0
+      }
+    },
+    "  three or more trades": {
+      "sentences": 0,
+      "well_formed": 0,
+      "gold_trades": 0,
+      "drafts": 0,
+      "pairs": 0,
+      "whole_right": 0,
+      "missed": 0,
+      "extra": 0,
+      "gold_empty_fields": 0,
+      "made_up_fields": 0,
+      "no_trade_sentences": 0,
+      "no_trade_right": 0,
+      "field_right": {
+        "side": 0,
+        "coin": 0,
+        "quantity": 0,
+        "price": 0,
+        "total": 0,
+        "price_currency": 0,
+        "fee": 0,
+        "fee_currency": 0,
+        "time": 0,
+        "platform": 0,
+        "opinion": 0
+      },
+      "outcomes": {
+        "RIGHT": 0,
+        "LEFT_EMPTY_WITH_REASON": 0,
+        "LEFT_EMPTY_BY_MODEL": 0,
+        "WRONG_WITH_ISSUE": 0,
+        "WRONG_SILENT": 0,
+        "MADE_UP": 0
+      },
+      "empty_reasons": {
+        "NOT_IN_PASSAGE": 0,
+        "CUTS_A_NUMBER": 0,
+        "NUMBER_NOT_READ": 0,
+        "TIME_NOT_READ": 0,
+        "OTHER": 0
+      },
+      "half_copies": {
+        "RIGHT": 0,
+        "LEFT_EMPTY_WITH_REASON": 0,
+        "LEFT_EMPTY_BY_MODEL": 0,
+        "WRONG_WITH_ISSUE": 0,
+        "WRONG_SILENT": 0,
+        "MADE_UP": 0
+      }
+    },
+    "no trade (talk)": {
+      "sentences": 0,
+      "well_formed": 0,
+      "gold_trades": 0,
+      "drafts": 0,
+      "pairs": 0,
+      "whole_right": 0,
+      "missed": 0,
+      "extra": 0,
+      "gold_empty_fields": 0,
+      "made_up_fields": 0,
+      "no_trade_sentences": 0,
+      "no_trade_right": 0,
+      "field_right": {
+        "side": 0,
+        "coin": 0,
+        "quantity": 0,
+        "price": 0,
+        "total": 0,
+        "price_currency": 0,
+        "fee": 0,
+        "fee_currency": 0,
+        "time": 0,
+        "platform": 0,
+        "opinion": 0
+      },
+      "outcomes": {
+        "RIGHT": 0,
+        "LEFT_EMPTY_WITH_REASON": 0,
+        "LEFT_EMPTY_BY_MODEL": 0,
+        "WRONG_WITH_ISSUE": 0,
+        "WRONG_SILENT": 0,
+        "MADE_UP": 0
+      },
+      "empty_reasons": {
+        "NOT_IN_PASSAGE": 0,
+        "CUTS_A_NUMBER": 0,
+        "NUMBER_NOT_READ": 0,
+        "TIME_NOT_READ": 0,
+        "OTHER": 0
+      },
+      "half_copies": {
+        "RIGHT": 0,
+        "LEFT_EMPTY_WITH_REASON": 0,
+        "LEFT_EMPTY_BY_MODEL": 0,
+        "WRONG_WITH_ISSUE": 0,
+        "WRONG_SILENT": 0,
+        "MADE_UP": 0
+      }
+    },
+    "Chinese": {
+      "sentences": 9,
+      "well_formed": 1,
+      "gold_trades": 10,
+      "drafts": 1,
+      "pairs": 1,
+      "whole_right": 0,
+      "missed": 9,
+      "extra": 0,
+      "gold_empty_fields": 3,
+      "made_up_fields": 1,
+      "no_trade_sentences": 0,
+      "no_trade_right": 0,
+      "field_right": {
+        "side": 1,
+        "coin": 1,
+        "quantity": 0,
+        "price": 0,
+        "total": 0,
+        "price_currency": 0,
+        "fee": 1,
+        "fee_currency": 1,
+        "time": 1,
+        "platform": 1,
+        "opinion": 1
+      },
+      "outcomes": {
+        "RIGHT": 7,
+        "LEFT_EMPTY_WITH_REASON": 2,
+        "LEFT_EMPTY_BY_MODEL": 1,
+        "WRONG_WITH_ISSUE": 0,
+        "WRONG_SILENT": 0,
+        "MADE_UP": 1
+      },
+      "empty_reasons": {
+        "NOT_IN_PASSAGE": 0,
+        "CUTS_A_NUMBER": 0,
+        "NUMBER_NOT_READ": 2,
+        "TIME_NOT_READ": 0,
+        "OTHER": 0
+      },
+      "half_copies": {
+        "RIGHT": 0,
+        "LEFT_EMPTY_WITH_REASON": 0,
+        "LEFT_EMPTY_BY_MODEL": 0,
+        "WRONG_WITH_ISSUE": 0,
+        "WRONG_SILENT": 0,
+        "MADE_UP": 0
+      }
+    },
+    "English": {
+      "sentences": 0,
+      "well_formed": 0,
+      "gold_trades": 0,
+      "drafts": 0,
+      "pairs": 0,
+      "whole_right": 0,
+      "missed": 0,
+      "extra": 0,
+      "gold_empty_fields": 0,
+      "made_up_fields": 0,
+      "no_trade_sentences": 0,
+      "no_trade_right": 0,
+      "field_right": {
+        "side": 0,
+        "coin": 0,
+        "quantity": 0,
+        "price": 0,
+        "total": 0,
+        "price_currency": 0,
+        "fee": 0,
+        "fee_currency": 0,
+        "time": 0,
+        "platform": 0,
+        "opinion": 0
+      },
+      "outcomes": {
+        "RIGHT": 0,
+        "LEFT_EMPTY_WITH_REASON": 0,
+        "LEFT_EMPTY_BY_MODEL": 0,
+        "WRONG_WITH_ISSUE": 0,
+        "WRONG_SILENT": 0,
+        "MADE_UP": 0
+      },
+      "empty_reasons": {
+        "NOT_IN_PASSAGE": 0,
+        "CUTS_A_NUMBER": 0,
+        "NUMBER_NOT_READ": 0,
+        "TIME_NOT_READ": 0,
+        "OTHER": 0
+      },
+      "half_copies": {
+        "RIGHT": 0,
+        "LEFT_EMPTY_WITH_REASON": 0,
+        "LEFT_EMPTY_BY_MODEL": 0,
+        "WRONG_WITH_ISSUE": 0,
+        "WRONG_SILENT": 0,
+        "MADE_UP": 0
+      }
+    },
+    "mixed": {
+      "sentences": 0,
+      "well_formed": 0,
+      "gold_trades": 0,
+      "drafts": 0,
+      "pairs": 0,
+      "whole_right": 0,
+      "missed": 0,
+      "extra": 0,
+      "gold_empty_fields": 0,
+      "made_up_fields": 0,
+      "no_trade_sentences": 0,
+      "no_trade_right": 0,
+      "field_right": {
+        "side": 0,
+        "coin": 0,
+        "quantity": 0,
+        "price": 0,
+        "total": 0,
+        "price_currency": 0,
+        "fee": 0,
+        "fee_currency": 0,
+        "time": 0,
+        "platform": 0,
+        "opinion": 0
+      },
+      "outcomes": {
+        "RIGHT": 0,
+        "LEFT_EMPTY_WITH_REASON": 0,
+        "LEFT_EMPTY_BY_MODEL": 0,
+        "WRONG_WITH_ISSUE": 0,
+        "WRONG_SILENT": 0,
+        "MADE_UP": 0
+      },
+      "empty_reasons": {
+        "NOT_IN_PASSAGE": 0,
+        "CUTS_A_NUMBER": 0,
+        "NUMBER_NOT_READ": 0,
+        "TIME_NOT_READ": 0,
+        "OTHER": 0
+      },
+      "half_copies": {
+        "RIGHT": 0,
+        "LEFT_EMPTY_WITH_REASON": 0,
+        "LEFT_EMPTY_BY_MODEL": 0,
+        "WRONG_WITH_ISSUE": 0,
+        "WRONG_SILENT": 0,
+        "MADE_UP": 0
+      }
+    }
+  },
+  "made_up_with_an_issue": 1,
+  "wrong_values_with_no_issue": [],
+  "half_copies": [],
+  "left_empty_by_the_program": [
+    {
+      "id": "u10",
+      "draft": 1,
+      "field": "price",
+      "copied": "2,388一个",
+      "gold_phrase": "2,388",
+      "reason": "NUMBER_NOT_READ",
+      "copied_the_gold_phrase": false
+    },
+    {
+      "id": "u10",
+      "draft": 1,
+      "field": "price_currency",
+      "copied": null,
+      "gold_phrase": "U",
+      "reason": "NUMBER_NOT_READ",
+      "copied_the_gold_phrase": false
+    }
+  ],
+  "not_to_record": [
+    {
+      "id": "u08",
+      "kind": "open_order",
+      "text": "在OKX挂了个BTC限价单，59,500买100U，觉得这里是强支撑，等它触发",
+      "result": "model_failed",
+      "drafts": 0,
+      "checks": []
+    }
+  ],
+  "sentences": [
+    {
+      "id": "u01",
+      "language": "zh",
+      "result": "model_failed",
+      "gold_trades": 1,
+      "drafts": 0,
+      "whole_right": 0,
+      "missed": 1,
+      "extra": 0,
+      "wrong_fields": []
+    },
+    {
+      "id": "u02",
+      "language": "zh",
+      "result": "model_failed",
+      "gold_trades": 1,
+      "drafts": 0,
+      "whole_right": 0,
+      "missed": 1,
+      "extra": 0,
+      "wrong_fields": []
+    },
+    {
+      "id": "u03",
+      "language": "zh",
+      "result": "model_failed",
+      "gold_trades": 1,
+      "drafts": 0,
+      "whole_right": 0,
+      "missed": 1,
+      "extra": 0,
+      "wrong_fields": []
+    },
+    {
+      "id": "u04",
+      "language": "zh",
+      "result": "model_failed",
+      "gold_trades": 1,
+      "drafts": 0,
+      "whole_right": 0,
+      "missed": 1,
+      "extra": 0,
+      "wrong_fields": []
+    },
+    {
+      "id": "u05",
+      "language": "zh",
+      "result": "model_failed",
+      "gold_trades": 1,
+      "drafts": 0,
+      "whole_right": 0,
+      "missed": 1,
+      "extra": 0,
+      "wrong_fields": []
+    },
+    {
+      "id": "u06",
+      "language": "zh",
+      "result": "model_failed",
+      "gold_trades": 1,
+      "drafts": 0,
+      "whole_right": 0,
+      "missed": 1,
+      "extra": 0,
+      "wrong_fields": []
+    },
+    {
+      "id": "u07",
+      "language": "zh",
+      "result": "model_failed",
+      "gold_trades": 1,
+      "drafts": 0,
+      "whole_right": 0,
+      "missed": 1,
+      "extra": 0,
+      "wrong_fields": []
+    },
+    {
+      "id": "u09",
+      "language": "zh",
+      "result": "model_failed",
+      "gold_trades": 2,
+      "drafts": 0,
+      "whole_right": 0,
+      "missed": 2,
+      "extra": 0,
+      "wrong_fields": []
+    },
+    {
+      "id": "u10",
+      "language": "zh",
+      "result": "extracted",
+      "gold_trades": 1,
+      "drafts": 1,
+      "whole_right": 0,
+      "missed": 0,
+      "extra": 0,
+      "wrong_fields": [
+        "1.quantity:MADE_UP",
+        "1.price:LEFT_EMPTY_WITH_REASON",
+        "1.total:LEFT_EMPTY_BY_MODEL",
+        "1.price_currency:LEFT_EMPTY_WITH_REASON"
+      ]
+    }
+  ]
+}
