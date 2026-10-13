@@ -265,7 +265,10 @@ first prompt scored 29 / 34 whole trades right on the debug set; after a
 fix in the program, 31 / 34. Four versions, each one technique away from
 it, did not beat it, and the rule fixed beforehand picked `first`, which
 then got 22 / 22 on the kept-back set. Splitting a passage first tied with
-one list on whole trades and lost on extra trades, so one list stayed.
+one list on whole trades and lost on extra trades, so one list stayed. A
+second model, `qwen3-vl:8b`, under the same prompt and parameters, got
+3 / 34 and 5 / 22 where `qwen2.5:7b` got 31 / 34 and 22 / 22: most of its
+replies came back empty.
 
 ### The yardstick
 
@@ -287,7 +290,10 @@ The debug set is for tuning. The final set is run only with `--final-exam`,
 once, after the prompt is settled, so that the score is not tuned to it. A
 third set, `evals/sets/writings.json` (20 sentences, 22 gold trades), holds
 the hard ways of writing a number (`3 w`, `100 万`, `94 900`, `0.02 94900`,
-`94，900`) and is reported apart.
+`94，900`) and is reported apart. A fourth, `evals/sets/voice.json` (10
+sentences: 9 to record, with 10 gold trades, and 1 not to record), holds
+passages in the owner's own voice, with invented numbers, and is reported
+apart too: it is never merged into the debug set.
 
 The scores (`evals/scoring.py`): **well-formed** (the reply could be read as
 the table); each field right; **whole trades right**, the main score (all
@@ -393,11 +399,43 @@ reading and the model (same fingerprint, temperature 0) are those of the
 first experiment's final run, so that run stands for this one too
 (`evals/RESULTS.md`, "The final set").
 
-**A second model: not obtained.** The machine the experiments ran on has
-one model, `qwen2.5:7b`, and no other has been chosen yet. The runner takes
-another by name (`--model`), records its name and fingerprint, and stops
-before writing anything when the server does not have it
-(`tests/evals/test_run_second_model.py`, `tests/live/test_live_second_model.py`).
+**A second model** was not obtained in this experiment; it was measured
+later, in "Experiment three: a second model" below.
+
+### Experiment three: a second model
+
+The third experiment changed only the model (`evals/RESULTS.md`,
+"2026-10-13: second model, `qwen2.5:7b` and `qwen3-vl:8b`"):
+`qwen3-vl:8b` beside `qwen2.5:7b`, both on this machine, with `first`, one
+list and the settings' defaults, on the debug set, the final set and the
+voice set, one run each. It picks nothing: the default model is still
+`qwen2.5:7b`. The two runs of each set are laid side by side, from their
+results files, by `evals/compare_models.py`; the numbers below are copied
+from the record's three tables.
+
+| Set | Model | Well-formed | Whole trades right | Missed | Seconds per sentence | Longest sentence, seconds |
+| --- | --- | --- | --- | --- | --- | --- |
+| debug | `qwen2.5:7b` | 26 / 26 (100.0%) | 31 / 34 (91.2%) | 0 | 4.04 | 8.894 (d22) |
+| debug | `qwen3-vl:8b` | 5 / 26 (19.2%) | 3 / 34 (8.8%) | 31 | 42.74 | 52.573 (d30) |
+| final | `qwen2.5:7b` | 16 / 16 (100.0%) | 22 / 22 (100.0%) | 0 | 3.86 | 10.111 (f14) |
+| final | `qwen3-vl:8b` | 4 / 16 (25.0%) | 5 / 22 (22.7%) | 17 | 39.75 | 48.593 (f06) |
+| voice | `qwen2.5:7b` | 9 / 9 (100.0%) | 1 / 10 (10.0%) | 0 | 4.50 | 8.731 (u09) |
+| voice | `qwen3-vl:8b` | 1 / 9 (11.1%) | 0 / 10 (0.0%) | 9 | 46.03 | 54.74 (u04) |
+
+`qwen3-vl:8b` gave no draft in 25 of the 30 debug sentences, 15 of the 20
+final ones and 9 of the 10 voice ones, each of them an empty reply: the
+model thinks before it replies (on by default for it in Ollama; the plug
+sends nothing to turn it off), and the server's answer held an empty reply
+beside its thinking. In the pairs it did make, every field was right on the
+debug and the final set. With a longer reply allowed, in two parameter
+comparisons on the debug set, it answered 14 of the 30 sentences at 2,048
+tokens (15 / 34 whole) and 17 at 4,096 tokens (18 / 34 whole); at 4,096,
+the other 13 got no complete answer within the 120 seconds a call is given.
+On the voice set `qwen2.5:7b` got 1 of 10 trades whole; the fields it got
+right least often there were the opinion (5 of 10), and the quantity, the
+total and the price currency (7 of 10 each). Its runs of the debug and the
+final set gave the same raw replies, sentence by sentence, as its earlier
+runs of those sets.
 
 ### The iteration trace
 
@@ -418,6 +456,7 @@ line.
 | 7 | Temperature 0.7, and a longest reply of 256 tokens | 30 / 34 and 19 / 34 (section 4) |
 | 8 | Final set, `first`, once | 22 / 22 |
 | 9 | `split-1`: split a passage first, then extract each segment | Tied on whole trades, 2 extra trades, about twice the calls |
+| 10 | A second model, `qwen3-vl:8b`, with the same prompt, way and parameters; and a fourth set, the voice set | 3 / 34 on the debug set, 5 / 22 on the final set and 0 / 10 on the voice set, against 31 / 34, 22 / 22 and 1 / 10 for `qwen2.5:7b`; 25 of its 30 debug sentences ended in an empty reply |
 
 `answer-1`, the prompt that copies a piece of an answer, has been reworded
 once (commit `b345470`): it now says what the piece to copy is, so that the
@@ -450,15 +489,17 @@ confirmation, and every file written carries its version.
 
 ## 8. Known limitations
 
-**In short:** the measurements are small and use one model; the step that
+**In short:** the measurements are small, and the second model measured
+mostly gave empty replies under the settings' defaults; the step that
 judges a passage has no score on unseen sentences; screenshot input is not
 built; and a handful of rough edges are known and listed, each with why it
 stands.
 
 | Limitation | Why it stands |
 | --- | --- |
-| A second model was not compared | Only `qwen2.5:7b` is installed on the machine it was built on, and no second model has been chosen; the runner is ready for one (section 6). |
-| The samples are small | 30 debug, 20 final and 20 writings sentences, one model, one run each at temperature 0: a difference of one or two trades between versions is one or two sentences, so close results say little. |
+| The second model was measured under the settings' defaults only | `qwen3-vl:8b` ran the debug, final and voice sets once each with the parameters `qwen2.5:7b` ran with; a longer reply was tried on the debug set only, in two parameter comparisons, and neither the prompt nor any setting was tuned for it (`evals/RESULTS.md`, "2026-10-13: second model, `qwen2.5:7b` and `qwen3-vl:8b`"). |
+| `qwen3-vl:8b` thinks before it replies, and the thinking can use up the reply | With the longest reply at 1,024 tokens, 25 of its 30 debug sentences ended in an empty reply, which the program takes as a model failure (`malformed_reply`) and does not try again; at 4,096 tokens, 13 got no complete answer within 120 seconds (`timed_out`). The plug does not say whether the model should think, so the model's own default, on, applies (`evals/RESULTS.md`, "2026-10-13: second model, `qwen2.5:7b` and `qwen3-vl:8b`"). |
+| The samples are small | 30 debug, 20 final, 20 writings and 10 voice sentences, one run each at temperature 0 (two models on the debug, final and voice sets): a difference of one or two trades between versions is one or two sentences, so close results say little. |
 | Judging a passage was tuned on the debug set only, and has no score on the final set | The final set is kept for extraction's last run, so how often judging stops a real trade, or lets through what is not recorded, on new passages is not measured (`docs/known-gaps.md`). |
 | Judging can stop a real trade | When the model takes a filled trade for a plan or an order, the passage is stopped; there is no "record it anyway", which is a decision for the project owner (`docs/known-gaps.md`). |
 | Screenshot input is not built | It is planned for a later stage; where it would go is in `docs/architecture.md`. So nothing multimodal is in this version. |
@@ -493,5 +534,5 @@ section of the README or of this report, a test.
 | GitHub repository | This repository with its Git history; it has a GitHub remote, and publishing to it is done by the project owner | Done |
 | Prompt experiments, with the trace of iteration | Every run's results file in [`evals/results/`](../evals/results/), the record in [`evals/RESULTS.md`](../evals/RESULTS.md), every measured version kept as its own file in [`src/ledger_hand/extraction/prompts/`](../src/ledger_hand/extraction/prompts/), the rules in [`evals/compare.py`](../evals/compare.py) and [`evals/compare_methods.py`](../evals/compare_methods.py); section 6 | Done |
 | Extra: a custom database | The book, a versioned SQLite file with numbered upgrade scripts and a golden sample: [`src/ledger_hand/storage/sqlite_store.py`](../src/ledger_hand/storage/sqlite_store.py), [`src/ledger_hand/storage/upgrades/`](../src/ledger_hand/storage/upgrades/), [`tests/storage/golden/`](../tests/storage/golden/) | Done |
-| Extra: combining multiple models | Not done: no second model has been compared, because only one is installed and none has been chosen. The runner takes one by name: [`evals/run.py`](../evals/run.py), [`tests/evals/test_run_second_model.py`](../tests/evals/test_run_second_model.py) | Not done |
+| Extra: combining multiple models | Two local models, `qwen2.5:7b` and `qwen3-vl:8b`, measured side by side on the same yardstick (the debug, final and voice sets) with the same prompt, way of reading and parameters: [`evals/RESULTS.md`](../evals/RESULTS.md), "2026-10-13: second model, `qwen2.5:7b` and `qwen3-vl:8b`"; section 6, "Experiment three: a second model". The comparison is worked out from the results files by [`evals/compare_models.py`](../evals/compare_models.py) and checked against the record by [`tests/evals/test_model_comparison_record.py`](../tests/evals/test_model_comparison_record.py). The model is a setting (`LEDGER_HAND_MODEL_NAME`; `--model` in experiments): the two are run one at a time and compared side by side, not combined in one pipeline | Done |
 | Extra: multimodal | Not done: screenshot input is planned for a later stage; where it would go: [`docs/architecture.md`](architecture.md), "Where a new feature goes" | Not done |

@@ -44,15 +44,28 @@ does not do yet:
   judge such files.
 - **The model.** `qwen2.5:7b` through Ollama on this machine by default; a
   cloud service through its OpenAI-style chat endpoint when chosen. Every
-  parameter is a setting with a default and the reason for it.
+  parameter is a setting with a default and the reason for it. Two local
+  models have been measured side by side, `qwen2.5:7b` and `qwen3-vl:8b`
+  (`evals/RESULTS.md`, "2026-10-13: second model, `qwen2.5:7b` and
+  `qwen3-vl:8b`"); the default is still `qwen2.5:7b`. Another model is
+  chosen with `LEDGER_HAND_MODEL_NAME`, or in the model field of the
+  Settings page (for that browser tab only), and in an experiment with
+  `--model`. `qwen3-vl:8b` has run the debug, final and voice sets through
+  the experiment runner. In the live tier, run once with
+  `LEDGER_HAND_MODEL_NAME=qwen3-vl:8b`, 19 checks passed and 24 failed,
+  each of the 24 on an empty reply: the three trade passages of the
+  extraction check, and the judging of 21 of the 26 debug sentences that
+  report a trade or none. So recording with it has not been shown to work.
 - **Measured.** On the 30 debug sentences the extraction prompt `first`
   gets 31 of 34 trades whole, and on the 20 sentences kept back for the end
   22 of 22; four other prompt versions and a second way of reading a passage
   did not beat it (`evals/RESULTS.md`). The product uses `first`, and reads
-  a passage in one call.
-- **Not built yet.** Screenshot input. A comparison with a second model:
-  none has been chosen yet, and the experiment runner takes one by name.
-  Known limits are in `docs/known-gaps.md`.
+  a passage in one call. Under the same prompt and parameters `qwen3-vl:8b`
+  got 3 of 34 and 5 of 22, most of its replies coming back empty, and on
+  the ten passages of the voice set `qwen2.5:7b` got 1 of 10 trades whole
+  and `qwen3-vl:8b` 0 of 10.
+- **Not built yet.** Screenshot input. Known limits are in
+  `docs/known-gaps.md`.
 
 How each part works is described in "How it works, part by part" below.
 
@@ -90,8 +103,10 @@ The quick checks need no model. The interface, the command-line scripts,
 the live tier and the experiments do: by default Ollama running on this
 machine with the model `qwen2.5:7b`. Install Ollama, fetch the model once
 with `ollama pull qwen2.5:7b`, and leave Ollama running; it answers at
-`http://127.0.0.1:11434`, the default address. To use a cloud service
-instead, see "Switching to a cloud model".
+`http://127.0.0.1:11434`, the default address. To run the second model
+that has been measured, fetch it first the same way: `ollama pull
+qwen3-vl:8b`. To use a cloud service instead, see "Switching to a cloud
+model".
 
 ## Starting the interface
 
@@ -489,10 +504,14 @@ this:
 5. Run the final set once, with `--final-exam`, with the one picked, and
    never tune anything against it. When the one picked has the prompt, the
    way of reading, the model and the parameters of an earlier final run, at
-   temperature 0, that run stands and the final set is not run again.
+   temperature 0, that run stands and the final set is not run again. The
+   comparison of two models ran the final set once more with `qwen2.5:7b`
+   all the same, because it picks nothing: it lays both models side by side
+   on the same sets at one commit.
 
-The two experiments made so far, their tables and the rules they used are
-in `evals/RESULTS.md`; `docs/project-report.md`, section 6, sums them up.
+The two prompt experiments and the comparison of two models made so far,
+their tables and the rules the experiments used are in `evals/RESULTS.md`;
+`docs/project-report.md`, section 6, sums them up.
 
 ### The prompts and their techniques
 
@@ -528,6 +547,7 @@ names the version used for each step.
 .venv/bin/python -m evals.run --model qwen2.5:7b --prompt first
 .venv/bin/python -m evals.run --prompt stepwise  # any version: first, zero_shot, persona, stepwise, price_total
 .venv/bin/python -m evals.run --set writings --prompt first
+.venv/bin/python -m evals.run --set voice --model qwen3-vl:8b
 .venv/bin/python -m evals.run --method split_first     # split each passage first; default one_list
 .venv/bin/python -m evals.run --model <another model>  # any model the server has
 .venv/bin/python -m evals.run --resume evals/results/<file>.jsonl
@@ -536,13 +556,16 @@ names the version used for each step.
 .venv/bin/python -m evals.compare evals/results/<file>.jsonl ... [--choose]
 .venv/bin/python -m evals.same_replies evals/results/<earlier>.jsonl evals/results/<later>.jsonl
 .venv/bin/python -m evals.compare_methods evals/results/<one list>.jsonl evals/results/<split first>.jsonl [--choose]
+.venv/bin/python -m evals.compare_models evals/results/<one model>.jsonl evals/results/<other model>.jsonl [--parameter <name>]
 ```
 
 Run these from the top of the repository, with the model server running.
 The runner takes the debug set. `--set writings` takes instead the small
 set of sentences written for the hard ways of writing a number (`3 w`,
 `100 万`, `94 900`, `0.02 94900`, `94，900`), which is scored the same way
-but reported apart. The final set is run only with `--final-exam`, and its
+but reported apart. `--set voice` takes the ten passages written in the
+owner's own voice, with invented numbers, also scored apart and never
+merged into the debug set. The final set is run only with `--final-exam`, and its
 results file says so; it is meant for the last run of an experiment, once
 the prompt is settled, so that the scores are not tuned to it. `--only`
 runs some sentences of the set by their ids. `--prompt` names the prompt
@@ -593,22 +616,31 @@ how each passage was split and, with `--choose`, applies the rule fixed
 before the second prompt experiment: the most whole trades right; then the
 fewest wrong values with no issue; then the fewest trades missed and extra;
 then one list, so that splitting first is picked only when it does strictly
-better.
+better. `evals.compare_models` lays the runs of two models on one set side
+by side: the scores, what each sentence gave (model failures by kind, empty
+replies apart), each field, the seconds per sentence and the sentences where
+the two differ; it refuses two runs that differ in anything but the model,
+and `--parameter` lets one parameter differ, which it then names.
 
 The debug set took about two minutes with `qwen2.5:7b` on the machine it
 was built on, with the model already loaded (`stepwise`, which writes its
 analysis first, about three); the first sentence of a run includes loading
-the model when it is not.
+the model when it is not. With `qwen3-vl:8b`, which thinks before it
+replies, the debug set took 1282.1 seconds, 42.74 a sentence
+(`evals/RESULTS.md`).
 
 The quick tier tests the scoring against cases worked out by hand and the
 test sentences (coverage, no repeat of a prompt example, every gold answer
 kept by the core's rules), and reads the final set only: no test sends a
 test sentence to a model. The writings set is tested the same way, and one
-test runs one of its sentences through the scripted model. It also checks that every committed run is
+test runs one of its sentences through the scripted model; so is the voice
+set, whose file is also pinned by its fingerprint. It also checks that every committed run is
 finished, that its saved summary is the one its results file gives, and
 that `evals/RESULTS.md` shows exactly the tables each results file gives,
 the three more counts of every run after the baseline, and the comparisons of
-the two prompt experiments as their results files give them. Each committed
+the two prompt experiments as their results files give them, and the
+comparison of the two models likewise, with what the first line of each of
+its runs must show (`tests/evals/test_model_comparison_record.py`). Each committed
 line that holds the record of every reply read must hold, one per draft,
 exactly the phrases that record gives, and the runs made before that record
 existed must give the same summaries and counts as before. The split prompt
@@ -1107,7 +1139,7 @@ check and the hygiene scan).
 | `tests/export/samples.py`, `tests/export/attack.py`, `tests/export/golden/` | Invented trades to export, batches of edge cases made to find where this program and the ledger part ways, both shared with the ledger tier, and the golden sample. A golden sample is never edited once committed; a new format version gets one of its own. |
 | `tests/guardrails/` | The layering check and the hygiene scan, the tests that prove they catch what they should, and the two gate tests that apply them to this repository. |
 | `scripts/check.sh` | One command that runs all checks. |
-| `evals/` | The experiment kit, outside the package: the test sentences and their gold answers (`sets/debug.json`, `sets/final.json`, read by `gold.py`), what they cover (`coverage.py`), the small set of hard ways of writing a number (`sets/writings.json`, described by `writings.py`), judging one field (`cells.py`), pairing drafts with gold trades (`matching.py`), the scores (`scoring.py`), the results file (`records.py`), the summary and its tables (`tables.py`), the runner (`run.py`), the summary worked out again (`summarize.py`), three more counts beside the summary (`extra_counts.py`), prompt versions side by side with the rule that picks one (`compare.py`), two runs compared sentence by sentence (`same_replies.py`), the two ways of reading a passage (`methods.py`) side by side with the rule that picks one (`compare_methods.py`), and the record of every reply read for a passage (`reads.py`). |
+| `evals/` | The experiment kit, outside the package: the test sentences and their gold answers (`sets/debug.json`, `sets/final.json`, read by `gold.py`), what they cover (`coverage.py`), the small set of hard ways of writing a number (`sets/writings.json`, described by `writings.py`), the ten passages in the owner's own voice (`sets/voice.json`, described by `voice.py`), judging one field (`cells.py`), pairing drafts with gold trades (`matching.py`), the scores (`scoring.py`), the results file (`records.py`), the summary and its tables (`tables.py`), the runner (`run.py`), the summary worked out again (`summarize.py`), three more counts beside the summary (`extra_counts.py`), prompt versions side by side with the rule that picks one (`compare.py`), two runs compared sentence by sentence (`same_replies.py`), the two ways of reading a passage (`methods.py`) side by side with the rule that picks one (`compare_methods.py`), two models side by side on one set (`compare_models.py`), and the record of every reply read for a passage (`reads.py`). |
 | `evals/results/` | One results file per run (`*.jsonl`) and its summary (`*.summary.json`). In Git: all of it is invented data. |
 | `evals/RESULTS.md` | The results record: what each run measured, with the tables its results file gives. |
 | `scripts/try_extraction.py` | Try extraction by hand: a passage in, the drafts, the issues and a record of each call to the model out (see "Trying extraction by hand"). |
