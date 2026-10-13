@@ -8,7 +8,9 @@ Each is worked out again here from the results files alone and must stand
 in the record exactly. The final set is run only when the rule picks split
 first; when it picks one list, the one final-set run is still the first
 experiment's. A second model is not measured, and the record says so. No
-model is called.
+model is called. The final-set runs of the later comparison of two models are
+left out of that count by name: they belong to no experiment on the way of
+reading a passage.
 """
 
 from __future__ import annotations
@@ -34,6 +36,11 @@ SPLIT_FIRST = "run-20261009T055442Z-debug-first-split_first.jsonl"
 # The first experiment's run of the debug set and of the final set, with ``first``.
 EARLIER = "run-20261009T023225Z-debug-first.jsonl"
 EARLIER_FINAL = "run-20261009T030436Z-final-first.jsonl"
+# The final-set runs of the comparison of two models, one per model.
+SECOND_MODEL_FINALS = (
+    "run-20261013T093036Z-final-first.jsonl",
+    "run-20261013T100136Z-final-first.jsonl",
+)
 
 
 def record() -> str:
@@ -98,7 +105,7 @@ def test_the_final_set_was_run_only_if_the_rule_picked_split_first() -> None:
     finals = sorted(
         path.name
         for path in RESULTS_DIR.glob("*.jsonl")
-        if read_results(path).run.get("set") == "final"
+        if read_results(path).run.get("set") == "final" and path.name not in SECOND_MODEL_FINALS
     )
 
     if picked is Method.ONE_LIST:
