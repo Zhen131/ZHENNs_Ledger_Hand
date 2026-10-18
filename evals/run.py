@@ -103,6 +103,8 @@ from ledger_hand.extraction.prompts import (
     first_examples,
     persona,
     price_total,
+    second,
+    second_examples,
     split,
     stepwise,
     zero_shot,
@@ -138,6 +140,7 @@ PROMPTS: Mapping[str, tuple[PromptVersion, tuple[ModuleType, ...]]] = {
     "persona": (persona.PERSONA_PROMPT, (persona, first, first_examples)),
     "stepwise": (stepwise.STEPWISE_PROMPT, (stepwise, first, first_examples)),
     "price_total": (price_total.PRICE_TOTAL_PROMPT, (price_total, first, first_examples)),
+    "second": (second.SECOND_PROMPT, (second, second_examples, first, first_examples)),
 }
 # The conditions that must be the same for a run to be carried on.
 _SAME_TO_RESUME = (

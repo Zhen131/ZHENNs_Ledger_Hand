@@ -53,6 +53,11 @@ TECHNIQUES: Mapping[str, tuple[str, str]] = {
     "persona": ("persona", "a role said before the instructions"),
     "stepwise": ("chain of thought", "a step-by-step analysis written before the table"),
     "price_total": ("content iteration", "one more rule: a total is never the price"),
+    "second": (
+        "content iteration",
+        "two more rules (the owner's words for a buy; an amount in U is the total) "
+        "and six more examples in the owner's way of writing",
+    ),
 }
 TIE_ORDER: tuple[str, ...] = ("first", "price_total", "persona", "zero_shot", "stepwise")
 _CUT_OFF = "length_limit"
