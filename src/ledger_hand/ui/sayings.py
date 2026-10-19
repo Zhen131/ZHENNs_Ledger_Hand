@@ -22,7 +22,8 @@ Names defined here: ``after_start``, ``after_answer``, ``after_removing``,
 ``seen_before``, ``fees_left_out``, ``not_taken_yet``, ``saved``,
 ``not_saved``, ``book_failed``, ``assembly_failed``, ``save_hint``,
 ``exported``, ``export_failed``, ``settings_applied``, ``settings_reset``,
-``screenshot_read``, ``screenshot_waiting`` and ``screenshot_dropped``.
+``screenshot_read``, ``screenshot_waiting``, ``screenshot_dropped`` and
+``screenshot_not_read``.
 """
 
 from __future__ import annotations
@@ -36,6 +37,7 @@ from ledger_hand.extraction.issues import Issue
 from ledger_hand.extraction.screening import REASONS, Report
 from ledger_hand.flows.exporting import ExportOutcome, ExportResult
 from ledger_hand.flows.progress import Progress, Stage, TradeStatus
+from ledger_hand.flows.uploading import UploadNotRead
 from ledger_hand.ports import StorageError
 from ledger_hand.settings import ModelSettings, Variable
 from ledger_hand.ui import failure_words
@@ -145,6 +147,11 @@ def screenshot_waiting() -> str:
         "A screenshot waits to be checked, so this was not taken as a new passage. Press "
         "Continue to record the screenshot, or Drop it, then type this again."
     )
+
+
+def screenshot_not_read(outcome: UploadNotRead, settings: ModelSettings) -> str:
+    """What is said when an uploaded screenshot was not read, in the words of ``failure_words``."""
+    return failure_words.screenshot_not_read(outcome, settings)
 
 
 def screenshot_dropped() -> str:

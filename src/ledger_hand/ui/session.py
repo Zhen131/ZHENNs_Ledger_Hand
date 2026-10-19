@@ -23,15 +23,29 @@ and it keeps:
 - the last word said after Export and on the settings page, as a ``Note``;
 - the text in the settings page's inputs, which Streamlit keeps under the
   inputs' keys; it is offered here when an input first appears and put back
-  after a change is applied.
+  after a change is applied;
+- the screenshot read and waiting to be checked (``PictureRead``: the text
+  read, the record of the call and the version; never the picture), or
+  ``None`` when there is none;
+- the text of the two boxes beside it (``Box``), kept apart from the boxes'
+  own keys, since Streamlit forgets what a box held when it is not drawn,
+  as while the settings page is shown;
+- the round of the upload box: the box takes a new key each round, which is
+  how it is emptied, as Streamlit lets no program empty it.
+
+The bytes of a file just uploaded are read here (``uploaded``) and never
+kept: Streamlit holds the file itself until the browser tab is closed, or
+the person removes it, and writes it nowhere.
 
 It decides nothing about them; it only keeps them. Nothing here is written
 to disk.
 
 Names defined here: ``Speaker``, ``Line``, ``Tone``, ``Note``, ``Place``,
-``Builder``, ``PARTS_KEY``, ``BUILDER_KEY``, ``parts``, ``rebuild``,
-``changes``, ``progress``, ``keep``, ``chat``, ``say``, ``typed``,
-``note``, ``keep_note``, ``offer`` and ``put``.
+``Box``, ``Builder``, ``PARTS_KEY``, ``BUILDER_KEY``, ``parts``,
+``rebuild``, ``changes``, ``progress``, ``keep``, ``chat``, ``say``,
+``typed``, ``note``, ``keep_note``, ``offer``, ``put``, ``reading``,
+``keep_reading``, ``box_text``, ``keep_box_text``, ``upload_round``,
+``next_upload_round`` and ``uploaded``.
 """
 
 from __future__ import annotations
@@ -42,7 +56,9 @@ from dataclasses import dataclass
 from types import MappingProxyType
 
 import streamlit as st
+from streamlit.runtime.uploaded_file_manager import UploadedFile
 
+from ledger_hand.extraction.picture_reading import PictureRead
 from ledger_hand.flows.progress import Progress
 from ledger_hand.settings import Variable
 from ledger_hand.wiring import Parts, assemble
@@ -57,6 +73,9 @@ _CHANGES_KEY = "ledger_hand.changes"
 _PROGRESS_KEY = "ledger_hand.progress"
 _CHAT_KEY = "ledger_hand.chat"
 _NOTE_KEY = "ledger_hand.note.{place}"
+_READING_KEY = "ledger_hand.screenshot.reading"
+_BOX_KEY = "ledger_hand.screenshot.{box}"
+_ROUND_KEY = "ledger_hand.screenshot.round"
 
 
 class Speaker(enum.Enum):
@@ -95,6 +114,13 @@ class Place(enum.Enum):
 
     EXPORT = "export"
     SETTINGS = "settings"
+
+
+class Box(enum.Enum):
+    """The two boxes beside a screenshot read: the text read off it, and the note typed."""
+
+    READ = "read"
+    NOTE = "note"
 
 
 def parts() -> Parts:
@@ -178,3 +204,42 @@ def offer(key: str, text: str) -> None:
 def put(key: str, text: str) -> None:
     """Put ``text`` into the input under ``key``; only before the inputs are drawn again."""
     st.session_state[key] = text
+
+
+def reading() -> PictureRead | None:
+    """The screenshot read and waiting to be checked, or ``None`` when there is none."""
+    kept = st.session_state.get(_READING_KEY)
+    return kept if isinstance(kept, PictureRead) else None
+
+
+def keep_reading(current: PictureRead | None) -> None:
+    """Keep ``current`` as the screenshot read and waiting; ``None`` when there is none."""
+    st.session_state[_READING_KEY] = current
+
+
+def box_text(box: Box) -> str:
+    """The text kept for ``box``; empty when there is none."""
+    kept = st.session_state.get(_BOX_KEY.format(box=box.value))
+    return kept if isinstance(kept, str) else ""
+
+
+def keep_box_text(box: Box, text: str) -> None:
+    """Keep ``text`` as what ``box`` holds."""
+    st.session_state[_BOX_KEY.format(box=box.value)] = text
+
+
+def upload_round() -> int:
+    """How many times the upload box was emptied in this browser tab."""
+    kept = st.session_state.get(_ROUND_KEY)
+    return kept if isinstance(kept, int) else 0
+
+
+def next_upload_round() -> None:
+    """Empty the upload box: it is drawn again under a key of its own."""
+    st.session_state[_ROUND_KEY] = upload_round() + 1
+
+
+def uploaded(key: str) -> bytes | None:
+    """The bytes of the file just uploaded in the box under ``key``; ``None`` when none is."""
+    value = st.session_state.get(key)
+    return value.getvalue() if isinstance(value, UploadedFile) else None
