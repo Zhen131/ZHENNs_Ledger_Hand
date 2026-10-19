@@ -90,7 +90,8 @@ passage and to read an answer, few-shot to extract, persona to word a
 follow-up question. Chain of thought, and the zero-shot and persona
 versions of extraction, were tried in experiments only. **The product
 extracts with `first` (few-shot) and reads a passage in one call (one
-list); in the experiments `first` also did best.**
+list); in the experiments the rules fixed beforehand picked no other version
+and no other way over them.**
 
 | Technique | Prompt version | File | Step | In the product | Measured |
 | --- | --- | --- | --- | --- | --- |
@@ -103,12 +104,17 @@ list); in the experiments `first` also did best.**
 | Persona | `bookkeeper-1` | `src/ledger_hand/asking/prompts/bookkeeper.py` | Wording a follow-up question | Yes | Not scored; every sentence is checked by the program and replaced when it strays |
 | Persona | `persona` | `src/ledger_hand/extraction/prompts/persona.py` | Extraction | Experiments only | Debug set: 29 / 34 |
 | (A changed rule) | `price_total` | `src/ledger_hand/extraction/prompts/price_total.py` | Extraction | Experiments only | Debug set: 29 / 34 |
+| Few-shot, with more examples and two more rules | `second` | `src/ledger_hand/extraction/prompts/second.py`, examples in `src/ledger_hand/extraction/prompts/second_examples.py` | Extraction | Experiments only | Debug set: 29 / 34; voice set: 6 / 10 |
+| (Two more rules) | `third` | `src/ledger_hand/extraction/prompts/third.py` | Extraction | Experiments only | Debug set: 30 / 34; voice set: 2 / 10 |
 
 The extraction scores are "whole trades right" from `evals/RESULTS.md`,
 section "2026-10-09: prompt experiment one", table "The five versions on
 the debug set"; the final set's from "Final exam: final set, prompt
 `first`"; `split-1`'s from "2026-10-09: prompt experiment two", "The two ways
-on the debug set". Section 6 has the tables.
+on the debug set"; `second`'s and `third`'s from "2026-10-18: prompt
+experiment three, more examples for the owner's way of writing,
+`qwen2.5:7b`", "The versions on the debug set" and "The versions on the
+voice set". Section 6 has the tables.
 
 What each prompt looks like:
 
@@ -149,8 +155,11 @@ against 115.9 for the debug set), so the product does not use it.
 **What the product uses.** Judging with `screen-1`, extraction with `first`
 in one call for the whole passage, questions with `bookkeeper-1`, answers
 with `answer-1` (`src/ledger_hand/flows/recording.py` names the four). The
-rules fixed before the two experiments picked `first` and one list (section
-6), which is what the product already used; its defaults have not been
+rules fixed before the first two experiments picked `first` and one list
+(section 6), which is what the product already used. The rule fixed before
+the third prompt experiment picked neither of the two versions written for
+the owner's way of writing, `second` and `third`, so the final set was not
+run for them and extraction still uses `first`. Its defaults have not been
 changed, and any change is the project owner's decision.
 
 Every measured prompt version is a file of its own and is never changed
@@ -268,7 +277,11 @@ then got 22 / 22 on the kept-back set. Splitting a passage first tied with
 one list on whole trades and lost on extra trades, so one list stayed. A
 second model, `qwen3-vl:8b`, under the same prompt and parameters, got
 3 / 34 and 5 / 22 where `qwen2.5:7b` got 31 / 34 and 22 / 22: most of its
-replies came back empty.
+replies came back empty. Two versions written for the owner's way of
+writing, `second` and `third`, got 6 / 10 and 2 / 10 on the voice set where
+`first` got 1 / 10, and 29 / 34 and 30 / 34 on the debug set where it got
+31 / 34; the rule fixed beforehand picked neither, so the final set was not
+run for them.
 
 ### The yardstick
 
@@ -437,6 +450,62 @@ total and the price currency (7 of 10 each). Its runs of the debug and the
 final set gave the same raw replies, sentence by sentence, as its earlier
 runs of those sets.
 
+### Experiment four: more examples in the owner's way of writing
+
+The fourth experiment changed the prompt again, for the owner's own way of
+writing (`evals/RESULTS.md`, "2026-10-18: prompt experiment three, more
+examples for the owner's way of writing, `qwen2.5:7b`": the third
+experiment on the prompt, the fourth in all), where `first` had got 1 of 10
+trades whole on the voice set. Two candidates ran beside `first`, with
+`qwen2.5:7b`, one list and the settings' defaults, on the debug, the voice
+and the writings set, one run each, and a rule fixed before the first run
+judged each against `first`: a candidate is picked only with more trades
+whole on the voice set, and with no fewer trades whole, no more wrong values
+with no issue and no more trades missed and extra on the debug set, and no
+more wrong values with no issue on the voice set; the writings set is shown
+and judged by none of these. `second`
+(`src/ledger_hand/extraction/prompts/second.py`) changes two things at
+once: two more rules after `first`'s instructions (the owner's words for a
+buy; an amount with U right after it, said neither as the fee nor as the
+price of one coin, is the total) and six more examples after `first`'s ten,
+written the way the owner writes, in
+`src/ledger_hand/extraction/prompts/second_examples.py`. `third`
+(`src/ledger_hand/extraction/prompts/third.py`) has the two rules without
+the six examples. **Neither was picked: each got fewer trades whole than
+`first` on the debug set. So the final set was not run for them, and the
+product still extracts with `first`.** The numbers below are copied from
+the record's three tables, "The versions on the debug set", "… on the voice
+set" and "… on the writings set".
+
+| Set | Version | Whole trades right | Wrong values with no issue | Missed | Extra | Seconds per sentence |
+| --- | --- | --- | --- | --- | --- | --- |
+| debug | `first` | 31 / 34 (91.2%) | 2 | 0 | 0 | 3.95 |
+| debug | `second` | 29 / 34 (85.3%) | 2 | 0 | 0 | 4.08 |
+| debug | `third` | 30 / 34 (88.2%) | 1 | 0 | 0 | 4.22 |
+| voice | `first` | 1 / 10 (10.0%) | 6 | 0 | 0 | 4.53 |
+| voice | `second` | 6 / 10 (60.0%) | 1 | 0 | 0 | 4.41 |
+| voice | `third` | 2 / 10 (20.0%) | 5 | 0 | 0 | 4.71 |
+| writings | `first` | 15 / 22 (68.2%) | 0 | 0 | 0 | 3.36 |
+| writings | `second` | 13 / 22 (59.1%) | 0 | 0 | 0 | 3.54 |
+| writings | `third` | 15 / 22 (68.2%) | 0 | 0 | 0 | 3.45 |
+
+On the debug set `second` lost d04, d08 and d11: in each its reply held a
+phrase that is not a piece of the passage, a Chinese number written in
+digits, "this morning" written as "今天早上", and a quantity with "个比特币"
+after it, and the program left that field empty and said why. `third` lost
+d19, writing "两千四百五" as "2,450". On the writings set `second` wrote two
+English times in Chinese. On the voice set `second` got u01, u02, u05, u07
+and u10 whole besides u04, which `first` got as well; u03, u06 and u09 kept
+an opinion wrong or empty.
+
+Two facts bear on these numbers. The new examples were written after the
+errors of `first` on the voice set, and `third` after the errors of
+`second` on the debug and the writings set, so their scores there are not
+scores on passages they had not seen; the only passages they had not seen
+are those of the final set and of the owner's later use. And `first`
+already gets every trade of the final set whole, so the final set could
+show only whether a candidate falls behind, not whether it does better.
+
 ### The iteration trace
 
 Every measured version is kept as its own file under
@@ -457,6 +526,7 @@ line.
 | 8 | Final set, `first`, once | 22 / 22 |
 | 9 | `split-1`: split a passage first, then extract each segment | Tied on whole trades, 2 extra trades, about twice the calls |
 | 10 | A second model, `qwen3-vl:8b`, with the same prompt, way and parameters; and a fourth set, the voice set | 3 / 34 on the debug set, 5 / 22 on the final set and 0 / 10 on the voice set, against 31 / 34, 22 / 22 and 1 / 10 for `qwen2.5:7b`; 25 of its 30 debug sentences ended in an empty reply |
+| 11 | `second`: two more rules and six more examples in the owner's way of writing; `third`: the two rules alone | 6 / 10 and 2 / 10 on the voice set against 1 / 10 for `first`, and 29 / 34 and 30 / 34 on the debug set against 31 / 34: neither picked, the final set not run |
 
 `answer-1`, the prompt that copies a piece of an answer, has been reworded
 once (commit `b345470`): it now says what the piece to copy is, so that the

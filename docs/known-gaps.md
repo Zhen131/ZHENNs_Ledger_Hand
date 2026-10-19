@@ -138,6 +138,38 @@ that trade out. The prompt version `price_total` removed this error on the
 debug set but lost two other trades, so the rule fixed before the
 experiment did not pick it.
 
+## Extraction: the owner's own way of writing
+
+**What it is.** On the ten passages of the voice set, written the way the
+owner writes, the prompt the product extracts with, `first`, gets 1 of 10
+trades whole with `qwen2.5:7b` (`evals/RESULTS.md`, "2026-10-18: prompt
+experiment three, more examples for the owner's way of writing,
+`qwen2.5:7b`", "The versions on the voice set"). Its errors there are of
+these kinds:
+
+- an amount with U right after it, which is the total, copied as the
+  quantity (u02, u10) or as the fee (u06);
+- an opinion of several clauses copied in part (u01, u03) or with the mark
+  that sets it apart from the trade (u05), another piece of the passage
+  copied as the opinion (u09, its first trade), and the opinion of a second
+  trade left empty (u09);
+- a quantity written right against the Chinese copied with a space added
+  (u01);
+- the side left empty for a buy said with 买到 or 买了点 (u07, u10).
+
+**Which of them come with no issue.** The amount copied as the quantity has
+an issue about it, the quantity with a space added is left empty by the
+program, and an empty side is asked for. Six values are wrong with no issue
+about them, so nothing is asked about them: the four opinions of u01, u03,
+u05 and u09 (its first trade), and u06's fee and its currency.
+
+**What was tried.** Two prompt versions written for these kinds were
+measured beside `first`: `second` got 6 of 10 trades whole on the voice set
+and `third` 2 of 10, but each got fewer trades whole than `first` on the
+debug set, 29 and 30 of 34 against 31, so the rule fixed beforehand picked
+neither and the product still extracts with `first` (same section, "The
+rule applied to `second`" and "The rule applied to `third`").
+
 ## Reading an answer: a word such as "about" may be dropped
 
 **What it is.** When the rules cannot read an answer, the model copies the
