@@ -34,6 +34,7 @@ FILES = {
     "price_total": ["price_total.py", "first.py", "first_examples.py"],
     "second": ["second.py", "second_examples.py", "first.py", "first_examples.py"],
     "third": ["third.py", "second.py", "first.py", "first_examples.py"],
+    "fourth": ["fourth.py", "fourth_examples.py", "second.py", "first.py", "first_examples.py"],
 }
 # The content fingerprint of the first prompt as the baseline run recorded it.
 FIRST_CONTENT_SHA256 = "7a510f4aaf16f7830ea5df2ec2071a276006565014e61bf295aa44a57a297112"
