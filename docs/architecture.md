@@ -131,6 +131,7 @@ src/ledger_hand/
     flows/                strings the parts into one task: record, save, export      (exists)
         recording.py          a passage from start to records, one question at a time (exists)
         screenshot.py         a passage from a screenshot: the text read, then the note (exists)
+        uploading.py          an uploaded screenshot checked step by step, then read  (exists)
         progress.py           where it stands: one value that never changes           (exists)
         questions.py          putting a question together: facts and notes            (exists)
         filling.py            putting an answer back into a trade                     (exists)
@@ -144,18 +145,19 @@ src/ledger_hand/
     wiring.py             builds the parts from the settings, page changes, the clock and the zone (exists)
     ui/                   the user interface; the only place that may use Streamlit   (exists)
         app.py                the entry Streamlit runs: the title, Record and Settings (exists)
-        record_page.py        the Record page: the chat beside the table, Export under it (exists)
+        record_page.py        the Record page: chat and screenshot beside the table, Export (exists)
         settings_page.py      the Settings page: every setting, its value, default and why (exists)
         settings_form.py      changing the settings for this browser tab              (exists)
         chat.py               the chat so far and the one input                       (exists)
         preview.py            the table of what will be recorded, and its buttons     (exists)
         export_panel.py       Export, the warning always beside it, and its outcome   (exists)
-        turns.py              a message or a click handed to the flows                (exists)
+        screenshot_panel.py   the upload box, the text read and the note, Continue, Drop (exists)
+        turns.py              a message, an upload or a click handed to the flows     (exists)
         sayings.py            what the program says, read off the progress            (exists)
         failure_words.py      one plain sentence for every kind of failure            (exists)
         setting_text.py       a setting's value as it would be typed; the key as set or not (exists)
         notes.py              the last word after Export or on the settings page, shown (exists)
-        session.py            what lasts between reruns: parts, changes, progress, chat (exists)
+        session.py            what lasts between reruns: parts, progress, chat, a reading (exists)
 evals/                    prompt experiments: test sentences, scoring, runner, results (exists)
     sets/                 the test sentences with gold answers: debug, final, writings, voice (exists)
     gold.py               the shapes of a sentence and its gold answer             (exists)
@@ -352,7 +354,13 @@ the core only.
 The wiring module, `wiring.py` at the top of the package, builds the parts
 the flows are handed: the model plug from the model settings, the book from
 the data settings, the coin table, a function that reads the clock, and the
-machine's zone, read with tzlocal. Building opens and sends nothing. It is
+machine's zone, read with tzlocal. With the local plug it also builds the
+two parts a screenshot needs: the vision model (`connect_vision_model`,
+from the same settings) and a way to ask the model server whether it has
+that model (`llm/ollama_identity.py`'s `ask_identity`, with the vision
+model's name); with the cloud plug, which sends no pictures, neither.
+Building opens and sends nothing; the server is asked about the vision
+model only when a screenshot comes. It is
 the one place in the package that reads the machine's zone, and it may read
 the clock, as its job is to hand both to the flows. Only `ui/` may import
 it; the flows never do, since it imports them.
@@ -362,8 +370,13 @@ decision: what to ask, whether a passage is settled, whether it can be
 saved, which trade can be left out and which cannot be recorded all come
 from the flow's `Progress`; whether an export can be written, and what
 became of it, from the export flow; which fees the ledger leaves out of the
-cost from the core (`core/fee_cost.py`). The pages lay them out and hand
-the person's words and clicks to the flows. Every failure is said in one
+cost from the core (`core/fee_cost.py`). The Record page also takes a
+screenshot: whether an uploaded file can be read (the plug, the size, a PNG
+or a JPEG by its first bytes, the vision model on the server), and what was
+read or why not, come from `flows/uploading.py`; the text read waits in a
+box the person checks and changes before Continue starts the passage with
+`flows/screenshot.py`. The pages lay them out and hand the person's words,
+files and clicks to the flows. Every failure is said in one
 plain sentence looked up in `ui/failure_words.py`, one entry for each kind
 of each failure, so a new kind cannot go without one.
 
@@ -618,12 +631,16 @@ formatting tool.
 
 ## Where a new feature goes
 
-- **Screenshot input:** in place up to the interface. The model port has its
-  call with pictures (`chat_with_pictures`); reading a screenshot is
+- **Screenshot input:** in place. The model port has its call with pictures
+  (`chat_with_pictures`); reading a screenshot is
   `extraction/picture_reading.py`, with the prompt `extraction/prompts/read.py`;
-  the passage from a screenshot is `flows/screenshot.py`; and
-  `scripts/try_screenshot.py` tries one by hand. An upload on the Record page
-  goes in `ui/`, through `wiring.py`, and uses `flows/screenshot.py` as it is.
+  the passage from a screenshot is `flows/screenshot.py`, and the checks an
+  uploaded file goes through before it is read are `flows/uploading.py`;
+  `scripts/try_screenshot.py` tries one by hand, and the Record page takes an
+  upload (`ui/screenshot_panel.py`), with the vision model and its check
+  built in `wiring.py`. A new check on an uploaded file goes in
+  `flows/uploading.py`, as one more `UploadProblem` with its sentence in
+  `ui/failure_words.py`.
 - **Voice input:** a new folder of its own that turns speech into text; the
   text then takes the existing path.
 - **Asking questions about the ledger:** one more file in `flows/`.

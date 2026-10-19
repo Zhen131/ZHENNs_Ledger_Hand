@@ -310,9 +310,10 @@ the order) is already in that text, and extraction can only check what was
 read against what was read, never against the picture itself.
 
 **What stands in for it.** Nothing in the program can compare text with a
-picture. The text read can be shown to the person before going on:
-`scripts/try_screenshot.py` prints it, and `src/ledger_hand/flows/screenshot.py`
-can start from a text the person changed. The check of each draft asks when
+picture. The text read is shown to the person before going on: on the
+Record page it waits in a box the person checks and can change before
+Continue (`src/ledger_hand/ui/screenshot_panel.py`), and
+`scripts/try_screenshot.py` prints it. The check of each draft asks when
 the quantity times the price does not make the total. How often a
 screenshot is misread is not measured: no real screenshot has been read
 yet.
@@ -322,6 +323,37 @@ the model that reads a screenshot takes the same as the one that extracts.
 Its default was set from `qwen3-vl:8b` extracting the debug set
 (`evals/RESULTS.md`, "2026-10-19: the thinking switch, `qwen3-vl:8b`");
 whether thinking helps or hurts reading a screenshot is not measured.
+
+## Recording from a screenshot on the page
+
+- **Only PNG and JPEG.** A file is taken by its first bytes; HEIC, WebP and
+  any other kind are said to be neither, and nothing is sent. Screenshots
+  are PNG on most phones, JPEG on some.
+- **One file at a time.** A second screenshot waits until the first is
+  recorded or dropped; the upload box is greyed out meanwhile.
+- **The limit is the file's size.** `LEDGER_HAND_MODEL_SCREENSHOT_MAX_MB`
+  (20 MB by default) is compared with the file's bytes, not with its pixels.
+- **The browser does not sort files by kind.** Any file can be chosen, so
+  that the program, which reads what the file holds, is the one that says
+  whether it is a picture; and the upload box shows Streamlit's own limit of
+  200 MB per file, not the program's, which is in the box's help and in the
+  sentence said when a file is larger.
+- **The uploaded file stays in memory until the browser tab is closed.**
+  The picture is never written to disk and is not kept once read, but
+  Streamlit keeps each uploaded file in the program's memory until the
+  browser session ends. The page empties the upload box by drawing a new
+  one, because Streamlit lets no program empty it, and that does not let go
+  of the file.
+- **The page waits while the picture is read.** Reading can take a minute,
+  the first time longer while the model is loaded; only Streamlit's own
+  mark at the top of the page shows that it is working.
+- **The server is asked for the vision model on every upload.** Two short
+  requests (`/api/version`, `/api/tags`) come before each picture is sent,
+  so that a vision model that is not there is named before a long wait.
+- **A plain picture is read as nothing.** A picture of one colour, uploaded
+  once with the default settings and once with a longest reply of 4,096
+  tokens, came back as an empty reply both times, which the page says as
+  "read nothing". How a real screenshot fares is not measured.
 
 ## Thinking off, as Ollama 0.34.3 takes it with `qwen3-vl:8b`
 

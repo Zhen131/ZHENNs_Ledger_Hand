@@ -74,8 +74,13 @@ screenshot is put after the text read, and the two are one passage, which
 then goes through the same seven steps, extracted by the default model
 (`src/ledger_hand/flows/screenshot.py`). What the model reads off the
 picture cannot be checked against it the way a copied phrase is checked
-against a typed passage (section 8). This path runs at the command line
-(`scripts/try_screenshot.py`); the interface has no upload yet.
+against a typed passage (section 8). This path runs on the Record page,
+where an uploaded file is checked first, step by step (the plug, the size, a
+PNG or a JPEG by its first bytes, the vision model on the server;
+`src/ledger_hand/flows/uploading.py`), and the person sees the text read,
+can change it, and adds the note before Continue
+(`src/ledger_hand/ui/screenshot_panel.py`); and at the command line
+(`scripts/try_screenshot.py`).
 
 Steps 1 to 5 are strung together in `src/ledger_hand/flows/recording.py`.
 Each step hands back the whole state as one value that never changes
@@ -83,7 +88,9 @@ Each step hands back the whole state as one value that never changes
 waiting, the records, the reminders and the prompt version used for each
 step. The interface (`src/ledger_hand/ui/`) and the command-line script
 (`scripts/record_trades.py`) only show that state and pass on what the
-person types or clicks; neither decides anything itself.
+person types or clicks; neither decides anything itself. A screenshot
+uploaded in the interface is first read out as text, which the person sees
+and can change, and then takes the same path as a typed passage.
 
 **Why the model only copies.** The baseline run shows the reason
 (`evals/RESULTS.md`, "2026-10-05: baseline"): asked to copy the time of an
@@ -111,7 +118,7 @@ version, `fourth`, which did not pass the final set, and no other way.**
 | --- | --- | --- | --- | --- | --- |
 | Zero-shot | `screen-1` | `src/ledger_hand/extraction/prompts/screen.py` | Judging a passage | Yes | Debug set only (see section 8): the 4 sentences not to record were stopped with the kind they were written as; the 23 with trades all went on; of the 3 with no trade, 2 were judged to hold none and 1 was stopped as a plan (`docs/known-gaps.md`, "Judging a passage has no score on the final set") |
 | Zero-shot | `answer-1` | `src/ledger_hand/extraction/prompts/answer.py` | Reading an answer the rules could not read | Yes | Not scored; the piece it copies must be a piece of the answer and is read by the program's rules |
-| Zero-shot | `read-1` | `src/ledger_hand/extraction/prompts/read.py` | Reading a screenshot out as text, before extraction | Yes, at the command line (`scripts/try_screenshot.py`); not yet in the interface | Not measured: no real screenshot has been read with it yet |
+| Zero-shot | `read-1` | `src/ledger_hand/extraction/prompts/read.py` | Reading a screenshot out as text, before extraction | Yes, on the Record page and at the command line (`scripts/try_screenshot.py`) | Not measured: no real screenshot has been read with it yet |
 | Zero-shot | `zero_shot` | `src/ledger_hand/extraction/prompts/zero_shot.py` | Extraction | Experiments only | Debug set: 19 / 34 whole trades right |
 | Few-shot | `first` | `src/ledger_hand/extraction/prompts/first.py`, examples in `src/ledger_hand/extraction/prompts/first_examples.py` | Extraction | Yes | Debug set: 31 / 34; final set: 22 / 22 |
 | Few-shot | `split-1` | `src/ledger_hand/extraction/prompts/split.py` | Splitting a passage into one segment per trade before extraction | Experiments only | With `first`, debug set: 31 / 34, with 2 extra trades |
@@ -223,6 +230,7 @@ can be changed on the Settings page for the browser tab.
 | Temperature for wording a question | `LEDGER_HAND_MODEL_QUESTION_TEMPERATURE` | 0.7 | Wording a follow-up question is the one call where some variety reads more naturally than the same sentence every time. What is asked, and every fact the question may use, are fixed by the program before the model writes, and a sentence that strays is replaced by the program's own, so a higher temperature changes only the wording. Judging a passage, extraction and reading an answer keep LEDGER_HAND_MODEL_TEMPERATURE, 0 by default. |
 | The model that reads a screenshot | `LEDGER_HAND_MODEL_VISION_NAME` | qwen3-vl:8b | A model on this machine that can see pictures; qwen2.5:7b, the model the program extracts with, cannot. |
 | Whether the model thinks before it answers | `LEDGER_HAND_MODEL_THINK` | model (nothing sent) | Model: nothing is sent, so each model answers as its own default says. Measured with qwen3-vl:8b on the debug set (see "2026-10-19: the thinking switch, `qwen3-vl:8b`" in evals/RESULTS.md), off got fewer trades whole than nothing sent, and every reply it gave was empty, so off is not the default; nor is on, which qwen2.5:7b, the model the program extracts with, cannot do. |
+| The largest screenshot taken | `LEDGER_HAND_MODEL_SCREENSHOT_MAX_MB` | 20 MB | Above any phone's screenshot, so none is turned away: the largest phone screens, 1320 by 2868 pixels, come to about 14.4 MB even with no compression at all, four bytes to a pixel, and a PNG of an order page, mostly flat colour, is far smaller. A file larger than that, such as a camera's photo or a file chosen by mistake, is turned away at once rather than after a long wait for the vision model. |
 
 Two more numbers are fixed in code rather than settings: a reply that
 misses its table is asked for again once (`DEFAULT_ASKS_AGAIN` in
@@ -658,8 +666,8 @@ confirmation, and every file written carries its version.
 **In short:** the measurements are small, and the second model measured
 mostly gave empty replies under the settings' defaults, and every reply
 empty with thinking off; the step that judges a passage has no score on
-unseen sentences; screenshots are read at the command line only, not yet in
-the interface, and no real screenshot has been measured; and a handful of
+unseen sentences; no real screenshot has been measured, so how well
+screenshots are read is not known; and a handful of
 rough edges are known and listed, each with why it stands.
 
 | Limitation | Why it stands |
@@ -669,7 +677,7 @@ rough edges are known and listed, each with why it stands.
 | The samples are small | 30 debug, 20 final, 20 writings and 10 voice sentences, one run each at temperature 0 (two models on the debug, final and voice sets): a difference of one or two trades between versions is one or two sentences, so close results say little. |
 | Judging a passage was tuned on the debug set only, and has no score on the final set | The final set is kept for extraction's last run, so how often judging stops a real trade, or lets through what is not recorded, on new passages is not measured (`docs/known-gaps.md`). |
 | Judging can stop a real trade | When the model takes a filled trade for a plan or an order, the passage is stopped; there is no "record it anyway", which is a decision for the project owner (`docs/known-gaps.md`). |
-| Screenshot input is at the command line only, and not measured | `scripts/try_screenshot.py` has `qwen3-vl:8b` read a screenshot and extracts the passage it gives; the upload on the Record page comes in a later stage, and no real screenshot has been read yet, so how well screenshots are read is not known. What the model reads off a picture has no words of the person's own to be checked against (`docs/known-gaps.md`). |
+| Screenshot input is not measured | A screenshot is read by `qwen3-vl:8b` on the Record page, where the person checks the text read before it is extracted, and with `scripts/try_screenshot.py`; no real screenshot has been read yet, so how well screenshots are read is not known. What the model reads off a picture has no words of the person's own to be checked against (`docs/known-gaps.md`). |
 | An English time is often written in Chinese by the model | The most common reason a trade is not whole in the experiments. The program catches it (the phrase is not a piece of the passage) and asks, so it costs a question, not a wrong record; `fourth` did not do it on the debug and the writings set but did not pass the final set, so the product keeps `first` (`docs/known-gaps.md`). |
 | A total put as the price can reach the records | `first` did so twice on the debug set, with no issue about the field (`evals/RESULTS.md`). The table shows price and total side by side and a trade can be left out; `price_total` removed it but lost two other trades, so the rule did not pick it (`docs/known-gaps.md`). |
 | An "about" not right next to a number may be dropped | When the model copies a piece of an answer it may leave out a word such as "大概" that does not touch the number, and the program then takes the amount as exact: the piece is only checked to be a piece of the answer. Not measured (`docs/known-gaps.md`). |
@@ -702,4 +710,4 @@ section of the README or of this report, a test.
 | Prompt experiments, with the trace of iteration | Every run's results file in [`evals/results/`](../evals/results/), the record in [`evals/RESULTS.md`](../evals/RESULTS.md), every measured version kept as its own file in [`src/ledger_hand/extraction/prompts/`](../src/ledger_hand/extraction/prompts/), the rules in [`evals/compare.py`](../evals/compare.py), [`evals/compare_methods.py`](../evals/compare_methods.py) and [`evals/compare_sets.py`](../evals/compare_sets.py); section 6 | Done |
 | Extra: a custom database | The book, a versioned SQLite file with numbered upgrade scripts and a golden sample: [`src/ledger_hand/storage/sqlite_store.py`](../src/ledger_hand/storage/sqlite_store.py), [`src/ledger_hand/storage/upgrades/`](../src/ledger_hand/storage/upgrades/), [`tests/storage/golden/`](../tests/storage/golden/) | Done |
 | Extra: combining multiple models | Two local models, `qwen2.5:7b` and `qwen3-vl:8b`, measured side by side on the same yardstick (the debug, final and voice sets) with the same prompt, way of reading and parameters: [`evals/RESULTS.md`](../evals/RESULTS.md), "2026-10-13: second model, `qwen2.5:7b` and `qwen3-vl:8b`"; section 6, "Experiment three: a second model". The comparison is worked out from the results files by [`evals/compare_models.py`](../evals/compare_models.py) and checked against the record by [`tests/evals/test_model_comparison_record.py`](../tests/evals/test_model_comparison_record.py). The model is a setting (`LEDGER_HAND_MODEL_NAME`; `--model` in experiments). In the path from a screenshot the two work one after the other in one pipeline: `qwen3-vl:8b` (`LEDGER_HAND_MODEL_VISION_NAME`) reads the screenshot out as text and `qwen2.5:7b` extracts the trades from it: [`src/ledger_hand/flows/screenshot.py`](../src/ledger_hand/flows/screenshot.py), [`scripts/try_screenshot.py`](../scripts/try_screenshot.py) | Done |
-| Extra: multimodal | Not done: screenshot input is planned for a later stage; where it would go: [`docs/architecture.md`](architecture.md), "Where a new feature goes" | Not done |
+| Extra: multimodal | A screenshot of an order as input: uploaded on the Record page ([`src/ledger_hand/ui/screenshot_panel.py`](../src/ledger_hand/ui/screenshot_panel.py)), checked and read by the vision model ([`src/ledger_hand/flows/uploading.py`](../src/ledger_hand/flows/uploading.py)), shown to the person to check and change, then recorded with the note as a typed passage ([`src/ledger_hand/flows/screenshot.py`](../src/ledger_hand/flows/screenshot.py)); at the command line, [`scripts/try_screenshot.py`](../scripts/try_screenshot.py); README, "Recording from a screenshot". Not yet done: no real screenshot has been read, so how well screenshots are read is not measured | Not done |

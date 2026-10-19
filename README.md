@@ -75,20 +75,22 @@ does not do yet:
   22 against 22 for `first`, so it did not pass, and the product still uses
   `first` (`evals/RESULTS.md`, "2026-10-19: prompt experiment four, new
   examples with English passages and Chinese numbers, `qwen2.5:7b`").
-- **Screenshots, at the command line.** A screenshot of an order can be
-  tried with `scripts/try_screenshot.py` (see "Trying a screenshot by
-  hand"): a model that can see pictures (`qwen3-vl:8b` by default) reads the
-  order on it out as text, the note typed beside it is put after that text,
-  and the passage they make is extracted with the default model, as a typed
-  one is. No real screenshot has been measured yet.
+- **Screenshots.** A screenshot of an order can be uploaded on the Record
+  page (see "Recording from a screenshot"), or tried with
+  `scripts/try_screenshot.py` (see "Trying a screenshot by hand"): a model
+  that can see pictures (`qwen3-vl:8b` by default) reads the order on it out
+  as text, which on the page the person checks and can change; the note
+  typed beside it is put after that text, and the passage they make is
+  extracted with the default model, as a typed one is. No real screenshot
+  has been measured yet.
 - **The thinking setting.** The local plug can ask the model to think before
   it answers, or not (`LEDGER_HAND_MODEL_THINK`); by default it sends
   nothing, and each model does as its own default says. With thinking off,
   `qwen3-vl:8b` gave an empty reply on every sentence of the debug and the
   voice set (`evals/RESULTS.md`, "2026-10-19: the thinking switch,
   `qwen3-vl:8b`").
-- **Not built yet.** Uploading a screenshot in the interface. Known limits
-  are in `docs/known-gaps.md`.
+- **Not done yet.** Measuring how well real screenshots are read: none has
+  been read yet. Known limits are in `docs/known-gaps.md`.
 
 How each part works is described in "How it works, part by part" below.
 
@@ -126,16 +128,18 @@ The quick checks need no model. The interface, the command-line scripts,
 the live tier and the experiments do: by default Ollama running on this
 machine with the model `qwen2.5:7b`. Install Ollama, fetch the model once
 with `ollama pull qwen2.5:7b`, and leave Ollama running; it answers at
-`http://127.0.0.1:11434`, the default address. Reading a screenshot
-(`scripts/try_screenshot.py`) and the live tier also need `qwen3-vl:8b`,
-the model that reads a screenshot, which is also the second model that has
-been measured: fetch it the same way, `ollama pull qwen3-vl:8b`. To use a
-cloud service instead, see "Switching to a cloud model".
+`http://127.0.0.1:11434`, the default address. Reading a screenshot, on the
+Record page or with `scripts/try_screenshot.py`, and the live tier also
+need `qwen3-vl:8b`, the model that reads a screenshot, which is also the
+second model that has been measured: fetch it the same way,
+`ollama pull qwen3-vl:8b`. To use a cloud service instead, see "Switching
+to a cloud model".
 
 ## Starting the interface
 
 You need the model server running first: by default Ollama on this machine
-with `qwen2.5:7b` (see "Setting up from scratch" and "Model settings").
+with `qwen2.5:7b`, and, to record from a screenshot, `qwen3-vl:8b`, the
+model that reads it (see "Setting up from scratch" and "Model settings").
 Then, from the top of the repository:
 
 ```sh
@@ -183,6 +187,42 @@ neither USDT nor the coin traded (buying ETH with the fee taken in BNB,
 say), its fee coin is marked "(not in cost)" in the table, a sentence under
 the table says why, and the chat says it once every trade is settled: the
 ledger takes the trade, but leaves that fee out when it works out the cost.
+
+### Recording from a screenshot
+
+Under the chat, "Or record from a screenshot of an order" takes one PNG or
+JPEG file at a time. The program first checks, without asking anything of
+anyone, that the plug is local (the cloud plug sends no pictures), that the
+file is no larger than `LEDGER_HAND_MODEL_SCREENSHOT_MAX_MB` (20 MB by
+default), and that it is a PNG or a JPEG by what it holds, whatever its
+name. Then it asks the model server whether it has the vision model
+(`LEDGER_HAND_MODEL_VISION_NAME`, `qwen3-vl:8b` by default), and only then
+sends the picture: the vision model reads the order on it out as text,
+which can take a minute.
+
+The text read appears in a box that can be changed, beside an empty box for
+a note: what the screen leaves out, such as a fee or the platform, or why
+you traded. Check the text, put right what is wrong, add a note if you
+like, and press Continue: the two are joined into one passage, the text
+first, which is shown in the chat as yours and goes on exactly as a typed
+passage does, with its questions, the table and Save. "Drop the screenshot"
+drops what was read, and nothing is sent. While a screenshot read waits,
+the upload box is greyed out, and a message typed in the chat is not taken:
+the chat says to press Continue or Drop first. While a passage is being
+recorded, the upload box is greyed out too. The two boxes keep what is in
+them while the Settings page is shown, and are empty again for the next
+screenshot. When a screenshot cannot be used, or nothing could be read off
+it, the chat says why in one sentence (see "What the page says when
+something fails"), nothing of it is kept, and the same file can be uploaded
+again.
+
+The browser offers every kind of file, and the upload box shows
+Streamlit's own limit of 200 MB per file; the program's checks, of what the
+file holds and of its own limit, are the ones that answer. The picture is
+never written to disk, and nothing of it is kept once it is read, but
+Streamlit keeps the uploaded file in memory until the browser tab is
+closed: the page empties the upload box by drawing a new one, which does
+not let go of it (see `docs/known-gaps.md`).
 
 ### Exporting from the interface
 
@@ -255,12 +295,24 @@ the step that failed.
 | An export refused | Every reason, one to a line; nothing was marked |
 | An export file not written | Why; nothing was marked; press Export again once that is put right |
 | An export file written but not marked | Where it is; the next export writes the trades again |
+| A screenshot with the cloud plug | The cloud plug sends no pictures, so nothing was sent; typing works as before; set `LEDGER_HAND_MODEL_PLUG` to local on the Settings page |
+| A screenshot too large | Its size and the limit, in MB; nothing was sent; take a smaller one, or raise `LEDGER_HAND_MODEL_SCREENSHOT_MAX_MB` on the Settings page |
+| A file that is neither a PNG nor a JPEG | Judged by what it holds, not by its name; nothing was sent; save it as one of the two and try again, or type the trade |
+| The vision model is not there | Its name and the address; it reads screenshots, it is not the model that extracts; check `LEDGER_HAND_MODEL_VISION_NAME`, or install it with `ollama pull` |
+| The server cannot be asked for the vision model | That it could not be asked and the picture was not sent, then the sentence for that kind of failure, with the vision model's name |
+| The vision model fails while reading | That it gave no usable reply, then the sentence for that kind of failure, with the vision model's name; a request turned down with status 400 says to check that the model can see pictures, and a reply not in the agreed form says to try again |
+| The vision model reads nothing | Check that it is a screenshot of an order and try again; or raise `LEDGER_HAND_MODEL_MAX_REPLY_TOKENS`, or set `LEDGER_HAND_MODEL_THINK` to off |
+| A reading cut off at the longest reply | It was not used; raise `LEDGER_HAND_MODEL_MAX_REPLY_TOKENS`, or set `LEDGER_HAND_MODEL_THINK` to off, then try again |
 
 The sentences are in `src/ledger_hand/ui/failure_words.py`, one for each
 kind of each failure, one for each status a cloud service turns a call
 down with (401, 403, 400), and one for a model the cloud service does not
-have, which says nothing of Ollama; a test walks every kind, so a new one
-cannot go without a sentence. None of them ever shows the key.
+have, which says nothing of Ollama; and one for each way a screenshot is
+not read, where a model's failure is said with the vision model's name, and
+a request turned down with status 400 or a reply not in the agreed form has
+a sentence of its own, since nothing there is about a reply table or a
+passage. A test walks every kind, so a new one cannot go without a
+sentence. None of them ever shows the key.
 
 When the model fails while it reads an answer to a question, the page says
 that kind of failure in its own sentence, looked up the same way, and asks
@@ -1144,7 +1196,12 @@ prompt come first in the state it hands back, and a screenshot that was not
 read ends the passage there, at the step "reading the screenshot". Each
 draft keeps the joined passage as its original text, and a fact in the note
 fills what the screen left out. `scripts/try_screenshot.py` tries it by hand
-(see "Trying a screenshot by hand"); the interface has no upload yet.
+(see "Trying a screenshot by hand"). On the Record page,
+`src/ledger_hand/flows/uploading.py` checks an uploaded file first, step by
+step (the plug, the size, a PNG or a JPEG by its first bytes, the vision
+model on the server), and has it read; the person then sees the text read,
+can change it, and joins it with the note (see "Recording from a
+screenshot").
 
 **Keeping the records.** Saved trades are kept in the book: one SQLite file
 of this program's own, behind the storage port in `src/ledger_hand/ports.py`
@@ -1213,12 +1270,17 @@ the check. Each row has a "Don't save" button, and under the table are
 Save and "Discard all"; each can be pressed only when the flow offers it.
 Save keeps the records in the book and empties the table. A new passage
 typed while the last one is settled but neither saved nor discarded is not
-taken: the page says so and offers the two choices. The interface decides
-nothing itself: what to ask, whether a passage is settled, whether it can be
-saved and which trade can be left out all come from the flow's progress. It
-gets the model, the book, the clock and the machine's zone from one wiring
-module, `src/ledger_hand/wiring.py`, the only place in the package that
-reads the machine's zone (with tzlocal).
+taken: the page says so and offers the two choices. Under the chat, a
+screenshot can be uploaded instead: the text the vision model reads off it
+is shown in a box to be checked and changed, beside a note, and Continue
+records the two as one passage, as if typed. The interface decides nothing
+itself: what to ask, whether a passage is settled, whether it can be saved
+and which trade can be left out all come from the flow's progress, and
+whether a screenshot can be read, and why not, from the upload flow. It
+gets the model, with the local plug the vision model and a way to ask the
+server whether it has it, the book, the clock and the machine's zone from
+one wiring module, `src/ledger_hand/wiring.py`, the only place in the
+package that reads the machine's zone (with tzlocal).
 
 Under the table, Export writes the saved trades not exported yet into a new
 file, says where and how many, and marks them; beside it, always, a line in
@@ -1255,9 +1317,9 @@ check and the hygiene scan).
 | `src/ledger_hand/llm/` | The plugs for the model port. The local plug (`ollama.py`), what it sends (`ollama_request.py`) and how what comes back is read (`ollama_reply.py`); the cloud plug (`cloud.py`), what it sends (`cloud_request.py`) and how what comes back is read (`cloud_reply.py`); what both share in writing a request (`request_body.py`) and reading a reply (`reply_json.py`); one HTTP exchange and how its failures are sorted (`exchange.py`), making a server's words safe to show (`error_text.py`) and finding the key in them however it was written back (`key_forms.py`), reading how long a server asks to wait (`retry_after.py`), trying again (`retry.py`), the plug the settings choose, checked and assembled, and the plug that reads a screenshot (`connect.py`), the assembled local model alone (`local.py`), and the local server's version and the model's fingerprint (`ollama_identity.py`). The only part that may import httpx. |
 | `src/ledger_hand/extraction/` | A passage to drafts: the entry point (`extractor.py`), the table the model fills (`reply_table.py`) and how its reply is read (`reply_parser.py`), finding a copied phrase in the passage (`passage.py`) and the numbers written in a text (`passage_numbers.py`), one row to one draft (`row_draft.py`), which currency a unit names (`unit_currency.py`), the issues (`issues.py`), the messages a prompt version makes (`prompting.py`), and the prompt versions with their examples (`prompts/`). Also the check of a passage before it is sent (`passage_check.py`), judging a passage (`screening.py`, with the list the model fills in `screen_table.py`), reading an answer to a question (`answer_phrase.py`, with its word lists in `answer_words.py` and what the model copies in `answer_table.py`), splitting a passage first, for experiments (`splitting.py`, with the pieces the model copies in `split_table.py` and the segments made of them in `segments.py`), and reading a screenshot out as text (`picture_reading.py`, with the shape of its prompt in `picture_prompt.py`). Reads no clock, no zone of the machine and no environment variable. |
 | `src/ledger_hand/asking/` | Wording a follow-up question: the facts, the model's sentence and its checks (`question_text.py`), the program's own sentences (`templates.py`) and the prompt (`prompts/bookkeeper.py`). Imports only `core/` and the ports file; reads no clock. |
-| `src/ledger_hand/flows/` | Recording a passage from start to records (`recording.py`), or from a screenshot and a note (`screenshot.py`): the state it hands back (`progress.py`), putting a question together (`questions.py`) and putting an answer back (`filling.py`). Saving the records (`saving.py`) with new identifiers (`identifiers.py`), a passage's fingerprint (`fingerprint.py`), the confirmed coins between the book and the coin table (`coin_book.py`), and exporting (`exporting.py`) into a new file that never replaces another (`export_file.py`). |
-| `src/ledger_hand/wiring.py` | The wiring module: builds the model, the book, the coin table, the clock and the machine's zone from the settings, with the settings page's changes put in, for the interface to hand to the flows. The only part of the package that may import tzlocal. |
-| `src/ledger_hand/ui/` | The interface, two Streamlit pages: the entry (`app.py`), the Record page (`record_page.py`) with the chat (`chat.py`), the table and its buttons (`preview.py`) and Export (`export_panel.py`); the Settings page (`settings_page.py`) and its inputs (`settings_form.py`); what happens on a message or a click (`turns.py`), what the program says (`sayings.py`), the plain sentence for every failure (`failure_words.py`), a setting's value as it is shown (`setting_text.py`), the last word after Export or a change of setting (`notes.py`) and what is kept between reruns (`session.py`). The only part that may import Streamlit. |
+| `src/ledger_hand/flows/` | Recording a passage from start to records (`recording.py`), or from a screenshot and a note (`screenshot.py`), with the checks made on an uploaded screenshot before it is read (`uploading.py`): the state it hands back (`progress.py`), putting a question together (`questions.py`) and putting an answer back (`filling.py`). Saving the records (`saving.py`) with new identifiers (`identifiers.py`), a passage's fingerprint (`fingerprint.py`), the confirmed coins between the book and the coin table (`coin_book.py`), and exporting (`exporting.py`) into a new file that never replaces another (`export_file.py`). |
+| `src/ledger_hand/wiring.py` | The wiring module: builds the model, with the local plug the vision model and a way to ask the server whether it has it, the book, the coin table, the clock and the machine's zone from the settings, with the settings page's changes put in, for the interface to hand to the flows. The only part of the package that may import tzlocal. |
+| `src/ledger_hand/ui/` | The interface, two Streamlit pages: the entry (`app.py`), the Record page (`record_page.py`) with the chat (`chat.py`), the table and its buttons (`preview.py`), Export (`export_panel.py`) and the screenshot area under the chat (`screenshot_panel.py`); the Settings page (`settings_page.py`) and its inputs (`settings_form.py`); what happens on a message, an upload or a click (`turns.py`), what the program says (`sayings.py`), the plain sentence for every failure (`failure_words.py`), a setting's value as it is shown (`setting_text.py`), the last word after Export or a change of setting (`notes.py`) and what is kept between reruns (`session.py`). The only part that may import Streamlit. |
 | `tests/` | The tests. `tests/core/`, `tests/export/`, `tests/llm/`, `tests/extraction/`, `tests/asking/`, `tests/storage/` and `tests/flows/` have one test module per module, or more; `tests/llm/` also has a fake Ollama server, the pieces of a fake cloud service and a batch of attacks on each plug, and `tests/extraction/` a batch of attacks on extraction. `tests/storage/` runs the same tests of the storage port against the SQLite plug and the in-memory stand-in, and holds the golden book. `tests/flows/` also tests the script for recording trades. `tests/ui/` runs the pages headless with Streamlit's own test runner, against fake models and a book in a temporary folder (Export, the settings page, every failure, the reminders), checks the plain sentence for every failure, and checks the settings file. `tests/evals/` tests the experiment kit and the test sentences. |
 | `tests/conftest.py` | Stops every test that is not marked `live_model` from reaching the network. |
 | `tests/fakes/` | Stand-ins for the outside world: a scripted model that plays back replies and errors in order and records what it was asked, a model that answers each kind of call (judging, extraction, wording a question, reading an answer, reading a screenshot) from its own script, and a book kept in memory that can be made to fail. |

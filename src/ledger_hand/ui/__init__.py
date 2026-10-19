@@ -4,15 +4,21 @@ Started from the top of the repository with
 ``streamlit run src/ledger_hand/ui/app.py``. The person types a passage in
 the chat; the program's questions come back in the chat and are answered
 there; the table shows each trade as it stands, with the price and the
-total side by side; Save keeps the final records in the book.
+total side by side; Save keeps the final records in the book. Under the
+chat, a screenshot of an order can be uploaded instead: the text the vision
+model reads off it is shown to be checked and changed, beside a note, and
+Continue records the two as one passage, as if typed.
 
 The interface makes no business decision. What to ask, whether a passage is
 settled, whether it can be saved, which trade can be left out and which
-cannot be recorded all come from the flow's ``Progress``; the interface
-lays them out and hands the person's words and clicks to the flows. It gets
-the model, the book, the clock and the zone from the wiring module.
+cannot be recorded all come from the flow's ``Progress``, and whether an
+uploaded screenshot can be read, and why not, from the upload flow; the
+interface lays them out and hands the person's words, files and clicks to
+the flows. It gets the model, the vision model and its check, the book, the
+clock and the zone from the wiring module.
 
 This is the only part of the package that may use Streamlit, and the only
-one that keeps anything between reruns (``session``). Nothing typed is
-written to disk; only the trades saved are kept, in the book.
+one that keeps anything between reruns (``session``). Nothing typed and no
+picture uploaded is written to disk; only the trades saved are kept, in the
+book.
 """
