@@ -571,9 +571,9 @@ Every failure is a `StorageError` whose `kind` is one of eight
 
 | Kind | Raised when |
 | --- | --- |
-| `NEWER_VERSION` | The book was written by a newer version of this program. It is left as it is. |
-| `NOT_A_DATABASE` | The file is not a SQLite database at all. It is left as it is. |
-| `NOT_THIS_PROGRAMS` | The file is a database without this program's mark, or its tables are not exactly those of its version. It is left as it is. |
+| `NEWER_VERSION` | The book was written by a newer version of this program. Nothing is written to it, unless SQLite first rolled back a write cut off part way (see below); the message then says so. |
+| `NOT_A_DATABASE` | The file is not a SQLite database at all. Nothing is written to it, unless SQLite first rolled back a write cut off part way; the message then says so. |
+| `NOT_THIS_PROGRAMS` | The file is a database without this program's mark, or its tables are not exactly those of its version. Nothing is written to it, unless SQLite first rolled back a write cut off part way; the message then says so. |
 | `DAMAGED` | SQLite finds the book damaged (cut short, malformed), or a row cannot be read back as what the book wrote. |
 | `LOCKED` | Someone else is using the book and it stayed busy for longer than the wait allowed. |
 | `INACCESSIBLE` | The book or its folder cannot be made, read or written: no permission, a read-only folder, a folder that is a file, a full disk, an input or output error. |
@@ -600,7 +600,9 @@ journal itself. The file is then checked again from the start, once: empty
 again (a new book cut off while it was being made), it becomes a new book.
 A file refused on that second look has been written by the rollback, and its
 refusal says so. Any other file with a journal beside it is refused, and
-neither file is written.
+neither file is written. The journal itself is not read: whatever journal
+lies beside the book under its name is rolled back, even one another book
+left (`docs/known-gaps.md`, "The book after a write was cut off").
 
 **Upgrade scripts.** `storage/upgrades/upgrade_NNNN.py`, numbered from 1 with
 no gap: script `n` turns a book of version `n - 1` into one of version `n`.
