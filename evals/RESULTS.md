@@ -7313,6 +7313,80 @@ and the longest reply, `max_reply_tokens`, and the sum is set against
 | `first` | u10 | 36 | 1,757 | 14,381 | 16,384 | 2,003 | yes |
 | `fourth` | u10 | 36 | 3,116 | 15,740 | 16,384 | 644 | yes |
 
+### The final set
+
+The rule picked `fourth`, and its prompt fits in the context with the
+longest passage and the longest reply, so the final set was run once, with
+`fourth`, once this section up to the room in the context was committed
+(`eb50a18`, the commit the run was made at). `evals/compare_sets.py --final
+evals/results/run-20261013T093036Z-final-first.jsonl
+evals/results/run-20261019T111751Z-final-fourth.jsonl` prints:
+
+The runs share the set, the model, the way of reading a passage and every parameter; only the prompt version differs: `first`, `fourth`.
+
+| Version | Well-formed | Whole trades right | One trade | Several trades | Missed | Extra | Made up | No-trade sentences right |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `first` | 16 / 16 (100.0%) | 22 / 22 (100.0%) | 9 / 9 (100.0%) | 13 / 13 (100.0%) | 0 | 0 | 0 / 89 (0.0%) | 2 / 2 (100.0%) |
+| `fourth` | 16 / 16 (100.0%) | 18 / 22 (81.8%) | 7 / 9 (77.8%) | 11 / 13 (84.6%) | 0 | 0 | 2 / 89 (2.2%) | 2 / 2 (100.0%) |
+
+| Version | Wrong values with no issue | A total put as the price | Half copies (any) | Half copies (not right) | A time in another language | Sentences with a reply cut off | Calls | Sentences | Seconds | Seconds per sentence | First sentence, seconds | Longest sentence, seconds | Results file |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `first` | 0 | 0 | 0 | 0 | 0 | 0 | 20 | 20 | 77.3 | 3.86 | 3.494 | 10.111 (f14) | `evals/results/run-20261013T093036Z-final-first.jsonl` |
+| `fourth` | 1 | 0 | 1 | 0 | 0 | 0 | 20 | 20 | 83.1 | 4.15 | 12.339 | 12.339 (f01) | `evals/results/run-20261019T111751Z-final-fourth.jsonl` |
+
+| Field | `first`, right / pairs | `fourth`, right / pairs |
+| --- | --- | --- |
+| side | 22 / 22 (100.0%) | 22 / 22 (100.0%) |
+| coin | 22 / 22 (100.0%) | 22 / 22 (100.0%) |
+| quantity | 22 / 22 (100.0%) | 21 / 22 (95.5%) |
+| price | 22 / 22 (100.0%) | 22 / 22 (100.0%) |
+| total | 22 / 22 (100.0%) | 21 / 22 (95.5%) |
+| price_currency | 22 / 22 (100.0%) | 21 / 22 (95.5%) |
+| fee | 22 / 22 (100.0%) | 20 / 22 (90.9%) |
+| fee_currency | 22 / 22 (100.0%) | 22 / 22 (100.0%) |
+| time | 22 / 22 (100.0%) | 22 / 22 (100.0%) |
+| platform | 22 / 22 (100.0%) | 22 / 22 (100.0%) |
+| opinion | 22 / 22 (100.0%) | 21 / 22 (95.5%) |
+
+The sentences where the versions differ in result, drafts, whole trades right or the fields not right, and every sentence not to record (7 of 20):
+
+| Sentence | Group | Result, `first` | Result, `fourth` | Drafts, `first` | Drafts, `fourth` | Whole right, `first` | Whole right, `fourth` | Fields not right, `first` | Fields not right, `fourth` | Checks of the drafts, `first` | Checks of the drafts, `fourth` | Fewer whole right than `first` |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| f04 | scored | extracted | extracted | 1 | 1 | 1 | 0 | - | 1.opinion:MADE_UP | - | - | `fourth` |
+| f08 | scored | extracted | extracted | 1 | 1 | 1 | 0 | - | 1.quantity:MADE_UP, 1.total:LEFT_EMPTY_BY_MODEL, 1.price_currency:LEFT_EMPTY_BY_MODEL | - | - | `fourth` |
+| f12 | scored | extracted | extracted | 2 | 2 | 2 | 0 | - | 1.fee:LEFT_EMPTY_BY_MODEL, 2.fee:LEFT_EMPTY_BY_MODEL | - | - | `fourth` |
+| f17 | not_to_record | extracted | extracted | 1 | 1 | - | - | - | - | stopped | stopped | - |
+| f18 | not_to_record | extracted | extracted | 1 | 1 | - | - | - | - | stopped | stopped | - |
+| f19 | not_to_record | extracted | extracted | 1 | 0 | - | - | - | - | stopped | - | - |
+| f20 | not_to_record | extracted | extracted | 0 | 0 | - | - | - | - | - | - | - |
+
+The final-set line, fixed before the final set was run:
+
+The final set is run once, with the candidate the rule picked, and only
+then. Its run is compared with an earlier run of `first` on the final set,
+of the same model with the same parameters, and passes when all three of
+these hold:
+
+1. no fewer whole trades right than `first`;
+2. no more trades missed and extra, added up over all scored sentences,
+   than `first`;
+3. no more wrong values with no issue about them than `first`.
+
+`fourth` against `first` in `evals/results/run-20261013T093036Z-final-first.jsonl`:
+
+| Condition | `first` | `fourth` | Holds |
+| --- | --- | --- | --- |
+| 1. no fewer whole trades right | 22 | 18 | no |
+| 2. no more trades missed and extra | 0 | 0 | yes |
+| 3. no more wrong values with no issue | 0 | 1 | no |
+
+Not passed: `fourth`; conditions 1 and 3 do not hold.
+
+So `fourth` did not pass the final set: it got 18 of 22 trades whole
+against 22 for `first`, and one wrong value with no issue about it against
+none. The product still extracts with `first`. The final set is not run
+again, and no other version is written or run for this experiment.
+
 ### The numbers in short
 
 - Debug set: `first` 31 of 34 trades whole, `fourth` 33 (and `third`, shown
@@ -7331,6 +7405,10 @@ and the longest reply, `max_reply_tokens`, and the sum is set against
   and 644 tokens of the context of 16,384 are left.
 - The rule: `fourth` is picked; all five conditions hold. Its prompt fits in
   the context with the longest passage and the longest reply.
+- The final set, run once with `fourth`: 18 of 22 trades whole against 22
+  for `first`; wrong values with no issue 1 against 0; trades missed and
+  extra 0 and 0. Conditions 1 and 3 of the final-set line do not hold, so
+  `fourth` did not pass, and the product still extracts with `first`.
 - The new examples were written after the errors of `first` on the voice set and after the errors of `second` and `third` on the debug and the writings set, so the scores of `fourth` on all three sets are not scores on passages it has not seen; the only passages it has not seen are those of the final set and of the owner's later use. `first` already gets every trade of the final set whole, so the final set can show only whether a candidate falls behind `first`, not whether it does better.
 
 ### The runs of prompt experiment four
@@ -7800,6 +7878,160 @@ Results file: `evals/results/run-20261019T111040Z-writings-fourth.jsonl`, with i
 | w01: 前天在币安买了 2 w 个 DOGE，0.16 一个，手续费 1U | 1 | quantity | 2 w 个 | (empty) | 2 w 个 DOGE | (empty) | yes |
 | w02: 昨天 sold 了 4.5 k 个 XRP at 0.52，fee 0.3 USDT | 1 | quantity | 4.5 k 个 | (empty) | 4.5 k 个 XRP | (empty) | yes |
 | w07: Picked up 50 万 PEPE at 0.0000098 on Monday, fee 0 | 1 | time | Monday | 2026-10-05 (day) | on Monday | 2026-10-05 (day) | yes |
+
+#### A time written in another language (0)
+| Sentence | Draft | Field | Model copied | Draft holds | Gold phrase | Gold |
+| --- | --- | --- | --- | --- | --- | --- |
+
+</details>
+
+### Run: final set, prompt `fourth`, prompt experiment four
+
+Results file: `evals/results/run-20261019T111751Z-final-fourth.jsonl`, with its summary in `run-20261019T111751Z-final-fourth.summary.json`.
+
+<details>
+<summary>The generated tables of this run</summary>
+
+#### Run
+| Condition | Value |
+| --- | --- |
+| set | final |
+| final_exam_switch | True |
+| set_file | evals/sets/final.json |
+| set_sha256 | 34afdeb36b787d7e62a6a1a0149838c2dfde8c186a1bb89ea6b3de1205090406 |
+| prompt | fourth |
+| prompt file src/ledger_hand/extraction/prompts/fourth.py | sha256 374328508b0ef73e7e2a77787654d0426ec8cd675648927d298078530a841a0b |
+| prompt file src/ledger_hand/extraction/prompts/fourth_examples.py | sha256 b06372ca9f989044b0f57f56e6c6185b348afb79939ec294c65511d786ef4c9b |
+| prompt file src/ledger_hand/extraction/prompts/second.py | sha256 6066b189cbf96fde8d7fb00a752ef125aa50afe061298858c291518d07ca0191 |
+| prompt file src/ledger_hand/extraction/prompts/first.py | sha256 e09ca774e7a4455891a9a8980c6932d3b9691f53c00cc189c3dfbcbbfb7368ba |
+| prompt file src/ledger_hand/extraction/prompts/first_examples.py | sha256 3088812302b7895fac2c1c65a60a9f703bdfcec40b9cb556b7cf8ef5ec682c32 |
+| prompt_content_sha256 | 2297097d69cdfd23125895a0bce46e2328c9baa57aac314c3573a9ce1b514741 |
+| reply_table_sha256 | e3870b098001b51896b9671f15ef57491df1f7834c0b880d7588ae65b6548e70 |
+| method | one_list |
+| commit | eb50a182a9ff2c2aed7eba702022d54ff72099cc |
+| worktree_clean | True |
+| model | qwen2.5:7b |
+| model_fingerprint | 845dbda0ea48ed749caafd9e6037047aa19acfcfd82e704d7ca97d631a0b697e |
+| server_version | 0.34.3 |
+| base_url | http://127.0.0.1:11434 |
+| parameter temperature | 0.0 |
+| parameter top_p | 1.0 |
+| parameter max_reply_tokens | 1024 |
+| parameter context_tokens | 16384 |
+| parameter timeout_seconds | 120.0 |
+| parameter retries | 2 |
+| parameter retry_wait_seconds | 1.0 |
+| parameter asks_again | 1 |
+| coin_table | built-in |
+| started_at | 2026-10-19T11:17:51+00:00 |
+| sentences | 20 |
+| sum_of_sentence_seconds | 83.08 |
+| first_sentence_seconds | 12.339 |
+| longest_sentence_seconds | 12.339 |
+| finished_at | 2026-10-19T11:19:14+00:00 |
+| seconds_of_the_last_session | 83.107 |
+
+#### Scores by group
+| Group | Sentences | Well-formed | Whole trades right | Missed | Extra | Made up | No-trade sentences right |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| all scored sentences | 16 | 16 / 16 (100.0%) | 18 / 22 (81.8%) | 0 | 0 | 2 / 89 (2.2%) | 2 / 2 (100.0%) |
+| one trade | 9 | 9 / 9 (100.0%) | 7 / 9 (77.8%) | 0 | 0 | 2 / 35 (5.7%) | 0 / 0 (-) |
+| several trades | 5 | 5 / 5 (100.0%) | 11 / 13 (84.6%) | 0 | 0 | 0 / 54 (0.0%) | 0 / 0 (-) |
+| - two trades | 3 | 3 / 3 (100.0%) | 4 / 6 (66.7%) | 0 | 0 | 0 / 21 (0.0%) | 0 / 0 (-) |
+| - three or more trades | 2 | 2 / 2 (100.0%) | 7 / 7 (100.0%) | 0 | 0 | 0 / 33 (0.0%) | 0 / 0 (-) |
+| no trade (talk) | 2 | 2 / 2 (100.0%) | 0 / 0 (-) | 0 | 0 | 0 / 0 (-) | 2 / 2 (100.0%) |
+| Chinese | 6 | 6 / 6 (100.0%) | 7 / 8 (87.5%) | 0 | 0 | 1 / 26 (3.8%) | 1 / 1 (100.0%) |
+| English | 6 | 6 / 6 (100.0%) | 8 / 9 (88.9%) | 0 | 0 | 1 / 41 (2.4%) | 1 / 1 (100.0%) |
+| mixed | 4 | 4 / 4 (100.0%) | 3 / 5 (60.0%) | 0 | 0 | 0 / 22 (0.0%) | 0 / 0 (-) |
+
+#### Each field, all scored sentences
+| Field | Right / pairs |
+| --- | --- |
+| side | 22 / 22 (100.0%) |
+| coin | 22 / 22 (100.0%) |
+| quantity | 21 / 22 (95.5%) |
+| price | 22 / 22 (100.0%) |
+| total | 21 / 22 (95.5%) |
+| price_currency | 21 / 22 (95.5%) |
+| fee | 20 / 22 (90.9%) |
+| fee_currency | 22 / 22 (100.0%) |
+| time | 22 / 22 (100.0%) |
+| platform | 22 / 22 (100.0%) |
+| opinion | 21 / 22 (95.5%) |
+
+#### Every field of every pair, by kind
+| Kind | Fields |
+| --- | --- |
+| RIGHT: right | 236 |
+| LEFT_EMPTY_WITH_REASON: left empty by the program, with the reason in the issues | 0 |
+| - because the model's phrase is not a piece of the passage | 0 |
+| - because the model's phrase cuts a number of the passage | 0 |
+| - because the number reader was unsure of the phrase or could not read it | 0 |
+| - because the time reader refused the phrase or gave two candidates | 0 |
+| - because another issue about the field | 0 |
+| LEFT_EMPTY_BY_MODEL: left empty, with no issue: the model copied nothing that gives it | 4 |
+| WRONG_WITH_ISSUE: a wrong value in the draft, with an issue about the field | 0 |
+| WRONG_SILENT: a wrong value in the draft, with no issue about the field | 0 |
+| MADE_UP: a value in the draft where the gold answer is empty | 2 |
+| - of them with an issue about the field | 1 |
+
+#### Wrong values in drafts with no issue about them (1)
+| Sentence | Draft | Field | Model copied | Draft holds | Gold | Kind |
+| --- | --- | --- | --- | --- | --- | --- |
+| f04: 前天卖了 3 个 ETH，2380一个，手续费 2.1U，Bybit 上卖的，那会儿大饼才 6 万出头 | 1 | opinion | 那会儿大饼才 6 万出头 | 那会儿大饼才 6 万出头 | (empty) | MADE_UP |
+
+#### Half copies: the model copied part of the gold phrase (0)
+| Sentence | Draft | Field | Model copied | Draft holds | Gold | Kind |
+| --- | --- | --- | --- | --- | --- | --- |
+
+#### Fields the program left empty (0; the model's phrase was exactly the gold phrase in 0)
+| Sentence | Draft | Field | Model copied | Gold phrase | Reason | Model copied exactly the gold phrase |
+| --- | --- | --- | --- | --- | --- | --- |
+
+#### Passages not to record (not in any score above)
+| Sentence | Kind | Result | Drafts | What the check of a draft says |
+| --- | --- | --- | --- | --- |
+| f17: Opened a 5x long on ETH at 2,380 with 100 USDT margin last night | futures_or_leverage | extracted | 1 | draft 1: stopped by SIDE, FEE |
+| f18: 用 0.05 BTC 换了 1.3 个 ETH，在 Uniswap 上换的 | coin_for_coin | extracted | 1 | draft 1: stopped by SIDE, FEE, OCCURRED, UNSUPPORTED_QUOTE |
+| f19: Placed a limit sell for 2 SOL at 165, still waiting for it to fill | open_order | extracted | 0 | - |
+| f20: 下周想 buy 一点 DOT，大概 4 刀左右就进 | plan | extracted | 0 | - |
+
+#### Every scored sentence
+| Sentence | Language | Result | Gold trades | Drafts | Whole right | Missed | Extra | Fields not right (gold trade.field:kind) |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| f01 | zh | extracted | 1 | 1 | 1 | 0 | 0 | - |
+| f02 | en | extracted | 1 | 1 | 1 | 0 | 0 | - |
+| f03 | mixed | extracted | 1 | 1 | 1 | 0 | 0 | - |
+| f04 | zh | extracted | 1 | 1 | 0 | 0 | 0 | 1.opinion:MADE_UP |
+| f05 | en | extracted | 1 | 1 | 1 | 0 | 0 | - |
+| f06 | mixed | extracted | 1 | 1 | 1 | 0 | 0 | - |
+| f07 | zh | extracted | 1 | 1 | 1 | 0 | 0 | - |
+| f08 | en | extracted | 1 | 1 | 0 | 0 | 0 | 1.quantity:MADE_UP, 1.total:LEFT_EMPTY_BY_MODEL, 1.price_currency:LEFT_EMPTY_BY_MODEL |
+| f09 | mixed | extracted | 1 | 1 | 1 | 0 | 0 | - |
+| f10 | zh | extracted | 2 | 2 | 2 | 0 | 0 | - |
+| f11 | en | extracted | 2 | 2 | 2 | 0 | 0 | - |
+| f12 | mixed | extracted | 2 | 2 | 0 | 0 | 0 | 1.fee:LEFT_EMPTY_BY_MODEL, 2.fee:LEFT_EMPTY_BY_MODEL |
+| f13 | zh | extracted | 3 | 3 | 3 | 0 | 0 | - |
+| f14 | en | extracted | 4 | 4 | 4 | 0 | 0 | - |
+| f15 | zh | extracted | 0 | 0 | 0 | 0 | 0 | - |
+| f16 | en | extracted | 0 | 0 | 0 | 0 | 0 | - |
+
+#### Three more counts
+| Count | Cases |
+| --- | --- |
+| A total put as the price | 0 |
+| Half copies, any field whose phrase is part of the gold phrase | 1 |
+| Half copies, only fields not right (as in the summary) | 0 |
+| A time written in another language | 0 |
+
+#### A total put as the price (0; gold is the total)
+| Sentence | Draft | Field | Model copied | Draft holds | Gold phrase | Gold |
+| --- | --- | --- | --- | --- | --- | --- |
+
+#### Half copies, counted the second way (1)
+| Sentence | Draft | Field | Model copied | Draft holds | Gold phrase | Gold | Field right |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| f09: 今天早上 7 点半买了 1.5 k 个 XRP，0.59 一个，手续费 0 | 1 | quantity | 1.5 k 个 | (empty) | 1.5 k 个 XRP | (empty) | yes |
 
 #### A time written in another language (0)
 | Sentence | Draft | Field | Model copied | Draft holds | Gold phrase | Gold |

@@ -10,7 +10,9 @@ first; when it picks one list, the one final-set run is still the first
 experiment's. A second model is not measured, and the record says so. No
 model is called. The final-set runs of the later comparison of two models are
 left out of that count by name: they belong to no experiment on the way of
-reading a passage.
+reading a passage. So is the final-set run of the fourth prompt experiment,
+made with the candidate its rule picked: it belongs to an experiment on the
+prompt, not on the way of reading a passage.
 """
 
 from __future__ import annotations
@@ -41,6 +43,8 @@ SECOND_MODEL_FINALS = (
     "run-20261013T093036Z-final-first.jsonl",
     "run-20261013T100136Z-final-first.jsonl",
 )
+# The final-set run of the fourth prompt experiment, with the candidate its rule picked.
+PROMPT_FOUR_FINAL = "run-20261019T111751Z-final-fourth.jsonl"
 
 
 def record() -> str:
@@ -105,7 +109,9 @@ def test_the_final_set_was_run_only_if_the_rule_picked_split_first() -> None:
     finals = sorted(
         path.name
         for path in RESULTS_DIR.glob("*.jsonl")
-        if read_results(path).run.get("set") == "final" and path.name not in SECOND_MODEL_FINALS
+        if read_results(path).run.get("set") == "final"
+        and path.name not in SECOND_MODEL_FINALS
+        and path.name != PROMPT_FOUR_FINAL
     )
 
     if picked is Method.ONE_LIST:

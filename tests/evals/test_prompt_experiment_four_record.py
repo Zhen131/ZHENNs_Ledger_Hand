@@ -34,7 +34,7 @@ from dataclasses import dataclass
 
 import pytest
 
-from evals.compare_sets import RULE, choice_markdown, choose, sets_markdown
+from evals.compare_sets import RULE, choice_markdown, choose, final_markdown, sets_markdown
 from evals.records import Results, read_results
 from evals.run import RESULTS_DIR
 from ledger_hand.settings import ABOUT, Variable
@@ -90,8 +90,10 @@ FACTS = (
 )
 # The run of the final set this experiment made: one, of the candidate the rule picked
 # whose prompt fits in the context, or none when there is no such candidate.
-FINALS: tuple[str, ...] = ()
+FINALS: tuple[str, ...] = ("run-20261019T111751Z-final-fourth.jsonl",)
 NOT_RUN = "### The final set\n\nNot run: "
+# The earlier run of first on the final set that a final run is compared with.
+EARLIER_FINAL = "run-20261013T093036Z-final-first.jsonl"
 
 
 def record() -> str:
@@ -248,3 +250,49 @@ def test_the_section_stands_once_after_prompt_experiment_three() -> None:
 
     assert text.count(HEADING) == 1
     assert text.index(THREE_HEADING) < text.index(HEADING)
+
+
+def picked(candidate: str) -> bool:
+    """Whether the rule picks ``candidate`` over ``first``."""
+    runs = [results(each[name]) for each in RUNS.values() for name in ("first", candidate)]
+    return choose(runs).picked
+
+
+def test_the_final_set_was_run_only_for_a_candidate_picked_whose_prompt_fits() -> None:
+    allowed = [c for c in CANDIDATES if picked(c) and room(c).fits]
+
+    assert len(FINALS) == len(allowed) <= 1
+    for candidate in CANDIDATES:
+        if picked(candidate) and not room(candidate).fits:
+            said = f"`{candidate}` is picked by the rule, but its prompt does not fit"
+            assert said in " ".join(section().split()), candidate
+    if not FINALS:
+        assert section().count(NOT_RUN) == 1
+        return
+    (final,) = FINALS
+    head = results(final).run
+    base = results(BASE).run
+    assert results(final).end is not None
+    assert "only" not in head
+    assert (head["model"], head["model_fingerprint"]) == (MODEL, FINGERPRINT)
+    assert (head["set"], head["prompt"], head["final_exam_switch"]) == ("final", allowed[0], True)
+    assert head["method"] == "one_list"
+    assert head["worktree_clean"] is True
+    assert head["base_url"] == "http://127.0.0.1:11434"
+    assert head["parameters"] == base["parameters"]
+    assert head["reply_table_sha256"] == base["reply_table_sha256"]
+    assert head["set_sha256"] == results(EARLIER_FINAL).run["set_sha256"]
+    assert head["server_version"] == results(RUNS["debug"]["first"]).run["server_version"]
+    assert {results(runs[allowed[0]]).run["prompt_content_sha256"] for runs in RUNS.values()} == {
+        head["prompt_content_sha256"]
+    }
+
+
+def test_the_record_shows_the_final_set_against_the_earlier_run_of_first() -> None:
+    for final in FINALS:
+        shown = final_markdown(
+            (results(EARLIER_FINAL), f"evals/results/{EARLIER_FINAL}"),
+            (results(final), f"evals/results/{final}"),
+        )
+        assert "### The final set\n\n" in section()
+        assert shown in section()
