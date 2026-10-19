@@ -153,6 +153,11 @@ What each prompt looks like:
 - **`screen-1` and `answer-1`, zero-shot.** Instructions only. Judging
   needs no example because the program, not the model, decides what
   follows; reading an answer is a small copy task on a short answer.
+- **`read-1`, zero-shot.** Instructions only, shown with the screenshot: one
+  line for each value the order shows, the label the screen gives it and the
+  value, both copied as they stand, in the language they are written in,
+  every number as written, with nothing translated, calculated or added.
+  The labels stay, so that extraction can tell a price from a total.
 - **`bookkeeper-1`, persona.** "A meticulous bookkeeper" who asks for one
   thing at a time, given the facts the program settled. The persona sets the
   tone of the question; the program fixes what is asked, writes the label
@@ -188,7 +193,9 @@ against 115.9 for the debug set), so the product does not use it.
 
 **What the product uses.** Judging with `screen-1`, extraction with `first`
 in one call for the whole passage, questions with `bookkeeper-1`, answers
-with `answer-1` (`src/ledger_hand/flows/recording.py` names the four). The
+with `answer-1` (`src/ledger_hand/flows/recording.py` names the four), and,
+for a passage from a screenshot, reading it with `read-1`
+(`src/ledger_hand/extraction/picture_reading.py`). The
 rules fixed before the first two experiments picked `first` and one list
 (section 6), which is what the product already used. The rule fixed before
 the third prompt experiment picked neither of the two versions written for
@@ -294,7 +301,7 @@ pages are run headless (`tests/ui/`).
 | A phrase that is not in the passage, or a number or time the rules are unsure of | `src/ledger_hand/extraction/passage.py`, `src/ledger_hand/extraction/row_draft.py` | The field stays empty, with the reason, and becomes a follow-up question | `tests/extraction/test_extractor.py`, `tests/extraction/test_attack.py` |
 | The model fails while wording a question | `src/ledger_hand/asking/question_text.py` | The program's own sentence, behind the same label | `tests/asking/test_question_text.py` |
 | A setting refused | `src/ledger_hand/settings.py` (`SettingsError`, naming the variable and its rule); `src/ledger_hand/wiring.py` | Which setting and its rule; a change on the Settings page changes nothing | `tests/test_settings.py`, `tests/ui/test_page_wiring.py`, `tests/ui/test_page_settings.py` |
-| The book fails (newer version, not a database, not this program's, damaged, locked, inaccessible, conflict, unexpected) | `src/ledger_hand/storage/book_file.py`, `src/ledger_hand/storage/failures.py` | What happened and what can be done; a refused file is left as it is, without one byte written, except that a book of this program's whose last write was cut off is first rolled back by SQLite, once, and checked again | `tests/storage/test_sqlite_store.py`, `tests/storage/test_book_journal.py`, `tests/flows/test_book_failures.py`, `tests/ui/test_page_failures.py` |
+| The book fails (newer version, not a database, not this program's, damaged, locked, inaccessible, conflict, unexpected) | `src/ledger_hand/storage/book_file.py`, `src/ledger_hand/storage/failures.py` | What happened and what can be done; a refused file is left as it is, without one byte written, except that a file whose header shows a book of this program's, with SQLite's journal beside it, is first rolled back by SQLite, once, and checked again, which may still refuse it (`docs/known-gaps.md`) | `tests/storage/test_sqlite_store.py`, `tests/storage/test_book_journal.py`, `tests/flows/test_book_failures.py`, `tests/ui/test_page_failures.py` |
 | An export refused | `src/ledger_hand/export/backup.py` lists every issue; `src/ledger_hand/flows/exporting.py` | Every reason, one to a line; nothing is written or marked | `tests/export/test_backup.py`, `tests/flows/test_exporting.py`, `tests/ui/test_page_export.py` |
 | An export file not written, or written but not marked | `src/ledger_hand/flows/export_file.py`, `src/ledger_hand/flows/exporting.py` | Why, and that nothing was marked; or where the file is and that the next export writes its trades again | `tests/flows/test_exporting.py`, `tests/ui/test_page_export.py` |
 
@@ -326,7 +333,9 @@ writing, `second` and `third`, got 6 / 10 and 2 / 10 on the voice set where
 run for them. One more, `fourth`, got 8 / 10 on the voice set and 33 / 34 on
 the debug set, and the rule picked it; on the kept-back set it got 18 / 22,
 below the 22 / 22 of `first`, so it did not pass and the product still
-extracts with `first`.
+extracts with `first`. With thinking off, `qwen3-vl:8b` got 0 / 34 on the
+debug set where it got 3 / 34 with nothing sent, every reply empty, so the
+plug still sends nothing about thinking by default.
 
 ### The yardstick
 
@@ -567,8 +576,8 @@ in English only, each with an English time and a quantity written as a bare
 number or with an English coin name. It differs from `third` only in those
 examples. It ran on the debug, the voice and the writings set, one run each,
 with `qwen2.5:7b`, one list and the settings' defaults, and was set beside
-the runs of `first` and `third` of the fourth experiment, which were not
-made again: the model server, the model, the parameters, the sets and the
+the runs of `first` and `third` of the fourth experiment ("prompt
+experiment three" in `evals/RESULTS.md`), which were not made again: the model server, the model, the parameters, the sets and the
 program were the same. The rule of the fourth experiment judged it against
 `first`. **The rule picked `fourth`: on the debug set it got 33 / 34 against
 31 / 34, on the voice set 8 / 10 against 1 / 10, with fewer wrong values
@@ -609,6 +618,41 @@ those of the final set and of the owner's later use. And `first` already
 gets every trade of the final set whole, so the final set could show only
 whether a candidate falls behind, which `fourth` did.
 
+### Experiment six: the thinking switch
+
+The sixth experiment (`evals/RESULTS.md`, "2026-10-19: the thinking
+switch, `qwen3-vl:8b`") changed one parameter of the second model: whether
+the local plug asks it to think before it answers
+(`LEDGER_HAND_MODEL_THINK`, section 4). `qwen3-vl:8b` ran the debug and the
+voice set with thinking off, with `first`, one list and the settings' other
+defaults, one run each, and each run was set beside the run of the same set
+in "Experiment three: a second model", which sent nothing about thinking.
+The rule, fixed before the runs, judged the debug set only: with at least
+as many trades whole with thinking off as with nothing sent, the default
+would become off, after a guard run of `qwen2.5:7b` with thinking off had
+shown that the default model fails no more often and gets no fewer trades
+whole; with fewer, the default stays nothing sent; never on, which
+`qwen2.5:7b`, the model the program extracts with, cannot do. **With
+thinking off `qwen3-vl:8b` got 0 / 34 on the debug set against 3 / 34 with
+nothing sent, so the default stays nothing sent (`model`), and the guard
+run was not made.** The numbers below are copied from the record's tables
+"The debug set, thinking not sent and off" and "The voice set, thinking not
+sent and off".
+
+| Set | Thinking | Well-formed | Whole trades right | Missed | Seconds per sentence | Longest sentence, seconds |
+| --- | --- | --- | --- | --- | --- | --- |
+| debug | not sent | 5 / 26 (19.2%) | 3 / 34 (8.8%) | 31 | 42.74 | 52.573 (d30) |
+| debug | off | 0 / 26 (0.0%) | 0 / 34 (0.0%) | 34 | 4.48 | 10.574 (d01) |
+| voice | not sent | 1 / 9 (11.1%) | 0 / 10 (0.0%) | 9 | 46.03 | 54.74 (u04) |
+| voice | off | 0 / 9 (0.0%) | 0 / 10 (0.0%) | 10 | 4.85 | 8.563 (u09) |
+
+With thinking off every sentence of both sets ended in an empty reply, and
+the message of each failure says that the model wrote only its thinking;
+why, with Ollama 0.34.3, is in `docs/known-gaps.md`, "Thinking off, as
+Ollama 0.34.3 takes it with `qwen3-vl:8b`". The default was set from
+`qwen3-vl:8b` extracting the debug set; whether thinking helps or hurts
+reading a screenshot is not measured.
+
 ### The iteration trace
 
 Every measured version is kept as its own file under
@@ -631,6 +675,7 @@ line.
 | 10 | A second model, `qwen3-vl:8b`, with the same prompt, way and parameters; and a fourth set, the voice set | 3 / 34 on the debug set, 5 / 22 on the final set and 0 / 10 on the voice set, against 31 / 34, 22 / 22 and 1 / 10 for `qwen2.5:7b`; 25 of its 30 debug sentences ended in an empty reply |
 | 11 | `second`: two more rules and six more examples in the owner's way of writing; `third`: the two rules alone | 6 / 10 and 2 / 10 on the voice set against 1 / 10 for `first`, and 29 / 34 and 30 / 34 on the debug set against 31 / 34: neither picked, the final set not run |
 | 12 | `fourth`: the two rules of `second` and seven other examples, two of them in English and one with a price in Chinese numbers | 8 / 10 on the voice set and 33 / 34 on the debug set against 1 / 10 and 31 / 34 for `first`: picked; then 18 / 22 on the final set against 22 / 22: not passed, `first` kept |
+| 13 | Not the prompt: thinking off for `qwen3-vl:8b`, the second model, on the debug and the voice set | 0 / 34 on the debug set against 3 / 34 with nothing sent, every reply empty: the default stays nothing sent |
 
 `answer-1`, the prompt that copies a piece of an answer, has been reworded
 once (commit `b345470`): it now says what the piece to copy is, so that the
@@ -665,24 +710,27 @@ confirmation, and every file written carries its version.
 
 **In short:** the measurements are small, and the second model measured
 mostly gave empty replies under the settings' defaults, and every reply
-empty with thinking off; the step that judges a passage has no score on
-unseen sentences; no real screenshot has been measured, so how well
-screenshots are read is not known; and a handful of
+empty with thinking off; the prompt the product extracts with gets few
+trades whole in the owner's own way of writing; the step that judges a
+passage has no score on unseen sentences; no real screenshot has been
+tried yet, so how well screenshots are read is not known; and a handful of
 rough edges are known and listed, each with why it stands.
 
 | Limitation | Why it stands |
 | --- | --- |
-| The second model was measured under the settings' defaults only | `qwen3-vl:8b` ran the debug, final and voice sets once each with the parameters `qwen2.5:7b` ran with; a longer reply was tried on the debug set only, in two parameter comparisons, and thinking off on the debug and voice sets, once each; neither the prompt nor any other setting was tuned for it (`evals/RESULTS.md`, "2026-10-13: second model, `qwen2.5:7b` and `qwen3-vl:8b`", and "2026-10-19: the thinking switch, `qwen3-vl:8b`"). |
-| `qwen3-vl:8b` thinks before it replies, and the thinking can use up the reply | With the longest reply at 1,024 tokens, 25 of its 30 debug sentences ended in an empty reply, which the program takes as a model failure (`malformed_reply`) and does not try again; at 4,096 tokens, 13 got no complete answer within 120 seconds (`timed_out`). By default the plug does not say whether the model should think (`LEDGER_HAND_MODEL_THINK` is `model`), so the model's own default, on, applies (`evals/RESULTS.md`, "2026-10-13: second model, `qwen2.5:7b` and `qwen3-vl:8b`"). With thinking off, every sentence of the debug and voice sets ended in an empty reply as well, so off did not become the default (`evals/RESULTS.md`, "2026-10-19: the thinking switch, `qwen3-vl:8b`"). |
+| The second model was measured mostly under the settings' defaults | `qwen3-vl:8b` ran the debug, final and voice sets once each with the parameters `qwen2.5:7b` ran with; a longer reply was tried on the debug set only, in two parameter comparisons, and thinking off on the debug and voice sets, once each; neither the prompt nor any other setting was tuned for it (`evals/RESULTS.md`, "2026-10-13: second model, `qwen2.5:7b` and `qwen3-vl:8b`", and "2026-10-19: the thinking switch, `qwen3-vl:8b`"). |
+| `qwen3-vl:8b` thinks before it replies, and the thinking can use up the reply | With the longest reply at 1,024 tokens, 25 of its 30 debug sentences ended in an empty reply, which the program takes as a model failure (`malformed_reply`) and does not try again; at 4,096 tokens, 13 got no complete answer within 120 seconds (`timed_out`). By default the plug does not say whether the model should think (`LEDGER_HAND_MODEL_THINK` is `model`), so the model's own default, on, applies (`evals/RESULTS.md`, "2026-10-13: second model, `qwen2.5:7b` and `qwen3-vl:8b`"). With thinking off, every sentence of the debug and voice sets ended in an empty reply as well, so off did not become the default (`evals/RESULTS.md`, "2026-10-19: the thinking switch, `qwen3-vl:8b`"; `docs/known-gaps.md`, "Extracting with `qwen3-vl:8b`: most replies empty" and "Thinking off, as Ollama 0.34.3 takes it with `qwen3-vl:8b`"). |
 | The samples are small | 30 debug, 20 final, 20 writings and 10 voice sentences, one run each at temperature 0 (two models on the debug, final and voice sets): a difference of one or two trades between versions is one or two sentences, so close results say little. |
 | Judging a passage was tuned on the debug set only, and has no score on the final set | The final set is kept for extraction's last run, so how often judging stops a real trade, or lets through what is not recorded, on new passages is not measured (`docs/known-gaps.md`). |
 | Judging can stop a real trade | When the model takes a filled trade for a plan or an order, the passage is stopped; there is no "record it anyway", which is a decision for the project owner (`docs/known-gaps.md`). |
-| Screenshot input is not measured | A screenshot is read by `qwen3-vl:8b` on the Record page, where the person checks the text read before it is extracted, and with `scripts/try_screenshot.py`; no real screenshot has been read yet, so how well screenshots are read is not known. What the model reads off a picture has no words of the person's own to be checked against (`docs/known-gaps.md`). |
+| Screenshot input is not measured | A screenshot is read by `qwen3-vl:8b` on the Record page, where the person checks the text read before it is extracted, and with `scripts/try_screenshot.py`; no real screenshot has been tried yet, not even by hand, so how well screenshots are read is not known. What the model reads off a picture has no words of the person's own to be checked against (`docs/known-gaps.md`). |
+| Recording from a screenshot has rough edges | Only PNG and JPEG, one file at a time, and a limit on the file's size, not its pixels; the upload box shows Streamlit's own limit of 200 MB per file; the uploaded file stays in memory until the browser tab is closed; while the picture is read only Streamlit's own mark shows that the page is working; a sentence the vision model writes about a picture with no order on it is taken as text read (`docs/known-gaps.md`, "Recording from a screenshot on the page"). |
+| The owner's own way of writing is extracted poorly | On the ten passages of the voice set `first` gets 1 of 10 trades whole with `qwen2.5:7b`, with six values wrong and no issue about them (`evals/RESULTS.md`, "2026-10-18: prompt experiment three, more examples for the owner's way of writing, `qwen2.5:7b`", "The versions on the voice set"). `fourth` got 8 of 10 there but did not pass the final set, so the product keeps `first` (`docs/known-gaps.md`, "Extraction: the owner's own way of writing"). |
 | An English time is often written in Chinese by the model | The most common reason a trade is not whole in the experiments. The program catches it (the phrase is not a piece of the passage) and asks, so it costs a question, not a wrong record; `fourth` did not do it on the debug and the writings set but did not pass the final set, so the product keeps `first` (`docs/known-gaps.md`). |
 | A total put as the price can reach the records | `first` did so twice on the debug set, with no issue about the field (`evals/RESULTS.md`). The table shows price and total side by side and a trade can be left out; `price_total` removed it but lost two other trades, so the rule did not pick it (`docs/known-gaps.md`). |
 | An "about" not right next to a number may be dropped | When the model copies a piece of an answer it may leave out a word such as "大概" that does not touch the number, and the program then takes the amount as exact: the piece is only checked to be a piece of the answer. Not measured (`docs/known-gaps.md`). |
-| Time zone databases of different versions | The ledger and this program each use their own copy; where they differ, the ledger refuses a timed trade this program exports. Closing it needs a decision (`docs/known-gaps.md`). |
-| The book after a crash in the middle of a write | For a file whose header shows a book of this program's, SQLite rolls the cut-off write back from its journal, once, and the book is checked again. A book refused on that second check has already been written by the rollback; in a folder that cannot be written the journal cannot be removed, so the book stays inaccessible; any other file keeps its journal and is not written to. No saved trade is lost (`docs/known-gaps.md`). |
+| Time zone databases of different versions | The ledger and this program each use their own copy; where they differ, the ledger refuses a timed trade this program exports. On the machine the checks run on now, Python's copy (2026e) holds `EST5EDT`, `CST6CDT`, `MST7MDT` and `PST8PDT` as zones of their own, and the ledger's Node (tz 2026a) takes them for four American cities, whose offsets before 1883 have seconds in them; with both, the ledger throws instead of refusing for trades in those zones in the year 1, so one sample of the ledger tier, listed in `tests/ledger_check/cases.py`, fails. Closing it needs a decision (`docs/known-gaps.md`). |
+| The book after a crash in the middle of a write | For a file whose header shows a book of this program's, SQLite rolls the cut-off write back from its journal, once, and the book is checked again. A book refused on that second check has already been written by the rollback; in a folder that cannot be written the journal cannot be removed, so the book stays inaccessible; any other file keeps its journal and is not written to. Only the book's header is read before the rollback, so a journal from another book beside it is rolled back into it all the same; with the book's own journal no saved trade is lost (`docs/known-gaps.md`). |
 | A change of the time zone database can stop listing and exporting | A timed trade whose kept offset no longer matches its zone fails every reading that reaches it as damaged: nothing can be listed, and nothing exported while that trade is not exported yet; saving, and exporting once that trade has been exported, still work (`docs/known-gaps.md`). Marking only those trades is left for later. |
 | Export needs a file system with hard links | The file is given its name with a hard link so that it never replaces another; where links are not supported, every export is "not written" and nothing is marked (`docs/known-gaps.md`). |
 | The cloud plug has never called a real cloud service | No key is used and nothing is paid. Its requests are tested against fake answers and once against the local Ollama's OpenAI-style endpoint (`tests/live/test_live_cloud_plug.py`). |
@@ -701,13 +749,13 @@ section of the README or of this report, a test.
 | A working application with a frontend | Streamlit interface, two pages (Record, Settings): [`src/ledger_hand/ui/app.py`](../src/ledger_hand/ui/app.py); how to start it: README, "Starting the interface"; run headless in tests: [`tests/ui/`](../tests/ui/); against the real model: [`tests/live/test_live_page.py`](../tests/live/test_live_page.py) | Done |
 | API usage | The model's HTTP chat API, called with httpx: local Ollama [`src/ledger_hand/llm/ollama.py`](../src/ledger_hand/llm/ollama.py) (the default), OpenAI-style cloud endpoint [`src/ledger_hand/llm/cloud.py`](../src/ledger_hand/llm/cloud.py); behind the port in [`src/ledger_hand/ports.py`](../src/ledger_hand/ports.py); one real call checked in [`tests/live/test_live_model.py`](../tests/live/test_live_model.py) | Done |
 | Solves a real-world problem | Recording one's own trades in a ledger from plain sentences: section 1; README, "What this is" | Done |
-| Substantive processing, not just question and answer | Seven steps, three with the model: section 2; [`src/ledger_hand/flows/recording.py`](../src/ledger_hand/flows/recording.py) | Done |
+| Substantive processing, not just question and answer | Seven steps, three with the model: section 2; [`src/ledger_hand/flows/recording.py`](../src/ledger_hand/flows/recording.py). From a screenshot, one more step before them, the vision model reading it out as text: [`src/ledger_hand/flows/screenshot.py`](../src/ledger_hand/flows/screenshot.py) | Done |
 | Parameterization, and why | Every parameter a setting with a default and its reason: [`src/ledger_hand/settings.py`](../src/ledger_hand/settings.py) (`ABOUT`); the Settings page [`src/ledger_hand/ui/settings_page.py`](../src/ledger_hand/ui/settings_page.py); README, "Model settings"; section 4; two parameter comparisons in [`evals/RESULTS.md`](../evals/RESULTS.md) | Done |
 | At least two prompt techniques | In the product: zero-shot [`src/ledger_hand/extraction/prompts/screen.py`](../src/ledger_hand/extraction/prompts/screen.py), [`src/ledger_hand/extraction/prompts/answer.py`](../src/ledger_hand/extraction/prompts/answer.py) and [`src/ledger_hand/extraction/prompts/read.py`](../src/ledger_hand/extraction/prompts/read.py), few-shot [`src/ledger_hand/extraction/prompts/first.py`](../src/ledger_hand/extraction/prompts/first.py), persona [`src/ledger_hand/asking/prompts/bookkeeper.py`](../src/ledger_hand/asking/prompts/bookkeeper.py). In experiments only: chain of thought [`src/ledger_hand/extraction/prompts/stepwise.py`](../src/ledger_hand/extraction/prompts/stepwise.py), zero-shot [`src/ledger_hand/extraction/prompts/zero_shot.py`](../src/ledger_hand/extraction/prompts/zero_shot.py) and persona [`src/ledger_hand/extraction/prompts/persona.py`](../src/ledger_hand/extraction/prompts/persona.py) for extraction. Section 3 | Done: four techniques, three of them in the product |
 | Error handling: API timeout, empty input, rate limit | Timeout: [`src/ledger_hand/llm/exchange.py`](../src/ledger_hand/llm/exchange.py), [`tests/llm/test_exchange.py`](../tests/llm/test_exchange.py). Empty input: [`src/ledger_hand/extraction/passage_check.py`](../src/ledger_hand/extraction/passage_check.py), [`tests/ui/test_page_failures.py`](../tests/ui/test_page_failures.py). Rate limit: [`src/ledger_hand/llm/retry_after.py`](../src/ledger_hand/llm/retry_after.py), [`src/ledger_hand/llm/retry.py`](../src/ledger_hand/llm/retry.py), [`tests/llm/test_cloud_retry.py`](../tests/llm/test_cloud_retry.py). Every failure in one plain sentence: [`src/ledger_hand/ui/failure_words.py`](../src/ledger_hand/ui/failure_words.py). Section 5 | Done; a rate limit is tested against a fake server only (section 8) |
 | Documentation | [`README.md`](../README.md), this report, [`docs/architecture.md`](architecture.md), [`docs/known-gaps.md`](known-gaps.md), [`evals/RESULTS.md`](../evals/RESULTS.md) | Done |
 | GitHub repository | This repository with its Git history; it has a GitHub remote, and publishing to it is done by the project owner | Done |
-| Prompt experiments, with the trace of iteration | Every run's results file in [`evals/results/`](../evals/results/), the record in [`evals/RESULTS.md`](../evals/RESULTS.md), every measured version kept as its own file in [`src/ledger_hand/extraction/prompts/`](../src/ledger_hand/extraction/prompts/), the rules in [`evals/compare.py`](../evals/compare.py), [`evals/compare_methods.py`](../evals/compare_methods.py) and [`evals/compare_sets.py`](../evals/compare_sets.py); section 6 | Done |
+| Prompt experiments, with the trace of iteration | Every run's results file in [`evals/results/`](../evals/results/), the record in [`evals/RESULTS.md`](../evals/RESULTS.md), every measured version kept as its own file in [`src/ledger_hand/extraction/prompts/`](../src/ledger_hand/extraction/prompts/), the rules in [`evals/compare.py`](../evals/compare.py), [`evals/compare_methods.py`](../evals/compare_methods.py) and [`evals/compare_sets.py`](../evals/compare_sets.py), and the rule of the thinking switch, applied again to its runs' summaries by [`tests/evals/test_thinking_switch_record.py`](../tests/evals/test_thinking_switch_record.py); section 6 | Done |
 | Extra: a custom database | The book, a versioned SQLite file with numbered upgrade scripts and a golden sample: [`src/ledger_hand/storage/sqlite_store.py`](../src/ledger_hand/storage/sqlite_store.py), [`src/ledger_hand/storage/upgrades/`](../src/ledger_hand/storage/upgrades/), [`tests/storage/golden/`](../tests/storage/golden/) | Done |
 | Extra: combining multiple models | Two local models, `qwen2.5:7b` and `qwen3-vl:8b`, measured side by side on the same yardstick (the debug, final and voice sets) with the same prompt, way of reading and parameters: [`evals/RESULTS.md`](../evals/RESULTS.md), "2026-10-13: second model, `qwen2.5:7b` and `qwen3-vl:8b`"; section 6, "Experiment three: a second model". The comparison is worked out from the results files by [`evals/compare_models.py`](../evals/compare_models.py) and checked against the record by [`tests/evals/test_model_comparison_record.py`](../tests/evals/test_model_comparison_record.py). The model is a setting (`LEDGER_HAND_MODEL_NAME`; `--model` in experiments). In the path from a screenshot the two work one after the other in one pipeline: `qwen3-vl:8b` (`LEDGER_HAND_MODEL_VISION_NAME`) reads the screenshot out as text and `qwen2.5:7b` extracts the trades from it: [`src/ledger_hand/flows/screenshot.py`](../src/ledger_hand/flows/screenshot.py), [`scripts/try_screenshot.py`](../scripts/try_screenshot.py) | Done |
-| Extra: multimodal | A screenshot of an order as input: uploaded on the Record page ([`src/ledger_hand/ui/screenshot_panel.py`](../src/ledger_hand/ui/screenshot_panel.py)), checked and read by the vision model ([`src/ledger_hand/flows/uploading.py`](../src/ledger_hand/flows/uploading.py)), shown to the person to check and change, then recorded with the note as a typed passage ([`src/ledger_hand/flows/screenshot.py`](../src/ledger_hand/flows/screenshot.py)); at the command line, [`scripts/try_screenshot.py`](../scripts/try_screenshot.py); README, "Recording from a screenshot". Not yet done: no real screenshot has been read, so how well screenshots are read is not measured | Not done |
+| Extra: multimodal | A screenshot of an order as input: uploaded on the Record page ([`src/ledger_hand/ui/screenshot_panel.py`](../src/ledger_hand/ui/screenshot_panel.py)), checked and read by the vision model ([`src/ledger_hand/flows/uploading.py`](../src/ledger_hand/flows/uploading.py)), shown to the person to check and change, then recorded with the note as a typed passage ([`src/ledger_hand/flows/screenshot.py`](../src/ledger_hand/flows/screenshot.py)); at the command line, [`scripts/try_screenshot.py`](../scripts/try_screenshot.py); README, "Recording from a screenshot". Run headless in tests: [`tests/ui/test_page_screenshot.py`](../tests/ui/test_page_screenshot.py), [`tests/ui/test_page_screenshot_failures.py`](../tests/ui/test_page_screenshot_failures.py); against the real vision model: [`tests/live/test_live_vision.py`](../tests/live/test_live_vision.py) | Done; how well real screenshots are read is not measured: none has been tried yet (section 8) |
