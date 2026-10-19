@@ -165,7 +165,9 @@ PASSAGE_REFUSALS: Mapping[PassageProblem, str] = MappingProxyType(
     }
 )
 
-# What happened to the book, and what can be done. The book is left as it is.
+# What happened to the book, and what can be done. Nothing is written to a book
+# that is refused, unless SQLite first rolled back a write to it that had been
+# cut off part way; the book's own message, said after the sentence, then says so.
 _ELSEWHERE = f"or point {DATA_DIRECTORY_VARIABLE} at another folder and start the program again"
 STORAGE_FAILURES: Mapping[StorageErrorKind, str] = MappingProxyType(
     {
@@ -178,8 +180,8 @@ STORAGE_FAILURES: Mapping[StorageErrorKind, str] = MappingProxyType(
             f"away, {_ELSEWHERE}."
         ),
         StorageErrorKind.NOT_THIS_PROGRAMS: (
-            "The book's file is a database, but not this program's book, so it was left as "
-            f"it is. Move that file away, {_ELSEWHERE}."
+            "The book's file is a database, but not this program's book, so this program "
+            f"does not use it. Move that file away, {_ELSEWHERE}."
         ),
         StorageErrorKind.DAMAGED: (
             "The book is damaged, so the program does not write to it. Keep a copy of the "

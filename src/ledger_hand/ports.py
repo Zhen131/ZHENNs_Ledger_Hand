@@ -321,12 +321,17 @@ class StorageErrorKind(enum.Enum):
     """The eight kinds of storage failure. Every plug sorts every failure into one of them."""
 
     NEWER_VERSION = "newer_version"
-    """The book was written by a newer version of this program; it is left as it is."""
+    """The book was written by a newer version of this program. Nothing is written to
+    it, unless SQLite first rolled back a write to it that had been cut off part
+    way; the message then says so."""
     NOT_A_DATABASE = "not_a_database"
-    """The file is not a database at all; it is left as it is."""
+    """The file is not a database at all. Nothing is written to it, unless SQLite
+    first rolled back a write to it that had been cut off part way; the message
+    then says so."""
     NOT_THIS_PROGRAMS = "not_this_programs"
     """The file is a database, but not this program's book, or its tables are not
-    the ones its version has; it is left as it is."""
+    the ones its version has. Nothing is written to it, unless SQLite first rolled
+    back a write to it that had been cut off part way; the message then says so."""
     DAMAGED = "damaged"
     """The book is damaged: cut short, or holding what cannot be read back."""
     LOCKED = "locked"
