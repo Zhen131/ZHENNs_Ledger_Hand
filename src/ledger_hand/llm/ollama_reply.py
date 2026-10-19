@@ -16,12 +16,32 @@ status and the start of the body attached:
   from something else at the address, and falls to the next line;
 - any other status: as ``exchange.failure_for_status`` sorts it.
 
+A model that thinks before it answers writes its thinking apart, in
+``message.thinking``. A reply with blank text but some thinking is still an
+empty reply; its message says that the model wrote only its thinking, and,
+when the answer says ``length``, that it reached the longest reply. The
+words "has an empty reply" are kept as they are in every such message: the
+results of earlier runs are counted by them.
+
 The record of the call takes the model's name, the two token counts
 (``prompt_eval_count``, ``eval_count``) and the reason the model stopped
 (``done_reason``: ``stop`` or ``length``) from the answer when they are
 there and well formed. When they are not, the record says so (the requested
 model's name, ``None``, ``NOT_REPORTED``) rather than failing the call: the
 text is what matters.
+
+The record says what the server said, and Ollama counts a thinking model's
+thinking among the tokens it wrote. So ``reply_tokens`` holds the thinking
+and the reply together. Measured with Ollama 0.34.3 and qwen3-vl:8b:
+without a schema, the longest reply (``num_predict``) caps the thinking and
+the reply together, and a call that reaches it says ``length``, with its
+text cut short or empty. With a schema (``format``), once the thinking ends
+the reply may run past the longest reply and the answer still says
+``stop``: a call asked for 290 tokens at most wrote 297 and stopped by
+itself, its text whole. A record whose ``reply_tokens`` is more than the
+longest reply, marked ``STOPPED``, is such a call. It is kept as the server
+said it, not marked as cut off: the text is whole, and marking it cut off
+would turn a whole reply away.
 
 Whether the text is valid JSON that follows a schema is not checked here; a
 model reply is untrusted input, and the caller checks it. Reading the body
@@ -67,7 +87,7 @@ def read_chat_answer(
     if not isinstance(text, str):
         raise malformed("has no text in its message", answer, endpoint)
     if not text.strip():
-        raise malformed("has an empty reply", answer, endpoint)
+        raise malformed(_why_empty(message, data), answer, endpoint)
     if not is_valid_unicode(text):
         raise malformed("has a reply that is not valid Unicode text", answer, endpoint)
     if data.get("done") is not True:
@@ -80,6 +100,17 @@ def read_chat_answer(
         finish=_finish(data.get("done_reason")),
     )
     return ModelReply(text=text, record=record)
+
+
+def _why_empty(message: dict[object, object], data: dict[str, object]) -> str:
+    """Why a reply with blank text is empty: blank, or only the model's thinking."""
+    said = "has an empty reply"
+    thinking = message.get("thinking")
+    if not isinstance(thinking, str) or not thinking.strip():
+        return said
+    if data.get("done_reason") == "length":
+        return f"{said}; the model wrote only its thinking, and reached the longest reply"
+    return f"{said}; the model wrote only its thinking"
 
 
 def _says_not_found(answer: Answer) -> bool:
