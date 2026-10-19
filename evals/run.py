@@ -38,9 +38,9 @@ its fingerprints and the fingerprint of its table), the commit of the
 repository and whether the work tree was clean, the model, its fingerprint
 and the Ollama version (asked through the local plug's ``ask_identity``),
 every parameter (with the thinking setting, ``think``, only when it is on or
-off: a run that sends no think field writes its parameters as every run
-did before the setting was there, so an earlier run's first line, which
-has no ``think``, stands for "not sent"), and the moment the run began.
+off: a run that sends no think field writes no ``think``, so a first line
+without one, as in the runs already in the results folder, stands for "not
+sent"), and the moment the run began.
 Paths are written relative to the repository. Each sentence's line holds,
 besides the drafts and the replies, the record of every reply read
 (``reads``) and, when the passage was split first, how it went (``split``):
@@ -221,7 +221,7 @@ def _parameters(settings: ModelSettings) -> dict[str, object]:
         "asks_again": DEFAULT_ASKS_AGAIN,
     }
     # Left out when nothing is sent, so that such a run's conditions are written,
-    # and compared, as those of every run made before the setting was there.
+    # and compared, as those of the runs whose first line has no think at all.
     if settings.think is not Thinking.MODEL:
         parameters["think"] = settings.think.value
     return parameters

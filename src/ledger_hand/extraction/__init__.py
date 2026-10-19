@@ -20,7 +20,9 @@ ledger records?), with the list the model fills in ``screen_table``; and
 ``answer_phrase`` reads an answer to a follow-up question, by the rules of
 the core and the word lists of ``answer_words``, asking the model only to
 copy one piece of it (``answer_table``). ``passage_check`` is the check
-every step makes before a passage is sent.
+every step makes before a passage is sent. ``picture_reading`` has the model
+read a screenshot out as text before it becomes a passage, with the prompt
+whose shape is in ``picture_prompt``.
 
 This package imports only ``core`` and the ports file. It reads no clock, no
 time zone of the machine and no environment variable: the current moment and

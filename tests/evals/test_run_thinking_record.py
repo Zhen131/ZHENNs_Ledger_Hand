@@ -1,12 +1,12 @@
 """The thinking setting in a run's conditions, and how earlier runs compare with it.
 
 A run writes ``think`` among its parameters only when it is on or off, and
-the two are written apart. When nothing is sent (model), the parameters are
-written as every run made before the setting was there, so an earlier
-run's first line, which has no ``think``, stands for "not sent": the three
-places that compare the parameters of two runs (``compare_sets``, the model
-comparison and carrying a run on with ``--resume``) find no difference
-between such a run and an earlier one, and do find one for on or off.
+the two are written apart. When nothing is sent (model), the parameters
+hold no ``think``, so the first line of a run already in the results
+folder, which has none, stands for "not sent": the three places that
+compare the parameters of two runs (``compare_sets``, the model comparison
+and carrying a run on with ``--resume``) find no difference between such a
+run and an earlier one, and do find one for on or off.
 
 The earlier run read here is a results file of the repository; it is only
 read, and a copy is made in a test's own folder for ``--resume``.
@@ -33,7 +33,7 @@ from ledger_hand.ports import ModelPort
 from ledger_hand.settings import ENV_PREFIX, ModelSettings, Thinking
 from tests.fakes.scripted_model import ScriptedModel
 
-# A run made before the setting was there: the default parameters, no think field sent.
+# A run whose first line has no think: the default parameters, no think field sent.
 EARLIER = runner.RESULTS_DIR / "run-20261013T093206Z-debug-first.jsonl"
 
 

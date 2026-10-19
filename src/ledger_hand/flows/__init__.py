@@ -7,6 +7,8 @@ skipped or impossible to record. Each step hands back the whole state as one
 value that never changes (``progress``); a command line or an interface only
 shows it. Recording writes nothing; with a book handed in, it reads the book
 for an earlier save of the same passage and for the coins confirmed before.
+``screenshot`` starts a passage from a screenshot: the text the vision model
+reads off it, then the note typed beside it, recorded as one passage.
 
 ``saving`` keeps the final records of a passage in the book, only when the
 person asked for it. ``exporting`` writes the saved trades not exported yet

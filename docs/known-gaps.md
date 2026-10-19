@@ -296,3 +296,55 @@ they refuse to start, before anything is sent, and say why.
 
 **What the user can do.** Unset `LEDGER_HAND_MODEL_PLUG`, or set it to
 `local`, before running an experiment.
+
+## Reading a screenshot: no guard that the model only copies
+
+**What it is.** When a passage is typed, every phrase the model copies is
+checked to be a piece of the passage, so a value the model made up never
+reaches a draft. When a screenshot is read, the model writes out the text
+it reads off the picture (`src/ledger_hand/extraction/picture_reading.py`),
+and that text is the passage extraction then checks against. A value
+misread, changed or made up while reading the picture (a digit dropped, a
+total read under the price's label, the phone's clock read as the time of
+the order) is already in that text, and extraction can only check what was
+read against what was read, never against the picture itself.
+
+**What stands in for it.** Nothing in the program can compare text with a
+picture. The text read can be shown to the person before going on:
+`scripts/try_screenshot.py` prints it, and `src/ledger_hand/flows/screenshot.py`
+can start from a text the person changed. The check of each draft asks when
+the quantity times the price does not make the total. How often a
+screenshot is misread is not measured: no real screenshot has been read
+yet.
+
+There is one thinking setting (`LEDGER_HAND_MODEL_THINK`) for both models:
+the model that reads a screenshot takes the same as the one that extracts.
+Its default was set from `qwen3-vl:8b` extracting the debug set
+(`evals/RESULTS.md`, "2026-10-19: the thinking switch, `qwen3-vl:8b`");
+whether thinking helps or hurts reading a screenshot is not measured.
+
+## Thinking off, as Ollama 0.34.3 takes it with `qwen3-vl:8b`
+
+**What it is.** Measured with Ollama 0.34.3 by calls made by hand to its
+chat endpoint, with invented questions: `think` set to false does not stop
+`qwen3-vl:8b` from thinking. Ollama leaves the opening of the thinking out
+of the prompt, but the model writes its thinking anyway, and the server
+still hands it back as thinking, about as long as with nothing sent. With a
+reply schema (`format`), which every call to judge a passage, extract its
+trades or read an answer sends, the whole reply then comes back as thinking,
+and the reply's text is empty: so every such call is an empty reply with
+thinking off, as every sentence of the two runs in "2026-10-19: the
+thinking switch, `qwen3-vl:8b`" was. Without a schema, as a screenshot is
+read, the reply's text comes back beside the thinking. `think` set to true
+gave the same as nothing sent. `qwen2.5:7b` turns true down with status 400,
+saying it does not support thinking, and takes false.
+
+The thinking and the reply also share the longest reply (`num_predict`):
+without a schema, a call that thinks long reaches it and comes back cut off,
+with its text short or empty. How the record of such a call reads is in
+`src/ledger_hand/llm/ollama_reply.py`.
+
+**Why it stands.** It is how the server and the model behave: the plug
+sends the field as the setting says and reads the answer as it reads any
+other. The default sends nothing, so it applies only when the setting is
+changed.

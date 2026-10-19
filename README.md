@@ -75,8 +75,20 @@ does not do yet:
   22 against 22 for `first`, so it did not pass, and the product still uses
   `first` (`evals/RESULTS.md`, "2026-10-19: prompt experiment four, new
   examples with English passages and Chinese numbers, `qwen2.5:7b`").
-- **Not built yet.** Screenshot input. Known limits are in
-  `docs/known-gaps.md`.
+- **Screenshots, at the command line.** A screenshot of an order can be
+  tried with `scripts/try_screenshot.py` (see "Trying a screenshot by
+  hand"): a model that can see pictures (`qwen3-vl:8b` by default) reads the
+  order on it out as text, the note typed beside it is put after that text,
+  and the passage they make is extracted with the default model, as a typed
+  one is. No real screenshot has been measured yet.
+- **The thinking setting.** The local plug can ask the model to think before
+  it answers, or not (`LEDGER_HAND_MODEL_THINK`); by default it sends
+  nothing, and each model does as its own default says. With thinking off,
+  `qwen3-vl:8b` gave an empty reply on every sentence of the debug and the
+  voice set (`evals/RESULTS.md`, "2026-10-19: the thinking switch,
+  `qwen3-vl:8b`").
+- **Not built yet.** Uploading a screenshot in the interface. Known limits
+  are in `docs/known-gaps.md`.
 
 How each part works is described in "How it works, part by part" below.
 
@@ -114,10 +126,11 @@ The quick checks need no model. The interface, the command-line scripts,
 the live tier and the experiments do: by default Ollama running on this
 machine with the model `qwen2.5:7b`. Install Ollama, fetch the model once
 with `ollama pull qwen2.5:7b`, and leave Ollama running; it answers at
-`http://127.0.0.1:11434`, the default address. To run the second model
-that has been measured, fetch it first the same way: `ollama pull
-qwen3-vl:8b`. To use a cloud service instead, see "Switching to a cloud
-model".
+`http://127.0.0.1:11434`, the default address. Reading a screenshot
+(`scripts/try_screenshot.py`) and the live tier also need `qwen3-vl:8b`,
+the model that reads a screenshot, which is also the second model that has
+been measured: fetch it the same way, `ollama pull qwen3-vl:8b`. To use a
+cloud service instead, see "Switching to a cloud model".
 
 ## Starting the interface
 
@@ -262,8 +275,10 @@ to read the answer (timed_out))`.
 
 The recording, saving and exporting the interface does can also be run at
 the command line, with `scripts/record_trades.py`; `scripts/try_extraction.py`
-runs extraction alone. Both ask the model the settings name, so the model
-server has to be running, and both are run from the top of the repository.
+runs extraction alone, and `scripts/try_screenshot.py` reads a screenshot
+and extracts the passage it gives. They ask the models the settings name, so
+the model server has to be running, and they are run from the top of the
+repository.
 `.venv/bin/python scripts/record_trades.py --help` lists its options.
 `scripts/try_extraction.py` has no options: everything after its name is
 the passage, except `--help` or `-h` given alone, which prints how to use
@@ -286,6 +301,36 @@ program does not take as it stands stops the script instead of being
 replaced. Nothing is written to disk. Exit status: `0` the passage was read
 (even with no trade in it), `1` it was not (refused, no readable reply, or
 the model failed), `2` the script could not start (a setting or the zone).
+
+### Trying a screenshot by hand
+
+```sh
+.venv/bin/python scripts/try_screenshot.py ~/Downloads/order.png
+.venv/bin/python scripts/try_screenshot.py ~/Downloads/order.jpg --note "fee 0.1 USDT, bought on OKX"
+.venv/bin/python scripts/try_screenshot.py --help
+```
+
+The picture is a PNG or JPEG file, told apart by its first bytes. The
+vision model the settings name (`LEDGER_HAND_MODEL_VISION_NAME`, by default
+`qwen3-vl:8b`) is shown it with the reading prompt `read-1`
+(`src/ledger_hand/extraction/prompts/read.py`) and reads the order on it out
+as text: each value with the label the screen gives it, as it stands. The
+script prints that text, then the note, if one is given with `--note`, then
+the passage the two are joined into (the text read, an empty line, the
+note), and extracts the passage as `scripts/try_extraction.py` does, with
+the model `LEDGER_HAND_MODEL_NAME` names and the product's prompt, printing
+the drafts, the issues and one line per call; the call that read the picture
+has its line last. The two models take turns in memory, so loading one
+shows in the time of its call. Pictures are read through the local plug
+only: settings that choose the cloud plug stop the script before anything is
+sent. Only the one file is read; nothing is written to disk, and the picture,
+the text read and the passage are not kept. `--help` or `-h` alone prints how
+to use it and reads nothing else. Exit status: `0` the picture was read and
+its passage extracted (even with no trade in it), `1` the picture was not
+read (the model failed, or the reading was cut off at the longest reply) or
+its passage was not extracted, `2` the script could not start (the
+arguments, a file that cannot be read or is neither PNG nor JPEG, a setting,
+the cloud plug, or the zone).
 
 ### Recording trades by hand
 
@@ -472,7 +517,17 @@ the table and how long it took. On the settings page it then points the
 model's address at a port on this machine nobody listens on, checks that a
 passage is answered by the sentence that names that address, goes back to
 the environment and the defaults, and checks that the same passage comes to
-its first question. Last, it tries the cloud plug against the same server:
+its first question. It shows the vision model the settings name
+(`LEDGER_HAND_MODEL_VISION_NAME`, by default `qwen3-vl:8b`) a picture of one
+plain colour, 64 by 64 pixels, drawn in memory and never written anywhere,
+asks what colour it is, and checks only that words came back from that
+model; it prints the reply, whether it named the colour, and the time. Then
+it extracts one of the four invented passages with the vision model and
+thinking off, and checks only that the server took the request (it was not
+turned down with a status from 400 to 499); what came back is printed and
+not judged. Both build the plug with thinking off, whatever the default. So
+the live tier needs the vision model on this machine as well: without it,
+those two checks fail, and are not skipped. Last, it tries the cloud plug against the same server:
 Ollama also answers the OpenAI-style chat endpoint under `/v1` of its
 address, so the cloud plug is pointed there, with an invented key that
 Ollama does not check, and asked the same small question once, with no
@@ -648,7 +703,11 @@ better. `evals.compare_models` lays the runs of two models on one set side
 by side: the scores, what each sentence gave (model failures by kind, empty
 replies apart), each field, the seconds per sentence and the sentences where
 the two differ; it refuses two runs that differ in anything but the model,
-and `--parameter` lets one parameter differ, which it then names.
+and `--parameter` lets one parameter differ, which it then names. With
+`--parameter` it also compares two runs of the same model, when that
+parameter is the only difference and the model's fingerprint and the
+server's version are the same; each row is then named by the model and the
+parameter's value.
 `evals.compare_sets` lays the runs of `first` and of other prompt versions
 side by side on each set: the scores, the three more counts, the seconds,
 each field and the sentences where they differ; it refuses runs that differ
@@ -725,7 +784,7 @@ settings page, for the browser tab only (see "The settings page").
 | `LEDGER_HAND_MODEL_RETRY_WAIT_SECONDS` | `1` | The wait before the first retry, in seconds; each later wait is twice the one before. A server that says how long to wait is waited for that long instead, up to a minute. 0 or more. | A second gives a busy server a moment to recover, and with each wait twice the one before, two retries add three seconds at most when the server does not say how long to wait. |
 | `LEDGER_HAND_MODEL_QUESTION_TEMPERATURE` | `0.7` | The temperature for wording a follow-up question. 0 or more. | Wording a follow-up question is the one call where some variety reads more naturally than the same sentence every time. What is asked, and every fact the question may use, are fixed by the program before the model writes, and a sentence that strays is replaced by the program's own, so a higher temperature changes only the wording. Judging a passage, extraction and reading an answer keep LEDGER_HAND_MODEL_TEMPERATURE, 0 by default. |
 | `LEDGER_HAND_MODEL_VISION_NAME` | `qwen3-vl:8b` | Which model reads a screenshot: the one shown the picture, which writes out the order on it as text. The text it reads is then extracted by the model LEDGER_HAND_MODEL_NAME names, as a typed passage is. Read through the local plug only. | A model on this machine that can see pictures; qwen2.5:7b, the model the program extracts with, cannot. |
-| `LEDGER_HAND_MODEL_THINK` | `model` | Whether the local plug asks the model to think before it answers: on sends Ollama's think field as true, off sends it as false, model sends nothing and leaves it to the model's own default. The cloud plug never sends it. A model that cannot think refuses on: Ollama answers with status 400, saying the model does not support thinking. | Model: nothing is sent, so each model answers as its own default says, as every call did before this setting was there. Measured with qwen3-vl:8b on the debug set (see "2026-10-19: the thinking switch, `qwen3-vl:8b`" in evals/RESULTS.md), off got fewer trades whole than nothing sent, and every reply it gave was empty, so off is not the default; nor is on, which qwen2.5:7b, the model the program extracts with, cannot do. |
+| `LEDGER_HAND_MODEL_THINK` | `model` | Whether the local plug asks the model to think before it answers: on sends Ollama's think field as true, off sends it as false, model sends nothing and leaves it to the model's own default. The cloud plug never sends it. A model that cannot think refuses on: Ollama answers with status 400, saying the model does not support thinking. | Model: nothing is sent, so each model answers as its own default says. Measured with qwen3-vl:8b on the debug set (see "2026-10-19: the thinking switch, `qwen3-vl:8b`" in evals/RESULTS.md), off got fewer trades whole than nothing sent, and every reply it gave was empty, so off is not the default; nor is on, which qwen2.5:7b, the model the program extracts with, cannot do. |
 
 Numbers are written with plain digits and at most one point (`0.7`, `45`),
 with no sign or exponent. The defaults are named constants in
@@ -922,7 +981,9 @@ talk to the model port in `src/ledger_hand/ports.py`: send a list of
 messages, optionally a JSON schema the reply has to follow, and the sampling
 parameters; get back the reply's text and a short record of the call (which
 model answered, how long it took, how many tokens it read and wrote, and
-whether it stopped by itself or was cut off at the length limit). Two
+whether it stopped by itself or was cut off at the length limit). A second
+call shows the model pictures: the same messages, with one or more PNG or
+JPEG pictures on the last one, the user's, and no schema. Two
 plugs, in `src/ledger_hand/llm/`, sit behind it. The local plug, the
 default, talks to a local Ollama server through its own chat endpoint; the
 cloud plug talks to the OpenAI-style chat endpoint most cloud services
@@ -941,7 +1002,13 @@ a server that says how long to wait (its Retry-After header) is waited for
 that long instead, up to a minute, and one that asks for longer is not
 waited for at all. A request the server turns down as wrong, with a status
 from 400 to 499 other than 429 (a key refused, a field not taken), is not
-tried again: it would be turned down again. What the reply's text says is
+tried again: it would be turned down again. Pictures go through the local
+plug only, in Ollama's `images` field; the cloud plug refuses a call with
+pictures before sending anything, naming `LEDGER_HAND_MODEL_PLUG`, and
+`connect_vision_model` builds the local plug with the vision model the
+settings name. Whether the model thinks before it answers is a setting of
+the local plug, sent as Ollama's `think` field when it is on or off and left
+out by default; the cloud plug never sends it. What the reply's text says is
 not checked here: a model reply is untrusted input, and whoever asked
 checks it. A small function asks the local server for its version and the
 model's fingerprint, for the records of an experiment.
@@ -1062,6 +1129,22 @@ can be kept out. When the model fails while judging or extracting, nothing
 is kept. `scripts/record_trades.py` runs it at the command line (see
 "Recording trades by hand").
 
+**A passage from a screenshot.** `read_picture` in
+`src/ledger_hand/extraction/picture_reading.py` shows the vision model one
+screenshot with the zero-shot prompt `read-1` and hands back the text it
+reads, or why there is none: the model failed, or the reading was cut off at
+the longest reply, which is never passed on as if it were whole. What it
+reads cannot be checked against the picture: there are no words of the
+person's own to compare it with (see `docs/known-gaps.md`).
+`src/ledger_hand/flows/screenshot.py` joins the text read and the note typed
+beside it into one passage, the text first, and starts it as a typed
+passage is started, with the model that extracts; the reading's call and
+prompt come first in the state it hands back, and a screenshot that was not
+read ends the passage there, at the step "reading the screenshot". Each
+draft keeps the joined passage as its original text, and a fact in the note
+fills what the screen left out. `scripts/try_screenshot.py` tries it by hand
+(see "Trying a screenshot by hand"); the interface has no upload yet.
+
 **Keeping the records.** Saved trades are kept in the book: one SQLite file
 of this program's own, behind the storage port in `src/ledger_hand/ports.py`
 (save the trades of one passage, say whether a passage was saved before,
@@ -1165,19 +1248,19 @@ check and the hygiene scan).
 | `src/ledger_hand/` | The package. Today it holds its version, `core/`, `export/`, the ports file, the settings, `llm/`, `storage/`, `extraction/`, `asking/`, `flows/`, the wiring module and `ui/`. |
 | `src/ledger_hand/core/` | Core rules: pure computation, no network, files, database, user interface or clock. Holds the shapes of a trade (`trade.py`), the coin table (`coins.py`), the ledger's limits (`ledger_limits.py`), exact decimal arithmetic (`arithmetic.py`), the reading and writing of numbers (`numbers.py`), the reading and writing of times (`timeparse.py`, with the wording of a time phrase in `time_wording.py`) and the check of a draft (`validation.py`), what to ask next about a draft (`followup.py`), a saved trade (`stored.py`), what the book keeps beside it (`book.py`), the form a passage is compared in (`passage_form.py`), which time zone names are taken (`zones.py`) and whether the ledger counts a trade's fee in the cost (`fee_cost.py`). |
 | `src/ledger_hand/export/` | The ledger's backup format: the whole file (`backup.py`), one trade (`trade_entry.py`), one coin (`coin_card.py`), bookkeeping moments (`moments.py`) and the file's name (`file_name.py`). Writes no file itself. |
-| `src/ledger_hand/ports.py` | The two ports. The model port: messages, parameters, the reply and its record, and the error with its six kinds. The storage port: its operations and the error with its eight kinds; the shapes it takes and gives are in `core/book.py`. Only shapes; it sends and stores nothing. |
+| `src/ledger_hand/ports.py` | The two ports. The model port: messages, pictures, parameters, the reply and its record, and the error with its six kinds. The storage port: its operations and the error with its eight kinds; the shapes it takes and gives are in `core/book.py`. Only shapes; it sends and stores nothing. |
 | `src/ledger_hand/settings.py` | The only place in the package that reads environment variables: the model settings, their defaults and their checks, what each sets and why its default is what it is (as data, `ABOUT`), changes from the settings page read the same way (`apply_changes`), and where the data is kept. |
 | `src/ledger_hand/storage/` | The SQLite plug for the storage port (`sqlite_store.py`): opening a book, its version and its mark (`book_file.py`), a trade as a row and back (`rows.py`), SQLite's failures as the port's kinds (`failures.py`), and the numbered upgrade scripts (`upgrades/`). The only part that may import sqlite3. |
-| `src/ledger_hand/llm/` | The plugs for the model port. The local plug (`ollama.py`), what it sends (`ollama_request.py`) and how what comes back is read (`ollama_reply.py`); the cloud plug (`cloud.py`), what it sends (`cloud_request.py`) and how what comes back is read (`cloud_reply.py`); what both share in writing a request (`request_body.py`) and reading a reply (`reply_json.py`); one HTTP exchange and how its failures are sorted (`exchange.py`), making a server's words safe to show (`error_text.py`) and finding the key in them however it was written back (`key_forms.py`), reading how long a server asks to wait (`retry_after.py`), trying again (`retry.py`), the plug the settings choose, checked and assembled (`connect.py`), the assembled local model alone (`local.py`), and the local server's version and the model's fingerprint (`ollama_identity.py`). The only part that may import httpx. |
-| `src/ledger_hand/extraction/` | A passage to drafts: the entry point (`extractor.py`), the table the model fills (`reply_table.py`) and how its reply is read (`reply_parser.py`), finding a copied phrase in the passage (`passage.py`) and the numbers written in a text (`passage_numbers.py`), one row to one draft (`row_draft.py`), which currency a unit names (`unit_currency.py`), the issues (`issues.py`), the messages a prompt version makes (`prompting.py`), and the prompt versions with their examples (`prompts/`). Also the check of a passage before it is sent (`passage_check.py`), judging a passage (`screening.py`, with the list the model fills in `screen_table.py`), reading an answer to a question (`answer_phrase.py`, with its word lists in `answer_words.py` and what the model copies in `answer_table.py`), and splitting a passage first, for experiments (`splitting.py`, with the pieces the model copies in `split_table.py` and the segments made of them in `segments.py`). Reads no clock, no zone of the machine and no environment variable. |
+| `src/ledger_hand/llm/` | The plugs for the model port. The local plug (`ollama.py`), what it sends (`ollama_request.py`) and how what comes back is read (`ollama_reply.py`); the cloud plug (`cloud.py`), what it sends (`cloud_request.py`) and how what comes back is read (`cloud_reply.py`); what both share in writing a request (`request_body.py`) and reading a reply (`reply_json.py`); one HTTP exchange and how its failures are sorted (`exchange.py`), making a server's words safe to show (`error_text.py`) and finding the key in them however it was written back (`key_forms.py`), reading how long a server asks to wait (`retry_after.py`), trying again (`retry.py`), the plug the settings choose, checked and assembled, and the plug that reads a screenshot (`connect.py`), the assembled local model alone (`local.py`), and the local server's version and the model's fingerprint (`ollama_identity.py`). The only part that may import httpx. |
+| `src/ledger_hand/extraction/` | A passage to drafts: the entry point (`extractor.py`), the table the model fills (`reply_table.py`) and how its reply is read (`reply_parser.py`), finding a copied phrase in the passage (`passage.py`) and the numbers written in a text (`passage_numbers.py`), one row to one draft (`row_draft.py`), which currency a unit names (`unit_currency.py`), the issues (`issues.py`), the messages a prompt version makes (`prompting.py`), and the prompt versions with their examples (`prompts/`). Also the check of a passage before it is sent (`passage_check.py`), judging a passage (`screening.py`, with the list the model fills in `screen_table.py`), reading an answer to a question (`answer_phrase.py`, with its word lists in `answer_words.py` and what the model copies in `answer_table.py`), splitting a passage first, for experiments (`splitting.py`, with the pieces the model copies in `split_table.py` and the segments made of them in `segments.py`), and reading a screenshot out as text (`picture_reading.py`, with the shape of its prompt in `picture_prompt.py`). Reads no clock, no zone of the machine and no environment variable. |
 | `src/ledger_hand/asking/` | Wording a follow-up question: the facts, the model's sentence and its checks (`question_text.py`), the program's own sentences (`templates.py`) and the prompt (`prompts/bookkeeper.py`). Imports only `core/` and the ports file; reads no clock. |
-| `src/ledger_hand/flows/` | Recording a passage from start to records (`recording.py`): the state it hands back (`progress.py`), putting a question together (`questions.py`) and putting an answer back (`filling.py`). Saving the records (`saving.py`) with new identifiers (`identifiers.py`), a passage's fingerprint (`fingerprint.py`), the confirmed coins between the book and the coin table (`coin_book.py`), and exporting (`exporting.py`) into a new file that never replaces another (`export_file.py`). |
+| `src/ledger_hand/flows/` | Recording a passage from start to records (`recording.py`), or from a screenshot and a note (`screenshot.py`): the state it hands back (`progress.py`), putting a question together (`questions.py`) and putting an answer back (`filling.py`). Saving the records (`saving.py`) with new identifiers (`identifiers.py`), a passage's fingerprint (`fingerprint.py`), the confirmed coins between the book and the coin table (`coin_book.py`), and exporting (`exporting.py`) into a new file that never replaces another (`export_file.py`). |
 | `src/ledger_hand/wiring.py` | The wiring module: builds the model, the book, the coin table, the clock and the machine's zone from the settings, with the settings page's changes put in, for the interface to hand to the flows. The only part of the package that may import tzlocal. |
 | `src/ledger_hand/ui/` | The interface, two Streamlit pages: the entry (`app.py`), the Record page (`record_page.py`) with the chat (`chat.py`), the table and its buttons (`preview.py`) and Export (`export_panel.py`); the Settings page (`settings_page.py`) and its inputs (`settings_form.py`); what happens on a message or a click (`turns.py`), what the program says (`sayings.py`), the plain sentence for every failure (`failure_words.py`), a setting's value as it is shown (`setting_text.py`), the last word after Export or a change of setting (`notes.py`) and what is kept between reruns (`session.py`). The only part that may import Streamlit. |
 | `tests/` | The tests. `tests/core/`, `tests/export/`, `tests/llm/`, `tests/extraction/`, `tests/asking/`, `tests/storage/` and `tests/flows/` have one test module per module, or more; `tests/llm/` also has a fake Ollama server, the pieces of a fake cloud service and a batch of attacks on each plug, and `tests/extraction/` a batch of attacks on extraction. `tests/storage/` runs the same tests of the storage port against the SQLite plug and the in-memory stand-in, and holds the golden book. `tests/flows/` also tests the script for recording trades. `tests/ui/` runs the pages headless with Streamlit's own test runner, against fake models and a book in a temporary folder (Export, the settings page, every failure, the reminders), checks the plain sentence for every failure, and checks the settings file. `tests/evals/` tests the experiment kit and the test sentences. |
 | `tests/conftest.py` | Stops every test that is not marked `live_model` from reaching the network. |
-| `tests/fakes/` | Stand-ins for the outside world: a scripted model that plays back replies and errors in order and records what it was asked, a model that answers each kind of call (judging, extraction, wording a question, reading an answer) from its own script, and a book kept in memory that can be made to fail. |
-| `tests/live/` | The live check, which talks to a real model, the small schema check it uses, the smoke test of extraction, the check of judging the debug set, the smoke test of the page, the check of the settings page against an address nobody listens on, one call of the cloud plug to the local Ollama's OpenAI-style endpoint, a model the server does not have asked for through both plugs, and a run that names a model the server does not have. |
+| `tests/fakes/` | Stand-ins for the outside world: a scripted model that plays back replies and errors in order and records what it was asked, a model that answers each kind of call (judging, extraction, wording a question, reading an answer, reading a screenshot) from its own script, and a book kept in memory that can be made to fail. |
+| `tests/live/` | The live check, which talks to a real model, the small schema check it uses, the smoke test of extraction, the check of judging the debug set, the smoke test of the page, the check of the settings page against an address nobody listens on, one call of the cloud plug to the local Ollama's OpenAI-style endpoint, a model the server does not have asked for through both plugs, a run that names a model the server does not have, a plain picture read by the vision model, and thinking off taken by the server. |
 | `tests/export/samples.py`, `tests/export/attack.py`, `tests/export/golden/` | Invented trades to export, batches of edge cases made to find where this program and the ledger part ways, both shared with the ledger tier, and the golden sample. A golden sample is never edited once committed; a new format version gets one of its own. |
 | `tests/guardrails/` | The layering check and the hygiene scan, the tests that prove they catch what they should, and the two gate tests that apply them to this repository. |
 | `scripts/check.sh` | One command that runs all checks. |
@@ -1185,6 +1268,7 @@ check and the hygiene scan).
 | `evals/results/` | One results file per run (`*.jsonl`) and its summary (`*.summary.json`). In Git: all of it is invented data. |
 | `evals/RESULTS.md` | The results record: what each run measured, with the tables its results file gives. |
 | `scripts/try_extraction.py` | Try extraction by hand: a passage in, the drafts, the issues and a record of each call to the model out (see "Trying extraction by hand"). |
+| `scripts/try_screenshot.py` | Try a screenshot by hand: a picture and a note in, the text read, the passage, the drafts and a record of each call out (see "Trying a screenshot by hand"). |
 | `scripts/record_trades.py` | Record trades from a passage at the command line, one question at a time (see "Recording trades by hand"). |
 | `scripts/ledger_check.py`, `scripts/ledger_validate.ts`, `scripts/ledger_offsets.ts` | The ledger tier of the checks: sample files judged by the ledger's own validator, and the ledger's offsets compared with ours. |
 | `tests/ledger_check/` | What the ledger tier checks (`cases.py`), tests of the tier's own logic, and the one sample for it written by hand. |

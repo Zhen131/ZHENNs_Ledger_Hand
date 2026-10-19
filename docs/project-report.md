@@ -63,6 +63,20 @@ copies; the program calculates.*
 | 6 | Preview and save | Program and person | The interface shows one row per trade, price and total side by side, with an amount the program worked out marked. The person can leave a trade out or drop the passage; only Save writes, into the program's own SQLite file, the book (by default `data/ledger-hand-book.sqlite3`, which Git never sees). A passage saved before is pointed out. | `src/ledger_hand/ui/preview.py`, `src/ledger_hand/flows/saving.py`, `src/ledger_hand/storage/sqlite_store.py` |
 | 7 | Export | Program | The saved trades not exported yet are written into a new JSON file in the ledger's backup format, then marked as exported. | `src/ledger_hand/flows/exporting.py`, `src/ledger_hand/export/backup.py` |
 
+**From a screenshot.** A passage that starts from a screenshot of an order
+has one more step, before step 1: the model that can see pictures
+(`qwen3-vl:8b` by default) reads the order on the screenshot out as text,
+each value with the label the screen gives it, as it stands (the zero-shot
+prompt `read-1`, `src/ledger_hand/extraction/prompts/read.py`;
+`src/ledger_hand/extraction/picture_reading.py`). A reading cut off at the
+longest reply is not passed on. The note the person types beside the
+screenshot is put after the text read, and the two are one passage, which
+then goes through the same seven steps, extracted by the default model
+(`src/ledger_hand/flows/screenshot.py`). What the model reads off the
+picture cannot be checked against it the way a copied phrase is checked
+against a typed passage (section 8). This path runs at the command line
+(`scripts/try_screenshot.py`); the interface has no upload yet.
+
 Steps 1 to 5 are strung together in `src/ledger_hand/flows/recording.py`.
 Each step hands back the whole state as one value that never changes
 (`src/ledger_hand/flows/progress.py`): the stage, every trade, the question
@@ -86,7 +100,7 @@ that each have tests.
 
 **In short:** four techniques are used: zero-shot, few-shot, chain of
 thought and persona. Three of them are in the product: zero-shot to judge a
-passage and to read an answer, few-shot to extract, persona to word a
+passage, to read an answer and to read a screenshot, few-shot to extract, persona to word a
 follow-up question. Chain of thought, and the zero-shot and persona
 versions of extraction, were tried in experiments only. **The product
 extracts with `first` (few-shot) and reads a passage in one call (one
@@ -97,6 +111,7 @@ version, `fourth`, which did not pass the final set, and no other way.**
 | --- | --- | --- | --- | --- | --- |
 | Zero-shot | `screen-1` | `src/ledger_hand/extraction/prompts/screen.py` | Judging a passage | Yes | Debug set only (see section 8): the 4 sentences not to record were stopped with the kind they were written as; the 23 with trades all went on; of the 3 with no trade, 2 were judged to hold none and 1 was stopped as a plan (`docs/known-gaps.md`, "Judging a passage has no score on the final set") |
 | Zero-shot | `answer-1` | `src/ledger_hand/extraction/prompts/answer.py` | Reading an answer the rules could not read | Yes | Not scored; the piece it copies must be a piece of the answer and is read by the program's rules |
+| Zero-shot | `read-1` | `src/ledger_hand/extraction/prompts/read.py` | Reading a screenshot out as text, before extraction | Yes, at the command line (`scripts/try_screenshot.py`); not yet in the interface | Not measured: no real screenshot has been read with it yet |
 | Zero-shot | `zero_shot` | `src/ledger_hand/extraction/prompts/zero_shot.py` | Extraction | Experiments only | Debug set: 19 / 34 whole trades right |
 | Few-shot | `first` | `src/ledger_hand/extraction/prompts/first.py`, examples in `src/ledger_hand/extraction/prompts/first_examples.py` | Extraction | Yes | Debug set: 31 / 34; final set: 22 / 22 |
 | Few-shot | `split-1` | `src/ledger_hand/extraction/prompts/split.py` | Splitting a passage into one segment per trade before extraction | Experiments only | With `first`, debug set: 31 / 34, with 2 extra trades |
@@ -206,6 +221,8 @@ can be changed on the Settings page for the browser tab.
 | Retries | `LEDGER_HAND_MODEL_RETRIES` | 2 | Three tries in all, for the failures that may pass on their own, without keeping the person waiting for long. |
 | Wait before the first retry | `LEDGER_HAND_MODEL_RETRY_WAIT_SECONDS` | 1 second | A second gives a busy server a moment to recover, and with each wait twice the one before, two retries add three seconds at most when the server does not say how long to wait. |
 | Temperature for wording a question | `LEDGER_HAND_MODEL_QUESTION_TEMPERATURE` | 0.7 | Wording a follow-up question is the one call where some variety reads more naturally than the same sentence every time. What is asked, and every fact the question may use, are fixed by the program before the model writes, and a sentence that strays is replaced by the program's own, so a higher temperature changes only the wording. Judging a passage, extraction and reading an answer keep LEDGER_HAND_MODEL_TEMPERATURE, 0 by default. |
+| The model that reads a screenshot | `LEDGER_HAND_MODEL_VISION_NAME` | qwen3-vl:8b | A model on this machine that can see pictures; qwen2.5:7b, the model the program extracts with, cannot. |
+| Whether the model thinks before it answers | `LEDGER_HAND_MODEL_THINK` | model (nothing sent) | Model: nothing is sent, so each model answers as its own default says. Measured with qwen3-vl:8b on the debug set (see "2026-10-19: the thinking switch, `qwen3-vl:8b`" in evals/RESULTS.md), off got fewer trades whole than nothing sent, and every reply it gave was empty, so off is not the default; nor is on, which qwen2.5:7b, the model the program extracts with, cannot do. |
 
 Two more numbers are fixed in code rather than settings: a reply that
 misses its table is asked for again once (`DEFAULT_ASKS_AGAIN` in
@@ -219,7 +236,9 @@ size as Ollama's `temperature`, `top_p`, `num_predict` and `num_ctx`
 (`src/ledger_hand/llm/ollama_request.py`); the cloud plug sends the first
 three as `temperature`, `top_p` and `max_tokens`
 (`src/ledger_hand/llm/cloud_request.py`); the time allowed is how long this
-side waits.
+side waits. The local plug also sends the thinking setting, when it is on
+or off, as Ollama's top-level `think` field, true or false, and leaves the
+field out by default; the cloud plug never sends it.
 
 **Two parameters were measured** (`evals/RESULTS.md`, "Parameter
 comparisons"), each changing one parameter of one version:
@@ -637,19 +656,20 @@ confirmation, and every file written carries its version.
 ## 8. Known limitations
 
 **In short:** the measurements are small, and the second model measured
-mostly gave empty replies under the settings' defaults; the step that
-judges a passage has no score on unseen sentences; screenshot input is not
-built; and a handful of rough edges are known and listed, each with why it
-stands.
+mostly gave empty replies under the settings' defaults, and every reply
+empty with thinking off; the step that judges a passage has no score on
+unseen sentences; screenshots are read at the command line only, not yet in
+the interface, and no real screenshot has been measured; and a handful of
+rough edges are known and listed, each with why it stands.
 
 | Limitation | Why it stands |
 | --- | --- |
-| The second model was measured under the settings' defaults only | `qwen3-vl:8b` ran the debug, final and voice sets once each with the parameters `qwen2.5:7b` ran with; a longer reply was tried on the debug set only, in two parameter comparisons, and neither the prompt nor any setting was tuned for it (`evals/RESULTS.md`, "2026-10-13: second model, `qwen2.5:7b` and `qwen3-vl:8b`"). |
-| `qwen3-vl:8b` thinks before it replies, and the thinking can use up the reply | With the longest reply at 1,024 tokens, 25 of its 30 debug sentences ended in an empty reply, which the program takes as a model failure (`malformed_reply`) and does not try again; at 4,096 tokens, 13 got no complete answer within 120 seconds (`timed_out`). The plug does not say whether the model should think, so the model's own default, on, applies (`evals/RESULTS.md`, "2026-10-13: second model, `qwen2.5:7b` and `qwen3-vl:8b`"). |
+| The second model was measured under the settings' defaults only | `qwen3-vl:8b` ran the debug, final and voice sets once each with the parameters `qwen2.5:7b` ran with; a longer reply was tried on the debug set only, in two parameter comparisons, and thinking off on the debug and voice sets, once each; neither the prompt nor any other setting was tuned for it (`evals/RESULTS.md`, "2026-10-13: second model, `qwen2.5:7b` and `qwen3-vl:8b`", and "2026-10-19: the thinking switch, `qwen3-vl:8b`"). |
+| `qwen3-vl:8b` thinks before it replies, and the thinking can use up the reply | With the longest reply at 1,024 tokens, 25 of its 30 debug sentences ended in an empty reply, which the program takes as a model failure (`malformed_reply`) and does not try again; at 4,096 tokens, 13 got no complete answer within 120 seconds (`timed_out`). By default the plug does not say whether the model should think (`LEDGER_HAND_MODEL_THINK` is `model`), so the model's own default, on, applies (`evals/RESULTS.md`, "2026-10-13: second model, `qwen2.5:7b` and `qwen3-vl:8b`"). With thinking off, every sentence of the debug and voice sets ended in an empty reply as well, so off did not become the default (`evals/RESULTS.md`, "2026-10-19: the thinking switch, `qwen3-vl:8b`"). |
 | The samples are small | 30 debug, 20 final, 20 writings and 10 voice sentences, one run each at temperature 0 (two models on the debug, final and voice sets): a difference of one or two trades between versions is one or two sentences, so close results say little. |
 | Judging a passage was tuned on the debug set only, and has no score on the final set | The final set is kept for extraction's last run, so how often judging stops a real trade, or lets through what is not recorded, on new passages is not measured (`docs/known-gaps.md`). |
 | Judging can stop a real trade | When the model takes a filled trade for a plan or an order, the passage is stopped; there is no "record it anyway", which is a decision for the project owner (`docs/known-gaps.md`). |
-| Screenshot input is not built | It is planned for a later stage; where it would go is in `docs/architecture.md`. So nothing multimodal is in this version. |
+| Screenshot input is at the command line only, and not measured | `scripts/try_screenshot.py` has `qwen3-vl:8b` read a screenshot and extracts the passage it gives; the upload on the Record page comes in a later stage, and no real screenshot has been read yet, so how well screenshots are read is not known. What the model reads off a picture has no words of the person's own to be checked against (`docs/known-gaps.md`). |
 | An English time is often written in Chinese by the model | The most common reason a trade is not whole in the experiments. The program catches it (the phrase is not a piece of the passage) and asks, so it costs a question, not a wrong record; `fourth` did not do it on the debug and the writings set but did not pass the final set, so the product keeps `first` (`docs/known-gaps.md`). |
 | A total put as the price can reach the records | `first` did so twice on the debug set, with no issue about the field (`evals/RESULTS.md`). The table shows price and total side by side and a trade can be left out; `price_total` removed it but lost two other trades, so the rule did not pick it (`docs/known-gaps.md`). |
 | An "about" not right next to a number may be dropped | When the model copies a piece of an answer it may leave out a word such as "大概" that does not touch the number, and the program then takes the amount as exact: the piece is only checked to be a piece of the answer. Not measured (`docs/known-gaps.md`). |
@@ -675,11 +695,11 @@ section of the README or of this report, a test.
 | Solves a real-world problem | Recording one's own trades in a ledger from plain sentences: section 1; README, "What this is" | Done |
 | Substantive processing, not just question and answer | Seven steps, three with the model: section 2; [`src/ledger_hand/flows/recording.py`](../src/ledger_hand/flows/recording.py) | Done |
 | Parameterization, and why | Every parameter a setting with a default and its reason: [`src/ledger_hand/settings.py`](../src/ledger_hand/settings.py) (`ABOUT`); the Settings page [`src/ledger_hand/ui/settings_page.py`](../src/ledger_hand/ui/settings_page.py); README, "Model settings"; section 4; two parameter comparisons in [`evals/RESULTS.md`](../evals/RESULTS.md) | Done |
-| At least two prompt techniques | In the product: zero-shot [`src/ledger_hand/extraction/prompts/screen.py`](../src/ledger_hand/extraction/prompts/screen.py) and [`src/ledger_hand/extraction/prompts/answer.py`](../src/ledger_hand/extraction/prompts/answer.py), few-shot [`src/ledger_hand/extraction/prompts/first.py`](../src/ledger_hand/extraction/prompts/first.py), persona [`src/ledger_hand/asking/prompts/bookkeeper.py`](../src/ledger_hand/asking/prompts/bookkeeper.py). In experiments only: chain of thought [`src/ledger_hand/extraction/prompts/stepwise.py`](../src/ledger_hand/extraction/prompts/stepwise.py), zero-shot [`src/ledger_hand/extraction/prompts/zero_shot.py`](../src/ledger_hand/extraction/prompts/zero_shot.py) and persona [`src/ledger_hand/extraction/prompts/persona.py`](../src/ledger_hand/extraction/prompts/persona.py) for extraction. Section 3 | Done: four techniques, three of them in the product |
+| At least two prompt techniques | In the product: zero-shot [`src/ledger_hand/extraction/prompts/screen.py`](../src/ledger_hand/extraction/prompts/screen.py), [`src/ledger_hand/extraction/prompts/answer.py`](../src/ledger_hand/extraction/prompts/answer.py) and [`src/ledger_hand/extraction/prompts/read.py`](../src/ledger_hand/extraction/prompts/read.py), few-shot [`src/ledger_hand/extraction/prompts/first.py`](../src/ledger_hand/extraction/prompts/first.py), persona [`src/ledger_hand/asking/prompts/bookkeeper.py`](../src/ledger_hand/asking/prompts/bookkeeper.py). In experiments only: chain of thought [`src/ledger_hand/extraction/prompts/stepwise.py`](../src/ledger_hand/extraction/prompts/stepwise.py), zero-shot [`src/ledger_hand/extraction/prompts/zero_shot.py`](../src/ledger_hand/extraction/prompts/zero_shot.py) and persona [`src/ledger_hand/extraction/prompts/persona.py`](../src/ledger_hand/extraction/prompts/persona.py) for extraction. Section 3 | Done: four techniques, three of them in the product |
 | Error handling: API timeout, empty input, rate limit | Timeout: [`src/ledger_hand/llm/exchange.py`](../src/ledger_hand/llm/exchange.py), [`tests/llm/test_exchange.py`](../tests/llm/test_exchange.py). Empty input: [`src/ledger_hand/extraction/passage_check.py`](../src/ledger_hand/extraction/passage_check.py), [`tests/ui/test_page_failures.py`](../tests/ui/test_page_failures.py). Rate limit: [`src/ledger_hand/llm/retry_after.py`](../src/ledger_hand/llm/retry_after.py), [`src/ledger_hand/llm/retry.py`](../src/ledger_hand/llm/retry.py), [`tests/llm/test_cloud_retry.py`](../tests/llm/test_cloud_retry.py). Every failure in one plain sentence: [`src/ledger_hand/ui/failure_words.py`](../src/ledger_hand/ui/failure_words.py). Section 5 | Done; a rate limit is tested against a fake server only (section 8) |
 | Documentation | [`README.md`](../README.md), this report, [`docs/architecture.md`](architecture.md), [`docs/known-gaps.md`](known-gaps.md), [`evals/RESULTS.md`](../evals/RESULTS.md) | Done |
 | GitHub repository | This repository with its Git history; it has a GitHub remote, and publishing to it is done by the project owner | Done |
 | Prompt experiments, with the trace of iteration | Every run's results file in [`evals/results/`](../evals/results/), the record in [`evals/RESULTS.md`](../evals/RESULTS.md), every measured version kept as its own file in [`src/ledger_hand/extraction/prompts/`](../src/ledger_hand/extraction/prompts/), the rules in [`evals/compare.py`](../evals/compare.py), [`evals/compare_methods.py`](../evals/compare_methods.py) and [`evals/compare_sets.py`](../evals/compare_sets.py); section 6 | Done |
 | Extra: a custom database | The book, a versioned SQLite file with numbered upgrade scripts and a golden sample: [`src/ledger_hand/storage/sqlite_store.py`](../src/ledger_hand/storage/sqlite_store.py), [`src/ledger_hand/storage/upgrades/`](../src/ledger_hand/storage/upgrades/), [`tests/storage/golden/`](../tests/storage/golden/) | Done |
-| Extra: combining multiple models | Two local models, `qwen2.5:7b` and `qwen3-vl:8b`, measured side by side on the same yardstick (the debug, final and voice sets) with the same prompt, way of reading and parameters: [`evals/RESULTS.md`](../evals/RESULTS.md), "2026-10-13: second model, `qwen2.5:7b` and `qwen3-vl:8b`"; section 6, "Experiment three: a second model". The comparison is worked out from the results files by [`evals/compare_models.py`](../evals/compare_models.py) and checked against the record by [`tests/evals/test_model_comparison_record.py`](../tests/evals/test_model_comparison_record.py). The model is a setting (`LEDGER_HAND_MODEL_NAME`; `--model` in experiments): the two are run one at a time and compared side by side, not combined in one pipeline | Done |
+| Extra: combining multiple models | Two local models, `qwen2.5:7b` and `qwen3-vl:8b`, measured side by side on the same yardstick (the debug, final and voice sets) with the same prompt, way of reading and parameters: [`evals/RESULTS.md`](../evals/RESULTS.md), "2026-10-13: second model, `qwen2.5:7b` and `qwen3-vl:8b`"; section 6, "Experiment three: a second model". The comparison is worked out from the results files by [`evals/compare_models.py`](../evals/compare_models.py) and checked against the record by [`tests/evals/test_model_comparison_record.py`](../tests/evals/test_model_comparison_record.py). The model is a setting (`LEDGER_HAND_MODEL_NAME`; `--model` in experiments). In the path from a screenshot the two work one after the other in one pipeline: `qwen3-vl:8b` (`LEDGER_HAND_MODEL_VISION_NAME`) reads the screenshot out as text and `qwen2.5:7b` extracts the trades from it: [`src/ledger_hand/flows/screenshot.py`](../src/ledger_hand/flows/screenshot.py), [`scripts/try_screenshot.py`](../scripts/try_screenshot.py) | Done |
 | Extra: multimodal | Not done: screenshot input is planned for a later stage; where it would go: [`docs/architecture.md`](architecture.md), "Where a new feature goes" | Not done |

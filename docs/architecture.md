@@ -36,6 +36,7 @@ scripts/                  scripts outside the package                           
     ledger_check.py       the ledger tier, with ledger_validate.ts and ledger_offsets.ts (exists)
     record_trades.py      record, save, list and export at the command line           (exists)
     try_extraction.py     try extraction by hand with the real model                  (exists)
+    try_screenshot.py     try a screenshot by hand: the text read, then the drafts    (exists)
 data/                     run-time output: the book and the export files; never in Git
 src/ledger_hand/
     core/                 core rules: no network, database or user interface          (exists)
@@ -80,6 +81,7 @@ src/ledger_hand/
             split.py              splitting a passage, few-shot, for experiments      (exists)
             screen.py             judging a passage, zero-shot                        (exists)
             answer.py             reading an answer, zero-shot                        (exists)
+            read.py               reading a screenshot out as text, zero-shot         (exists)
         passage_check.py      a passage that must not be sent: empty, too long, not text (exists)
         screen_table.py       the list of kinds the model fills when judging a passage (exists)
         screening.py          judging a passage: stopped, no trade, or on to extraction (exists)
@@ -89,6 +91,8 @@ src/ledger_hand/
         split_table.py        the pieces the model copies for each trade when splitting (exists)
         segments.py           those pieces put back together, one segment per trade   (exists)
         splitting.py          split first, then extract each segment; for experiments (exists)
+        picture_prompt.py     what a version of the prompt that reads a screenshot is (exists)
+        picture_reading.py    reading a screenshot: the text the model reads off it   (exists)
     asking/               wording a follow-up question                                (exists)
         question_text.py      the facts, the model's sentence and its checks, the label (exists)
         templates.py          the program's own sentence for every question           (exists)
@@ -126,6 +130,7 @@ src/ledger_hand/
         file_name.py          the name of an export file                              (exists)
     flows/                strings the parts into one task: record, save, export      (exists)
         recording.py          a passage from start to records, one question at a time (exists)
+        screenshot.py         a passage from a screenshot: the text read, then the note (exists)
         progress.py           where it stands: one value that never changes           (exists)
         questions.py          putting a question together: facts and notes            (exists)
         filling.py            putting an answer back into a trade                     (exists)
@@ -446,12 +451,17 @@ How the rules are applied in practice:
 
 ## The model port
 
-The model port in `ports.py` is a `ModelPort` with one method, `chat`:
+The model port in `ports.py` is a `ModelPort` with two methods. `chat`:
 messages in (each with a role and its text), optionally a JSON schema the
 reply has to follow and a set of `ModelParameters`; a `ModelReply` out (the
-text and a `ReplyRecord`). Without parameters the plug uses the defaults it
-was built with from the settings. Every failure is a `ModelError` whose
-`kind` is one of six (`ModelErrorKind`):
+text and a `ReplyRecord`). `chat_with_pictures`: the same messages, one or
+more `Picture`s (the bytes of a PNG or JPEG file and which of the two it is,
+`PictureKind`, refused when the bytes do not start as a file of that kind
+does) attached to the last message, which must be the user's, and
+optionally the parameters; no reply schema, because what is asked of a
+picture is its text as it stands. Without parameters the plug uses the
+defaults it was built with from the settings. Every failure is a
+`ModelError` whose `kind` is one of six (`ModelErrorKind`):
 
 | Kind | Raised when |
 | --- | --- |
@@ -498,6 +508,28 @@ variable is still read on its own; settings that do not fit are a
 the local plug alone (`llm/local.py`), because they ask Ollama for the
 model's fingerprint; with the cloud plug set they refuse to start, before
 anything is sent, with a `SettingsError` that names `LEDGER_HAND_MODEL_PLUG`.
+
+Pictures are sent by the local plug only. It puts them in the `images`
+field of the last message, as the standard base64 of their bytes, and reads
+the answer as any other; a model that cannot see pictures is turned down by
+Ollama with status 400, a `SERVER_ERROR`. The cloud plug refuses a call with
+pictures before anything is sent, as the caller's mistake (`ValueError`,
+naming `LEDGER_HAND_MODEL_PLUG`), not as one of the six kinds: none of them
+says "this plug sends no pictures", so a caller that reads pictures checks
+the plug setting before it asks. `llm/connect.py` builds the plug that
+reads a screenshot, `connect_vision_model`: the local plug with the vision
+model the settings name (`LEDGER_HAND_MODEL_VISION_NAME`), and a
+`SettingsError` naming `LEDGER_HAND_MODEL_PLUG` when the settings choose the
+cloud plug.
+
+Whether the model is asked to think before it answers is a setting of the
+plug, not a parameter of the call: `LEDGER_HAND_MODEL_THINK`, read when the
+plug is built. The local plug sends it as Ollama's top-level `think` field,
+true for `on` and false for `off`, with every call, and leaves the field out
+for `model`, the default, so that the model does as its own default says.
+The cloud plug never sends it. `ModelParameters` stays as it is: the field
+has no counterpart in the cloud plug's request, and every parameter is
+either sent in Ollama's `options` or is the time allowed.
 
 Whether a reply's text is valid JSON that follows the schema is not checked
 by the plug. A model reply is untrusted input (rule 6), and the code that
@@ -586,8 +618,12 @@ formatting tool.
 
 ## Where a new feature goes
 
-- **Screenshot input:** one more file in `extraction/`; the model port gains a
-  way to send an image.
+- **Screenshot input:** in place up to the interface. The model port has its
+  call with pictures (`chat_with_pictures`); reading a screenshot is
+  `extraction/picture_reading.py`, with the prompt `extraction/prompts/read.py`;
+  the passage from a screenshot is `flows/screenshot.py`; and
+  `scripts/try_screenshot.py` tries one by hand. An upload on the Record page
+  goes in `ui/`, through `wiring.py`, and uses `flows/screenshot.py` as it is.
 - **Voice input:** a new folder of its own that turns speech into text; the
   text then takes the existing path.
 - **Asking questions about the ledger:** one more file in `flows/`.
