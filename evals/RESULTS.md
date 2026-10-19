@@ -5454,6 +5454,13 @@ The same counts on the writings set, judged by none of the conditions:
 
 Not picked: `third`; condition 2 does not hold.
 
+### The final set
+
+Not run: the rule picked no candidate. For `second`, condition 2 does not
+hold (debug set, 29 whole trades right against 31 for `first`); for `third`,
+condition 2 does not hold (debug set, 30 against 31). So no final-set line
+applies, and the product's version is unchanged.
+
 ### The numbers in short
 
 - Debug set: `first` 31 of 34 trades whole, `second` 29 and `third` 30.

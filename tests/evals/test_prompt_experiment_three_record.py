@@ -17,7 +17,9 @@ on this machine; the parameters and the reply table of the comparison of
 two models' run of the debug set; for ``first``, the content fingerprint of
 the baseline; and the set file of the earlier runs of the same set. That
 the fingerprint is the one the model server lists is checked by hand: no
-test here asks the server. No model is called.
+test here asks the server. The final set is run only for a candidate the
+rule picks; when it picks none, no final run is named here and the record
+says the final set was not run. No model is called.
 """
 
 from __future__ import annotations
@@ -57,6 +59,10 @@ RUNS = {
         "third": "run-20261019T075208Z-writings-third.jsonl",
     },
 }
+# The run of the final set this experiment made: one, of the candidate the rule picked, or
+# none when the rule picked no candidate.
+FINALS: tuple[str, ...] = ()
+NOT_RUN = "### The final set\n\nNot run: the rule picked no candidate."
 # The earlier runs of first on each set: the comparison of two models' runs of the debug
 # and the voice set, and the first prompt experiment's run of the writings set.
 EARLIER = {
@@ -148,3 +154,15 @@ def test_the_section_stands_once_after_the_comparison_of_two_models() -> None:
 
     assert text.count(HEADING) == 1
     assert text.index(EARLIER_HEADING) < text.index(HEADING)
+
+
+def test_the_final_set_was_run_only_for_a_candidate_the_rule_picked() -> None:
+    picked = [
+        candidate
+        for candidate in CANDIDATES
+        if choose([results(each[n]) for each in RUNS.values() for n in ("first", candidate)]).picked
+    ]
+
+    assert len(FINALS) == len(picked) <= 1
+    if not picked:
+        assert section().count(NOT_RUN) == 1
