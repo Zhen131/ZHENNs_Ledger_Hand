@@ -38,20 +38,23 @@ HEADING = (
 EARLIER_HEADING = "## 2026-10-13: second model, `qwen2.5:7b` and `qwen3-vl:8b`"
 MODEL = "qwen2.5:7b"
 FINGERPRINT = "845dbda0ea48ed749caafd9e6037047aa19acfcfd82e704d7ca97d631a0b697e"
-CANDIDATES = ("second",)
+CANDIDATES = ("second", "third")
 # Each set's runs, one per version: first, then each candidate.
 RUNS = {
     "debug": {
         "first": "run-20261018T173752Z-debug-first.jsonl",
         "second": "run-20261018T174235Z-debug-second.jsonl",
+        "third": "run-20261019T074847Z-debug-third.jsonl",
     },
     "voice": {
         "first": "run-20261018T174017Z-voice-first.jsonl",
         "second": "run-20261018T174449Z-voice-second.jsonl",
+        "third": "run-20261019T075107Z-voice-third.jsonl",
     },
     "writings": {
         "first": "run-20261018T174114Z-writings-first.jsonl",
         "second": "run-20261018T174542Z-writings-second.jsonl",
+        "third": "run-20261019T075208Z-writings-third.jsonl",
     },
 }
 # The earlier runs of first on each set: the comparison of two models' runs of the debug
