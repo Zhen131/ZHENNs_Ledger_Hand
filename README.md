@@ -1258,11 +1258,11 @@ after. Cut off in between, the result is a file whose trades are not
 marked, and the next export writes them again, which the person can see;
 never trades marked as exported with no file, which would lose them.
 
-**The interface.** `src/ledger_hand/ui/` is one Streamlit page: a chat on
-the left and, on the right, a table of what will be recorded (see "Starting
-the interface"). A passage typed in the chat is recorded as above;
-each question comes back in the chat with its label, and the answer is typed
-in the same box. The table has one row per trade, with where it stands
+**The interface.** `src/ledger_hand/ui/` is two Streamlit pages. The
+Record page has a chat on the left and, on the right, a table of what will
+be recorded (see "Starting the interface"). A passage typed in the chat is
+recorded as above; each question comes back in the chat with its label, and
+the answer is typed in the same box. The table has one row per trade, with where it stands
 (complete, asking, left out, or cannot record and why), its time, coin,
 side, quantity, price and total side by side, fee and fee coin, platform and
 note; the amount the program worked out is marked once the trade has passed
@@ -1284,7 +1284,7 @@ package that reads the machine's zone (with tzlocal).
 
 Under the table, Export writes the saved trades not exported yet into a new
 file, says where and how many, and marks them; beside it, always, a line in
-red says not to import that file into the ledger yet. A second page,
+red says not to import that file into the ledger yet. The second page,
 Settings, lists every model setting with its value now, its default and why
 the default is what it is, and lets every one but the key be changed for
 the browser tab. Every failure, from a model nobody answers to a book
