@@ -10,6 +10,8 @@ vision model; and no sentence ever holds the key. Every value is invented.
 
 from __future__ import annotations
 
+import dataclasses
+
 import pytest
 
 from ledger_hand.flows.uploading import BYTES_PER_MB, UploadNotRead, UploadProblem
@@ -195,6 +197,22 @@ def test_it_says_where_it_went_wrong_then_the_failure(problem: UploadProblem) ->
     assert where in sentence
     assert sentence.endswith(vision_trouble(error, SETTINGS))
     assert "Ollama is running" in sentence
+
+
+@pytest.mark.parametrize("kind", list(ModelErrorKind))
+def test_a_server_that_cannot_be_asked_is_followed_by_the_kinds_own_sentence(
+    kind: ModelErrorKind,
+) -> None:
+    error = ModelError(
+        kind, "invented", status=400 if kind is ModelErrorKind.SERVER_ERROR else None
+    )
+    vision = dataclasses.replace(SETTINGS, model=SETTINGS.vision_model)
+
+    sentence = screenshot_not_read(
+        not_read(UploadProblem.VISION_MODEL_UNCHECKED, error=error), SETTINGS
+    )
+
+    assert sentence.endswith(model_trouble(error, vision))
 
 
 def test_a_vision_model_the_server_does_not_have_while_reading_is_named_to_install() -> None:

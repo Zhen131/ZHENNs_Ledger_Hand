@@ -308,10 +308,10 @@ The sentences are in `src/ledger_hand/ui/failure_words.py`, one for each
 kind of each failure, one for each status a cloud service turns a call
 down with (401, 403, 400), and one for a model the cloud service does not
 have, which says nothing of Ollama; and one for each way a screenshot is
-not read, where a model's failure is said with the vision model's name, and
-a request turned down with status 400 or a reply not in the agreed form has
-a sentence of its own, since nothing there is about a reply table or a
-passage. A test walks every kind, so a new one cannot go without a
+not read, where a model's failure is said with the vision model's name, and,
+while reading, a request turned down with status 400 or a reply not in the
+agreed form has a sentence of its own, since nothing there is about a reply
+table or a passage. A test walks every kind, so a new one cannot go without a
 sentence. None of them ever shows the key.
 
 When the model fails while it reads an answer to a question, the page says

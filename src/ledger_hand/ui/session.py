@@ -34,8 +34,9 @@ and it keeps:
   how it is emptied, as Streamlit lets no program empty it.
 
 The bytes of a file just uploaded are read here (``uploaded``) and never
-kept: Streamlit holds the file itself until the browser tab is closed, or
-the person removes it, and writes it nowhere.
+kept: Streamlit holds the file itself in memory until the browser tab is
+closed, and writes it nowhere; emptying the upload box does not let go of
+it.
 
 It decides nothing about them; it only keeps them. Nothing here is written
 to disk.

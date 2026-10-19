@@ -23,11 +23,12 @@ status code or a wait, is looked up the same way (``model_kind_trouble``).
 An uploaded screenshot that was not read is said by its problem
 (``SCREENSHOT_FAILURES``, one sentence for each ``UploadProblem``), with the
 file's size and the limit in MB, and the vision model's name. When the
-vision model failed, or the server could not be asked for it, the failure
-follows, looked up as above but with the vision model's name in place of the
-model's (``vision_trouble``); except two, which would point the wrong way for
-a screenshot, since a picture is sent without a reply table and there is no
-passage to put another way: a request turned down with status 400
+server could not be asked for the vision model, the failure follows, looked
+up as above but with the vision model's name in place of the model's. When
+the vision model failed while reading, so does the failure, looked up the
+same way (``vision_trouble``), except two, which would point the wrong way
+for a screenshot, since a picture is sent without a reply table and there is
+no passage to put another way: a request turned down with status 400
 (``VISION_REFUSED``) and a reply not in the agreed form
 (``VISION_MALFORMED``).
 
@@ -314,11 +315,14 @@ def screenshot_not_read(outcome: UploadNotRead, settings: ModelSettings) -> str:
     )
     if outcome.problem not in _WITH_TROUBLE or outcome.error is None:
         return said
+    if outcome.problem is UploadProblem.VISION_MODEL_UNCHECKED:
+        vision = replace(settings, model=settings.vision_model)
+        return f"{said} {model_trouble(outcome.error, vision)}"
     return f"{said} {vision_trouble(outcome.error, settings)}"
 
 
 def vision_trouble(error: ModelError, settings: ModelSettings) -> str:
-    """The sentence for the vision model's ``error``, naming the vision model.
+    """The sentence for the vision model's ``error`` while reading, naming the vision model.
 
     Looked up as ``model_trouble`` does, but for status 400 and for a reply
     not in the agreed form, which have sentences of their own here.
