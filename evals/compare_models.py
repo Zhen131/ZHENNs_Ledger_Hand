@@ -30,6 +30,14 @@ parameter may be let through by name (``--parameter``), when a model was run
 with that one setting changed; the comparison then says which, and its two
 values.
 
+Two runs of the same model are compared only that way: with ``--parameter``,
+when the parameter named is the only one that differs and both runs have
+the same model fingerprint and server version. Each row and column is then
+named by the model and that parameter's value, and a run whose first line
+does not have the parameter is named as not sending it (the thinking setting
+is written only when it is sent). Two runs of the same model in any other
+way are refused as before.
+
     .venv/bin/python -m evals.compare_models <first>.jsonl <second>.jsonl [--parameter <name>]
 
 Names defined here: ``SAME_CONDITIONS``, ``check_comparable``,
@@ -67,6 +75,8 @@ SAME_CONDITIONS = (
 )
 _EMPTY_REPLY = "has an empty reply"
 _DASH = "-"
+# How a run whose first line does not have the parameter compared is named.
+_NOT_SENT = "not sent"
 
 
 def _model(results: Results) -> str:
@@ -91,6 +101,31 @@ def _differing_parameters(first: Results, second: Results) -> list[str]:
     return sorted(name for name in {*one, *other} if one.get(name) != other.get(name))
 
 
+def _same_model_let_through(first: Results, second: Results, parameter: str | None) -> bool:
+    """Whether two runs of one model may be compared: they differ in ``parameter`` only."""
+    return (
+        parameter is not None
+        and _differing_parameters(first, second) == [parameter]
+        and first.run.get("model_fingerprint") == second.run.get("model_fingerprint")
+        and first.run.get("server_version") == second.run.get("server_version")
+    )
+
+
+def _same_model(first: Results, second: Results) -> bool:
+    return _model(first) == _model(second)
+
+
+def _labels(first: Results, second: Results, parameter: str | None) -> tuple[str, str]:
+    """How the two runs are named in the tables: by model, or by model and the parameter."""
+    if parameter is None or not _same_model(first, second):
+        return f"`{_model(first)}`", f"`{_model(second)}`"
+    one, other = (
+        f"`{_model(r)}`, {parameter} {_parameters(r).get(parameter, _NOT_SENT)}"
+        for r in (first, second)
+    )
+    return one, other
+
+
 def _check_run(results: Results) -> None:
     if results.end is None:
         raise ValueError(f"the run of {_model(results)} has no end line: it did not finish")
@@ -105,7 +140,7 @@ def check_comparable(first: Results, second: Results, parameter: str | None = No
     """
     for results in (first, second):
         _check_run(results)
-    if _model(first) == _model(second):
+    if _same_model(first, second) and not _same_model_let_through(first, second, parameter):
         raise ValueError(f"both runs are of the model {_model(first)}")
     for key in SAME_CONDITIONS:
         one, other = _condition(first, key), _condition(second, key)
@@ -136,6 +171,15 @@ def _conditions_line(first: Results, second: Results, parameter: str | None) -> 
             "The two runs share the set, the prompt, the way of reading a passage and every "
             f"parameter; only the model differs: `{_model(first)}` and `{_model(second)}`."
         )
+    if _same_model(first, second):
+        one = _parameters(first).get(parameter, _NOT_SENT)
+        other = _parameters(second).get(parameter, _NOT_SENT)
+        return (
+            f"The two runs are of the same model, `{_model(first)}`, with the same fingerprint "
+            "on the same server version, and share the set, the prompt and the way of reading "
+            f"a passage; one parameter differs: {parameter}, {one} in the first run and "
+            f"{other} in the second."
+        )
     one, other = _parameters(first).get(parameter), _parameters(second).get(parameter)
     return (
         "The two runs share the set, the prompt and the way of reading a passage; besides "
@@ -144,15 +188,15 @@ def _conditions_line(first: Results, second: Results, parameter: str | None) -> 
     )
 
 
-def _scores_table(runs: Sequence[tuple[Results, Row]]) -> list[str]:
+def _scores_table(runs: Sequence[tuple[Results, Row, str]]) -> list[str]:
     lines = [
         "| Model | Well-formed | Whole trades right | One trade | Several trades | Missed "
         "| Extra | Made up | No-trade sentences right |",
         "| --- | --- | --- | --- | --- | --- | --- | --- | --- |",
     ]
-    for results, row in runs:
+    for _, row, label in runs:
         lines.append(
-            f"| `{_model(results)}` | {_ratio(row.well_formed, row.sentences)} "
+            f"| {label} | {_ratio(row.well_formed, row.sentences)} "
             f"| {_ratio(row.whole_right, row.gold_trades)} | {_ratio(*row.one_trade)} "
             f"| {_ratio(*row.several_trades)} | {row.missed} | {row.extra} "
             f"| {_ratio(*row.made_up)} | {_ratio(*row.no_trade)} |"
@@ -167,7 +211,7 @@ def _longest(results: Results, seconds: object) -> str:
     return f"{seconds} ({found})"
 
 
-def _cost_table(runs: Sequence[tuple[Results, Row]]) -> list[str]:
+def _cost_table(runs: Sequence[tuple[Results, Row, str]]) -> list[str]:
     lines = [
         "| Model | Wrong values with no issue | A total put as the price | Half copies (any) "
         "| Half copies (not right) | A time in another language "
@@ -175,13 +219,13 @@ def _cost_table(runs: Sequence[tuple[Results, Row]]) -> list[str]:
         "| First sentence, seconds | Longest sentence, seconds | Results file |",
         "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
     ]
-    for results, row in runs:
+    for results, row, label in runs:
         timing = summarize(results)["timing"]
         assert isinstance(timing, dict)
         count = int(timing["sentences"])
         each = float(timing["sum_of_sentence_seconds"]) / count if count else 0.0
         lines.append(
-            f"| `{_model(results)}` | {row.silent_wrong} | {row.total_as_price} "
+            f"| {label} | {row.silent_wrong} | {row.total_as_price} "
             f"| {row.half_copies_any} | {row.half_copies_not_right} "
             f"| {row.time_in_another_language} | {row.cut_off_sentences} | {row.calls} "
             f"| {count} | {row.seconds} | {each:.2f} | {timing['first_sentence_seconds']} "
@@ -210,10 +254,10 @@ def _result_counts(results: Results) -> dict[str, int]:
     return counts
 
 
-def _results_table(first: Results, second: Results) -> list[str]:
+def _results_table(first: Results, second: Results, labels: tuple[str, str]) -> list[str]:
     one, other = _result_counts(first), _result_counts(second)
     lines = [
-        f"| Result | `{_model(first)}` | `{_model(second)}` |",
+        f"| Result | {labels[0]} | {labels[1]} |",
         "| --- | --- | --- |",
     ]
     order = ["all sentences", *(kind.value for kind in ResultKind)]
@@ -226,14 +270,14 @@ def _results_table(first: Results, second: Results) -> list[str]:
     return lines
 
 
-def _fields_table(first: Results, second: Results) -> list[str]:
+def _fields_table(first: Results, second: Results, labels: tuple[str, str]) -> list[str]:
     every = []
     for results in (first, second):
         groups = summarize(results)["groups"]
         assert isinstance(groups, dict)
         every.append(groups["all scored sentences"])
     lines = [
-        f"| Field | `{_model(first)}`, right / pairs | `{_model(second)}`, right / pairs |",
+        f"| Field | {labels[0]}, right / pairs | {labels[1]}, right / pairs |",
         "| --- | --- | --- |",
     ]
     for field in Field:
@@ -258,17 +302,18 @@ def _per_sentence(results: Results) -> dict[str, tuple[str, str, str, str, str]]
     return rows
 
 
-def _sentences_table(first: Results, second: Results) -> list[str]:
+def _sentences_table(first: Results, second: Results, labels: tuple[str, str]) -> list[str]:
     one, other = _per_sentence(first), _per_sentence(second)
     every = first.run.get("set") == Split.VOICE.value
     ids = [str(line["id"]) for line in first.sentences]
     shown = [name for name in ids if every or one[name] != other[name]]
-    a, b = f"`{_model(first)}`", f"`{_model(second)}`"
+    a, b = labels
+    which = "runs" if _same_model(first, second) else "models"
     said = (
         "Every sentence"
         if every
         else (
-            "The sentences where the two models differ in result, drafts, whole trades right or "
+            f"The sentences where the two {which} differ in result, drafts, whole trades right or "
             "the fields not right"
         )
     )
@@ -294,14 +339,15 @@ def comparison_markdown(
     files: tuple[str, str],
     parameter: str | None = None,
 ) -> str:
-    """The comparison of two runs of two models, as the lines of the results record.
+    """The comparison of two runs, of two models or of one, as the lines of the results record.
 
     ``files`` names the two results files as the table shows them. Raises
     ``ValueError`` when the runs cannot be compared (``check_comparable``).
     """
     check_comparable(first, second, parameter)
-    pairs = zip((first, second), files, strict=True)
-    runs = [(results, row_of(results, name)) for results, name in pairs]
+    labels = _labels(first, second, parameter)
+    pairs = zip((first, second), files, labels, strict=True)
+    runs = [(results, row_of(results, name), label) for results, name, label in pairs]
     parts = [
         _conditions_line(first, second, parameter),
         "",
@@ -309,11 +355,11 @@ def comparison_markdown(
         "",
         *_cost_table(runs),
         "",
-        *_results_table(first, second),
+        *_results_table(first, second, labels),
         "",
-        *_fields_table(first, second),
+        *_fields_table(first, second, labels),
         "",
-        *_sentences_table(first, second),
+        *_sentences_table(first, second, labels),
     ]
     return "\n".join(parts) + "\n"
 
