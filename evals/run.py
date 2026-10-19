@@ -37,11 +37,14 @@ reading a passage (and when it is split first, the split prompt, its file,
 its fingerprints and the fingerprint of its table), the commit of the
 repository and whether the work tree was clean, the model, its fingerprint
 and the Ollama version (asked through the local plug's ``ask_identity``),
-every parameter, and the moment the run began. Paths are written relative
-to the repository. Each sentence's line holds, besides the drafts and the
-replies, the record of every reply read (``reads``) and, when the passage
-was split first, how it went (``split``): the route, the trades the split
-listed and the segments.
+every parameter (with the thinking setting, ``think``, only when it is on or
+off: a run that sends no think field writes its parameters as every run
+did before the setting was there, so an earlier run's first line, which
+has no ``think``, stands for "not sent"), and the moment the run began.
+Paths are written relative to the repository. Each sentence's line holds,
+besides the drafts and the replies, the record of every reply read
+(``reads``) and, when the passage was split first, how it went (``split``):
+the route, the trades the split listed and the segments.
 
 Exit status: 0 the run finished; 2 it could not start (a wrong argument, a
 setting, settings that choose the cloud plug, or the model server could not
@@ -130,7 +133,14 @@ from ledger_hand.ports import (
     ModelPort,
     ModelReply,
 )
-from ledger_hand.settings import ModelSettings, Plug, SettingsError, Variable, load_model_settings
+from ledger_hand.settings import (
+    ModelSettings,
+    Plug,
+    SettingsError,
+    Thinking,
+    Variable,
+    load_model_settings,
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 RESULTS_DIR = REPO_ROOT / "evals" / "results"
@@ -200,7 +210,7 @@ class Backend:
 
 
 def _parameters(settings: ModelSettings) -> dict[str, object]:
-    return {
+    parameters: dict[str, object] = {
         "temperature": settings.temperature,
         "top_p": settings.top_p,
         "max_reply_tokens": settings.max_reply_tokens,
@@ -210,6 +220,11 @@ def _parameters(settings: ModelSettings) -> dict[str, object]:
         "retry_wait_seconds": settings.retry_wait_seconds,
         "asks_again": DEFAULT_ASKS_AGAIN,
     }
+    # Left out when nothing is sent, so that such a run's conditions are written,
+    # and compared, as those of every run made before the setting was there.
+    if settings.think is not Thinking.MODEL:
+        parameters["think"] = settings.think.value
+    return parameters
 
 
 def local_backend(model_name: str | None) -> Backend:

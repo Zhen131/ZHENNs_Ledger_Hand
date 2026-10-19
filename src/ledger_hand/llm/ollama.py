@@ -10,6 +10,9 @@ goes to the same endpoint, the pictures in the last message
 model that cannot see pictures is refused by the server, as a server error.
 
 The default parameters come from the settings; a call can hand in others.
+Whether the model is asked to think first comes from the settings too
+(``think``), read once when the plug is built, and is sent the same way with
+every call, with pictures or without.
 The time spent is measured on this side, from sending to having the whole
 answer, so it includes loading the model when it was not yet in memory.
 
@@ -67,6 +70,7 @@ class OllamaModel:
         if not isinstance(settings, ModelSettings):
             raise TypeError(f"settings must be ModelSettings, not {type(settings).__name__}")
         self._model = settings.model
+        self._thinking = settings.think
         self._defaults = parameters_from(settings)
         self._endpoint = Endpoint(
             base_url=settings.base_url,
@@ -89,7 +93,9 @@ class OllamaModel:
         parameters: ModelParameters | None = None,
     ) -> ModelReply:
         chosen = self._defaults if parameters is None else parameters
-        content = encode(chat_body(self._model, messages, reply_schema, chosen))
+        content = encode(
+            chat_body(self._model, messages, reply_schema, chosen, thinking=self._thinking)
+        )
         return self._send(content, chosen)
 
     def chat_with_pictures(
@@ -100,7 +106,9 @@ class OllamaModel:
         parameters: ModelParameters | None = None,
     ) -> ModelReply:
         chosen = self._defaults if parameters is None else parameters
-        content = encode(picture_body(self._model, messages, pictures, chosen))
+        content = encode(
+            picture_body(self._model, messages, pictures, chosen, thinking=self._thinking)
+        )
         return self._send(content, chosen)
 
     def _send(self, content: bytes, chosen: ModelParameters) -> ModelReply:

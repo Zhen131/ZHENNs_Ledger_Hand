@@ -3,7 +3,9 @@
 ``load_model_settings`` reads the model settings from environment variables
 named ``LEDGER_HAND_MODEL_...`` (the ``Variable`` enumeration lists them) and
 returns a ``ModelSettings``. One of them chooses the plug that talks to the
-model (``Plug``): the local Ollama by default, or a cloud service. A
+model (``Plug``): the local Ollama by default, or a cloud service. Another
+says whether the local plug asks the model to think before it answers
+(``Thinking``), and another names the model that reads a screenshot. A
 variable that is not set, or is set to nothing but blanks, takes its
 default. A value that is not in the expected form, or is out of range, is
 refused with a ``SettingsError`` that names the variable; so is a variable
@@ -41,7 +43,7 @@ cloud service needs an address of its own, and off this machine https and a
 key) is checked where the plug is built, not here: so setting one variable
 alone never makes reading the settings fail because of another.
 
-Names defined here: ``ENV_PREFIX``, ``Variable``, ``Plug``, the ``DEFAULT_...``
+Names defined here: ``ENV_PREFIX``, ``Variable``, ``Plug``, ``Thinking``, the ``DEFAULT_...``
 constants, ``MAX_RETRIES``, ``Secret``, ``SettingsError``, ``ModelSettings``,
 ``About``, ``ABOUT``, ``load_model_settings``, ``apply_changes``,
 ``DATA_DIRECTORY_VARIABLE``, ``BOOK_FILE_NAME``, ``EXPORTS_DIRECTORY_NAME``,
@@ -78,6 +80,8 @@ class Variable(enum.Enum):
     RETRIES = ENV_PREFIX + "RETRIES"
     RETRY_WAIT_SECONDS = ENV_PREFIX + "RETRY_WAIT_SECONDS"
     QUESTION_TEMPERATURE = ENV_PREFIX + "QUESTION_TEMPERATURE"
+    VISION_NAME = ENV_PREFIX + "VISION_NAME"
+    THINK = ENV_PREFIX + "THINK"
 
 
 class Plug(enum.StrEnum):
@@ -87,6 +91,17 @@ class Plug(enum.StrEnum):
     """Ollama's own chat endpoint, on this machine by default."""
     CLOUD = "cloud"
     """The OpenAI-style chat endpoint most cloud services offer."""
+
+
+class Thinking(enum.StrEnum):
+    """Whether the local plug asks the model to think first; the values are the variable's."""
+
+    ON = "on"
+    """Sends ``think`` as true."""
+    OFF = "off"
+    """Sends ``think`` as false."""
+    MODEL = "model"
+    """Sends nothing, so the model does as its own default says."""
 
 
 # The defaults. The reason for each is in ``ABOUT`` below, and only there.
@@ -101,6 +116,8 @@ DEFAULT_TIMEOUT_SECONDS = 120.0
 DEFAULT_RETRIES = 2
 DEFAULT_RETRY_WAIT_SECONDS = 1.0
 DEFAULT_QUESTION_TEMPERATURE = 0.7
+DEFAULT_VISION_MODEL = "qwen3-vl:8b"
+DEFAULT_THINK = Thinking.MODEL
 # The most retries a setting may ask for, so that the waits stay finite.
 MAX_RETRIES = 10
 
@@ -147,7 +164,8 @@ class ModelSettings:
     again; ``retry_wait_seconds`` is the wait before the first retry, and each
     later wait is twice the one before. ``question_temperature`` is the
     temperature for wording a follow-up question; every other call uses
-    ``temperature``.
+    ``temperature``. ``vision_model`` is the model that reads a screenshot,
+    and ``think`` whether the local plug asks the model to think first.
     """
 
     plug: Plug = DEFAULT_PLUG
@@ -162,6 +180,8 @@ class ModelSettings:
     retries: int = DEFAULT_RETRIES
     retry_wait_seconds: float = DEFAULT_RETRY_WAIT_SECONDS
     question_temperature: float = DEFAULT_QUESTION_TEMPERATURE
+    vision_model: str = DEFAULT_VISION_MODEL
+    think: Thinking = DEFAULT_THINK
 
     def __post_init__(self) -> None:
         if not isinstance(self.plug, Plug):
@@ -194,6 +214,12 @@ class ModelSettings:
             lambda value: value >= 0,
             "0 or more",
         )
+        _check_visible(Variable.VISION_NAME, self.vision_model)
+        if not isinstance(self.think, Thinking):
+            raise SettingsError(
+                f"{Variable.THINK.value}: the thinking setting must be a Thinking, "
+                f"one of {_thinkings()}"
+            )
 
 
 @dataclass(frozen=True)
@@ -298,6 +324,25 @@ ABOUT: Mapping[Variable, About] = MappingProxyType(
             "temperature changes only the wording. Judging a passage, extraction and "
             f"reading an answer keep {Variable.TEMPERATURE.value}, 0 by default.",
         ),
+        Variable.VISION_NAME: About(
+            "vision_model",
+            "Which model reads a screenshot: the one shown the picture, which writes out the "
+            "order on it as text. The text it reads is then extracted by the model "
+            f"{Variable.NAME.value} names, as a typed passage is. Read through the local plug "
+            "only.",
+            "A model on this machine that can see pictures; qwen2.5:7b, the model the "
+            "program extracts with, cannot.",
+        ),
+        Variable.THINK: About(
+            "think",
+            "Whether the local plug asks the model to think before it answers: on sends "
+            "Ollama's think field as true, off sends it as false, model sends nothing and "
+            "leaves it to the model's own default. The cloud plug never sends it. A model that "
+            "cannot think refuses on: Ollama answers with status 400, saying the model does not "
+            "support thinking.",
+            "Model: nothing is sent, so each model answers as its own default says, as every "
+            "call did before this setting was there.",
+        ),
     }
 )
 
@@ -353,8 +398,10 @@ def _read(variable: Variable, text: str) -> object:
         return _plug(text)
     if variable is Variable.URL:
         return _strip_trailing_slash(text)
-    if variable is Variable.NAME:
+    if variable in (Variable.NAME, Variable.VISION_NAME):
         return text
+    if variable is Variable.THINK:
+        return _thinking(text)
     if variable is Variable.KEY:
         return Secret(text)
     if variable in _WHOLE_VARIABLES:
@@ -390,6 +437,20 @@ def _plug(text: str) -> Plug:
     except ValueError:
         raise SettingsError(
             f"{Variable.PLUG.value}: {_shown(text)} is not a plug; it is {_plugs()}"
+        ) from None
+
+
+def _thinkings() -> str:
+    return ", ".join(thinking.value for thinking in Thinking)
+
+
+def _thinking(text: str) -> Thinking:
+    try:
+        return Thinking(text)
+    except ValueError:
+        raise SettingsError(
+            f"{Variable.THINK.value}: {_shown(text)} is not a thinking setting; "
+            f"it is one of {_thinkings()}"
         ) from None
 
 

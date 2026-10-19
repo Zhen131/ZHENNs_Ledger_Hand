@@ -100,6 +100,8 @@ NOT_THE_DEFAULT = {
     Variable.RETRIES: "7",
     Variable.RETRY_WAIT_SECONDS: "7",
     Variable.QUESTION_TEMPERATURE: "0.1",
+    Variable.VISION_NAME: "invented-vision:3b",
+    Variable.THINK: "on",
 }
 
 

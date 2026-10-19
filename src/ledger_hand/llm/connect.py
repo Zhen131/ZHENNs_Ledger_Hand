@@ -24,13 +24,22 @@ Building sends nothing; the first call is the first contact with the
 server. ``local.connect_local_model`` still builds the local plug alone,
 for the tools that only ever use it.
 
-Names defined here: ``LOOPBACK_HOSTS``, ``check_plug``, ``connect_model``.
+``connect_vision_model`` builds the plug that reads a screenshot: the local
+plug, with the model the settings name for it (``vision_model``) in place of
+the one that extracts, and the address, the thinking setting, the time
+allowed and the retries as the settings say. Pictures are read through the
+local plug only, so settings that choose the cloud plug are refused with a
+``SettingsError`` naming the plug setting, before anything is built or sent.
+
+Names defined here: ``LOOPBACK_HOSTS``, ``check_plug``, ``connect_model``,
+``connect_vision_model``.
 """
 
 from __future__ import annotations
 
 import time
 from collections.abc import Callable
+from dataclasses import replace
 from urllib.parse import urlsplit
 
 import httpx
@@ -92,3 +101,27 @@ def connect_model(
         first_wait_seconds=settings.retry_wait_seconds,
         sleep=sleep,
     )
+
+
+def connect_vision_model(
+    settings: ModelSettings,
+    *,
+    transport: httpx.BaseTransport | None = None,
+    sleep: Callable[[float], None] = time.sleep,
+) -> ModelPort:
+    """The local plug for the model that reads a screenshot, retrying as the settings say.
+
+    Raises ``SettingsError``, naming the plug setting, when the settings
+    choose the cloud plug. ``transport`` and ``sleep`` are for tests.
+    """
+    if not isinstance(settings, ModelSettings):
+        raise TypeError(f"settings must be ModelSettings, not {type(settings).__name__}")
+    if settings.plug is not Plug.LOCAL:
+        plug = Variable.PLUG.value
+        raise SettingsError(
+            f"{plug} is {settings.plug.value}, but a screenshot is read through the "
+            f"{Plug.LOCAL.value} plug only: the cloud plug sends no pictures. Unset {plug}, "
+            f"or set it to {Plug.LOCAL.value}, to read one."
+        )
+    vision = replace(settings, model=settings.vision_model)
+    return connect_local_model(vision, transport=transport, sleep=sleep)

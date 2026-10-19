@@ -47,6 +47,8 @@ EVERY_VARIABLE = {
     Variable.RETRIES: ("5", "retries", 5),
     Variable.RETRY_WAIT_SECONDS: ("0.25", "retry_wait_seconds", 0.25),
     Variable.QUESTION_TEMPERATURE: ("0.4", "question_temperature", 0.4),
+    Variable.VISION_NAME: ("invented-vision:3b", "vision_model", "invented-vision:3b"),
+    Variable.THINK: ("on", "think", "on"),
 }
 
 
