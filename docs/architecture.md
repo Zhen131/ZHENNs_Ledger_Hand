@@ -75,6 +75,8 @@ src/ledger_hand/
             second.py             extraction: `first`, two more rules, six more examples, for experiments (exists)
             second_examples.py    the ten examples of `first` and the six `second` adds (exists)
             third.py              extraction: `first` and the two rules of `second`, for experiments (exists)
+            fourth.py             extraction: `first`, the two rules of `second`, seven more examples, for experiments (exists)
+            fourth_examples.py    the ten examples of `first` and the seven `fourth` adds (exists)
             split.py              splitting a passage, few-shot, for experiments      (exists)
             screen.py             judging a passage, zero-shot                        (exists)
             answer.py             reading an answer, zero-shot                        (exists)

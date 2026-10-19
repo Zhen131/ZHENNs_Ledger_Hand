@@ -69,7 +69,12 @@ does not do yet:
   the rule fixed beforehand picked neither, so the final set was not run for
   them and the product still uses `first` (`evals/RESULTS.md`, "2026-10-18:
   prompt experiment three, more examples for the owner's way of writing,
-  `qwen2.5:7b`").
+  `qwen2.5:7b`"). One more, `fourth`, written after the errors of `first`,
+  `second` and `third` on those sets, got 8 of 10 on the voice set and 33 of
+  34 on the debug set, and the rule picked it; on the final set it got 18 of
+  22 against 22 for `first`, so it did not pass, and the product still uses
+  `first` (`evals/RESULTS.md`, "2026-10-19: prompt experiment four, new
+  examples with English passages and Chinese numbers, `qwen2.5:7b`").
 - **Not built yet.** Screenshot input. Known limits are in
   `docs/known-gaps.md`.
 
@@ -502,7 +507,8 @@ this:
    `--model` (pulled into Ollama by hand first), a parameter with its
    environment variable.
 2. Before running, write down the rule that will pick one, the way
-   `evals/compare.py` and `evals/compare_methods.py` do.
+   `evals/compare.py`, `evals/compare_methods.py` and `evals/compare_sets.py`
+   do.
 3. Run the debug set with each candidate, and commit each results file
    with its section of `evals/RESULTS.md`: a test of the quick tier checks
    that the record shows exactly what every committed results file gives.
@@ -515,7 +521,7 @@ this:
    all the same, because it picks nothing: it lays both models side by side
    on the same sets at one commit.
 
-The three prompt experiments and the comparison of two models made so far,
+The four prompt experiments and the comparison of two models made so far,
 their tables and the rules the experiments used are in `evals/RESULTS.md`;
 `docs/project-report.md`, section 6, sums them up.
 
@@ -533,6 +539,7 @@ wording is a new version.
 | `price_total` (`extraction/prompts/price_total.py`) | Extraction, for experiments only | A changed content: `first` and one more rule, that a total is never the price |
 | `second` (`extraction/prompts/second.py`) | Extraction, for experiments only | A changed content, two changes at once: `first`'s instructions and two more rules (the owner's words for a buy; an amount with U right after it is the total), and `first`'s ten examples and six more written the way the owner writes, in `extraction/prompts/second_examples.py` |
 | `third` (`extraction/prompts/third.py`) | Extraction, for experiments only | A changed content: `first` and the two rules of `second`, without its six examples |
+| `fourth` (`extraction/prompts/fourth.py`) | Extraction, for experiments only | A changed content, two changes at once: `first`'s instructions and the two rules of `second`, and `first`'s ten examples and seven more, five written the way the owner writes and two in English, in `extraction/prompts/fourth_examples.py`; it differs from `third` only in those examples |
 | `split-1` (`extraction/prompts/split.py`) | Splitting a passage, for experiments only: copy the pieces of the passage each trade needs | A few examples (few-shot), in the same file |
 | `screen-1` (`extraction/prompts/screen.py`) | Judging a passage: which kinds of thing it reports | No example at all (zero-shot) |
 | `answer-1` (`extraction/prompts/answer.py`) | Reading an answer the rules could not: copy the one piece that gives what was asked | No example at all (zero-shot) |
@@ -542,9 +549,13 @@ wording is a new version.
 `first` in that one thing only, and a test checks it. `second` differs from
 `first` in two things at once, more rules and more examples, so its runs
 cannot tell which of the two made a difference; `third` has the rules of
-`second` without its examples. Tests check each of the two against what it
+`second` without its examples. `fourth` differs from `first` in two things
+as well, the rules of `second` and seven examples of its own, and from
+`third` in its examples only. Tests check each of the three against what it
 declares it adds. The product records passages with `first`: the rule fixed
-before the third prompt experiment picked neither `second` nor `third`. A
+before the third prompt experiment picked neither `second` nor `third`, and
+the rule fixed before the fourth picked `fourth`, which then did not pass
+the final set. A
 version may bring a reply table of its own (`stepwise` does); otherwise it
 sends the one table every version shares. The module descriptions of
 `zero_shot`, `persona`, `stepwise` and `price_total` say what was true when
@@ -561,7 +572,7 @@ names the version used for each step.
 ```sh
 .venv/bin/python -m evals.run                    # the debug set, prompt "first", the model the settings name
 .venv/bin/python -m evals.run --model qwen2.5:7b --prompt first
-.venv/bin/python -m evals.run --prompt stepwise  # any version: first, zero_shot, persona, stepwise, price_total, second, third
+.venv/bin/python -m evals.run --prompt stepwise  # any version: first, zero_shot, persona, stepwise, price_total, second, third, fourth
 .venv/bin/python -m evals.run --set writings --prompt first
 .venv/bin/python -m evals.run --set voice --model qwen3-vl:8b
 .venv/bin/python -m evals.run --method split_first     # split each passage first; default one_list
@@ -638,6 +649,14 @@ by side: the scores, what each sentence gave (model failures by kind, empty
 replies apart), each field, the seconds per sentence and the sentences where
 the two differ; it refuses two runs that differ in anything but the model,
 and `--parameter` lets one parameter differ, which it then names.
+`evals.compare_sets` lays the runs of `first` and of other prompt versions
+side by side on each set: the scores, the three more counts, the seconds,
+each field and the sentences where they differ; it refuses runs that differ
+in the set, the model, the server's version, the way of reading a passage,
+the parameters or the reply table. With `--choose` it applies to one
+candidate the rule fixed before the third prompt experiment, and with
+`--final` it sets a candidate's run of the final set against an earlier one
+of `first`.
 
 The debug set took about two minutes with `qwen2.5:7b` on the machine it
 was built on, with the model already loaded (`stepwise`, which writes its
@@ -979,8 +998,9 @@ with the first; a rule fixed beforehand picked one version, and only that
 one ran the final set, once. Two more versions, written for the owner's
 way of writing, were measured later on the debug, voice and writings sets;
 the rule fixed before them picked neither, so the final set was not run for
-them. `evals/RESULTS.md` has the tables. The product still records passages
-with the first prompt.
+them. One more, written after their errors, was picked by the rule fixed
+before it, ran the final set once and did not pass it. `evals/RESULTS.md`
+has the tables. The product still records passages with the first prompt.
 
 **Splitting a passage first.** `split_then_extract` in
 `src/ledger_hand/extraction/splitting.py` is the other way to read a passage

@@ -168,7 +168,14 @@ measured beside `first`: `second` got 6 of 10 trades whole on the voice set
 and `third` 2 of 10, but each got fewer trades whole than `first` on the
 debug set, 29 and 30 of 34 against 31, so the rule fixed beforehand picked
 neither and the product still extracts with `first` (same section, "The
-rule applied to `second`" and "The rule applied to `third`").
+rule applied to `second`" and "The rule applied to `third`"). A third,
+`fourth`, written after their errors as well, got 8 of 10 trades whole on
+the voice set and 33 of 34 on the debug set, and the rule fixed before it
+picked it; on the final set it got 18 of 22 against 22 for `first`, so it
+did not pass, and the product still extracts with `first`
+(`evals/RESULTS.md`, "2026-10-19: prompt experiment four, new examples with
+English passages and Chinese numbers, `qwen2.5:7b`", "The rule applied to
+`fourth`" and "The final set").
 
 ## Reading an answer: a word such as "about" may be dropped
 

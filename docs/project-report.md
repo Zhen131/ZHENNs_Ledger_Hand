@@ -90,8 +90,8 @@ passage and to read an answer, few-shot to extract, persona to word a
 follow-up question. Chain of thought, and the zero-shot and persona
 versions of extraction, were tried in experiments only. **The product
 extracts with `first` (few-shot) and reads a passage in one call (one
-list); in the experiments the rules fixed beforehand picked no other version
-and no other way over them.**
+list); in the experiments the rules fixed beforehand picked one other
+version, `fourth`, which did not pass the final set, and no other way.**
 
 | Technique | Prompt version | File | Step | In the product | Measured |
 | --- | --- | --- | --- | --- | --- |
@@ -106,6 +106,7 @@ and no other way over them.**
 | (A changed rule) | `price_total` | `src/ledger_hand/extraction/prompts/price_total.py` | Extraction | Experiments only | Debug set: 29 / 34 |
 | Few-shot, with more examples and two more rules | `second` | `src/ledger_hand/extraction/prompts/second.py`, examples in `src/ledger_hand/extraction/prompts/second_examples.py` | Extraction | Experiments only | Debug set: 29 / 34; voice set: 6 / 10 |
 | (Two more rules) | `third` | `src/ledger_hand/extraction/prompts/third.py` | Extraction | Experiments only | Debug set: 30 / 34; voice set: 2 / 10 |
+| Few-shot, with other examples and two more rules | `fourth` | `src/ledger_hand/extraction/prompts/fourth.py`, examples in `src/ledger_hand/extraction/prompts/fourth_examples.py` | Extraction | Experiments only | Debug set: 33 / 34; voice set: 8 / 10; final set: 18 / 22 |
 
 The extraction scores are "whole trades right" from `evals/RESULTS.md`,
 section "2026-10-09: prompt experiment one", table "The five versions on
@@ -114,7 +115,10 @@ the debug set"; the final set's from "Final exam: final set, prompt
 on the debug set"; `second`'s and `third`'s from "2026-10-18: prompt
 experiment three, more examples for the owner's way of writing,
 `qwen2.5:7b`", "The versions on the debug set" and "The versions on the
-voice set". Section 6 has the tables.
+voice set"; `fourth`'s from "2026-10-19: prompt experiment four, new
+examples with English passages and Chinese numbers, `qwen2.5:7b`", "The
+versions on the debug set", "The versions on the voice set" and "The final
+set". Section 6 has the tables.
 
 What each prompt looks like:
 
@@ -133,14 +137,22 @@ What each prompt looks like:
   that says which trade and field it is about, and replaces any sentence
   that is not one plain question or that brings in a number, a coin or a
   word not among the facts (`src/ledger_hand/asking/question_text.py`).
-- **The experiment versions** each differ from `first` in one thing only:
-  `zero_shot` has no example; `persona` puts the bookkeeper's role before
-  the instructions; `stepwise` asks for a step-by-step analysis, written in a
-  field `steps` of its own reply table before the rows; `price_total` adds
-  one rule, that an amount said as a total never goes under price. A test
-  checks that each is `first` with its one declared change
-  (`tests/extraction/test_prompt_versions.py`), and another that no prompt
-  holds a test sentence or a clause of one
+- **The experiment versions.** Four each differ from `first` in one thing
+  only: `zero_shot` has no example; `persona` puts the bookkeeper's role
+  before the instructions; `stepwise` asks for a step-by-step analysis,
+  written in a field `steps` of its own reply table before the rows;
+  `price_total` adds one rule, that an amount said as a total never goes
+  under price. A test checks that each is `first` with its one declared
+  change (`tests/extraction/test_prompt_versions.py`). `second` and `fourth`
+  each differ from `first` in two things: two rules after `first`'s
+  instructions (the owner's words for a buy; an amount with U right after
+  it is the total), and more examples after `first`'s ten, six in `second`
+  and seven others in `fourth`; `third` adds the two rules only. Tests check
+  each against what it declares it adds
+  (`tests/extraction/test_second_prompt_version.py`,
+  `tests/extraction/test_third_prompt_version.py`,
+  `tests/extraction/test_fourth_prompt_version.py`), and another that no
+  prompt holds a test sentence or a clause of one
   (`tests/extraction/test_new_prompts_hold_no_test_sentence.py`).
 
 **Where chain of thought ended up.** When the project was planned, chain of
@@ -159,7 +171,10 @@ rules fixed before the first two experiments picked `first` and one list
 (section 6), which is what the product already used. The rule fixed before
 the third prompt experiment picked neither of the two versions written for
 the owner's way of writing, `second` and `third`, so the final set was not
-run for them and extraction still uses `first`. Its defaults have not been
+run for them and extraction still uses `first`. The rule fixed before the
+fourth prompt experiment picked `fourth`, which then got 18 / 22 on the
+final set against 22 / 22 for `first`, so it did not pass and extraction
+still uses `first`. Its defaults have not been
 changed, and any change is the project owner's decision.
 
 Every measured prompt version is a file of its own and is never changed
@@ -281,7 +296,10 @@ replies came back empty. Two versions written for the owner's way of
 writing, `second` and `third`, got 6 / 10 and 2 / 10 on the voice set where
 `first` got 1 / 10, and 29 / 34 and 30 / 34 on the debug set where it got
 31 / 34; the rule fixed beforehand picked neither, so the final set was not
-run for them.
+run for them. One more, `fourth`, got 8 / 10 on the voice set and 33 / 34 on
+the debug set, and the rule picked it; on the kept-back set it got 18 / 22,
+below the 22 / 22 of `first`, so it did not pass and the product still
+extracts with `first`.
 
 ### The yardstick
 
@@ -506,6 +524,64 @@ are those of the final set and of the owner's later use. And `first`
 already gets every trade of the final set whole, so the final set could
 show only whether a candidate falls behind, not whether it does better.
 
+### Experiment five: new examples with English passages and Chinese numbers
+
+The fifth experiment (`evals/RESULTS.md`, "2026-10-19: prompt experiment
+four, new examples with English passages and Chinese numbers,
+`qwen2.5:7b`": the fourth experiment on the prompt, the fifth in all) tried
+one more version for the owner's way of writing, after `second` and `third`
+had lost English passages and Chinese numbers on the debug set. `fourth`
+(`src/ledger_hand/extraction/prompts/fourth.py`) changes two things from
+`first` at once: the two rules of `second` after `first`'s instructions, and
+seven more examples after `first`'s ten, in
+`src/ledger_hand/extraction/prompts/fourth_examples.py`: five written the
+way the owner writes, one of them with a price in Chinese numbers, and two
+in English only, each with an English time and a quantity written as a bare
+number or with an English coin name. It differs from `third` only in those
+examples. It ran on the debug, the voice and the writings set, one run each,
+with `qwen2.5:7b`, one list and the settings' defaults, and was set beside
+the runs of `first` and `third` of the fourth experiment, which were not
+made again: the model server, the model, the parameters, the sets and the
+program were the same. The rule of the fourth experiment judged it against
+`first`. **The rule picked `fourth`: on the debug set it got 33 / 34 against
+31 / 34, on the voice set 8 / 10 against 1 / 10, with fewer wrong values
+with no issue on both, and its prompt fits in the context with the longest
+passage and the longest reply, with 644 tokens left against 2,003 for
+`first`. On the final set, run once, it got 18 / 22 against 22 / 22 for
+`first`, with one wrong value with no issue against none, so it did not pass,
+and the product still extracts with `first`.** The numbers below are copied
+from the record's tables "The versions on the debug set", "… on the voice
+set", "… on the writings set" and "The final set".
+
+| Set | Version | Whole trades right | Wrong values with no issue | Missed | Extra | Seconds per sentence |
+| --- | --- | --- | --- | --- | --- | --- |
+| debug | `first` | 31 / 34 (91.2%) | 2 | 0 | 0 | 3.95 |
+| debug | `fourth` | 33 / 34 (97.1%) | 0 | 0 | 0 | 4.23 |
+| voice | `first` | 1 / 10 (10.0%) | 6 | 0 | 0 | 4.53 |
+| voice | `fourth` | 8 / 10 (80.0%) | 1 | 0 | 0 | 4.43 |
+| writings | `first` | 15 / 22 (68.2%) | 0 | 0 | 0 | 3.36 |
+| writings | `fourth` | 21 / 22 (95.5%) | 0 | 0 | 0 | 3.49 |
+| final | `first` | 22 / 22 (100.0%) | 0 | 0 | 0 | 3.86 |
+| final | `fourth` | 18 / 22 (81.8%) | 1 | 0 | 0 | 4.15 |
+
+On the debug and the writings set `fourth` wrote no English time in
+Chinese, where `first` wrote 2 and 7; it got more trades whole than `first`
+in d05 and d13 and in six sentences of the writings set, and fewer in w06,
+copying "5 万 个" as "5 万个". On the voice set it got every scored sentence
+whole but u03, whose opinion leaves out its first clause, and u06, whose
+opinion joins two parts of the passage. On the final set it got fewer trades
+whole than `first` in f04, f08 and f12: an opinion made up in f04, with no
+issue about it, a quantity made up and the total and its currency left
+empty in f08, and both fees left empty in f12.
+
+Two facts bear on these numbers. The new examples were written after the
+errors of `first` on the voice set and those of `second` and `third` on the
+debug and the writings set, so the scores of `fourth` on all three are not
+scores on passages it had not seen; the only passages it had not seen are
+those of the final set and of the owner's later use. And `first` already
+gets every trade of the final set whole, so the final set could show only
+whether a candidate falls behind, which `fourth` did.
+
 ### The iteration trace
 
 Every measured version is kept as its own file under
@@ -527,6 +603,7 @@ line.
 | 9 | `split-1`: split a passage first, then extract each segment | Tied on whole trades, 2 extra trades, about twice the calls |
 | 10 | A second model, `qwen3-vl:8b`, with the same prompt, way and parameters; and a fourth set, the voice set | 3 / 34 on the debug set, 5 / 22 on the final set and 0 / 10 on the voice set, against 31 / 34, 22 / 22 and 1 / 10 for `qwen2.5:7b`; 25 of its 30 debug sentences ended in an empty reply |
 | 11 | `second`: two more rules and six more examples in the owner's way of writing; `third`: the two rules alone | 6 / 10 and 2 / 10 on the voice set against 1 / 10 for `first`, and 29 / 34 and 30 / 34 on the debug set against 31 / 34: neither picked, the final set not run |
+| 12 | `fourth`: the two rules of `second` and seven other examples, two of them in English and one with a price in Chinese numbers | 8 / 10 on the voice set and 33 / 34 on the debug set against 1 / 10 and 31 / 34 for `first`: picked; then 18 / 22 on the final set against 22 / 22: not passed, `first` kept |
 
 `answer-1`, the prompt that copies a piece of an answer, has been reworded
 once (commit `b345470`): it now says what the piece to copy is, so that the
@@ -554,7 +631,7 @@ confirmation, and every file written carries its version.
 | The book carries its version and a mark | A file ten years old must still be read. The version and the mark are read before anything else; a newer or foreign file is refused without one byte written; numbered upgrade scripts are never changed once committed, and each version has a golden sample. | `src/ledger_hand/storage/book_file.py`, `src/ledger_hand/storage/upgrades/`, `tests/storage/golden/` |
 | The core touches nothing outside | The rules (a trade, numbers, times, the check of a draft) use only a short list of standard-library modules, read no clock and no machine time zone, and use no floating-point numbers. They can be tested with no setup and moved anywhere; the layering check enforces this on every run. | `src/ledger_hand/core/`, `tests/guardrails/layering.py` |
 | No wrapper framework around the model (such as LangChain) | The request, its parameters and its failures are what this project is about, and a wrapper would hide them. The calls are a thin layer over `httpx`; the run-time dependencies are three (httpx, Streamlit, tzlocal). Also left out: data-validation libraries, database abstraction layers, evaluation frameworks. | `src/ledger_hand/llm/exchange.py`, `pyproject.toml`, `docs/architecture.md` |
-| Rules fixed before measuring | A rule chosen after seeing the numbers picks the numbers. Both experiments wrote their rule down before running, and the final set is run once, at the end. | `evals/compare.py`, `evals/compare_methods.py` |
+| Rules fixed before measuring | A rule chosen after seeing the numbers picks the numbers. Every experiment that picks a version or a way wrote its rule down before running, and the final set is run once, at the end. | `evals/compare.py`, `evals/compare_methods.py`, `evals/compare_sets.py` |
 | One plain sentence for every failure | The interface never shows a raw error; every kind has a sentence, and a test walks every kind. | `src/ledger_hand/ui/failure_words.py`, `tests/ui/test_failure_words.py` |
 
 ## 8. Known limitations
@@ -602,7 +679,7 @@ section of the README or of this report, a test.
 | Error handling: API timeout, empty input, rate limit | Timeout: [`src/ledger_hand/llm/exchange.py`](../src/ledger_hand/llm/exchange.py), [`tests/llm/test_exchange.py`](../tests/llm/test_exchange.py). Empty input: [`src/ledger_hand/extraction/passage_check.py`](../src/ledger_hand/extraction/passage_check.py), [`tests/ui/test_page_failures.py`](../tests/ui/test_page_failures.py). Rate limit: [`src/ledger_hand/llm/retry_after.py`](../src/ledger_hand/llm/retry_after.py), [`src/ledger_hand/llm/retry.py`](../src/ledger_hand/llm/retry.py), [`tests/llm/test_cloud_retry.py`](../tests/llm/test_cloud_retry.py). Every failure in one plain sentence: [`src/ledger_hand/ui/failure_words.py`](../src/ledger_hand/ui/failure_words.py). Section 5 | Done; a rate limit is tested against a fake server only (section 8) |
 | Documentation | [`README.md`](../README.md), this report, [`docs/architecture.md`](architecture.md), [`docs/known-gaps.md`](known-gaps.md), [`evals/RESULTS.md`](../evals/RESULTS.md) | Done |
 | GitHub repository | This repository with its Git history; it has a GitHub remote, and publishing to it is done by the project owner | Done |
-| Prompt experiments, with the trace of iteration | Every run's results file in [`evals/results/`](../evals/results/), the record in [`evals/RESULTS.md`](../evals/RESULTS.md), every measured version kept as its own file in [`src/ledger_hand/extraction/prompts/`](../src/ledger_hand/extraction/prompts/), the rules in [`evals/compare.py`](../evals/compare.py) and [`evals/compare_methods.py`](../evals/compare_methods.py); section 6 | Done |
+| Prompt experiments, with the trace of iteration | Every run's results file in [`evals/results/`](../evals/results/), the record in [`evals/RESULTS.md`](../evals/RESULTS.md), every measured version kept as its own file in [`src/ledger_hand/extraction/prompts/`](../src/ledger_hand/extraction/prompts/), the rules in [`evals/compare.py`](../evals/compare.py), [`evals/compare_methods.py`](../evals/compare_methods.py) and [`evals/compare_sets.py`](../evals/compare_sets.py); section 6 | Done |
 | Extra: a custom database | The book, a versioned SQLite file with numbered upgrade scripts and a golden sample: [`src/ledger_hand/storage/sqlite_store.py`](../src/ledger_hand/storage/sqlite_store.py), [`src/ledger_hand/storage/upgrades/`](../src/ledger_hand/storage/upgrades/), [`tests/storage/golden/`](../tests/storage/golden/) | Done |
 | Extra: combining multiple models | Two local models, `qwen2.5:7b` and `qwen3-vl:8b`, measured side by side on the same yardstick (the debug, final and voice sets) with the same prompt, way of reading and parameters: [`evals/RESULTS.md`](../evals/RESULTS.md), "2026-10-13: second model, `qwen2.5:7b` and `qwen3-vl:8b`"; section 6, "Experiment three: a second model". The comparison is worked out from the results files by [`evals/compare_models.py`](../evals/compare_models.py) and checked against the record by [`tests/evals/test_model_comparison_record.py`](../tests/evals/test_model_comparison_record.py). The model is a setting (`LEDGER_HAND_MODEL_NAME`; `--model` in experiments): the two are run one at a time and compared side by side, not combined in one pipeline | Done |
 | Extra: multimodal | Not done: screenshot input is planned for a later stage; where it would go: [`docs/architecture.md`](architecture.md), "Where a new feature goes" | Not done |
