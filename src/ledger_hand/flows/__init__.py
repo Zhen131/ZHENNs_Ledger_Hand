@@ -9,6 +9,9 @@ shows it. Recording writes nothing; with a book handed in, it reads the book
 for an earlier save of the same passage and for the coins confirmed before.
 ``screenshot`` starts a passage from a screenshot: the text the vision model
 reads off it, then the note typed beside it, recorded as one passage.
+``uploading`` checks a screenshot the person uploaded before the vision
+model is shown it (the plug, the file's size and kind, whether the server
+has the vision model), then has it read, and says what was read or why not.
 
 ``saving`` keeps the final records of a passage in the book, only when the
 person asked for it. ``exporting`` writes the saved trades not exported yet
