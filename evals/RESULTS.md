@@ -8038,3 +8038,518 @@ Results file: `evals/results/run-20261019T111751Z-final-fourth.jsonl`, with its 
 | --- | --- | --- | --- | --- | --- | --- |
 
 </details>
+
+## 2026-10-19: the thinking switch, `qwen3-vl:8b`
+
+In "2026-10-13: second model, `qwen2.5:7b` and `qwen3-vl:8b`", `qwen3-vl:8b`
+with the settings' defaults gave an empty reply in 25 of the 30 sentences of
+the debug set and in 9 of the 10 of the voice set: the server's answer held
+no text, only the model's thinking beside it. The plug did not say then
+whether the model was to think, and the model thinks by its own default. The
+local plug now has a thinking setting, `LEDGER_HAND_MODEL_THINK`: on sends
+Ollama's think field as true, off as false, and model sends nothing, as
+every call did before. Here `qwen3-vl:8b` ran the debug set and the voice
+set with thinking off, and each run is compared with that section's run of
+the same set, which sent no think field: the same model, the same prompt
+version, `first`, the same way of reading a passage, one list, and the same
+parameters; only the think field differs, not sent in the earlier runs and
+off in these. The two earlier runs are
+`evals/results/run-20261013T093206Z-debug-first.jsonl` and
+`evals/results/run-20261013T095344Z-voice-first.jsonl`.
+
+**The rule, fixed before the runs.** On the debug set, the whole trades
+right of all scored sentences are compared. When the run with thinking off
+has at least as many as the earlier run, the default becomes off (a tie
+goes to off, because it is faster), but only after a guard run of
+`qwen2.5:7b` with thinking off shows that the default model does not fail
+more often and gets no fewer trades whole than its run of the debug set of
+2026-10-18 with prompt `first`. When it has fewer, the default stays model,
+nothing sent. The default is never on: the earlier runs measured nothing
+sent, and `qwen2.5:7b`, the model the program extracts with, cannot think,
+so the server would refuse every call with on. The voice set is shown, and
+not judged.
+
+**What the rule gave.** The run with thinking off got 0 of 34 trades whole on
+the debug set, against 3 of 34 for the earlier run, nothing sent: fewer, so
+the default stays model (`DEFAULT_THINK` in `src/ledger_hand/settings.py`),
+and the guard run was not made.
+
+**Conditions.** `qwen3-vl:8b` (fingerprint
+`901cae73216286ea8c5aba8b46d307ff7188f737285ec500c795a12f05225d28`), Ollama
+0.34.3, and the settings' defaults in both runs but one: temperature 0.0,
+top_p 1.0, longest reply 1,024 tokens, context 16,384 tokens, 120 seconds per
+call, 2 retries 1 second apart, and asking again once after a reply that
+misses its table; and thinking off, set by `LEDGER_HAND_MODEL_THINK=off`, the
+one variable starting with `LEDGER_HAND_MODEL_` that was set. Each run named
+its model with `--model`. The first line of each results file records the
+setting among the parameters as `think`, off; a run that sends nothing
+records no `think`, as the earlier runs do. `ollama show qwen3-vl:8b`, read
+before the runs, lists its capabilities as completion, vision, tools and
+thinking (levels false and true, true by default), and its own parameters as
+temperature 1, top_k 20 and top_p 0.95; `ollama show qwen2.5:7b` lists
+completion and tools, and no thinking. The model was not loaded on purpose
+before a run, so the first sentence of a run may include loading it into
+memory. The two runs were made one after the other on 2026-10-19, at
+commits that differ only by the results files of the run before:
+
+| Run | Commit | Began (UTC) | Finished (UTC) |
+| --- | --- | --- | --- |
+| debug set, `qwen3-vl:8b`, thinking off | `a0db869` | 12:28:46 | 12:31:01 |
+| voice set, `qwen3-vl:8b`, thinking off | `e1cb5c4` | 12:31:44 | 12:32:33 |
+
+Each subsection below is printed by `evals/compare_models.py` from the two
+results files, the earlier run first, as in "2026-10-13: second model,
+`qwen2.5:7b` and `qwen3-vl:8b`"; each row and column is named by the model
+and the think field. A model failure whose message holds "has an empty
+reply" is counted among the empty replies.
+
+### The debug set, thinking not sent and off
+
+The two runs are of the same model, `qwen3-vl:8b`, with the same fingerprint on the same server version, and share the set, the prompt and the way of reading a passage; one parameter differs: think, not sent in the first run and off in the second.
+
+| Model | Well-formed | Whole trades right | One trade | Several trades | Missed | Extra | Made up | No-trade sentences right |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `qwen3-vl:8b`, think not sent | 5 / 26 (19.2%) | 3 / 34 (8.8%) | 1 / 15 (6.7%) | 2 / 19 (10.5%) | 31 | 0 | 0 / 15 (0.0%) | 3 / 3 (100.0%) |
+| `qwen3-vl:8b`, think off | 0 / 26 (0.0%) | 0 / 34 (0.0%) | 0 / 15 (0.0%) | 0 / 19 (0.0%) | 34 | 0 | 0 / 0 (-) | 0 / 3 (0.0%) |
+
+| Model | Wrong values with no issue | A total put as the price | Half copies (any) | Half copies (not right) | A time in another language | Sentences with a reply cut off | Calls | Sentences | Seconds | Seconds per sentence | First sentence, seconds | Longest sentence, seconds | Results file |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `qwen3-vl:8b`, think not sent | 0 | 0 | 0 | 0 | 0 | 0 | 5 | 30 | 1282.1 | 42.74 | 50.881 | 52.573 (d30) | `evals/results/run-20261013T093206Z-debug-first.jsonl` |
+| `qwen3-vl:8b`, think off | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 30 | 134.4 | 4.48 | 10.574 | 10.574 (d01) | `evals/results/run-20261019T122846Z-debug-first.jsonl` |
+
+| Result | `qwen3-vl:8b`, think not sent | `qwen3-vl:8b`, think off |
+| --- | --- | --- |
+| all sentences | 30 | 30 |
+| extracted | 5 | 0 |
+| reply_unreadable | 0 | 0 |
+| model_failed | 25 | 30 |
+| - unreachable | 0 | 0 |
+| - timed_out | 0 | 0 |
+| - model_not_found | 0 | 0 |
+| - rate_limited | 0 | 0 |
+| - server_error | 0 | 0 |
+| - malformed_reply | 25 | 30 |
+| - malformed_reply, of them an empty reply | 25 | 30 |
+| passage_refused | 0 | 0 |
+
+| Field | `qwen3-vl:8b`, think not sent, right / pairs | `qwen3-vl:8b`, think off, right / pairs |
+| --- | --- | --- |
+| side | 3 / 3 (100.0%) | 0 / 0 (-) |
+| coin | 3 / 3 (100.0%) | 0 / 0 (-) |
+| quantity | 3 / 3 (100.0%) | 0 / 0 (-) |
+| price | 3 / 3 (100.0%) | 0 / 0 (-) |
+| total | 3 / 3 (100.0%) | 0 / 0 (-) |
+| price_currency | 3 / 3 (100.0%) | 0 / 0 (-) |
+| fee | 3 / 3 (100.0%) | 0 / 0 (-) |
+| fee_currency | 3 / 3 (100.0%) | 0 / 0 (-) |
+| time | 3 / 3 (100.0%) | 0 / 0 (-) |
+| platform | 3 / 3 (100.0%) | 0 / 0 (-) |
+| opinion | 3 / 3 (100.0%) | 0 / 0 (-) |
+
+The sentences where the two runs differ in result, drafts, whole trades right or the fields not right (5 of 30):
+
+| Sentence | Group | Result, `qwen3-vl:8b`, think not sent | Result, `qwen3-vl:8b`, think off | Drafts, `qwen3-vl:8b`, think not sent | Drafts, `qwen3-vl:8b`, think off | Whole right, `qwen3-vl:8b`, think not sent | Whole right, `qwen3-vl:8b`, think off | Fields not right, `qwen3-vl:8b`, think not sent | Fields not right, `qwen3-vl:8b`, think off |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| d02 | scored | extracted | model_failed | 1 | 0 | 1 | 0 | - | - |
+| d20 | scored | extracted | model_failed | 2 | 0 | 2 | 0 | - | - |
+| d24 | scored | extracted | model_failed | 0 | 0 | 0 | 0 | - | - |
+| d25 | scored | extracted | model_failed | 0 | 0 | 0 | 0 | - | - |
+| d26 | scored | extracted | model_failed | 0 | 0 | 0 | 0 | - | - |
+
+
+### The voice set, thinking not sent and off
+
+The two runs are of the same model, `qwen3-vl:8b`, with the same fingerprint on the same server version, and share the set, the prompt and the way of reading a passage; one parameter differs: think, not sent in the first run and off in the second.
+
+| Model | Well-formed | Whole trades right | One trade | Several trades | Missed | Extra | Made up | No-trade sentences right |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `qwen3-vl:8b`, think not sent | 1 / 9 (11.1%) | 0 / 10 (0.0%) | 0 / 8 (0.0%) | 0 / 2 (0.0%) | 9 | 0 | 1 / 3 (33.3%) | 0 / 0 (-) |
+| `qwen3-vl:8b`, think off | 0 / 9 (0.0%) | 0 / 10 (0.0%) | 0 / 8 (0.0%) | 0 / 2 (0.0%) | 10 | 0 | 0 / 0 (-) | 0 / 0 (-) |
+
+| Model | Wrong values with no issue | A total put as the price | Half copies (any) | Half copies (not right) | A time in another language | Sentences with a reply cut off | Calls | Sentences | Seconds | Seconds per sentence | First sentence, seconds | Longest sentence, seconds | Results file |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `qwen3-vl:8b`, think not sent | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 10 | 460.3 | 46.03 | 45.316 | 54.74 (u04) | `evals/results/run-20261013T095344Z-voice-first.jsonl` |
+| `qwen3-vl:8b`, think off | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 10 | 48.5 | 4.85 | 5.105 | 8.563 (u09) | `evals/results/run-20261019T123144Z-voice-first.jsonl` |
+
+| Result | `qwen3-vl:8b`, think not sent | `qwen3-vl:8b`, think off |
+| --- | --- | --- |
+| all sentences | 10 | 10 |
+| extracted | 1 | 0 |
+| reply_unreadable | 0 | 0 |
+| model_failed | 9 | 10 |
+| - unreachable | 0 | 0 |
+| - timed_out | 0 | 0 |
+| - model_not_found | 0 | 0 |
+| - rate_limited | 0 | 0 |
+| - server_error | 0 | 0 |
+| - malformed_reply | 9 | 10 |
+| - malformed_reply, of them an empty reply | 9 | 10 |
+| passage_refused | 0 | 0 |
+
+| Field | `qwen3-vl:8b`, think not sent, right / pairs | `qwen3-vl:8b`, think off, right / pairs |
+| --- | --- | --- |
+| side | 1 / 1 (100.0%) | 0 / 0 (-) |
+| coin | 1 / 1 (100.0%) | 0 / 0 (-) |
+| quantity | 0 / 1 (0.0%) | 0 / 0 (-) |
+| price | 0 / 1 (0.0%) | 0 / 0 (-) |
+| total | 0 / 1 (0.0%) | 0 / 0 (-) |
+| price_currency | 0 / 1 (0.0%) | 0 / 0 (-) |
+| fee | 1 / 1 (100.0%) | 0 / 0 (-) |
+| fee_currency | 1 / 1 (100.0%) | 0 / 0 (-) |
+| time | 1 / 1 (100.0%) | 0 / 0 (-) |
+| platform | 1 / 1 (100.0%) | 0 / 0 (-) |
+| opinion | 1 / 1 (100.0%) | 0 / 0 (-) |
+
+Every sentence (10 of 10):
+
+| Sentence | Group | Result, `qwen3-vl:8b`, think not sent | Result, `qwen3-vl:8b`, think off | Drafts, `qwen3-vl:8b`, think not sent | Drafts, `qwen3-vl:8b`, think off | Whole right, `qwen3-vl:8b`, think not sent | Whole right, `qwen3-vl:8b`, think off | Fields not right, `qwen3-vl:8b`, think not sent | Fields not right, `qwen3-vl:8b`, think off |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| u01 | scored | model_failed | model_failed | 0 | 0 | 0 | 0 | - | - |
+| u02 | scored | model_failed | model_failed | 0 | 0 | 0 | 0 | - | - |
+| u03 | scored | model_failed | model_failed | 0 | 0 | 0 | 0 | - | - |
+| u04 | scored | model_failed | model_failed | 0 | 0 | 0 | 0 | - | - |
+| u05 | scored | model_failed | model_failed | 0 | 0 | 0 | 0 | - | - |
+| u06 | scored | model_failed | model_failed | 0 | 0 | 0 | 0 | - | - |
+| u07 | scored | model_failed | model_failed | 0 | 0 | 0 | 0 | - | - |
+| u08 | not_to_record | model_failed | model_failed | 0 | 0 | - | - | - | - |
+| u09 | scored | model_failed | model_failed | 0 | 0 | 0 | 0 | - | - |
+| u10 | scored | extracted | model_failed | 1 | 0 | 0 | 0 | 1.quantity:MADE_UP, 1.price:LEFT_EMPTY_WITH_REASON, 1.total:LEFT_EMPTY_BY_MODEL, 1.price_currency:LEFT_EMPTY_WITH_REASON | - |
+
+
+### The rule applied
+
+| Set | Whole trades right, thinking not sent | Whole trades right, thinking off | Judged |
+| --- | --- | --- | --- |
+| debug | 3 of 34 | 0 of 34 | yes: off has fewer, so the default stays model |
+| voice | 0 of 10 | 0 of 10 | no, shown only |
+
+The numbers are those of `whole_right` and `gold_trades` in the group "all
+scored sentences" of each run's summary.
+
+### The guard run
+
+Not run: the rule kept the default at model, nothing sent, so no call to
+`qwen2.5:7b` changes; the guard run of `qwen2.5:7b` with thinking off is made
+only before the default becomes off.
+
+### The numbers in short
+
+- Debug set: 0 of 34 trades whole with thinking off, 3 of 34 with nothing
+  sent. All 30 sentences failed with thinking off, each as an empty reply,
+  against 25 of 30 empty replies with nothing sent. Seconds per sentence 4.48
+  with thinking off and 42.74 with nothing sent; the longest sentence 10.574
+  seconds (d01) and 52.573 (d30).
+- Voice set: 0 of 10 trades whole either way. All 10 sentences failed with
+  thinking off, each as an empty reply, against 9 of 10 empty replies with
+  nothing sent. Seconds per sentence 4.85 with thinking off and 46.03 with
+  nothing sent; the longest sentence 8.563 seconds (u09) and 54.74 (u04).
+- The message of every failure in the two runs with thinking off says that
+  the model wrote only its thinking: the server's answer held no text and
+  some thinking beside it, as it did for the empty replies of the earlier
+  runs.
+
+### The runs of the thinking switch
+
+Each run with thinking off has its own subsection with the tables its
+results file gives and its three more counts (`evals/extra_counts.py`). The
+earlier runs have theirs under "The runs of the second-model comparison".
+
+### Run: debug set, `qwen3-vl:8b`, thinking off
+
+Results file: `evals/results/run-20261019T122846Z-debug-first.jsonl`, with its summary in `run-20261019T122846Z-debug-first.summary.json`.
+
+<details>
+<summary>The generated tables of this run</summary>
+
+#### Run
+| Condition | Value |
+| --- | --- |
+| set | debug |
+| final_exam_switch | False |
+| set_file | evals/sets/debug.json |
+| set_sha256 | 4529d98323ad1df4d38f5a5b73cdf1082b6a1cd08a0604a454ecf7986104f4d8 |
+| prompt | first |
+| prompt file src/ledger_hand/extraction/prompts/first.py | sha256 e09ca774e7a4455891a9a8980c6932d3b9691f53c00cc189c3dfbcbbfb7368ba |
+| prompt file src/ledger_hand/extraction/prompts/first_examples.py | sha256 3088812302b7895fac2c1c65a60a9f703bdfcec40b9cb556b7cf8ef5ec682c32 |
+| prompt_content_sha256 | 7a510f4aaf16f7830ea5df2ec2071a276006565014e61bf295aa44a57a297112 |
+| reply_table_sha256 | e3870b098001b51896b9671f15ef57491df1f7834c0b880d7588ae65b6548e70 |
+| method | one_list |
+| commit | a0db869275d3f1eafbf5ec70778530ceb0771c34 |
+| worktree_clean | True |
+| model | qwen3-vl:8b |
+| model_fingerprint | 901cae73216286ea8c5aba8b46d307ff7188f737285ec500c795a12f05225d28 |
+| server_version | 0.34.3 |
+| base_url | http://127.0.0.1:11434 |
+| parameter temperature | 0.0 |
+| parameter top_p | 1.0 |
+| parameter max_reply_tokens | 1024 |
+| parameter context_tokens | 16384 |
+| parameter timeout_seconds | 120.0 |
+| parameter retries | 2 |
+| parameter retry_wait_seconds | 1.0 |
+| parameter asks_again | 1 |
+| parameter think | off |
+| coin_table | built-in |
+| started_at | 2026-10-19T12:28:46+00:00 |
+| sentences | 30 |
+| sum_of_sentence_seconds | 134.365 |
+| first_sentence_seconds | 10.574 |
+| longest_sentence_seconds | 10.574 |
+| finished_at | 2026-10-19T12:31:01+00:00 |
+| seconds_of_the_last_session | 134.396 |
+
+#### Scores by group
+| Group | Sentences | Well-formed | Whole trades right | Missed | Extra | Made up | No-trade sentences right |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| all scored sentences | 26 | 0 / 26 (0.0%) | 0 / 34 (0.0%) | 34 | 0 | 0 / 0 (-) | 0 / 3 (0.0%) |
+| one trade | 15 | 0 / 15 (0.0%) | 0 / 15 (0.0%) | 15 | 0 | 0 / 0 (-) | 0 / 0 (-) |
+| several trades | 8 | 0 / 8 (0.0%) | 0 / 19 (0.0%) | 19 | 0 | 0 / 0 (-) | 0 / 0 (-) |
+| - two trades | 5 | 0 / 5 (0.0%) | 0 / 10 (0.0%) | 10 | 0 | 0 / 0 (-) | 0 / 0 (-) |
+| - three or more trades | 3 | 0 / 3 (0.0%) | 0 / 9 (0.0%) | 9 | 0 | 0 / 0 (-) | 0 / 0 (-) |
+| no trade (talk) | 3 | 0 / 3 (0.0%) | 0 / 0 (-) | 0 | 0 | 0 / 0 (-) | 0 / 3 (0.0%) |
+| Chinese | 10 | 0 / 10 (0.0%) | 0 / 13 (0.0%) | 13 | 0 | 0 / 0 (-) | 0 / 1 (0.0%) |
+| English | 9 | 0 / 9 (0.0%) | 0 / 12 (0.0%) | 12 | 0 | 0 / 0 (-) | 0 / 1 (0.0%) |
+| mixed | 7 | 0 / 7 (0.0%) | 0 / 9 (0.0%) | 9 | 0 | 0 / 0 (-) | 0 / 1 (0.0%) |
+
+#### Each field, all scored sentences
+| Field | Right / pairs |
+| --- | --- |
+| side | 0 / 0 (-) |
+| coin | 0 / 0 (-) |
+| quantity | 0 / 0 (-) |
+| price | 0 / 0 (-) |
+| total | 0 / 0 (-) |
+| price_currency | 0 / 0 (-) |
+| fee | 0 / 0 (-) |
+| fee_currency | 0 / 0 (-) |
+| time | 0 / 0 (-) |
+| platform | 0 / 0 (-) |
+| opinion | 0 / 0 (-) |
+
+#### Every field of every pair, by kind
+| Kind | Fields |
+| --- | --- |
+| RIGHT: right | 0 |
+| LEFT_EMPTY_WITH_REASON: left empty by the program, with the reason in the issues | 0 |
+| - because the model's phrase is not a piece of the passage | 0 |
+| - because the model's phrase cuts a number of the passage | 0 |
+| - because the number reader was unsure of the phrase or could not read it | 0 |
+| - because the time reader refused the phrase or gave two candidates | 0 |
+| - because another issue about the field | 0 |
+| LEFT_EMPTY_BY_MODEL: left empty, with no issue: the model copied nothing that gives it | 0 |
+| WRONG_WITH_ISSUE: a wrong value in the draft, with an issue about the field | 0 |
+| WRONG_SILENT: a wrong value in the draft, with no issue about the field | 0 |
+| MADE_UP: a value in the draft where the gold answer is empty | 0 |
+| - of them with an issue about the field | 0 |
+
+#### Wrong values in drafts with no issue about them (0)
+| Sentence | Draft | Field | Model copied | Draft holds | Gold | Kind |
+| --- | --- | --- | --- | --- | --- | --- |
+
+#### Half copies: the model copied part of the gold phrase (0)
+| Sentence | Draft | Field | Model copied | Draft holds | Gold | Kind |
+| --- | --- | --- | --- | --- | --- | --- |
+
+#### Fields the program left empty (0; the model's phrase was exactly the gold phrase in 0)
+| Sentence | Draft | Field | Model copied | Gold phrase | Reason | Model copied exactly the gold phrase |
+| --- | --- | --- | --- | --- | --- | --- |
+
+#### Passages not to record (not in any score above)
+| Sentence | Kind | Result | Drafts | What the check of a draft says |
+| --- | --- | --- | --- | --- |
+| d27: 昨天开了 10 倍杠杆做多 BTC，开仓价 62,800，保证金 200U | futures_or_leverage | model_failed | 0 | - |
+| d28: Swapped 0.5 ETH for 0.019 BTC on Uniswap this morning | coin_for_coin | model_failed | 0 | - |
+| d29: 挂了一个 limit buy，0.05 BTC @ 58,000，还没成交 | open_order | model_failed | 0 | - |
+| d30: 打算明天下午 3 点买 1 个 ETH，价格到 2,300 就进 | plan | model_failed | 0 | - |
+
+#### Every scored sentence
+| Sentence | Language | Result | Gold trades | Drafts | Whole right | Missed | Extra | Fields not right (gold trade.field:kind) |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| d01 | zh | model_failed | 1 | 0 | 0 | 1 | 0 | - |
+| d02 | en | model_failed | 1 | 0 | 0 | 1 | 0 | - |
+| d03 | mixed | model_failed | 1 | 0 | 0 | 1 | 0 | - |
+| d04 | zh | model_failed | 1 | 0 | 0 | 1 | 0 | - |
+| d05 | en | model_failed | 1 | 0 | 0 | 1 | 0 | - |
+| d06 | mixed | model_failed | 1 | 0 | 0 | 1 | 0 | - |
+| d07 | zh | model_failed | 1 | 0 | 0 | 1 | 0 | - |
+| d08 | en | model_failed | 1 | 0 | 0 | 1 | 0 | - |
+| d09 | mixed | model_failed | 1 | 0 | 0 | 1 | 0 | - |
+| d10 | zh | model_failed | 1 | 0 | 0 | 1 | 0 | - |
+| d11 | en | model_failed | 1 | 0 | 0 | 1 | 0 | - |
+| d12 | zh | model_failed | 1 | 0 | 0 | 1 | 0 | - |
+| d13 | en | model_failed | 1 | 0 | 0 | 1 | 0 | - |
+| d14 | zh | model_failed | 1 | 0 | 0 | 1 | 0 | - |
+| d15 | mixed | model_failed | 1 | 0 | 0 | 1 | 0 | - |
+| d16 | zh | model_failed | 2 | 0 | 0 | 2 | 0 | - |
+| d17 | en | model_failed | 2 | 0 | 0 | 2 | 0 | - |
+| d18 | mixed | model_failed | 2 | 0 | 0 | 2 | 0 | - |
+| d19 | zh | model_failed | 2 | 0 | 0 | 2 | 0 | - |
+| d20 | en | model_failed | 2 | 0 | 0 | 2 | 0 | - |
+| d21 | zh | model_failed | 3 | 0 | 0 | 3 | 0 | - |
+| d22 | en | model_failed | 3 | 0 | 0 | 3 | 0 | - |
+| d23 | mixed | model_failed | 3 | 0 | 0 | 3 | 0 | - |
+| d24 | zh | model_failed | 0 | 0 | 0 | 0 | 0 | - |
+| d25 | en | model_failed | 0 | 0 | 0 | 0 | 0 | - |
+| d26 | mixed | model_failed | 0 | 0 | 0 | 0 | 0 | - |
+
+#### Three more counts
+| Count | Cases |
+| --- | --- |
+| A total put as the price | 0 |
+| Half copies, any field whose phrase is part of the gold phrase | 0 |
+| Half copies, only fields not right (as in the summary) | 0 |
+| A time written in another language | 0 |
+
+#### A total put as the price (0; gold is the total)
+| Sentence | Draft | Field | Model copied | Draft holds | Gold phrase | Gold |
+| --- | --- | --- | --- | --- | --- | --- |
+
+#### Half copies, counted the second way (0)
+| Sentence | Draft | Field | Model copied | Draft holds | Gold phrase | Gold | Field right |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+
+#### A time written in another language (0)
+| Sentence | Draft | Field | Model copied | Draft holds | Gold phrase | Gold |
+| --- | --- | --- | --- | --- | --- | --- |
+
+</details>
+
+### Run: voice set, `qwen3-vl:8b`, thinking off
+
+Results file: `evals/results/run-20261019T123144Z-voice-first.jsonl`, with its summary in `run-20261019T123144Z-voice-first.summary.json`.
+
+<details>
+<summary>The generated tables of this run</summary>
+
+#### Run
+| Condition | Value |
+| --- | --- |
+| set | voice |
+| final_exam_switch | False |
+| set_file | evals/sets/voice.json |
+| set_sha256 | 884e678672d4fcedc2d36da18e96e7e70261785936b4fc48cd2a3259d2b35196 |
+| prompt | first |
+| prompt file src/ledger_hand/extraction/prompts/first.py | sha256 e09ca774e7a4455891a9a8980c6932d3b9691f53c00cc189c3dfbcbbfb7368ba |
+| prompt file src/ledger_hand/extraction/prompts/first_examples.py | sha256 3088812302b7895fac2c1c65a60a9f703bdfcec40b9cb556b7cf8ef5ec682c32 |
+| prompt_content_sha256 | 7a510f4aaf16f7830ea5df2ec2071a276006565014e61bf295aa44a57a297112 |
+| reply_table_sha256 | e3870b098001b51896b9671f15ef57491df1f7834c0b880d7588ae65b6548e70 |
+| method | one_list |
+| commit | e1cb5c4f8827a0ced9492daba2c2d408df655d44 |
+| worktree_clean | True |
+| model | qwen3-vl:8b |
+| model_fingerprint | 901cae73216286ea8c5aba8b46d307ff7188f737285ec500c795a12f05225d28 |
+| server_version | 0.34.3 |
+| base_url | http://127.0.0.1:11434 |
+| parameter temperature | 0.0 |
+| parameter top_p | 1.0 |
+| parameter max_reply_tokens | 1024 |
+| parameter context_tokens | 16384 |
+| parameter timeout_seconds | 120.0 |
+| parameter retries | 2 |
+| parameter retry_wait_seconds | 1.0 |
+| parameter asks_again | 1 |
+| parameter think | off |
+| coin_table | built-in |
+| started_at | 2026-10-19T12:31:44+00:00 |
+| sentences | 10 |
+| sum_of_sentence_seconds | 48.526 |
+| first_sentence_seconds | 5.105 |
+| longest_sentence_seconds | 8.563 |
+| finished_at | 2026-10-19T12:32:33+00:00 |
+| seconds_of_the_last_session | 48.538 |
+
+#### Scores by group
+| Group | Sentences | Well-formed | Whole trades right | Missed | Extra | Made up | No-trade sentences right |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| all scored sentences | 9 | 0 / 9 (0.0%) | 0 / 10 (0.0%) | 10 | 0 | 0 / 0 (-) | 0 / 0 (-) |
+| one trade | 8 | 0 / 8 (0.0%) | 0 / 8 (0.0%) | 8 | 0 | 0 / 0 (-) | 0 / 0 (-) |
+| several trades | 1 | 0 / 1 (0.0%) | 0 / 2 (0.0%) | 2 | 0 | 0 / 0 (-) | 0 / 0 (-) |
+| - two trades | 1 | 0 / 1 (0.0%) | 0 / 2 (0.0%) | 2 | 0 | 0 / 0 (-) | 0 / 0 (-) |
+| - three or more trades | 0 | 0 / 0 (-) | 0 / 0 (-) | 0 | 0 | 0 / 0 (-) | 0 / 0 (-) |
+| no trade (talk) | 0 | 0 / 0 (-) | 0 / 0 (-) | 0 | 0 | 0 / 0 (-) | 0 / 0 (-) |
+| Chinese | 9 | 0 / 9 (0.0%) | 0 / 10 (0.0%) | 10 | 0 | 0 / 0 (-) | 0 / 0 (-) |
+| English | 0 | 0 / 0 (-) | 0 / 0 (-) | 0 | 0 | 0 / 0 (-) | 0 / 0 (-) |
+| mixed | 0 | 0 / 0 (-) | 0 / 0 (-) | 0 | 0 | 0 / 0 (-) | 0 / 0 (-) |
+
+#### Each field, all scored sentences
+| Field | Right / pairs |
+| --- | --- |
+| side | 0 / 0 (-) |
+| coin | 0 / 0 (-) |
+| quantity | 0 / 0 (-) |
+| price | 0 / 0 (-) |
+| total | 0 / 0 (-) |
+| price_currency | 0 / 0 (-) |
+| fee | 0 / 0 (-) |
+| fee_currency | 0 / 0 (-) |
+| time | 0 / 0 (-) |
+| platform | 0 / 0 (-) |
+| opinion | 0 / 0 (-) |
+
+#### Every field of every pair, by kind
+| Kind | Fields |
+| --- | --- |
+| RIGHT: right | 0 |
+| LEFT_EMPTY_WITH_REASON: left empty by the program, with the reason in the issues | 0 |
+| - because the model's phrase is not a piece of the passage | 0 |
+| - because the model's phrase cuts a number of the passage | 0 |
+| - because the number reader was unsure of the phrase or could not read it | 0 |
+| - because the time reader refused the phrase or gave two candidates | 0 |
+| - because another issue about the field | 0 |
+| LEFT_EMPTY_BY_MODEL: left empty, with no issue: the model copied nothing that gives it | 0 |
+| WRONG_WITH_ISSUE: a wrong value in the draft, with an issue about the field | 0 |
+| WRONG_SILENT: a wrong value in the draft, with no issue about the field | 0 |
+| MADE_UP: a value in the draft where the gold answer is empty | 0 |
+| - of them with an issue about the field | 0 |
+
+#### Wrong values in drafts with no issue about them (0)
+| Sentence | Draft | Field | Model copied | Draft holds | Gold | Kind |
+| --- | --- | --- | --- | --- | --- | --- |
+
+#### Half copies: the model copied part of the gold phrase (0)
+| Sentence | Draft | Field | Model copied | Draft holds | Gold | Kind |
+| --- | --- | --- | --- | --- | --- | --- |
+
+#### Fields the program left empty (0; the model's phrase was exactly the gold phrase in 0)
+| Sentence | Draft | Field | Model copied | Gold phrase | Reason | Model copied exactly the gold phrase |
+| --- | --- | --- | --- | --- | --- | --- |
+
+#### Passages not to record (not in any score above)
+| Sentence | Kind | Result | Drafts | What the check of a draft says |
+| --- | --- | --- | --- | --- |
+| u08: 在OKX挂了个BTC限价单，59,500买100U，觉得这里是强支撑，等它触发 | open_order | model_failed | 0 | - |
+
+#### Every scored sentence
+| Sentence | Language | Result | Gold trades | Drafts | Whole right | Missed | Extra | Fields not right (gold trade.field:kind) |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| u01 | zh | model_failed | 1 | 0 | 0 | 1 | 0 | - |
+| u02 | zh | model_failed | 1 | 0 | 0 | 1 | 0 | - |
+| u03 | zh | model_failed | 1 | 0 | 0 | 1 | 0 | - |
+| u04 | zh | model_failed | 1 | 0 | 0 | 1 | 0 | - |
+| u05 | zh | model_failed | 1 | 0 | 0 | 1 | 0 | - |
+| u06 | zh | model_failed | 1 | 0 | 0 | 1 | 0 | - |
+| u07 | zh | model_failed | 1 | 0 | 0 | 1 | 0 | - |
+| u09 | zh | model_failed | 2 | 0 | 0 | 2 | 0 | - |
+| u10 | zh | model_failed | 1 | 0 | 0 | 1 | 0 | - |
+
+#### Three more counts
+| Count | Cases |
+| --- | --- |
+| A total put as the price | 0 |
+| Half copies, any field whose phrase is part of the gold phrase | 0 |
+| Half copies, only fields not right (as in the summary) | 0 |
+| A time written in another language | 0 |
+
+#### A total put as the price (0; gold is the total)
+| Sentence | Draft | Field | Model copied | Draft holds | Gold phrase | Gold |
+| --- | --- | --- | --- | --- | --- | --- |
+
+#### Half copies, counted the second way (0)
+| Sentence | Draft | Field | Model copied | Draft holds | Gold phrase | Gold | Field right |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+
+#### A time written in another language (0)
+| Sentence | Draft | Field | Model copied | Draft holds | Gold phrase | Gold |
+| --- | --- | --- | --- | --- | --- | --- |
+
+</details>

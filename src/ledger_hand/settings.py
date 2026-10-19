@@ -341,7 +341,11 @@ ABOUT: Mapping[Variable, About] = MappingProxyType(
             "cannot think refuses on: Ollama answers with status 400, saying the model does not "
             "support thinking.",
             "Model: nothing is sent, so each model answers as its own default says, as every "
-            "call did before this setting was there.",
+            "call did before this setting was there. Measured with qwen3-vl:8b on the debug set "
+            '(see "2026-10-19: the thinking switch, `qwen3-vl:8b`" in evals/RESULTS.md), off '
+            "got fewer trades whole than nothing sent, and every reply it gave was empty, so off "
+            "is not the default; nor is on, which qwen2.5:7b, the model the program extracts "
+            "with, cannot do.",
         ),
     }
 )
