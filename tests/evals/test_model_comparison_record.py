@@ -17,7 +17,9 @@ on this machine, and the same set file, prompt content and reply table as
 the second experiment's runs. Every run of a model has the same parameters
 and the same fingerprint, written here; the two models have the same
 parameters. That each fingerprint is the one the model server lists is
-checked by hand: no test here asks the server. No model is called.
+checked by hand: no test here asks the server. No model is called. The
+section is held to stand after the three earlier ones, not to be the last:
+the record grows at its end, and later sections follow it.
 """
 
 from __future__ import annotations
@@ -153,4 +155,9 @@ def test_the_section_is_in_the_record_after_every_earlier_one() -> None:
     text = record()
 
     assert text.count(HEADING) == 1
-    assert "\n## " not in text[text.index(HEADING) + len(HEADING) :]
+    earlier = (
+        "## 2026-10-05: baseline",
+        "## 2026-10-09: prompt experiment one",
+        "## 2026-10-09: prompt experiment two",
+    )
+    assert all(text.index(heading) < text.index(HEADING) for heading in earlier)
