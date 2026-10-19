@@ -24,6 +24,9 @@ wait, either kind, counts as one retry.
 model server is not running, and the person at the keyboard should hear that
 at once rather than after a round of waits.
 
+A call with pictures (``chat_with_pictures``) is tried again by the same
+rules as any other.
+
 The wait is a function handed in, so that tests record the waits instead of
 sleeping through them.
 
@@ -45,6 +48,7 @@ from ledger_hand.ports import (
     ModelParameters,
     ModelPort,
     ModelReply,
+    Picture,
 )
 
 RETRYABLE = frozenset(
@@ -96,10 +100,27 @@ class RetryingModel:
         reply_schema: JsonSchema | None = None,
         parameters: ModelParameters | None = None,
     ) -> ModelReply:
+        return self._tried(
+            lambda: self._inner.chat(messages, reply_schema=reply_schema, parameters=parameters)
+        )
+
+    def chat_with_pictures(
+        self,
+        messages: Sequence[Message],
+        pictures: Sequence[Picture],
+        *,
+        parameters: ModelParameters | None = None,
+    ) -> ModelReply:
+        return self._tried(
+            lambda: self._inner.chat_with_pictures(messages, pictures, parameters=parameters)
+        )
+
+    def _tried(self, call: Callable[[], ModelReply]) -> ModelReply:
+        """``call``'s reply, tried again after the failures worth waiting for."""
         attempt = 0
         while True:
             try:
-                return self._inner.chat(messages, reply_schema=reply_schema, parameters=parameters)
+                return call()
             except ModelError as error:
                 wait = self._wait_before_retry(error, attempt)
                 if wait is None:

@@ -8,6 +8,10 @@ kind whose list is used up fails the test, except the questions: with no
 scripted question left, wording one fails as the model being unreachable,
 so the program's own sentence is used and the transcript stays readable.
 
+A call with pictures, reading a screenshot, sends no schema; every such call
+takes its reply from a list of its own, ``pictures``, and a call after the
+last one scripted fails the test.
+
 Names defined here: ``RoutedModel``.
 """
 
@@ -26,6 +30,7 @@ from ledger_hand.ports import (
     ModelErrorKind,
     ModelParameters,
     ModelReply,
+    Picture,
 )
 from tests.fakes.scripted_model import ScriptedModel, Step
 
@@ -40,11 +45,13 @@ class RoutedModel:
         extraction: Iterable[Step] = (),
         questions: Iterable[Step] = (),
         answers: Iterable[Step] = (),
+        pictures: Iterable[Step] = (),
     ) -> None:
         self.screen = ScriptedModel(screen)
         self.extraction = ScriptedModel(extraction)
         self.questions = ScriptedModel(questions)
         self.answers = ScriptedModel(answers)
+        self.pictures = ScriptedModel(pictures)
         # The parameters of every attempt to word a question, scripted or not.
         self.question_parameters: list[ModelParameters | None] = []
 
@@ -69,3 +76,12 @@ class RoutedModel:
             if scripted.steps_left == 0:
                 raise ModelError(ModelErrorKind.UNREACHABLE, "no question is scripted")
         return scripted.chat(messages, reply_schema=reply_schema, parameters=parameters)
+
+    def chat_with_pictures(
+        self,
+        messages: Sequence[Message],
+        pictures: Sequence[Picture],
+        *,
+        parameters: ModelParameters | None = None,
+    ) -> ModelReply:
+        return self.pictures.chat_with_pictures(messages, pictures, parameters=parameters)

@@ -7,21 +7,30 @@ whole reply comes back at once. ``OPTION_FIELDS`` says which parameter goes
 into which field. ``timeout_seconds`` is not among them: it is how long this
 side waits, and is never sent.
 
-A call in the wrong shape is refused before anything is sent, by the
-checks every plug shares (``request_body.check_call``). ``encode``, also
-shared and kept in ``request_body``, turns the body into the bytes that are
-sent; it can be imported from here as well.
+``picture_body`` lays out a call that shows the model pictures: the same
+body with no schema, and the pictures in the ``images`` field of the last
+message, each as the standard base64 of its bytes (not the URL-safe kind,
+and with no ``data:`` prefix). Their media type is not sent: Ollama tells
+the kind from the bytes.
 
-Names defined here: ``CHAT_PATH``, ``OPTION_FIELDS``, ``chat_body``.
+A call in the wrong shape is refused before anything is sent, by the
+checks every plug shares (``request_body.check_call``, and
+``request_body.check_pictures`` for the pictures). ``encode``, also shared
+and kept in ``request_body``, turns the body into the bytes that are sent;
+it can be imported from here as well.
+
+Names defined here: ``CHAT_PATH``, ``OPTION_FIELDS``, ``chat_body``,
+``picture_body``.
 """
 
 from __future__ import annotations
 
+import base64
 from collections.abc import Sequence
 
-from ledger_hand.llm.request_body import check_call
+from ledger_hand.llm.request_body import check_call, check_pictures
 from ledger_hand.llm.request_body import encode as encode
-from ledger_hand.ports import JsonSchema, Message, ModelParameters
+from ledger_hand.ports import JsonSchema, Message, ModelParameters, Picture
 
 CHAT_PATH = "/api/chat"
 
@@ -52,4 +61,22 @@ def chat_body(
     }
     if reply_schema is not None:
         body["format"] = reply_schema
+    return body
+
+
+def picture_body(
+    model: str,
+    messages: Sequence[Message],
+    pictures: Sequence[Picture],
+    parameters: ModelParameters,
+) -> dict[str, object]:
+    """The request body for one call with ``pictures`` on the last message, as plain JSON values."""
+    body = chat_body(model, messages, None, parameters)
+    check_pictures(messages, pictures)
+    *earlier, last = messages
+    images = [base64.b64encode(picture.data).decode("ascii") for picture in pictures]
+    body["messages"] = [
+        *({"role": message.role.value, "content": message.content} for message in earlier),
+        {"role": last.role.value, "content": last.content, "images": images},
+    ]
     return body

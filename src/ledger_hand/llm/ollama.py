@@ -4,7 +4,10 @@
 named in the settings, waits for the whole reply (no streaming), and returns
 it with a record of the call, or raises ``ModelError`` with one of the six
 kinds. It tries once: trying again is ``retry``'s job, and
-``local.connect_local_model`` puts the two together.
+``local.connect_local_model`` puts the two together. A call with pictures
+goes to the same endpoint, the pictures in the last message
+(``ollama_request.picture_body``), and its answer is read the same way: a
+model that cannot see pictures is refused by the server, as a server error.
 
 The default parameters come from the settings; a call can hand in others.
 The time spent is measured on this side, from sending to having the whole
@@ -28,9 +31,9 @@ import httpx
 
 from ledger_hand.llm.exchange import Endpoint, exchange
 from ledger_hand.llm.ollama_reply import read_chat_answer
-from ledger_hand.llm.ollama_request import CHAT_PATH, chat_body
+from ledger_hand.llm.ollama_request import CHAT_PATH, chat_body, picture_body
 from ledger_hand.llm.request_body import encode
-from ledger_hand.ports import JsonSchema, Message, ModelParameters, ModelReply
+from ledger_hand.ports import JsonSchema, Message, ModelParameters, ModelReply, Picture
 from ledger_hand.settings import ModelSettings
 
 
@@ -87,6 +90,21 @@ class OllamaModel:
     ) -> ModelReply:
         chosen = self._defaults if parameters is None else parameters
         content = encode(chat_body(self._model, messages, reply_schema, chosen))
+        return self._send(content, chosen)
+
+    def chat_with_pictures(
+        self,
+        messages: Sequence[Message],
+        pictures: Sequence[Picture],
+        *,
+        parameters: ModelParameters | None = None,
+    ) -> ModelReply:
+        chosen = self._defaults if parameters is None else parameters
+        content = encode(picture_body(self._model, messages, pictures, chosen))
+        return self._send(content, chosen)
+
+    def _send(self, content: bytes, chosen: ModelParameters) -> ModelReply:
+        """Send one body and read the answer to it."""
         clock = self._endpoint.clock
         started = clock()
         answer = exchange(

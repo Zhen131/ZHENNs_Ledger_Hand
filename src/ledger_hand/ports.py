@@ -7,6 +7,13 @@ a JSON schema the reply has to follow, and the sampling parameters; it gets
 back the reply's text and a short record of the call. Every failure, whatever
 the plug, is one ``ModelError`` carrying one of six kinds.
 
+A second kind of call shows the model pictures: the same messages, with one
+or more pictures (``Picture``: the bytes of a PNG or JPEG file and which of
+the two it is) attached to the last message, which must be the user's. It
+takes no reply schema: what is asked of a picture is its text as it stands.
+A plug that cannot send pictures refuses such a call before sending
+anything, as the caller's mistake rather than as a model failure.
+
 Saved trades are kept behind a ``StoragePort``: a SQLite file today, or an
 in-memory stand-in in the tests. It saves the trades recorded from one
 passage together, with the coins the user confirmed for them; says whether a
@@ -23,9 +30,10 @@ input. Which plug is used, and with which defaults, is decided where the plug
 is built from the settings.
 
 Names defined here: ``Role``, ``Message``, ``JsonSchema``,
-``ModelParameters``, ``FinishReason``, ``ReplyRecord``, ``ModelReply``,
-``ModelErrorKind``, ``ModelError``, ``ModelPort``, ``StorageErrorKind``,
-``StorageError`` and ``StoragePort``.
+``PictureKind``, ``Picture``, ``picture_kind``, ``ModelParameters``,
+``FinishReason``, ``ReplyRecord``, ``ModelReply``, ``ModelErrorKind``,
+``ModelError``, ``ModelPort``, ``StorageErrorKind``, ``StorageError`` and
+``StoragePort``.
 """
 
 from __future__ import annotations
@@ -70,6 +78,56 @@ class Message:
 
 type JsonSchema = Mapping[str, object]
 """A JSON schema, as plain JSON values, that a reply's text has to follow."""
+
+
+class PictureKind(enum.Enum):
+    """The kinds of picture a model may be shown; the values are their media types."""
+
+    PNG = "image/png"
+    JPEG = "image/jpeg"
+
+
+# The bytes every file of each kind starts with.
+_SIGNATURES = {
+    PictureKind.PNG: b"\x89PNG\r\n\x1a\n",
+    PictureKind.JPEG: b"\xff\xd8\xff",
+}
+
+
+def picture_kind(data: bytes) -> PictureKind | None:
+    """The kind of picture ``data`` starts as, by its first bytes; ``None`` when neither."""
+    if not isinstance(data, bytes):
+        raise TypeError(f"a picture is bytes, not {type(data).__name__}")
+    for kind, signature in _SIGNATURES.items():
+        if data.startswith(signature):
+            return kind
+    return None
+
+
+@dataclass(frozen=True)
+class Picture:
+    """A picture to show the model: the bytes of the file, and which kind they are.
+
+    The bytes must start the way a file of that kind does; only the start is
+    checked, not whether the rest is a whole picture: the model server reads
+    the rest.
+    """
+
+    data: bytes
+    kind: PictureKind
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.data, bytes):
+            raise TypeError(f"a picture is bytes, not {type(self.data).__name__}")
+        if not isinstance(self.kind, PictureKind):
+            raise TypeError(f"a picture's kind is a PictureKind, not {type(self.kind).__name__}")
+        if not self.data:
+            raise ValueError("a picture cannot be empty")
+        if picture_kind(self.data) is not self.kind:
+            raise ValueError(f"the bytes do not start as a file of {self.kind.value} does")
+
+    def __repr__(self) -> str:
+        return f"Picture({self.kind.name}, {len(self.data)} bytes)"
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -238,6 +296,23 @@ class ModelPort(Protocol):
 
         With ``reply_schema`` the model is asked to write JSON that follows
         it. Without ``parameters`` the plug uses the defaults it was built with.
+        """
+        ...
+
+    def chat_with_pictures(
+        self,
+        messages: Sequence[Message],
+        pictures: Sequence[Picture],
+        *,
+        parameters: ModelParameters | None = None,
+    ) -> ModelReply:
+        """Send ``messages`` with ``pictures`` on the last, and return the reply, or raise.
+
+        The last message must be the user's, and there must be at least one
+        picture; a call in another shape is the caller's mistake, refused
+        with ``TypeError`` or ``ValueError`` before anything is sent. The
+        reply is read as ``chat`` reads it, and fails as ``chat`` fails, with
+        ``ModelError``. Without ``parameters`` the plug uses its defaults.
         """
         ...
 
