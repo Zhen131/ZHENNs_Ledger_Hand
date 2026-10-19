@@ -9,7 +9,10 @@ works out the coin, the side, the quantity, the price, the total, the fee
 and the time, and asks about whatever is missing instead of guessing. It
 shows the result in a preview table, saves only when you press Save, and
 exports a JSON file in the import format of the Local-First Trading Ledger.
-A passage that mentions several trades gives one entry per trade. The
+A passage that mentions several trades gives one entry per trade. A
+screenshot of an order can be uploaded instead: a model that can see
+pictures reads the order on it out as text, which you check and can change,
+add a note to if you like, and send on the way a typed passage goes. The
 language model runs on this machine by default, so nothing typed leaves it;
 a cloud service can be chosen instead (see "Switching to a cloud model").
 Ledger Hand never writes into the ledger application itself; it only hands
@@ -51,15 +54,15 @@ does not do yet:
   chosen with `LEDGER_HAND_MODEL_NAME`, or in the model field of the
   Settings page (for that browser tab only), and in an experiment with
   `--model`. `qwen3-vl:8b` has run the debug, final and voice sets through
-  the experiment runner. In the live tier, run once with
-  `LEDGER_HAND_MODEL_NAME=qwen3-vl:8b`, 19 checks passed and 24 failed,
-  each of the 24 on an empty reply: the three trade passages of the
-  extraction check, and the judging of 21 of the 26 debug sentences that
-  report a trade or none. So recording with it has not been shown to work.
+  the experiment runner: with the settings' defaults most of its replies
+  came back empty, and with thinking off every one on the debug and the
+  voice set (see "Measured" below). So recording with it has not been shown
+  to work; it is the model that reads a screenshot.
 - **Measured.** On the 30 debug sentences the extraction prompt `first`
   gets 31 of 34 trades whole, and on the 20 sentences kept back for the end
-  22 of 22; four other prompt versions and a second way of reading a passage
-  did not beat it (`evals/RESULTS.md`). The product uses `first`, and reads
+  22 of 22; the versions of the first prompt experiment, each one technique
+  away from it, and a second way of reading a passage did not beat it
+  (`evals/RESULTS.md`). The product uses `first`, and reads
   a passage in one call. Under the same prompt and parameters `qwen3-vl:8b`
   got 3 of 34 and 5 of 22, most of its replies coming back empty, and on
   the ten passages of the voice set `qwen2.5:7b` got 1 of 10 trades whole
@@ -74,7 +77,11 @@ does not do yet:
   34 on the debug set, and the rule picked it; on the final set it got 18 of
   22 against 22 for `first`, so it did not pass, and the product still uses
   `first` (`evals/RESULTS.md`, "2026-10-19: prompt experiment four, new
-  examples with English passages and Chinese numbers, `qwen2.5:7b`").
+  examples with English passages and Chinese numbers, `qwen2.5:7b`"). With
+  thinking off, `qwen3-vl:8b` got 0 of 34 on the debug set, every reply
+  empty, against 3 of 34 with nothing sent, so the plug still sends nothing
+  about thinking by default (`evals/RESULTS.md`, "2026-10-19: the thinking
+  switch, `qwen3-vl:8b`").
 - **Screenshots.** A screenshot of an order can be uploaded on the Record
   page (see "Recording from a screenshot"), or tried with
   `scripts/try_screenshot.py` (see "Trying a screenshot by hand"): a model
@@ -82,7 +89,8 @@ does not do yet:
   as text, which on the page the person checks and can change; the note
   typed beside it is put after that text, and the passage they make is
   extracted with the default model, as a typed one is. No real screenshot
-  has been measured yet.
+  has been tried yet, not even by hand (see `docs/known-gaps.md`, "Reading a
+  screenshot: no guard that the model only copies").
 - **The thinking setting.** The local plug can ask the model to think before
   it answers, or not (`LEDGER_HAND_MODEL_THINK`); by default it sends
   nothing, and each model does as its own default says. With thinking off,
@@ -289,7 +297,7 @@ the step that failed.
 | A passage that is not valid text | Type it again, or paste it from somewhere else |
 | A setting in the environment refused | Which one and its rule; correct or remove it, then start the program again |
 | A change on the settings page refused | Which one and its rule; the settings were not changed |
-| The book written by a newer version, not a database, or not this program's book | Which file, and that it was left as it is; use the newer version, move the file away, or point `LEDGER_HAND_DATA_DIR` elsewhere |
+| The book written by a newer version, not a database, or not this program's book | Which file; for a newer version, that this program does not touch it; for a file that is not a database, that it was left as it is; for a database that is not this program's book, that this program does not use it; use the newer version, move the file away, or point `LEDGER_HAND_DATA_DIR` elsewhere |
 | The book damaged | Which file, and that the program does not write to it; keep a copy and move it away, or point `LEDGER_HAND_DATA_DIR` elsewhere |
 | The book in use, unreadable or unwritable, clashing with what was asked, or failing otherwise | Why, in the book's own words; what to check, then try again |
 | An export refused | Every reason, one to a line; nothing was marked |
@@ -312,7 +320,12 @@ not read, where a model's failure is said with the vision model's name, and,
 while reading, a request turned down with status 400 or a reply not in the
 agreed form has a sentence of its own, since nothing there is about a reply
 table or a passage. A test walks every kind, so a new one cannot go without a
-sentence. None of them ever shows the key.
+sentence. None of them ever shows the key. When SQLite first rolled back a
+write to the book that had been cut off part way, a refusal can still use
+the sentence that says the file was not touched, or was left as it is,
+though the rollback wrote to it; the book's own message, after the
+sentence, says so (see `docs/known-gaps.md`, "The book after a write was cut
+off").
 
 When the model fails while it reads an answer to a question, the page says
 that kind of failure in its own sentence, looked up the same way, and asks
@@ -357,8 +370,8 @@ the model failed), `2` the script could not start (a setting or the zone).
 ### Trying a screenshot by hand
 
 ```sh
-.venv/bin/python scripts/try_screenshot.py ~/Downloads/order.png
-.venv/bin/python scripts/try_screenshot.py ~/Downloads/order.jpg --note "fee 0.1 USDT, bought on OKX"
+.venv/bin/python scripts/try_screenshot.py path/to/order.png
+.venv/bin/python scripts/try_screenshot.py path/to/order.jpg --note "fee 0.1 USDT, bought on OKX"
 .venv/bin/python scripts/try_screenshot.py --help
 ```
 
@@ -505,6 +518,19 @@ are is worked out each run by asking both sides
 described in `docs/known-gaps.md`. The output lists every error the ledger
 reported for every sample.
 
+On the machine the checks run on now, one sample does not pass:
+`attack-earliest-moments.json`, a trade at noon on 2 January of the year 1
+in every zone whose offset then is a whole number of minutes. There
+Python's copy of the time zone database (2026e) holds
+`EST5EDT`, `CST6CDT`, `MST7MDT` and `PST8PDT` as zones of their own, and the
+ledger's Node (tz 2026a, ICU 78.2) takes the four names for New York,
+Chicago, Denver and Los Angeles, whose offsets before 18 November 1883 have
+seconds in them; with both at once, the ledger's validator throws on those
+trades instead of refusing them, and the tier fails. With Python reading
+2026c and Node carrying 2026a, the sample was accepted. Why the sample and
+the tests are left as they are is in `docs/known-gaps.md`, "Time zone
+database versions".
+
 What is checked is listed in `tests/ledger_check/cases.py`: the golden sample,
 edge cases, batches of awkward trades (every time zone, the first and last
 days there are, awkward characters, extreme numbers, buys followed by sales,
@@ -628,8 +654,9 @@ this:
    all the same, because it picks nothing: it lays both models side by side
    on the same sets at one commit.
 
-The four prompt experiments and the comparison of two models made so far,
-their tables and the rules the experiments used are in `evals/RESULTS.md`;
+The four prompt experiments, the comparison of two models and the trial of
+the thinking switch made so far, their tables and the rules the experiments
+used are in `evals/RESULTS.md`;
 `docs/project-report.md`, section 6, sums them up.
 
 ### The prompts and their techniques
@@ -650,6 +677,7 @@ wording is a new version.
 | `split-1` (`extraction/prompts/split.py`) | Splitting a passage, for experiments only: copy the pieces of the passage each trade needs | A few examples (few-shot), in the same file |
 | `screen-1` (`extraction/prompts/screen.py`) | Judging a passage: which kinds of thing it reports | No example at all (zero-shot) |
 | `answer-1` (`extraction/prompts/answer.py`) | Reading an answer the rules could not: copy the one piece that gives what was asked | No example at all (zero-shot) |
+| `read-1` (`extraction/prompts/read.py`) | Reading a screenshot out as text, before extraction: each value with the label the screen gives it, as it stands | No example at all (zero-shot) |
 | `bookkeeper-1` (`asking/prompts/bookkeeper.py`) | Wording a follow-up question | A role (persona): a meticulous bookkeeper who asks for one thing at a time |
 
 `zero_shot`, `persona`, `stepwise` and `price_total` each differ from
@@ -743,7 +771,12 @@ language. `evals.compare` lays several runs side by side and, with
 most whole trades right; then the fewest wrong values with no issue; then
 the fewest trades missed and extra; then the first of `first`,
 `price_total`, `persona`, `zero_shot`, `stepwise`, so that a new version is
-picked only when it does strictly better than `first`. `evals.same_replies`
+picked only when it does strictly better than `first`. Its tables name each
+run by its prompt version, and their column "Differs from `first` in" says
+how that version differs from `first`, so a run of `first` reads "the
+baseline" there even when a parameter was changed for it; the parameter is
+in the run's first line. `evals.compare_models` with `--parameter`, below,
+names the parameter's value in each row instead. `evals.same_replies`
 tells two runs' raw replies apart from what the program made of them.
 `evals.compare_methods` lays a one-list run and a split-first run side by
 side (by number of trades, with the calls to split counted apart), shows
@@ -1223,8 +1256,11 @@ roll back. When that is the only reason the book cannot be read, and the
 file's first 100 bytes, read straight from the disk, show SQLite's header
 with this program's mark and a version it knows, the book is opened once
 for writing so that SQLite itself rolls the write back and removes the
-journal; then it is checked again from the start. Any other file with a
-journal beside it is refused as before, and neither file is written to.
+journal; then it is checked again from the start, and a refusal then says
+that SQLite rolled a write back first. The journal itself is not read, so a
+journal another book left beside it is rolled back all the same (see
+`docs/known-gaps.md`). Any other file with a journal beside it is refused as
+before, and neither file is written to.
 Numbered upgrade scripts (`storage/upgrades/`) bring an older
 book up to date, one transaction each, and are never changed once
 committed; neither is the golden sample of each version
