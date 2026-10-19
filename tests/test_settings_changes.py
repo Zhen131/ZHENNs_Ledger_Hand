@@ -102,6 +102,7 @@ NOT_THE_DEFAULT = {
     Variable.QUESTION_TEMPERATURE: "0.1",
     Variable.VISION_NAME: "invented-vision:3b",
     Variable.THINK: "on",
+    Variable.SCREENSHOT_MAX_MB: "7",
 }
 
 

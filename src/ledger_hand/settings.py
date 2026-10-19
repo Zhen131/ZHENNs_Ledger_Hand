@@ -5,12 +5,13 @@ named ``LEDGER_HAND_MODEL_...`` (the ``Variable`` enumeration lists them) and
 returns a ``ModelSettings``. One of them chooses the plug that talks to the
 model (``Plug``): the local Ollama by default, or a cloud service. Another
 says whether the local plug asks the model to think before it answers
-(``Thinking``), and another names the model that reads a screenshot. A
-variable that is not set, or is set to nothing but blanks, takes its
-default. A value that is not in the expected form, or is out of range, is
-refused with a ``SettingsError`` that names the variable; so is a variable
-that has the prefix but is not one of the known names, because a misspelt
-name would otherwise be ignored without a word.
+(``Thinking``), another names the model that reads a screenshot, and
+another the largest screenshot taken, in MB. A variable that is not set,
+or is set to nothing but blanks, takes its default. A value that is not in
+the expected form, or is out of range, is refused with a ``SettingsError``
+that names the variable; so is a variable that has the prefix but is not
+one of the known names, because a misspelt name would otherwise be ignored
+without a word.
 
 The key, if there is one, is kept in a ``Secret``: printing it, or printing
 the settings, shows a placeholder, and no error message here ever repeats it.
@@ -44,7 +45,7 @@ key) is checked where the plug is built, not here: so setting one variable
 alone never makes reading the settings fail because of another.
 
 Names defined here: ``ENV_PREFIX``, ``Variable``, ``Plug``, ``Thinking``, the ``DEFAULT_...``
-constants, ``MAX_RETRIES``, ``Secret``, ``SettingsError``, ``ModelSettings``,
+constants, ``MAX_RETRIES``, ``MAX_SCREENSHOT_MB``, ``Secret``, ``SettingsError``, ``ModelSettings``,
 ``About``, ``ABOUT``, ``load_model_settings``, ``apply_changes``,
 ``DATA_DIRECTORY_VARIABLE``, ``BOOK_FILE_NAME``, ``EXPORTS_DIRECTORY_NAME``,
 ``DataPlaces`` and ``load_data_places``.
@@ -82,6 +83,7 @@ class Variable(enum.Enum):
     QUESTION_TEMPERATURE = ENV_PREFIX + "QUESTION_TEMPERATURE"
     VISION_NAME = ENV_PREFIX + "VISION_NAME"
     THINK = ENV_PREFIX + "THINK"
+    SCREENSHOT_MAX_MB = ENV_PREFIX + "SCREENSHOT_MAX_MB"
 
 
 class Plug(enum.StrEnum):
@@ -118,8 +120,12 @@ DEFAULT_RETRY_WAIT_SECONDS = 1.0
 DEFAULT_QUESTION_TEMPERATURE = 0.7
 DEFAULT_VISION_MODEL = "qwen3-vl:8b"
 DEFAULT_THINK = Thinking.MODEL
+DEFAULT_SCREENSHOT_MAX_MB = 20
 # The most retries a setting may ask for, so that the waits stay finite.
 MAX_RETRIES = 10
+# The highest screenshot limit a setting may ask for, in MB: Streamlit's own
+# upload limit as it stands, so that the program's check is the one that speaks.
+MAX_SCREENSHOT_MB = 200
 
 _WHOLE_NUMBER = re.compile(r"[0-9]{1,9}")
 _PLAIN_NUMBER = re.compile(r"[0-9]{1,9}(?:\.[0-9]{1,9})?")
@@ -166,6 +172,8 @@ class ModelSettings:
     temperature for wording a follow-up question; every other call uses
     ``temperature``. ``vision_model`` is the model that reads a screenshot,
     and ``think`` whether the local plug asks the model to think first.
+    ``screenshot_max_mb`` is the largest screenshot taken, in MB of
+    1,048,576 bytes.
     """
 
     plug: Plug = DEFAULT_PLUG
@@ -182,6 +190,7 @@ class ModelSettings:
     question_temperature: float = DEFAULT_QUESTION_TEMPERATURE
     vision_model: str = DEFAULT_VISION_MODEL
     think: Thinking = DEFAULT_THINK
+    screenshot_max_mb: int = DEFAULT_SCREENSHOT_MAX_MB
 
     def __post_init__(self) -> None:
         if not isinstance(self.plug, Plug):
@@ -220,6 +229,9 @@ class ModelSettings:
                 f"{Variable.THINK.value}: the thinking setting must be a Thinking, "
                 f"one of {_thinkings()}"
             )
+        _check_whole(
+            Variable.SCREENSHOT_MAX_MB, self.screenshot_max_mb, lowest=1, highest=MAX_SCREENSHOT_MB
+        )
 
 
 @dataclass(frozen=True)
@@ -347,6 +359,17 @@ ABOUT: Mapping[Variable, About] = MappingProxyType(
             "is not the default; nor is on, which qwen2.5:7b, the model the program extracts "
             "with, cannot do.",
         ),
+        Variable.SCREENSHOT_MAX_MB: About(
+            "screenshot_max_mb",
+            "The largest screenshot taken, in MB of 1,048,576 bytes; a larger file is turned "
+            "away before anything is sent. A whole number, from 1 to "
+            f"{MAX_SCREENSHOT_MB}, the most Streamlit takes in one upload by default.",
+            "Above any phone's screenshot, so none is turned away: the largest phone screens, "
+            "1320 by 2868 pixels, come to about 14.4 MB even with no compression at all, four "
+            "bytes to a pixel, and a PNG of an order page, mostly flat colour, is far smaller. "
+            "A file larger than that, such as a camera's photo or a file chosen by mistake, is "
+            "turned away at once rather than after a long wait for the vision model.",
+        ),
     }
 )
 
@@ -413,7 +436,14 @@ def _read(variable: Variable, text: str) -> object:
     return _number(variable)(text)
 
 
-_WHOLE_VARIABLES = frozenset({Variable.MAX_REPLY_TOKENS, Variable.CONTEXT_TOKENS, Variable.RETRIES})
+_WHOLE_VARIABLES = frozenset(
+    {
+        Variable.MAX_REPLY_TOKENS,
+        Variable.CONTEXT_TOKENS,
+        Variable.RETRIES,
+        Variable.SCREENSHOT_MAX_MB,
+    }
+)
 
 
 def _refuse_unknown_variables(source: Mapping[str, str]) -> None:

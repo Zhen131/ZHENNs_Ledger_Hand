@@ -49,6 +49,7 @@ EVERY_VARIABLE = {
     Variable.QUESTION_TEMPERATURE: ("0.4", "question_temperature", 0.4),
     Variable.VISION_NAME: ("invented-vision:3b", "vision_model", "invented-vision:3b"),
     Variable.THINK: ("on", "think", "on"),
+    Variable.SCREENSHOT_MAX_MB: ("7", "screenshot_max_mb", 7),
 }
 
 
