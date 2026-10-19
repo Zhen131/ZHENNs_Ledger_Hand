@@ -56,6 +56,44 @@ node -e 'console.log(process.versions.tz, process.versions.icu)'   # Node's copy
 When Python uses the `tzdata` package instead of the system's copy,
 `python -c 'import tzdata; print(tzdata.IANA_VERSION)'` gives its version.
 
+**One sample of the ledger tier that does not pass on the machine the checks
+run on now.** There, Python reads the system's copy of the database, version
+2026e, and the ledger's Node runtime (v25.9.0) carries tz 2026a, with ICU
+78.2. In Python's copy `EST5EDT`, `CST6CDT`, `MST7MDT` and `PST8PDT` are
+zones of their own, whose offsets in the year 1 are whole hours (-05:00,
+-06:00, -07:00 and -08:00). Node takes the four names for
+`America/New_York`, `America/Chicago`, `America/Denver` and
+`America/Los_Angeles`, which before 18 November 1883 kept the local mean
+time of those cities, an offset with seconds in it (-04:56:02, -05:50:36,
+-06:59:56 and -07:52:58 in the year 1). For a trade at such a moment the
+ledger's validator throws an error instead of refusing the trade ("Could
+not resolve an offset for time zone: EST5EDT"). The ledger tier exports a
+sample with a trade at noon on 2 January of the year 1 in every zone whose
+offset is then a whole number of minutes on Python's side
+(`attack-earliest-moments.json`, made by `earliest_moments()` in
+`tests/export/attack.py` and listed in `tests/ledger_check/cases.py`). The
+four names are among those zones, so the validator throws on the whole
+sample, which the tier counts as a failure. It takes both at once: Python's
+copy holding the four names as zones of their own, and Node's taking them
+for the four cities, with offsets in seconds before 1883. With the versions
+of the paragraph above, Python reading 2026c and Node carrying 2026a, this
+sample was accepted.
+
+It touches only a trade recorded in one of these four zones at a moment
+before 18 November 1883, and no crypto trade is that old. The sample and the
+tests are left as they are: taking the four names out of the sample would
+hide the one place found where the ledger throws instead of refusing, and
+finding where the two part ways is what the tier is for. Closing it needs
+the project owner's decision: the ledger refusing such an offset instead of
+throwing, this program not taking the four names, or the tier announcing
+this case as a known difference. The offsets each side gives, from the top
+of the repository:
+
+```sh
+.venv/bin/python -c 'from zoneinfo import ZoneInfo; from datetime import datetime; [print(z, datetime(1,1,2,12,tzinfo=ZoneInfo(z)).utcoffset()) for z in ("EST5EDT","CST6CDT","MST7MDT","PST8PDT")]'
+node -e 'for (const z of ["EST5EDT","CST6CDT","MST7MDT","PST8PDT"]) { const d = new Date(Date.UTC(2000,0,2,17)); d.setUTCFullYear(1); console.log(z, new Intl.DateTimeFormat("en",{timeZone:z,timeZoneName:"longOffset"}).formatToParts(d).find(p=>p.type==="timeZoneName").value) }'
+```
+
 ## Offsets with seconds in them
 
 **What it is.** Before the 1970s many zones had offsets that were not a whole
@@ -172,7 +210,7 @@ measured beside `first`: `second` got 6 of 10 trades whole on the voice set
 and `third` 2 of 10, but each got fewer trades whole than `first` on the
 debug set, 29 and 30 of 34 against 31, so the rule fixed beforehand picked
 neither and the product still extracts with `first` (same section, "The
-rule applied to `second`" and "The rule applied to `third`"). A third,
+rule applied to `second`" and "The rule applied to `third`"). One more,
 `fourth`, written after their errors as well, got 8 of 10 trades whole on
 the voice set and 33 of 34 on the debug set, and the rule fixed before it
 picked it; on the final set it got 18 of 22 against 22 for `first`, so it
@@ -206,34 +244,49 @@ once for writing: SQLite rolls the unfinished write back and removes the
 journal, and the book is then checked again from the start. That is the one
 case in which a file is written to before it is checked; any other file
 with a journal beside it is refused as before, and neither is written to.
-Three rough edges remain.
+Four rough edges remain.
 
-- **Refused after the rollback.** When the check after the rollback refuses
-  the book (its tables are not those of its version, or SQLite finds it
-  damaged), the rollback has already written to it: what the tables are
-  cannot be read before the journal is rolled back. The book's own message
-  then says that SQLite first rolled back a write cut off part way, but the
-  page's sentence for the kind, shown beside it, is the usual one: for a
-  file that is not this program's book it says the file "was left as it
-  is", and for a damaged book that the program "does not write to it".
+- **Refused after the rollback.** The check after the rollback can refuse
+  the book for any reason the first look can (a book of a newer version, a
+  file that is not this program's book or whose tables are not those of its
+  version, a file that is not a database, a damaged book), and the rollback
+  has then already written to it: what the file holds cannot be read before
+  the journal is rolled back. The book's own message then says that SQLite
+  first rolled back a write cut off part way, but the page's sentence for
+  the kind, shown before it, is the usual one, and three of them read as if
+  nothing had been written: for a book of a newer version it says that this
+  program "does not touch it", for a file that is not a database that it
+  "was left as it is", and for a damaged book that the program "does not
+  write to it". For a file that is not this program's book it says that
+  this program does not use it, which holds either way.
 - **A folder that cannot be written.** SQLite rolls the book back, but
   cannot remove the journal, which takes a folder it may write to. The book
   is then refused as inaccessible (SQLite's `SQLITE_IOERR_DELETE`), and the
   journal stays; each later opening rolls the book back again, to the same
   bytes, and fails the same way, until the folder can be written.
-- **A file this program does not read.** A file that is not a database, or
-  not this program's book, or a book of a newer version, is refused with
-  its journal left beside it; this program never rolls back a journal it
-  cannot first show to belong to one of its own books.
+- **A file this program does not read.** A file whose header, read
+  straight from the disk, is not SQLite's with this program's mark and a
+  version it knows (a file that is not a database, not this program's book,
+  or a book of a newer version) is refused with its journal left beside it,
+  and neither is written to.
+- **A journal from another book.** Only the book's header is read before the
+  rollback, not the journal: SQLite rolls back whatever journal lies beside
+  the book under its name, and nothing shows which book wrote it. A journal
+  left by another book and put beside a book of this program's is rolled
+  back into it all the same, which writes the other book's pages into this
+  one; when the result is a sound book, nothing is said.
 
-**What it affects.** Nothing that was saved is lost in any of these: a
-rollback only takes the book back to what it held before the write that was
-cut off.
+**What it affects.** When the journal is the book's own, nothing that was
+saved is lost: a rollback only takes the book back to what it held before
+the write that was cut off. A journal from another book can overwrite what
+the book holds.
 
 **What the user can do.** For a folder that cannot be written, make it
 writable and open the book again. For a file this program does not read,
 keep a copy of the file and its journal together; do not delete the
-journal file.
+journal file. A journal belongs to its own book only: when a book is moved
+or copied, move or copy its journal with it, and never put a journal beside
+another book.
 
 ## A change in the time zone database can stop listing and exporting
 
@@ -315,8 +368,8 @@ Record page it waits in a box the person checks and can change before
 Continue (`src/ledger_hand/ui/screenshot_panel.py`), and
 `scripts/try_screenshot.py` prints it. The check of each draft asks when
 the quantity times the price does not make the total. How often a
-screenshot is misread is not measured: no real screenshot has been read
-yet.
+screenshot is misread is not measured: no real screenshot has been tried
+yet, not even by hand.
 
 There is one thinking setting (`LEDGER_HAND_MODEL_THINK`) for both models:
 the model that reads a screenshot takes the same as the one that extracts.
@@ -350,10 +403,36 @@ whether thinking helps or hurts reading a screenshot is not measured.
 - **The server is asked for the vision model on every upload.** Two short
   requests (`/api/version`, `/api/tags`) come before each picture is sent,
   so that a vision model that is not there is named before a long wait.
-- **A plain picture is read as nothing.** A picture of one colour, uploaded
-  once with the default settings and once with a longest reply of 4,096
-  tokens, came back as an empty reply both times, which the page says as
-  "read nothing". How a real screenshot fares is not measured.
+- **A plain picture may be read as nothing, or as a sentence about it.**
+  A picture of one colour, uploaded once with the default settings and once
+  with a longest reply of 4,096 tokens, came back as an empty reply both
+  times, which the page says as "read nothing". How a real screenshot fares
+  is not measured. Another picture of one colour, uploaded once more with
+  the default settings, was read as one sentence saying that the picture
+  shows no order information. Such a sentence is taken as text read, like
+  any other: it waits in the box of the text read, and Continue sends it on,
+  with the note, unless the person deletes it.
+
+## Extracting with `qwen3-vl:8b`: most replies empty
+
+**What it is.** `qwen3-vl:8b` thinks before it replies, by its own default,
+and the plug leaves that default alone unless the thinking setting is
+changed. Extracting with it under the settings' defaults, the server's
+answer held no text, only the model's thinking beside it, in 25 of the 30
+sentences of the debug set and in 9 of the 10 of the voice set; with
+thinking off, in every sentence of both (`evals/RESULTS.md`, "2026-10-19:
+the thinking switch, `qwen3-vl:8b`"). Such an answer is an empty reply, a
+model failure (`malformed_reply`), and nothing of the passage is kept.
+
+**Which passages it affects.** Only passages extracted with `qwen3-vl:8b`,
+chosen with `LEDGER_HAND_MODEL_NAME`, on the Settings page or with `--model`
+in an experiment; the default, `qwen2.5:7b`, does not think. Reading a
+screenshot is another call, with no reply table, and there the reply's text
+comes back beside the thinking (next section).
+
+**Why it stands.** The product extracts with `qwen2.5:7b`. Neither the
+prompt nor any other setting was tuned for `qwen3-vl:8b`, and with thinking
+off every reply was empty, so off did not become the default.
 
 ## Thinking off, as Ollama 0.34.3 takes it with `qwen3-vl:8b`
 
