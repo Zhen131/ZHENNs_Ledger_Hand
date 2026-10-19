@@ -107,6 +107,7 @@ from ledger_hand.extraction.prompts import (
     second_examples,
     split,
     stepwise,
+    third,
     zero_shot,
 )
 from ledger_hand.extraction.reply_table import Field
@@ -141,6 +142,7 @@ PROMPTS: Mapping[str, tuple[PromptVersion, tuple[ModuleType, ...]]] = {
     "stepwise": (stepwise.STEPWISE_PROMPT, (stepwise, first, first_examples)),
     "price_total": (price_total.PRICE_TOTAL_PROMPT, (price_total, first, first_examples)),
     "second": (second.SECOND_PROMPT, (second, second_examples, first, first_examples)),
+    "third": (third.THIRD_PROMPT, (third, second, first, first_examples)),
 }
 # The conditions that must be the same for a run to be carried on.
 _SAME_TO_RESUME = (

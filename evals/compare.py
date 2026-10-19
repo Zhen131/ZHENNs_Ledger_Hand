@@ -58,6 +58,7 @@ TECHNIQUES: Mapping[str, tuple[str, str]] = {
         "two more rules (the owner's words for a buy; an amount in U is the total) "
         "and six more examples in the owner's way of writing",
     ),
+    "third": ("content iteration", "the two rules of `second`, without its six examples"),
 }
 TIE_ORDER: tuple[str, ...] = ("first", "price_total", "persona", "zero_shot", "stepwise")
 _CUT_OFF = "length_limit"
