@@ -117,7 +117,11 @@ common reason a trade did not come out whole in the experiments
 
 **How it is handled.** The phrase is not a piece of the passage, so the
 program leaves the time empty, says why, and asks for it. It costs a
-question, never a wrong time. No prompt version measured so far mended it.
+question, never a wrong time. `fourth` wrote no English time in Chinese on
+the debug and the writings set, but it did not pass the final set, so the
+product still extracts with `first`, which does (`evals/RESULTS.md`,
+"2026-10-19: prompt experiment four, new examples with English passages and
+Chinese numbers, `qwen2.5:7b`").
 
 ## Extraction: a total put as the price
 
