@@ -8,10 +8,12 @@ was set aside and the reminders of extraction; the reminder that the same
 passage was saved before (on which day, how many trades); the reminder that
 the ledger leaves a fee paid in a third coin out of the cost; why nothing
 was sent or nothing could be done; what became of the passage and of an
-export. Nothing here works out anything about a trade; it only chooses the
-words to show for what the flow, or the core, says. A failure is said in
-the words of ``failure_words``, a model's failure while reading an answer
-among them.
+export; that a screenshot was read and waits to be checked, or was dropped,
+and that a message is not taken while one waits. Nothing here works out
+anything about a trade; it only chooses the words to show for what the
+flow, or the core, says. A failure is said in the words of
+``failure_words``, a model's failure while reading an answer, and a
+screenshot that was not read, among them.
 
 The words are plain text: the chat shows them without Markdown, so a
 passage's own words come back exactly as typed.
@@ -19,7 +21,8 @@ passage's own words come back exactly as typed.
 Names defined here: ``after_start``, ``after_answer``, ``after_removing``,
 ``seen_before``, ``fees_left_out``, ``not_taken_yet``, ``saved``,
 ``not_saved``, ``book_failed``, ``assembly_failed``, ``save_hint``,
-``exported``, ``export_failed``, ``settings_applied`` and ``settings_reset``.
+``exported``, ``export_failed``, ``settings_applied``, ``settings_reset``,
+``screenshot_read``, ``screenshot_waiting`` and ``screenshot_dropped``.
 """
 
 from __future__ import annotations
@@ -124,6 +127,31 @@ def not_taken_yet(progress: Progress) -> str:
     return (
         "The last passage is not saved yet, so this was not taken as a new one. "
         f"{choice}, then type the new passage again."
+    )
+
+
+def screenshot_read() -> str:
+    """What is said once a screenshot was read and its text waits to be checked."""
+    return (
+        "The screenshot was read. Check the text read off it, under the upload box, and put "
+        "right what is wrong; add a note if you like (a fee the screen leaves out, why you "
+        "traded). Then press Continue to record it, or Drop the screenshot."
+    )
+
+
+def screenshot_waiting() -> str:
+    """What is said when a message comes while a screenshot read waits to be checked."""
+    return (
+        "A screenshot waits to be checked, so this was not taken as a new passage. Press "
+        "Continue to record the screenshot, or Drop it, then type this again."
+    )
+
+
+def screenshot_dropped() -> str:
+    """What is said once a screenshot read was dropped."""
+    return (
+        "The screenshot was dropped: nothing from it is kept. Upload another, or type a trade "
+        "in the chat."
     )
 
 

@@ -20,6 +20,17 @@ A rate-limited call whose server said how long to wait is said with that
 wait (``RATE_LIMITED_FOR``). A failure known only by its kind, without a
 status code or a wait, is looked up the same way (``model_kind_trouble``).
 
+An uploaded screenshot that was not read is said by its problem
+(``SCREENSHOT_FAILURES``, one sentence for each ``UploadProblem``), with the
+file's size and the limit in MB, and the vision model's name. When the
+vision model failed, or the server could not be asked for it, the failure
+follows, looked up as above but with the vision model's name in place of the
+model's (``vision_trouble``); except two, which would point the wrong way for
+a screenshot, since a picture is sent without a reply table and there is no
+passage to put another way: a request turned down with status 400
+(``VISION_REFUSED``) and a reply not in the agreed form
+(``VISION_MALFORMED``).
+
 What a sentence fills in comes from the settings the parts were built from
 (the address, the model's name, the time allowed) or from the failure itself
 (a status code, the start of the server's answer, the wait it asked for, a
@@ -31,8 +42,10 @@ plugs never let it through.
 Names defined here: ``MODEL_FAILURES``, ``MODEL_FAILURES_BY_STATUS``,
 ``MODEL_FAILURES_BY_PLUG``, ``RATE_LIMITED_FOR``, ``REPLY_UNREADABLE``,
 ``PASSAGE_REFUSALS``, ``STORAGE_FAILURES``, ``ASSEMBLY_FAILURES``,
-``WRITE_FAILURES``, ``model_failed``, ``model_trouble``,
-``model_kind_trouble``, ``passage_refused``, ``book_trouble``,
+``WRITE_FAILURES``, ``SCREENSHOT_FAILURES``, ``VISION_REFUSED``,
+``VISION_MALFORMED``, ``model_failed``, ``model_trouble``,
+``model_kind_trouble``, ``screenshot_not_read``, ``vision_trouble``,
+``passage_refused``, ``book_trouble``,
 ``assembly_failed``, ``export_refused``, ``export_not_written`` and
 ``export_not_marked``.
 """
@@ -41,6 +54,7 @@ from __future__ import annotations
 
 import math
 from collections.abc import Mapping, Sequence
+from dataclasses import replace
 from pathlib import Path
 from types import MappingProxyType
 
@@ -49,6 +63,7 @@ from ledger_hand.export.backup import ExportIssue
 from ledger_hand.extraction.passage_check import PassageProblem
 from ledger_hand.flows.export_file import WriteProblem
 from ledger_hand.flows.progress import Failure
+from ledger_hand.flows.uploading import BYTES_PER_MB, UploadNotRead, UploadProblem
 from ledger_hand.llm.error_text import hide
 from ledger_hand.ports import ModelError, ModelErrorKind, StorageError, StorageErrorKind
 from ledger_hand.settings import DATA_DIRECTORY_VARIABLE, ModelSettings, Plug, Variable
@@ -216,6 +231,110 @@ WRITE_FAILURES: Mapping[WriteProblem, str] = MappingProxyType(
         ),
     }
 )
+
+
+# Why an uploaded screenshot was not read, and what can be done. {size} is the
+# file's size and {limit} the limit, both in MB; {model} is the vision model's
+# name and {address} where the server is.
+_SETTINGS_PAGE = "on the Settings page"
+SCREENSHOT_FAILURES: Mapping[UploadProblem, str] = MappingProxyType(
+    {
+        UploadProblem.CLOUD_PLUG: (
+            "A screenshot is read through the local plug only, and "
+            f"{Variable.PLUG.value} is {Plug.CLOUD.value}, so nothing was sent anywhere. "
+            "Typing a trade in the chat works as before; to read a screenshot, set "
+            f"{Variable.PLUG.value} to {Plug.LOCAL.value} {_SETTINGS_PAGE}."
+        ),
+        UploadProblem.TOO_LARGE: (
+            "The file is {size} MB, more than the limit of {limit} MB, so nothing was sent. "
+            "Take a smaller screenshot, or raise the limit, "
+            f"{Variable.SCREENSHOT_MAX_MB.value}, {_SETTINGS_PAGE}."
+        ),
+        UploadProblem.NOT_A_PICTURE: (
+            "The file is neither a PNG nor a JPEG, judged by what it holds rather than by its "
+            "name, so nothing was sent. Only PNG and JPEG screenshots are read: save the "
+            "screenshot as one of the two and try again, or type the trade in the chat."
+        ),
+        UploadProblem.VISION_MODEL_MISSING: (
+            "The model server at {address} has no model named {model}, so nothing was sent. "
+            "That is the vision model, which reads screenshots, not the model that extracts "
+            f"the trades. Check its name, {Variable.VISION_NAME.value}, {_SETTINGS_PAGE}, or "
+            "install it with Ollama (ollama pull {model})."
+        ),
+        UploadProblem.VISION_MODEL_UNCHECKED: (
+            "The model server could not be asked whether it has the vision model {model}, so "
+            "the screenshot was not sent."
+        ),
+        UploadProblem.MODEL_FAILED: (
+            "The vision model {model} gave no usable reply while reading the screenshot, so "
+            "nothing was recorded."
+        ),
+        UploadProblem.EMPTY: (
+            "The vision model {model} read nothing off the screenshot, so nothing was "
+            "recorded. Check that it is a screenshot of an order, then try again. If it keeps "
+            f"coming back empty, raise {Variable.MAX_REPLY_TOKENS.value} {_SETTINGS_PAGE}, or "
+            f"set {Variable.THINK.value} to off: a model that thinks first can spend the whole "
+            "reply on its thinking."
+        ),
+        UploadProblem.CUT_OFF: (
+            "The vision model {model} reached the longest reply while reading the screenshot, "
+            "so what it read was cut off and not used; nothing was recorded. Raise "
+            f"{Variable.MAX_REPLY_TOKENS.value} {_SETTINGS_PAGE}, or set {Variable.THINK.value} "
+            "to off, then try again."
+        ),
+    }
+)
+# The problems a model's failure is said after, when there is one.
+_WITH_TROUBLE = frozenset({UploadProblem.VISION_MODEL_UNCHECKED, UploadProblem.MODEL_FAILED})
+
+# Said for the vision model in place of the sentences for status 400 and for a
+# reply not in the agreed form, which speak of the reply table and the passage.
+VISION_REFUSED = (
+    "The model server at {address} turned the request down as it was sent{status}.{said} "
+    f"Check {_SETTINGS_PAGE} that {{model}}, named by {Variable.VISION_NAME.value}, is a "
+    "model that can see pictures."
+)
+VISION_MALFORMED = (
+    "The model server answered, but not in a form this program can read, so nothing could "
+    "be used. Try again; if it keeps failing, look at the server's own log."
+)
+
+
+def screenshot_not_read(outcome: UploadNotRead, settings: ModelSettings) -> str:
+    """What is said when an uploaded screenshot was not read: what happened, and what to do.
+
+    ``settings`` are those the parts were built from: the vision model, and
+    the address, are theirs.
+    """
+    said = SCREENSHOT_FAILURES[outcome.problem].format(
+        size=_megabytes_up(outcome.size_bytes),
+        limit=written(outcome.limit_mb),
+        model=settings.vision_model,
+        address=settings.base_url,
+    )
+    if outcome.problem not in _WITH_TROUBLE or outcome.error is None:
+        return said
+    return f"{said} {vision_trouble(outcome.error, settings)}"
+
+
+def vision_trouble(error: ModelError, settings: ModelSettings) -> str:
+    """The sentence for the vision model's ``error``, naming the vision model.
+
+    Looked up as ``model_trouble`` does, but for status 400 and for a reply
+    not in the agreed form, which have sentences of their own here.
+    """
+    vision = replace(settings, model=settings.vision_model)
+    if error.kind is ModelErrorKind.MALFORMED_REPLY:
+        return _filled(VISION_MALFORMED, vision, error)
+    if error.kind is ModelErrorKind.SERVER_ERROR and error.status == 400:
+        return _filled(VISION_REFUSED, vision, error)
+    return model_trouble(error, vision)
+
+
+def _megabytes_up(size: int) -> str:
+    """``size`` bytes in MB with two decimals, rounded up, so a file over the limit shows over."""
+    hundredths = -(-size * 100 // BYTES_PER_MB)
+    return f"{hundredths // 100}.{hundredths % 100:02d}"
 
 
 def model_failed(failure: Failure, settings: ModelSettings) -> str:
