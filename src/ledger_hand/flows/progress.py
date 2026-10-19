@@ -11,7 +11,8 @@ properties say what may be done next: whether a trade can be removed, and
 which, whether the records can be saved, whether the whole passage can be
 dropped, whether every trade is settled and whether the passage is over.
 
-Only ``recording`` makes a ``Progress``; this module states the shapes.
+Only ``recording`` makes a ``Progress``, and ``screenshot`` for a passage
+that starts from a screenshot; this module states the shapes.
 
 Names defined here: ``Progress``, ``Stage``, ``TradeState``, ``TradeStatus``,
 ``Question``, ``Failure``, ``Setting``, ``Step``, ``Call``, ``Tuning``,
@@ -68,6 +69,7 @@ class TradeStatus(enum.Enum):
 class Step(enum.Enum):
     """What a call to the model was for."""
 
+    READING = "reading the screenshot"
     SCREENING = "judging the passage"
     EXTRACTION = "extracting the trades"
     QUESTION = "wording a question"
