@@ -402,6 +402,8 @@ the cloud plug, or the zone).
 ```sh
 .venv/bin/python scripts/try_assistant.py "我现在手里有哪些币"
 .venv/bin/python scripts/try_assistant.py "What do I hold?" "Which assets are there?"
+.venv/bin/python scripts/try_assistant.py "今天上午9:40在币安买了0.02 BTC，价格94900" "手续费 0.1 USDT"
+.venv/bin/python scripts/try_assistant.py --save "Bought 0.02 BTC at 94900 on Binance at 9:40 this morning, fee 2 USDT."
 .venv/bin/python scripts/try_assistant.py --clock "What do I hold?"
 .venv/bin/python scripts/try_assistant.py --help
 ```
@@ -414,21 +416,46 @@ judges every call before it runs it and stops the model after two wrong
 steps in a row or `LEDGER_HAND_ASSISTANT_STEPS` asks (six by default). Each
 argument is the user's own words copied or a choice from a list, never a
 number or date the model writes. Behind the tools is the fake ledger, an
-invented book kept in memory, never the real ledger. So far only the list
-of assets, the holdings and where a proposal stands are connected; the
-other tools answer "not connected yet".
+invented book kept in memory, never the real ledger. Connected so far: the
+list of assets, the holdings, where a proposal stands, and recording.
+Asking about the ledger, changing and deleting answer "not connected yet".
+
+Recording is the program's, not the model's. When the model asks to record
+a trade, what the user said is handed, word for word, to the same recording
+flow the Record page uses: it judges the words, extracts the trades and
+asks for what is missing, such as the fee, one question at a time. The next
+thing said is the answer ("skip" and "cancel" work as on the Record page).
+Once every trade is settled, the trades go to the ledger as one proposal,
+which waits there until it is saved or rejected on the ledger's own page;
+nothing is confirmed in the assistant. Every figure is the recording flow's,
+and the user's words go with each trade. A trade said only with its day, or
+naming an asset the ledger does not have, is left out, with a sentence
+saying why; an open order, or words with no trade in them, send nothing.
+If the model goes wrong two steps in a row, the program tries the words
+once as a trade before it gives up.
 
 Each argument is one thing the user says, in order, in one chat. For each
-step the script prints the tool asked for and its arguments, and what was
-handed back or why the call was a wrong step (a copied argument that is not
-the user's words, such as "BTC" when the user said "比特币", among them);
-then the assistant's last words and why the turn ended. "Now" is the
-invented book's fixed moment, 24 November 2026, 23:55 in Budapest, printed
-first; `--clock` takes the machine's clock and zone instead. The assistant
-runs on the local plug only: settings that choose the cloud plug stop the
-script before anything is sent. Nothing is written to disk. Exit status:
-`0` every turn ended with the model's answer, `1` one did not (stopped, or
-a failure), `2` the script could not start.
+the script prints which way it went (the model chose the tools, it was the
+answer to a question waiting, or the program took over), then each step:
+the tool asked for and its arguments, and what was handed back, why the
+call was a wrong step (a copied argument that is not the user's words, such
+as "BTC" when the user said "比特币", among them), or that it was not run
+because its step went to recording. When a trade was recorded, it prints
+the recording's calls to the model and each trade sent, as the proposal
+holds it. Then one line, from the program, on what reached the ledger
+(`sent to the ledger: proposal-1, 1 trade(s)`, or `sent to the ledger:
+nothing`), the assistant's last words and how it ended. `--save` or
+`--reject`, before the sentences, saves or rejects every proposal still
+pending once everything is said, and prints the book's count of trades
+before and after and the trades added. "Now" is the invented book's fixed
+moment, 24 November 2026, 23:55 in Budapest, printed first; `--clock` takes
+the machine's clock and zone instead. The assistant runs on the local plug
+only: settings that choose the cloud plug stop the script before anything
+is sent. Nothing is written to disk. Exit status: `0` everything said was
+done or the user was told why not (an answer, a question waiting, a
+proposal sent, or nothing sent with the reason), `1` something was not (a
+model or ledger failure, the step limit, or a takeover that found no
+trade), `2` the script could not start.
 
 `.venv/bin/python -m evals.tool_run` measures which tool the model asks for
 first on each of the assistant's nineteen sentences (`evals/sets/tools.json`),
@@ -1418,7 +1445,7 @@ check and the hygiene scan).
 | `evals/RESULTS.md` | The results record: what each run measured, with the tables its results file gives. |
 | `scripts/try_extraction.py` | Try extraction by hand: a passage in, the drafts, the issues and a record of each call to the model out (see "Trying extraction by hand"). |
 | `scripts/try_screenshot.py` | Try a screenshot by hand: a picture and a note in, the text read, the passage, the drafts and a record of each call out (see "Trying a screenshot by hand"). |
-| `scripts/try_assistant.py` | Try the assistant by hand: one or more sentences in, every step and the last words out (see "Trying the assistant by hand"). |
+| `scripts/try_assistant.py` | Try the assistant by hand: one or more sentences in, every step, what reached the ledger and the last words out; records a trade, asking what is missing (see "Trying the assistant by hand"). |
 | `scripts/record_trades.py` | Record trades from a passage at the command line, one question at a time (see "Recording trades by hand"). |
 | `scripts/ledger_check.py`, `scripts/ledger_validate.ts`, `scripts/ledger_offsets.ts` | The ledger tier of the checks: sample files judged by the ledger's own validator, and the ledger's offsets compared with ours. |
 | `tests/ledger_check/` | What the ledger tier checks (`cases.py`), tests of the tier's own logic, and the one sample for it written by hand. |

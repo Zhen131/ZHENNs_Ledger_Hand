@@ -465,13 +465,12 @@ changed.
 - **The cloud model does not run the assistant.** The cloud plug refuses a
   call with tools before sending anything, naming `LEDGER_HAND_MODEL_PLUG`.
   Whether it should hand tools to a cloud service is a later choice.
-- **Recording, questions about the ledger, changes and deletions are not
-  connected yet.** The tools are on the list the model is handed, so it can
-  choose them, but the program answers "not connected yet". Only the list of
-  assets, the holdings and where a proposal stands reach the ledger. Until
-  questions are connected, the holdings are handed to the model and it words
-  the answer itself, figures included; the program does not yet lay such
-  figures out on its own.
+- **Questions about the ledger, changes and deletions are not connected
+  yet.** The tools are on the list the model is handed, so it can choose
+  them, but the program answers "not connected yet". Until questions are
+  connected, the holdings are handed to the model and it words the answer
+  itself, figures included; the program does not yet lay such figures out
+  on its own.
 - **Only the fake ledger is behind the tools.** It is an invented book in
   memory with its own way of working out cost and profit, which says
   nothing about the real ledger's.
@@ -489,3 +488,39 @@ changed.
   steps. Whether the program should know other names of an asset, and
   letter case, is a later choice.
 
+## The assistant: recording a trade
+
+- **No reminder that the same words were recorded before.** The assistant
+  hands what the user said to the recording flow without the program's own
+  book, since what it records goes to the ledger, not to the book. So the
+  reminder the Record page gives ("these words were saved before") is not
+  there.
+- **A coin the user confirms is known for that one passage only.** Each
+  passage starts from the built-in table of coins; a coin confirmed while
+  answering a question is forgotten when the next passage starts, and is
+  asked about again.
+- **Changing the subject while a question waits.** While the recording
+  flow's question waits, whatever the user says next is read as its
+  answer. A question about the holdings at that moment is taken as an
+  answer that cannot be used, and the same question is asked again. Saying
+  "cancel" drops the passage, and the next thing said goes to the model.
+- **A trade said with its day only is not sent.** The recording flow keeps a
+  trade said with a day and no time of day ("昨天买了 0.5 ETH") as known to
+  the day, and asks nothing more; the ledger needs a moment. Rather than
+  make up a time of day, the program leaves that trade out and asks the user
+  to say it again with the time it was made; the other trades of the same
+  words are sent. Whether the ledger's tools will take a trade known only
+  to the day is for when the real ledger is connected.
+- **The money a trade is priced in is USDT, for now.** The recording flow's
+  records carry no money they are priced in, since extraction knows only
+  USDT; a proposal takes the ledger's asset whose code is USDT, and sends
+  nothing when the ledger has none. A stock bought with dollars cannot be
+  recorded through the assistant until the money comes from the ledger's
+  own assets.
+- **The program cannot stop the model from saying it recorded something.**
+  When the model asks to record a trade, the program takes over and the
+  model says nothing more in that turn. But a model that does not ask, and
+  writes "recorded" in its own answer, cannot be stopped from writing it.
+  So every thing said carries the program's own word on what reached the
+  ledger, which the script prints as one line each time ("sent to the
+  ledger: nothing"), and which an interface is to show the same way.

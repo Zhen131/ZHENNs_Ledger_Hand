@@ -8633,3 +8633,45 @@ taken. The first step's count does not change: it never looked at the
 arguments. The prompt and the tools were not changed, so the measure was
 not run again.
 
+
+## 2026-11-24: recording through the assistant, the seven recording sentences, `qwen2.5:7b`
+
+The seven recording sentences of `evals/sets/tools.json` (R1 to R7), each in
+a chat of its own, were run through the whole assistant with
+`scripts/try_assistant.py`: the real model chooses the tool; when it asks to
+record, the program hands the sentence to the recording flow, which asks the
+same model to judge it, extract the trades and word any question; the
+trades settled go to the fake ledger as one proposal. "Now" is the invented
+book's fixed moment, 24 November 2026, 23:55 in Budapest, which is also the
+set's. Each sentence was run until it stopped: a question waiting counts as
+stopped. The whole transcript is
+`evals/tool_results/record-20261124T150438Z-qwen2.5-7b.txt`.
+
+**What this run must show, and does.** R6, an open order, sends nothing.
+R7, which says no fee and no time of day, stops at a question and sends
+nothing. None of the seven ends with the program failing. Whether the
+figures were copied right is shown below as it came out; it is not a pass
+line here, and no prompt was changed for it.
+
+| Sentence | First step | Where the recording stopped | Trades sent | What was sent, against the sentence |
+| --- | --- | --- | --- | --- |
+| R1 | `propose_trade_add` | every trade settled; proposal sent | 1 | time 23:41, price 0.3104, total 30 USDT, fee 0.0966494 ADA, OKX: as said. The quantity is 96.64948454, worked out from the total and the price, where the sentence says 96.6494. The note holds only the second half of the opinion. |
+| R2 | `propose_trade_add` | every trade settled; proposal sent | 1 | 25 September 21:06, 318.4713 ADA at 0.314, fee 0.3184713 ADA, OKX, note: as said. The total, 99.9999882 USDT, was worked out; the sentence gives none. |
+| R3 | `propose_trade_add` twice | every trade settled; proposal sent | 2 | Both trades at 15:50, in the order said: 0.00167785 BTC at 59600, total 100, fee 0.00000168 BTC; 0.008291 ETH at 2412.25, total 20, fee 0.00000829 ETH; OKX. The first trade's note holds "均价59,600，手续费0.00000168BTC", which is not an opinion. The two calls handed the sentence over once. |
+| R4 | `propose_trade_add` | every trade settled; proposal sent | 1 | 08:05, 0.00040811 BTC at 61258.60, total 25 USDT, fee 0.0000004 BTC, OKX, the opinion as the note: as said. |
+| R5 | `propose_trade_add` | every trade settled; proposal sent | 1 | 09:40, 0.02 BTC at 94900, fee 2 USDT, Binance: as said; the total, 1898 USDT, was worked out. |
+| R6 | no tool | not handed over | 0 | The model answered on its own that this is an open order. |
+| R7 | `propose_trade_add` | a question waits: "Was this trade a buy or a sell?" | 0 | The first question is the side, not the fee or the time: extraction left the side out, and the side comes first in the order of questions. |
+
+**What else was seen.**
+
+- Handed straight to the recording flow with the same model, outside this
+  run, R6 is stopped as an open order ("open_order"), with nothing
+  extracted. So it would send nothing on that path either.
+- Every recording call to `propose_trade_add` still carried the trade's
+  figures as arguments; all were dropped unread, and none reached the
+  proposal or the next ask.
+- With a sentence that gives no fee ("今天上午9:40在币安买了0.02 BTC，价格94900"),
+  the flow asked for the fee; the answer "手续费 0.1 USDT" sent one trade with
+  the fee 0.1 USDT, and saving it added the trade to the fake ledger's book,
+  11 trades before and 12 after.

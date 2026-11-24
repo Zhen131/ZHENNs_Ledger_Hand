@@ -153,6 +153,10 @@ src/ledger_hand/
         questions.py          putting a question together: facts and notes            (exists)
         filling.py            putting an answer back into a trade                     (exists)
         assisting.py          one turn of the assistant: ask the model, judge, run, again (exists)
+        conversation.py       one thing said to the assistant: answer, model, or recording (exists)
+        proposing.py          a settled passage's trades sent to the ledger as one proposal (exists)
+        recorded.py           how recording through the assistant ended this time     (exists)
+        record_words.py       the program's own words about that, one for each ending (exists)
         saving.py             the final records kept in the book                      (exists)
         identifiers.py        a new identifier for a saved trade                      (exists)
         fingerprint.py        a passage's fingerprint, worked out in one place        (exists)
@@ -200,7 +204,7 @@ evals/                    prompt experiments: test sentences, scoring, runner, r
     results/              one results file per run, with its summary               (exists)
     tool_set.py           the assistant's sentences; the measure of its first step (exists)
     tool_run.py           the runner of that measure                               (exists)
-    tool_results/         one results file per run of that measure                 (exists)
+    tool_results/         one results file per run of that measure, and the recording runs (exists)
     RESULTS.md            the results record                                       (exists)
 tests/                    mirrors src; also holds the guardrails, fakes and golden samples  (exists)
     conftest.py           stops every test but the live ones from reaching the network (exists)
@@ -216,7 +220,7 @@ tests/                    mirrors src; also holds the guardrails, fakes and gold
     live/                 the live check against a real model, run by hand only       (exists)
     extraction/           tests of extraction against the scripted model              (exists)
     asking/               tests of wording a question                                 (exists)
-    flows/                tests of recording a passage and of its script              (exists)
+    flows/                tests of recording a passage, of the assistant, and of their scripts (exists)
     ui/                   the pages run headless against fakes; the plain words; the settings file (exists)
     evals/                tests of the experiment kit and the test sentences          (exists)
 ```
@@ -713,10 +717,30 @@ four tools that take none (`list_assets`, `get_positions`,
 the step records their names. The program asks the model at
 most `LEDGER_HAND_ASSISTANT_STEPS` times a turn (six by default); two wrong
 steps in a row stop the turn. The chat handed to the next turn holds every
-call and result, so what the user says next can be tied to what was listed.
-Only the list of assets, the holdings and where a proposal stands reach the
-ledger so far; the other tools answer "not connected yet". The assistant
-runs on the local plug only.
+call and result, so what the user says next can be tied to what was listed;
+a call to one of the four tools that take none is kept in it with its
+arguments emptied, so that figures the model wrote never reach it again.
+The list of assets, the holdings and where a proposal stands reach the
+ledger; asking about the ledger, changing and deleting answer "not
+connected yet". The assistant runs on the local plug only.
+
+Recording a trade is the program's (`flows/conversation.py`, `say`, the
+entry for each thing the user says). When the model asks to record a trade,
+its turn ends there (`Ending.RECORDING`), and what the user said, word for
+word, is handed once to the recording flow that the Record page uses
+(`flows/recording.py`), with no book: the flow judges it, extracts the
+trades and asks what is missing. While its question waits, what the user
+says next is the answer, and the model is not asked. Once every trade is
+settled, `flows/proposing.py` sends them to the ledger as one proposal,
+every figure as the flow gave it and the user's words with each trade; a
+trade known only to the day, or naming an asset the ledger does not have,
+is left out with its reason. The program, not the model, tells the user
+the question, that a proposal was sent, or why nothing was
+(`flows/record_words.py`), and every thing said carries the program's own
+word on what reached the ledger. When the model goes wrong two steps in a
+row, the program hands what was said to the recording flow once before it
+gives up. The money a proposal is priced in is, for now, the ledger's USDT;
+this is the one place the new parts name the extraction's single money.
 
 ## Deliberately left out
 
@@ -740,11 +764,18 @@ formatting tool.
   `ui/failure_words.py`.
 - **Voice input:** a new folder of its own that turns speech into text; the
   text then takes the existing path.
-- **Asking questions about the ledger, recording, changing and deleting
-  through the assistant:** the tools are listed in `assistant/tools.py`;
-  what the program does for each goes in `flows/assisting.py`'s `_run`, or a
-  file of its own in `flows/` beside it, with what it hands back in
-  `assistant/results.py`.
+- **Asking questions about the ledger, changing and deleting through the
+  assistant:** the tools are listed in `assistant/tools.py`; what the
+  program does for each goes in `flows/assisting.py`'s `_run`, or a file of
+  its own in `flows/` beside it, with what it hands back in
+  `assistant/results.py`. One the program carries on itself, as it does
+  recording, ends the model's turn as recording does and is taken on in
+  `flows/conversation.py`.
+- **Recording through the assistant:** in place. A new way it can end is
+  one more `RecordEnding`, and a new reason a trade is not sent one more
+  `LeftOut` (`flows/recorded.py`), each with its sentence in
+  `flows/record_words.py`; the money a proposal is priced in moves from the
+  one place in `flows/proposing.py` to the ledger's assets.
 - **The real ledger:** one more plug in `ledger/`, which must pass
   `tests/ledger/test_ledger_port.py`.
 - **Another kind of model server:** one more plug in `llm/`, one more value
