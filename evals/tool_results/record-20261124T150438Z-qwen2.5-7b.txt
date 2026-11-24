@@ -1,0 +1,129 @@
+Recording through the assistant: the seven recording sentences of evals/sets/tools.json (R1-R7),
+each in a chat of its own, run with scripts/try_assistant.py, the fake ledger and its fixed moment.
+commit: 2e6c592; work tree clean: no; started: 20261124T150438Z
+model server: {"version":"0.34.3"}
+
+===== R1
+now:    2026-11-24T23:55:00+01:00 in Europe/Budapest (the invented book's moment)
+model:  qwen2.5:7b
+ledger: FakeLedger; at most 6 steps a turn
+
+you said: 今晚23:41在OKX买入ADA，花了30USDT，成交96.6494个，均价0.3104，手续费0.0966494ADA。ADA是我目前亏损最多的币种-45%，现在低位购买目的是拉低ADA平均持仓成本
+route: the model chose the tools
+step 1: the model asked for 1 tool(s)
+  propose_trade_add {"quantity": "96.6494", "total": "30USDT", "quote_currency": "USDT", "fee": "0.0966494ADA", "platform": "OKX", "period": "今晚", "price": "0.3104", "fee_currency": "ADA", "time": "23:41", "note": "今晚23:41在OKX买入ADA，花了30USDT，成交96.6494个，均价0.3104，手续费0.0966494ADA。ADA是我目前亏损最多的币种-45%，现在低位购买目的是拉低ADA平均持仓成本", "asset": "ADA", "side": "buy"}
+    dropped, unread: quantity, total, quote_currency, fee, platform, period, price, fee_currency, time, note, asset, side
+    handed back: {"status":"sent","message":"The program took this over and has told the user where it stands."}
+recording: 2 call(s) to the model for this passage so far, apart from the steps
+  trade 1: 2026-11-24T23:41:00+01:00 buy 96.64948454 ADA at 0.3104 USDT, total 30 USDT, fee 0.0966494 ADA, platform OKX, note 低位购买目的是拉低ADA平均持仓成本
+sent to the ledger: proposal-1, 1 trade(s)
+assistant: Sent to the ledger. It waits there for you to confirm it on the ledger's own page.
+ending: sent
+exit status: 0
+
+===== R2
+now:    2026-11-24T23:55:00+01:00 in Europe/Budapest (the invented book's moment)
+model:  qwen2.5:7b
+ledger: FakeLedger; at most 6 steps a turn
+
+you said: 9月25号21:06在OKX买了318.4713个ADA，0.314一个，手续费0.3184713ADA，跟着博主看多
+route: the model chose the tools
+step 1: the model asked for 1 tool(s)
+  propose_trade_add {"fee_currency": "ADA", "note": "跟着博主看多", "asset": "ADA", "price": "0.314", "total": "100.000000000000000000", "fee": "0.3184713", "time": "21:06", "platform": "OKX", "period": "9月25号", "side": "buy", "quantity": "318.4713"}
+    dropped, unread: fee_currency, note, asset, price, total, fee, time, platform, period, side, quantity
+    handed back: {"status":"sent","message":"The program took this over and has told the user where it stands."}
+recording: 2 call(s) to the model for this passage so far, apart from the steps
+  trade 1: 2026-09-25T21:06:00+02:00 buy 318.4713 ADA at 0.314 USDT, total 99.9999882 USDT, fee 0.3184713 ADA, platform OKX, note 跟着博主看多
+sent to the ledger: proposal-1, 1 trade(s)
+assistant: Sent to the ledger. It waits there for you to confirm it on the ledger's own page.
+ending: sent
+exit status: 0
+
+===== R3
+now:    2026-11-24T23:55:00+01:00 in Europe/Budapest (the invented book's moment)
+model:  qwen2.5:7b
+ledger: FakeLedger; at most 6 steps a turn
+
+you said: BTC跌破60000了，今天下午3点50在OKX补仓BTC，100USDT买到0.00167785BTC，均价59,600，手续费0.00000168BTC；好久没买ETH了，顺手20USDT买了0.008291ETH，均价2,412.25，手续费0.00000829ETH
+route: the model chose the tools
+step 1: the model asked for 2 tool(s)
+  propose_trade_add {"quantity": "0.00167785BTC", "asset": "BTC", "price": "59600", "total": "100USDT", "quote_currency": "USDT", "fee": "0.00000168BTC", "fee_currency": "BTC", "platform": "OKX", "note": "补仓", "period": "今天下午3点50", "side": "buy"}
+    dropped, unread: quantity, asset, price, total, quote_currency, fee, fee_currency, platform, note, period, side
+    handed back: {"status":"sent","message":"The program took this over and has told the user where it stands."}
+  propose_trade_add {"period": "今天下午3点50", "side": "buy", "quantity": "0.008291ETH", "price": "2412.25", "total": "20USDT", "fee": "0.00000829ETH", "platform": "OKX", "note": "顺手购买", "asset": "ETH", "quote_currency": "USDT", "fee_currency": "ETH"}
+    dropped, unread: period, side, quantity, price, total, fee, platform, note, asset, quote_currency, fee_currency
+    handed back: {"status":"sent","message":"The program took this over and has told the user where it stands."}
+recording: 2 call(s) to the model for this passage so far, apart from the steps
+  trade 1: 2026-11-24T15:50:00+01:00 buy 0.00167785 BTC at 59600 USDT, total 100 USDT, fee 0.00000168 BTC, platform OKX, note 均价59,600，手续费0.00000168BTC
+  trade 2: 2026-11-24T15:50:00+01:00 buy 0.008291 ETH at 2412.25 USDT, total 20 USDT, fee 0.00000829 ETH, platform OKX, note -
+sent to the ledger: proposal-1, 2 trade(s)
+assistant: Sent to the ledger. It waits there for you to confirm it on the ledger's own page.
+ending: sent
+exit status: 0
+
+===== R4
+now:    2026-11-24T23:55:00+01:00 in Europe/Budapest (the invented book's moment)
+model:  qwen2.5:7b
+ledger: FakeLedger; at most 6 steps a turn
+
+you said: BTC 60000有支撑，买点，毕竟在牛市初期，无论是60,000还是62,000或是等到突破66,000之后回调的60,000都是一样的。今早8点05分OKX买入0.00040811BTC，花了25USDT，均价61,258.60，手续费0.0000004BTC
+route: the model chose the tools
+step 1: the model asked for 1 tool(s)
+  propose_trade_add {"price": "61258.60", "platform": "OKX", "asset": "BTC", "period": "今早8点05分", "side": "buy", "quantity": "0.00040811BTC", "total": "25USDT", "fee": "0.0000004BTC", "note": "BTC 60000有支撑，买点，毕竟在牛市初期，无论是60,000还是62,000或是等到突破66,000之后回调的60,000都是一样的。今早8点05分OKX买入0.00040811BTC，花了25USDT，均价61258.60，手续费0.0000004BTC"}
+    dropped, unread: price, platform, asset, period, side, quantity, total, fee, note
+    handed back: {"status":"sent","message":"The program took this over and has told the user where it stands."}
+recording: 2 call(s) to the model for this passage so far, apart from the steps
+  trade 1: 2026-11-24T08:05:00+01:00 buy 0.00040811 BTC at 61258.60 USDT, total 25 USDT, fee 0.0000004 BTC, platform OKX, note BTC 60000有支撑，买点，毕竟在牛市初期，无论是60,000还是62,000或是等到突破66,000之后回调的60,000都是一样的。
+sent to the ledger: proposal-1, 1 trade(s)
+assistant: Sent to the ledger. It waits there for you to confirm it on the ledger's own page.
+ending: sent
+exit status: 0
+
+===== R5
+now:    2026-11-24T23:55:00+01:00 in Europe/Budapest (the invented book's moment)
+model:  qwen2.5:7b
+ledger: FakeLedger; at most 6 steps a turn
+
+you said: Bought 0.02 BTC at 94900 on Binance at 9:40 this morning, fee 2 USDT.
+route: the model chose the tools
+step 1: the model asked for 1 tool(s)
+  propose_trade_add {"time": "今天早上9:40", "fee": "2", "fee_currency": "USDT", "side": "buy", "asset": "BTC", "quantity": "0.02", "price": "94900", "platform": "Binance"}
+    dropped, unread: time, fee, fee_currency, side, asset, quantity, price, platform
+    handed back: {"status":"sent","message":"The program took this over and has told the user where it stands."}
+recording: 2 call(s) to the model for this passage so far, apart from the steps
+  trade 1: 2026-11-24T09:40:00+01:00 buy 0.02 BTC at 94900 USDT, total 1898 USDT, fee 2 USDT, platform Binance, note -
+sent to the ledger: proposal-1, 1 trade(s)
+assistant: Sent to the ledger. It waits there for you to confirm it on the ledger's own page.
+ending: sent
+exit status: 0
+
+===== R6
+now:    2026-11-24T23:55:00+01:00 in Europe/Budapest (the invented book's moment)
+model:  qwen2.5:7b
+ledger: FakeLedger; at most 6 steps a turn
+
+you said: 在OKX挂了个BTC限价单，59,500买100U，觉得这里是强支撑，等它触发
+route: the model chose the tools
+step 1: the model answered
+sent to the ledger: nothing
+assistant: 这是一个挂单，还没有成交，不属于已有的交易记录。如果你想要记录这个挂单，可以告诉我更多细节，比如具体的时间，我将帮助你记录。但现在我不能进行任何操作。
+ending: answered
+exit status: 0
+
+===== R7
+now:    2026-11-24T23:55:00+01:00 in Europe/Budapest (the invented book's moment)
+model:  qwen2.5:7b
+ledger: FakeLedger; at most 6 steps a turn
+
+you said: 今天下午OKX顺手25U买了点ETH，2,388一个，跟着BTC一起补仓
+route: the model chose the tools
+step 1: the model asked for 1 tool(s)
+  propose_trade_add {"asset": "ETH", "period": "今天下午", "side": "buy", "price": "2,388", "quote_currency": "USDT", "platform": "OKX"}
+    dropped, unread: asset, period, side, price, quote_currency, platform
+    handed back: {"status":"asking","message":"The program took this over and has told the user where it stands."}
+recording: 3 call(s) to the model for this passage so far, apart from the steps
+sent to the ledger: nothing
+assistant: [Trade 1 of 1: side] Was this trade a buy or a sell?
+Say 'skip' to leave this trade out, or 'cancel' to drop the whole passage.
+ending: asking
+exit status: 0
