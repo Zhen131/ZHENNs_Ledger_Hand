@@ -49,9 +49,15 @@ Python's default one. The agreement of the three amounts is also tested the
 way the ledger itself calculates it, so that a record accepted here is not
 turned down there over its total.
 
+``third_amount`` and ``amounts_agree`` give the same working out to a
+change of a trade already in the ledger: when one of the three amounts is
+changed, the program asks which of the other two follows, and works that
+one out here, by the very rules a draft's third amount is worked out by.
+
 Names defined here: ``check_draft``, ``Missing``, ``Violation``,
 ``DraftProblems``, ``CheckSettings``, ``DEFAULT_SETTINGS``,
-``DEFAULT_DERIVED_PLACES`` and ``DEFAULT_FUTURE_GRACE``.
+``DEFAULT_DERIVED_PLACES``, ``DEFAULT_FUTURE_GRACE``, ``third_amount`` and
+``amounts_agree``.
 """
 
 from __future__ import annotations
@@ -359,6 +365,41 @@ def _agree(amounts: _Amounts, tolerance: Decimal) -> bool:
 def _gap(context: Context, amounts: _Amounts) -> Decimal:
     product = context.multiply(amounts.quantity, amounts.price)
     return context.subtract(product, amounts.total).copy_abs()
+
+
+# --- the third amount of a trade already in the ledger -----------------------
+
+
+def third_amount(blank: Amount, stated: Mapping[Amount, Decimal]) -> Decimal | None:
+    """The amount ``blank``, worked out from the other two in ``stated``, as a draft's is.
+
+    The working out is the one ``check_draft`` gives a draft with these two
+    stated and the default settings: a total is rounded to the most places
+    the ledger holds, a quantity or a price is kept whole when it comes out
+    even and fits, and is otherwise rounded half up to
+    ``DEFAULT_DERIVED_PLACES``. ``None`` when the result is not above zero,
+    does not fit the ledger's digit limits, or, after rounding, the three
+    amounts still do not agree. Raises ``ValueError`` when ``stated`` does
+    not hold exactly the two other amounts, each above zero.
+    """
+    others = set(Amount) - {blank}
+    if set(stated) != others or not all(stated[amount] > 0 for amount in others):
+        raise ValueError("stated holds the two other amounts, each above zero")
+    value = _derive(blank, stated, DEFAULT_DERIVED_PLACES)
+    if not value > 0 or not fits_digit_limits(value):
+        return None
+    every = {**stated, blank: value}
+    amounts = _Amounts(every[Amount.QUANTITY], every[Amount.PRICE], every[Amount.TOTAL], blank)
+    return value if _agree(amounts, TOTAL_TOLERANCE) else None
+
+
+def amounts_agree(quantity: Decimal, price: Decimal, total: Decimal) -> bool:
+    """Whether quantity times price is within the ledger's tolerance of the total.
+
+    It is the test ``check_draft`` puts the three amounts of a draft to,
+    with the ledger's own tolerance, here and as the ledger works it out.
+    """
+    return _agree(_Amounts(quantity, price, total, None), TOTAL_TOLERANCE)
 
 
 # --- the fee ----------------------------------------------------------------

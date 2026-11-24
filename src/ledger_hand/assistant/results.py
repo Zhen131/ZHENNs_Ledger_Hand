@@ -16,7 +16,10 @@ go by:
   ``message`` is what it said;
 - for a call to record a trade, how the program's recording of what the
   user said ended (``recording_text``), in one word and with no figure:
-  the program, not the model, tells the user the rest.
+  the program, not the model, tells the user the rest;
+- for a call to change or delete a trade, how the program's change ended
+  (``editing_text``), the same way; and for every other call of that step,
+  that it was not run (``not_done_text``): one change or deletion at a time.
 
 Amounts are written as exact decimal text, never as JSON numbers, so the
 model reads the digits the ledger has. Money is always named beside an
@@ -25,8 +28,8 @@ amount. A figure that was not worked out is written as its reason.
 Names defined here: ``assets_text``, ``positions_text``, ``trades_text``,
 ``summary_text``, ``lookup_text``, ``status_text``, ``not_connected_text``,
 ``no_proposal_text``, ``misstep_text``, ``period_misstep_text``,
-``ledger_error_text``, ``not_run_text``, ``answered_by_program_text``, ``skipped_text`` and
-``recording_text``.
+``ledger_error_text``, ``not_run_text``, ``answered_by_program_text``, ``skipped_text``,
+``recording_text``, ``editing_text`` and ``not_done_text``.
 """
 
 from __future__ import annotations
@@ -251,5 +254,25 @@ def recording_text(ending: str) -> str:
         {
             "status": ending,
             "message": "The program took this over and has told the user where it stands.",
+        }
+    )
+
+
+def editing_text(ending: str) -> str:
+    """The answer to a call to change or delete a trade: how the program's change ended."""
+    return _text(
+        {
+            "status": ending,
+            "message": "The program took this over and has told the user where it stands.",
+        }
+    )
+
+
+def not_done_text() -> str:
+    """The answer to a call not run, because another call of its step changes or deletes."""
+    return _text(
+        {
+            "status": "not_run",
+            "message": "Not run: one change or deletion at a time; the program told the user.",
         }
     )

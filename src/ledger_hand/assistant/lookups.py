@@ -18,8 +18,12 @@ business.
 A list of trades longer than ``MOST_TRADES_SHOWN`` shows only the latest
 ones, in time order, and says how many there are in all.
 
+``trade_row`` and ``conditions_lines`` lay out one trade, and the
+conditions trades were found by, the same way, for the program's words
+when it changes or deletes a trade.
+
 Names defined here: ``MOST_TRADES_SHOWN``, ``Conditions``, ``Lookup``,
-``latest_trades`` and ``lookup_lines``.
+``latest_trades``, ``lookup_lines``, ``trade_row`` and ``conditions_lines``.
 """
 
 from __future__ import annotations
@@ -175,3 +179,19 @@ def lookup_lines(lookup: Lookup) -> tuple[str, ...]:
     """The header, then one line a row; one fixed line when there is no row."""
     rows = _rows(lookup)
     return (*_header(lookup), *(rows or [_NOTHING]))
+
+
+def trade_row(trade: LedgerTrade) -> str:
+    """One trade on one line, as a list of trades shows it."""
+    return _trade_row(trade)
+
+
+def conditions_lines(conditions: Conditions) -> tuple[str, ...]:
+    """The days, the asset and the side trades were found by, as a list's header has them."""
+    side = f"{conditions.side.value}s" if conditions.side else "buys and sells"
+    return (
+        f"Time: {_period_words(conditions.period)}",
+        f"Asset: {conditions.asset or 'all assets'}",
+        f"Side: {side}",
+        *conditions.not_narrowed,
+    )

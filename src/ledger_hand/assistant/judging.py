@@ -37,7 +37,11 @@ An optional argument given as blank text counts as not given: a model often
 fills every argument it sees, and an empty one says nothing the program
 could take for the user's words.
 
-Names defined here: ``MisstepKind``, ``Misstep``, ``Accepted`` and ``judge``.
+``judge_argument`` judges one argument alone, by the same rules, for the
+program that has to say which arguments of a wrong call were right.
+
+Names defined here: ``MisstepKind``, ``Misstep``, ``Accepted``, ``judge`` and
+``judge_argument``.
 """
 
 from __future__ import annotations
@@ -154,6 +158,33 @@ def _problem(
             "Copy the user's own words exactly; never convert or rewrite them."
         ),
     )
+
+
+def judge_argument(
+    tool: ToolName, name: str, given: Mapping[str, object], user_said: Sequence[str]
+) -> Misstep | None:
+    """What is wrong with the argument ``name`` of a call to ``tool`` alone; ``None``: nothing.
+
+    ``given`` is every argument of the call, so that a new value is judged
+    as a number when the field the call names is one. An argument the tool
+    does not take, one that is not text and one left out are each wrong
+    here, whatever the rest of the call is.
+    """
+    known = tool_named(tool.value)
+    argument = known.argument(name) if known is not None else None
+    if argument is None:
+        return Misstep(
+            kind=MisstepKind.UNKNOWN_ARGUMENT, detail=f"{tool.value} takes no argument {name!r}."
+        )
+    value = given.get(name)
+    if value is None:
+        return Misstep(
+            kind=MisstepKind.MISSING_ARGUMENT, detail=f"{tool.value} needs the argument {name!r}."
+        )
+    if not isinstance(value, str):
+        return Misstep(kind=MisstepKind.NOT_TEXT, detail=f"The argument {name!r} must be text.")
+    texts = {key: text for key, text in given.items() if isinstance(text, str)}
+    return _problem(argument, value, texts, user_said)
 
 
 def _find(passage: Passage, value: str) -> Piece | PieceMiss:

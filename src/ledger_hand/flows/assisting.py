@@ -63,8 +63,16 @@ the user's language (the model tends to write "今年" for "this year" and
 then write it again). No date the program worked out is in it.
 (Decided on 2026-11-24.)
 
-Changing and deleting are on the list, so that the model can choose them,
-and are answered "not connected yet".
+Changing or deleting a trade (``propose_trade_update``,
+``propose_trade_delete``) is the program's too, once the call is taken
+(``assistant.edit_calls``): a step whose first such call is taken ends the
+loop at once (``Ending.EDITING``), and every other call of that step is not
+run (``NotRunCall``): one change or deletion at a time. Whoever called then
+goes on with that call (``editing``) and hands the outcome to
+``close_editing``, which puts a result after every call of the step and the
+program's words after them. A first such call that is not taken is a wrong
+step, judged as any call is, its period too; any later one in the same step
+is not run.
 
 The chat handed back holds every call and result of the turn, so that the
 next turn can tie what the user says to what was listed. A call to a tool
@@ -74,7 +82,8 @@ bring the figures it wrote into the next ask. The steps keep the calls as
 the model made them, for the record. This module reads
 no clock, no zone of the machine and no settings: all are handed in.
 
-Names defined here: ``DEFAULT_PROMPT``, ``take_turn`` and ``close_recording``.
+Names defined here: ``DEFAULT_PROMPT``, ``take_turn``, ``close_recording``,
+``close_editing`` and ``first_edit``.
 """
 
 from __future__ import annotations
@@ -84,6 +93,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
 
+from ledger_hand.assistant.edit_calls import EDIT_TOOLS, EditCall, judge_edit
 from ledger_hand.assistant.explanation import (
     AFTER_A_TABLE,
     NO_TABLE,
@@ -108,11 +118,13 @@ from ledger_hand.assistant.prompting import AssistantPrompt, system_message
 from ledger_hand.assistant.prompts.assistant_fourth import ASSISTANT_FOURTH
 from ledger_hand.assistant.results import (
     answered_by_program_text,
+    editing_text,
     ledger_error_text,
     lookup_text,
     misstep_text,
     no_proposal_text,
     not_connected_text,
+    not_done_text,
     not_run_text,
     period_misstep_text,
     recording_text,
@@ -236,6 +248,10 @@ def take_turn(
         if any(call.name == ToolName.PROPOSE_TRADE_ADD.value for call in reply.calls):
             turn.steps.append(_to_recording(reply.text, reply.calls, around.user_said))
             return turn.ended(Ending.RECORDING, "")
+        edit = first_edit(reply.calls)
+        if edit is not None and isinstance(judge_edit(edit, around.user_said), EditCall):
+            turn.steps.append(_to_editing(reply.text, reply.calls, edit))
+            return turn.ended(Ending.EDITING, "")
         try:
             step = _step(reply.text, reply.calls, turn, around)
         except _LedgerFailedError as stopped:
@@ -281,6 +297,50 @@ def close_recording(
     )
 
 
+def close_editing(result: TurnResult, ending: str, reply: str, proposal: str | None) -> TurnResult:
+    """``result``, ended in a change or deletion, with its last step's results and words.
+
+    ``ending`` says in one word how the change ended; ``proposal`` is the
+    identifier of the proposal it made, if it made one.
+    """
+    if result.ending is not Ending.EDITING:
+        raise ValueError(f"the turn did not go to a change: {result.ending.value}")
+    *earlier, last = result.steps
+    handed = editing_text(ending)
+    calls = tuple(
+        dataclasses.replace(call, result=handed) if isinstance(call, TakenCall) else call
+        for call in last.calls
+    )
+    items = (
+        *result.chat.items,
+        *(ToolResult(name=call.call.name, content=call.result) for call in calls),
+        Message(Role.ASSISTANT, reply),
+    )
+    proposals = result.chat.proposals + ((proposal,) if proposal is not None else ())
+    return dataclasses.replace(
+        result,
+        reply=reply,
+        steps=(*earlier, dataclasses.replace(last, calls=calls)),
+        chat=Chat(items=items, proposals=proposals),
+    )
+
+
+def first_edit(calls: Sequence[ToolCall]) -> ToolCall | None:
+    """The first call of a step that changes or deletes a trade, if there is one."""
+    return next((call for call in calls if call.name in EDIT_TOOLS), None)
+
+
+def _to_editing(text: str, calls: Sequence[ToolCall], edit: ToolCall) -> Step:
+    """The step that goes to a change: its first change or deletion taken, every other not run."""
+    handled: list[TakenCall | RefusedCall | NotRunCall] = []
+    for call in calls:
+        if call is edit:
+            handled.append(TakenCall(call=call, tool=ToolName(call.name), result=""))
+        else:
+            handled.append(NotRunCall(call=call, result=not_done_text()))
+    return Step(text=text, calls=tuple(handled))
+
+
 def _to_recording(text: str, calls: Sequence[ToolCall], user_said: Sequence[str]) -> Step:
     """The step that goes to recording: its recording calls taken, every other call not run."""
     handled: list[TakenCall | RefusedCall | NotRunCall] = []
@@ -311,7 +371,13 @@ def _takes_nothing(name: str) -> bool:
 def _step(text: str, calls: Sequence[ToolCall], turn: _Turn, around: _Around) -> Step:
     """Judge and run each call of one step in order, handing every result back."""
     handled: list[TakenCall | RefusedCall | NotRunCall] = []
+    edit = first_edit(calls)
     for index, call in enumerate(calls):
+        if call.name in EDIT_TOOLS and call is not edit:
+            not_done = NotRunCall(call=call, result=not_done_text())
+            handled.append(not_done)
+            turn.items.append(ToolResult(name=call.name, content=not_done.result))
+            continue
         try:
             done = _handled(call, turn, around)
         except LedgerError as error:
@@ -336,6 +402,12 @@ def _handled(call: ToolCall, turn: _Turn, around: _Around) -> TakenCall | Refuse
     asset: str | None = None
     if call.name in NARROWED_TOOLS:
         verdict, asset = judge_read(call, around.user_said)
+    elif call.name in EDIT_TOOLS:
+        # Only a first change that is not taken reaches here: a taken one ends the loop.
+        edit_verdict = judge_edit(call, around.user_said)
+        if isinstance(edit_verdict, EditCall):
+            raise AssertionError("a change taken is gone on with before the step is run")
+        verdict = edit_verdict
     else:
         verdict = judge(call, around.user_said)
     if isinstance(verdict, Misstep):

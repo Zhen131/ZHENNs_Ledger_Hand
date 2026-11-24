@@ -2,14 +2,17 @@
 
 ``say`` is the entry for each thing the user says. It is handed the chat as
 it stands (``AssistantChat``: the assistant's ``Chat``, and a passage whose
-question waits for its answer, if one does) and gives back what came of it
-(``Said``), with the chat to hand the next time. It takes one of three
+question waits for its answer, or a change that waits for the user to say
+which trade or which amount follows, if one does) and gives back what came
+of it (``Said``), with the chat to hand the next time. It takes one of three
 routes (``Route``):
 
 - A question waits: what the user says is its answer. The model that
   chooses tools is not asked; the recording flow reads the answer
   (``recording.answer``), "skip" and "cancel" among them, and asks the same
-  question again when the answer cannot be used.
+  question again when the answer cannot be used. A change that waits is
+  answered the same way, read by the program (``editing.answer``). Only one
+  thing ever waits: a new question takes the place of the one answered.
 - Otherwise the model chooses tools (``assisting.take_turn``). When it asks
   to record a trade, what the user said, word for word, is handed to the
   recording flow (``recording.start``), once, however many such calls it
@@ -23,6 +26,15 @@ routes (``Route``):
   open order, is said with its reason. Only when the flow finds no trade at
   all is the user told it could not be done. A turn stopped at the step
   limit, or by a failure, is not taken over. (Decided on 2026-11-24.)
+  When the second wrong step holds a change or a deletion, what was said
+  is not tried as a trade: the program goes on from that call alone
+  (``editing.taken_over``), and when nothing in it can be gone on with,
+  the turn's own words stand.
+
+When the model asks to change or delete a trade, the program goes on with
+that call (``editing.start``) and says how it ended; the model is not
+asked again in this turn. What reached the ledger is kept apart from a
+recording's (``Said.edit_sent``), and its proposal joins the chat's.
 
 Once every trade is settled, the records are sent to the ledger as one
 proposal (``proposing``); nothing is confirmed here, since the user confirms
@@ -47,9 +59,11 @@ import enum
 from dataclasses import dataclass
 from datetime import datetime
 
-from ledger_hand.assistant.outcome import Chat, Ending, TurnResult
-from ledger_hand.flows import recording
-from ledger_hand.flows.assisting import close_recording, take_turn
+from ledger_hand.assistant.edit_calls import EditCall, judge_edit
+from ledger_hand.assistant.outcome import Chat, Ending, TakenCall, TurnResult
+from ledger_hand.flows import editing, recording
+from ledger_hand.flows.assisting import close_editing, close_recording, first_edit, take_turn
+from ledger_hand.flows.editing import Edited, EditEnding, EditSent, EditWaiting
 from ledger_hand.flows.progress import DEFAULT_TUNING, Progress, Tuning
 from ledger_hand.flows.proposing import propose
 from ledger_hand.flows.record_words import reply_for
@@ -60,7 +74,7 @@ from ledger_hand.flows.recorded import (
     RecordEnding,
     Sent,
 )
-from ledger_hand.ports import LedgerPort, Message, ModelPort, Role
+from ledger_hand.ports import LedgerPort, Message, ModelPort, Role, ToolCall
 
 # After a takeover, only this ending means it could not be done at all.
 _NOT_A_TRADE = frozenset({RecordEnding.NO_TRADE})
@@ -78,10 +92,19 @@ class Route(enum.Enum):
 
 @dataclass(frozen=True, kw_only=True)
 class AssistantChat:
-    """The chat so far, and the passage whose question waits for its answer, if one does."""
+    """The chat so far, and what waits for the user's answer, if anything does.
+
+    ``recording`` is a passage whose question waits; ``editing`` a change
+    that waits for which trade, or which amount follows. At most one waits.
+    """
 
     chat: Chat = Chat()
     recording: Progress | None = None
+    editing: EditWaiting | None = None
+
+    def __post_init__(self) -> None:
+        if self.recording is not None and self.editing is not None:
+            raise ValueError("only one thing waits for the user's answer at a time")
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -89,7 +112,8 @@ class Said:
     """What came of one thing the user said.
 
     ``turn`` is the model's turn, when the model was asked; ``recorded`` how
-    recording ended, when there was any; ``reply`` what the user is told;
+    recording ended, when there was any; ``edited`` how a change or a
+    deletion ended, when there was one; ``reply`` what the user is told;
     ``state`` the chat to hand the next time.
     """
 
@@ -98,6 +122,12 @@ class Said:
     state: AssistantChat
     turn: TurnResult | None = None
     recorded: Recorded | None = None
+    edited: Edited | None = None
+
+    @property
+    def edit_sent(self) -> EditSent | None:
+        """The change or deletion that reached the ledger this time; ``None`` for none."""
+        return self.edited.sent if self.edited is not None else None
 
     @property
     def sent(self) -> Sent | None:
@@ -107,6 +137,8 @@ class Said:
     @property
     def well_ended(self) -> bool:
         """Whether it was done, or the user was told why not, with nothing failing."""
+        if self.edited is not None:
+            return self.edited.ending is not EditEnding.LEDGER_FAILED
         if self.recorded is not None:
             if self.route is Route.TAKEOVER and self.recorded.ending in _NOT_A_TRADE:
                 return False
@@ -144,9 +176,13 @@ def say(
     around = _Around(model, ledger, now, zone, tuning)
     if state.recording is not None:
         return _answered(state, state.recording, said, around)
+    if state.editing is not None:
+        return _edit_answered(state, state.editing, said, around)
     turn = take_turn(
         state.chat, said, model=model, ledger=ledger, now=now, zone=zone, max_steps=max_steps
     )
+    if turn.ending is Ending.EDITING:
+        return _edit_begun(turn, said, around)
     if turn.ending is Ending.RECORDING:
         recorded = _begun(said, around)
         reply = reply_for(recorded)
@@ -154,6 +190,9 @@ def say(
         state = AssistantChat(chat=closed.chat, recording=_waiting(recorded))
         return Said(route=Route.MODEL, reply=reply, state=state, turn=closed, recorded=recorded)
     if turn.ending is Ending.TWO_MISSTEPS:
+        edit = first_edit([handled.call for handled in turn.steps[-1].calls])
+        if edit is not None:
+            return _edit_taken_over(turn, edit, around)
         return _taken_over(turn, said, around)
     return Said(route=Route.MODEL, reply=turn.reply, state=AssistantChat(chat=turn.chat), turn=turn)
 
@@ -224,3 +263,54 @@ def _with_proposal(chat: Chat, recorded: Recorded) -> Chat:
     if proposal is None:
         return chat
     return Chat(items=chat.items, proposals=(*chat.proposals, proposal))
+
+
+def _edit_begun(turn: TurnResult, said: str, around: _Around) -> Said:
+    """The model's change or deletion, gone on with by the program."""
+    taken = next(call for call in turn.steps[-1].calls if isinstance(call, TakenCall))
+    call = judge_edit(taken.call, turn.chat.user_said)
+    assert isinstance(call, EditCall)
+    edited = editing.start(
+        call, around.ledger, turn.chat.user_said, now=around.now, zone=around.zone
+    )
+    proposal = edited.sent.proposal if edited.sent is not None else None
+    closed = close_editing(turn, edited.ending.value, edited.reply, proposal)
+    state = AssistantChat(chat=closed.chat, editing=edited.waiting)
+    return Said(route=Route.MODEL, reply=edited.reply, state=state, turn=closed, edited=edited)
+
+
+def _edit_answered(state: AssistantChat, waiting: EditWaiting, said: str, around: _Around) -> Said:
+    edited = editing.answer(waiting, said, around.ledger, now=around.now, zone=around.zone)
+    chat = _with_words(
+        state.chat, (Message(Role.USER, said), Message(Role.ASSISTANT, edited.reply))
+    )
+    if edited.sent is not None:
+        chat = Chat(items=chat.items, proposals=(*chat.proposals, edited.sent.proposal))
+    return Said(
+        route=Route.ANSWER,
+        reply=edited.reply,
+        state=AssistantChat(chat=chat, editing=edited.waiting),
+        edited=edited,
+    )
+
+
+def _edit_taken_over(turn: TurnResult, call: ToolCall, around: _Around) -> Said:
+    """Two wrong steps, the last a change or a deletion: the program goes on from that call."""
+    user_said = turn.chat.user_said
+    edited = editing.taken_over(call, around.ledger, user_said, now=around.now, zone=around.zone)
+    if edited is None:
+        return Said(
+            route=Route.TAKEOVER, reply=turn.reply, state=AssistantChat(chat=turn.chat), turn=turn
+        )
+    # The model's apology for its wrong steps gives way to the program's words.
+    kept = Chat(items=turn.chat.items[:-1], proposals=turn.chat.proposals)
+    chat = _with_words(kept, (Message(Role.ASSISTANT, edited.reply),))
+    if edited.sent is not None:
+        chat = Chat(items=chat.items, proposals=(*chat.proposals, edited.sent.proposal))
+    return Said(
+        route=Route.TAKEOVER,
+        reply=edited.reply,
+        state=AssistantChat(chat=chat, editing=edited.waiting),
+        turn=turn,
+        edited=edited,
+    )

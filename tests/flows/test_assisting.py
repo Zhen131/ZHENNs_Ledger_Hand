@@ -22,6 +22,7 @@ from ledger_hand.assistant.outcome import (
     TWO_MISSTEPS_REPLY,
     Chat,
     Ending,
+    NotRunCall,
     RefusedCall,
     TakenCall,
     TurnResult,
@@ -243,10 +244,10 @@ def test_several_calls_in_one_step_are_run_in_order_and_count_as_one_ask() -> No
     ]
 
 
-def test_tools_not_built_yet_answer_not_connected() -> None:
+def test_a_step_with_two_changes_goes_on_with_the_first_and_does_not_run_the_other() -> None:
     ledger = FakeLedger()
 
-    result, _ = turn(
+    result, model = turn(
         [
             calls(
                 ("propose_trade_delete", {"period": "10月6号"}),
@@ -259,10 +260,13 @@ def test_tools_not_built_yet_answer_not_connected() -> None:
     )
 
     assert ledger.calls == []
-    assert len(result.steps[0].calls) == 2
-    for taken in result.steps[0].calls:
-        assert isinstance(taken, TakenCall)
-        assert json.loads(taken.result)["status"] == "not_connected"
+    assert result.ending is Ending.EDITING
+    assert len(model.calls) == 1
+    first, second = result.steps[0].calls
+    assert isinstance(first, TakenCall)
+    assert first.call.name == "propose_trade_delete"
+    assert isinstance(second, NotRunCall)
+    assert json.loads(second.result)["status"] == "not_run"
 
 
 def test_the_status_of_a_proposal_when_the_chat_has_none_and_when_it_has_one() -> None:
@@ -348,7 +352,7 @@ def test_the_next_turn_is_handed_the_calls_and_the_trades_listed_before() -> Non
     assert "t-06" in next(item.content for item in sent if isinstance(item, ToolResult))
     assert isinstance(result.steps[0].calls[0], TakenCall)
     assert result.chat.items[: len(first.items)] == first.items
-    assert result.chat.items[-1] == Message(Role.ASSISTANT, "Not yet.")
+    assert result.ending is Ending.EDITING
 
 
 def test_the_chat_handed_back_holds_the_turns_calls_and_results() -> None:

@@ -58,6 +58,8 @@ class Ending(enum.Enum):
     """The ledger could not be reached, or failed in a way the model cannot mend."""
     RECORDING = "recording"
     """The model chose to record a trade; the program takes what the user said on from there."""
+    EDITING = "editing"
+    """The model chose to change or delete a trade; the program takes it on from there."""
     ANSWERED_BY_PROGRAM = "answered_by_program"
     """The program told the user something itself and asked the ledger nothing: a time it
     cannot read, or an asset the ledger does not have."""
@@ -104,7 +106,8 @@ class RefusedCall:
 
 @dataclass(frozen=True, kw_only=True)
 class NotRunCall:
-    """A call not run, because its step went to recording, and what was handed back for it."""
+    """A call not run, because its step went to recording or to a change, or the program
+    answered the user in it, and what was handed back for it."""
 
     call: ToolCall
     result: str

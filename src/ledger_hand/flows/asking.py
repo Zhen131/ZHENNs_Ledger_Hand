@@ -23,8 +23,11 @@ out first and checked apart, and the rest is judged as any call is
 Every figure in a ``Lookup`` is the ledger's own. This module reads no
 clock, no zone of the machine and no settings: all are handed in.
 
+``find_conditions`` is the same turning of a period, an asset and a side
+into conditions, for the tools that change or delete one trade.
+
 Names defined here: ``READ_TOOLS``, ``NARROWED_TOOLS``, ``ProgramWords``,
-``judge_read`` and ``look_up``.
+``judge_read``, ``look_up`` and ``find_conditions``.
 """
 
 from __future__ import annotations
@@ -150,9 +153,38 @@ def _conditions(
     accepted: Accepted, asset: str | None, ledger: LedgerPort, said: _Said
 ) -> Conditions | ProgramWords:
     """The period, asset and side to look up with, or the program's words instead."""
+    side = accepted.arguments.get("side") if accepted.tool is ToolName.LIST_TRADES else None
+    return _found_conditions(accepted.arguments.get("period"), asset, side, ledger, said)
+
+
+def find_conditions(
+    period: str | None,
+    asset: str | None,
+    side: str | None,
+    ledger: LedgerPort,
+    user_said: Sequence[str],
+    *,
+    now: datetime,
+    zone: str,
+) -> Conditions | ProgramWords:
+    """The conditions to find trades by, from a period, an asset and a side the model gave.
+
+    This is the read tools' own way, for a tool that changes or deletes a
+    trade: the period, already judged to be the user's words, is turned
+    into days, or the program says which words it cannot read; the asset
+    and the side are checked against what the user said, and dropped, with
+    a sentence why, when the user did not ask for them. ``None`` is a part
+    not given.
+    """
+    said = _Said(user_said[-1], user_said[-2] if len(user_said) > 1 else None, now, zone)
+    return _found_conditions(period, asset, side, ledger, said)
+
+
+def _found_conditions(
+    words: str | None, asset: str | None, given_side: str | None, ledger: LedgerPort, said: _Said
+) -> Conditions | ProgramWords:
     not_narrowed: list[str] = []
     period: Period | None = None
-    words = accepted.arguments.get("period")
     if words is not None:
         reading = read_period(words, said.now, said.zone)
         if isinstance(reading, PeriodRefused):
@@ -168,8 +200,7 @@ def _conditions(
         if isinstance(checked, AssetUsed):
             code = checked.code
     side: Side | None = None
-    given_side = accepted.arguments.get("side")
-    if accepted.tool is ToolName.LIST_TRADES and given_side is not None:
+    if given_side is not None:
         side_checked = check_side(given_side, said.now_words, said.before)
         if isinstance(side_checked, SideDropped):
             not_narrowed.append(side_checked.why)
