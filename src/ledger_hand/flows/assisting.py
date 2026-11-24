@@ -67,7 +67,7 @@ bring the figures it wrote into the next ask. The steps keep the calls as
 the model made them, for the record. This module reads
 no clock, no zone of the machine and no settings: all are handed in.
 
-Names defined here: ``take_turn`` and ``close_recording``.
+Names defined here: ``DEFAULT_PROMPT``, ``take_turn`` and ``close_recording``.
 """
 
 from __future__ import annotations
@@ -132,6 +132,9 @@ from ledger_hand.ports import (
     ToolCallTurn,
     ToolResult,
 )
+
+# The system prompt a turn uses unless it is handed another: the latest version.
+DEFAULT_PROMPT = ASSISTANT_SECOND
 
 # Ledger failures the model can tell the user about; any other ends the turn.
 _TOLD_TO_THE_MODEL = frozenset({LedgerErrorKind.UNKNOWN_ASSET, LedgerErrorKind.NOT_FOUND})
@@ -202,7 +205,7 @@ def take_turn(
     now: datetime,
     zone: str,
     max_steps: int,
-    prompt: AssistantPrompt = ASSISTANT_SECOND,
+    prompt: AssistantPrompt = DEFAULT_PROMPT,
 ) -> TurnResult:
     """One turn: ``said`` by the user after ``chat``, until the model answers or is stopped."""
     if isinstance(max_steps, bool) or not isinstance(max_steps, int) or max_steps < 1:
