@@ -1,0 +1,186 @@
+{
+  "about": "Sentences for the assistant's first step: which tool the model asks for first. 'accept' lists the first steps taken as right ('no_tool': answering without a tool); 'copied' lists words a copied argument of the first step should hold, counted apart and not part of the pass line. These sentences were seen while the prompt was written; they are not a hidden test.",
+  "now": "2026-11-24T23:55:00+01:00",
+  "zone": "Europe/Budapest",
+  "sentences": [
+    {
+      "id": "R1",
+      "text": "今晚23:41在OKX买入ADA，花了30USDT，成交96.6494个，均价0.3104，手续费0.0966494ADA。ADA是我目前亏损最多的币种-45%，现在低位购买目的是拉低ADA平均持仓成本",
+      "accept": [
+        "propose_trade_add"
+      ],
+      "copied": []
+    },
+    {
+      "id": "R2",
+      "text": "9月25号21:06在OKX买了318.4713个ADA，0.314一个，手续费0.3184713ADA，跟着博主看多",
+      "accept": [
+        "propose_trade_add"
+      ],
+      "copied": []
+    },
+    {
+      "id": "R3",
+      "text": "BTC跌破60000了，今天下午3点50在OKX补仓BTC，100USDT买到0.00167785BTC，均价59,600，手续费0.00000168BTC；好久没买ETH了，顺手20USDT买了0.008291ETH，均价2,412.25，手续费0.00000829ETH",
+      "accept": [
+        "propose_trade_add"
+      ],
+      "copied": []
+    },
+    {
+      "id": "R4",
+      "text": "BTC 60000有支撑，买点，毕竟在牛市初期，无论是60,000还是62,000或是等到突破66,000之后回调的60,000都是一样的。今早8点05分OKX买入0.00040811BTC，花了25USDT，均价61,258.60，手续费0.0000004BTC",
+      "accept": [
+        "propose_trade_add"
+      ],
+      "copied": []
+    },
+    {
+      "id": "R5",
+      "text": "Bought 0.02 BTC at 94900 on Binance at 9:40 this morning, fee 2 USDT.",
+      "accept": [
+        "propose_trade_add"
+      ],
+      "copied": []
+    },
+    {
+      "id": "R6",
+      "text": "在OKX挂了个BTC限价单，59,500买100U，觉得这里是强支撑，等它触发",
+      "accept": [
+        "no_tool",
+        "propose_trade_add"
+      ],
+      "copied": []
+    },
+    {
+      "id": "R7",
+      "text": "今天下午OKX顺手25U买了点ETH，2,388一个，跟着BTC一起补仓",
+      "accept": [
+        "propose_trade_add"
+      ],
+      "copied": []
+    },
+    {
+      "id": "Q1",
+      "text": "我10月一共买了多少钱的币？",
+      "accept": [
+        "get_period_summary",
+        "list_trades"
+      ],
+      "copied": [
+        "10月"
+      ]
+    },
+    {
+      "id": "Q2",
+      "text": "我9月份的收益是多少",
+      "accept": [
+        "get_period_summary"
+      ],
+      "copied": [
+        "9月"
+      ]
+    },
+    {
+      "id": "Q3",
+      "text": "我现在手里有哪些币，浮动盈亏多少",
+      "accept": [
+        "get_positions"
+      ],
+      "copied": []
+    },
+    {
+      "id": "Q4",
+      "text": "10月6号那天我都做了什么交易",
+      "accept": [
+        "list_trades"
+      ],
+      "copied": [
+        "10月6号"
+      ]
+    },
+    {
+      "id": "Q5",
+      "text": "上个月哪几笔卖出最赚钱",
+      "accept": [
+        "list_trades"
+      ],
+      "copied": [
+        "上个月"
+      ]
+    },
+    {
+      "id": "Q6",
+      "text": "How much did I spend on ETH this year?",
+      "accept": [
+        "get_period_summary",
+        "list_trades"
+      ],
+      "copied": [
+        "ETH",
+        "this year"
+      ]
+    },
+    {
+      "id": "E1",
+      "text": "帮我把10月6号那笔BTC的数量改成0.0081",
+      "accept": [
+        "list_trades",
+        "propose_trade_update"
+      ],
+      "copied": [
+        "10月6号",
+        "BTC",
+        "0.0081"
+      ]
+    },
+    {
+      "id": "E2",
+      "text": "把9月25号那笔ADA删掉",
+      "accept": [
+        "list_trades",
+        "propose_trade_delete"
+      ],
+      "copied": [
+        "9月25号",
+        "ADA"
+      ]
+    },
+    {
+      "id": "E3",
+      "text": "把10月6号那笔的手续费改成0.000009",
+      "accept": [
+        "list_trades",
+        "propose_trade_update"
+      ],
+      "copied": [
+        "10月6号",
+        "0.000009"
+      ]
+    },
+    {
+      "id": "O1",
+      "text": "你好，你能帮我做什么？",
+      "accept": [
+        "no_tool"
+      ],
+      "copied": []
+    },
+    {
+      "id": "O2",
+      "text": "比特币明天会涨吗",
+      "accept": [
+        "no_tool"
+      ],
+      "copied": []
+    },
+    {
+      "id": "O3",
+      "text": "帮我买0.01个BTC",
+      "accept": [
+        "no_tool"
+      ],
+      "copied": []
+    }
+  ]
+}
