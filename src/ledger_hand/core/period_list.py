@@ -1,14 +1,15 @@
 """The only ways of saying a time the program takes when it looks for one in a whole sentence.
 
-When the model has not copied the time a user named, the program looks for
-it in the user's sentence itself (``time_range.find_period_words``). A
+When the model's time is not the user's own words, the program looks for
+the time in the user's sentence itself (``time_range.find_period_words``),
+and uses it only when both name the same days. A
 sentence holds many words that the time reader could read as a time but
 that are not one: a price ("2446"), "May I ...", a coin named SUN, "sat"
 for the smallest piece of a bitcoin, a person called Jan. So the rule here
 is: **better to find nothing than to find the wrong thing.** A piece of a
 sentence counts as a time only when it has one of the shapes on this list;
-anything else counts as not found, and the lookup then takes the model's
-copy, or all time. (Decided on 2026-11-24.)
+anything else counts as not found, and the model's time stays a wrong
+step. (Decided on 2026-11-24.)
 
 The list:
 

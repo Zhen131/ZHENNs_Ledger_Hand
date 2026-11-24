@@ -725,11 +725,13 @@ its list, or a copied argument that is not a piece of what the user said
 step, not run, and the model is shown why. The asset given to
 `list_trades` or `get_period_summary` is taken out before judging and
 checked apart, against what the user said (see below). A period that is
-not the user's words, or no period, makes the program look for the time
-in what the user just said (`core/time_range.py`, `find_period_words`):
-exactly one found is used and named in the header; otherwise a wrong
-copy stays a wrong step, handed back with what the user just said, word
-for word, and asked to be copied in the user's language. Arguments given to one of the
+not the user's words makes the program look for the time in what the
+user just said (`core/time_range.py`, `find_period_words`): the one found
+is used, and named in the header, only when it is the only one and names
+the same first and last day as the model's words read whole; otherwise
+the call stays a wrong step, handed back with what the user just said,
+word for word, and asked to be copied in the user's language. With no
+period from the model nothing is looked for: the lookup covers all time. Arguments given to one of the
 four tools that take none (`list_assets`, `get_positions`,
 `get_proposal_status`, `propose_trade_add`) are dropped unread instead, and
 the step records their names. The program asks the model at

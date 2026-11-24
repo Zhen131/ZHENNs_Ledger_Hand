@@ -52,8 +52,8 @@ the end goes, and so do a few words around a period that say nothing more
 A stretch that begins before ``EARLIEST_YEAR`` is not read, whoever wrote it.
 
 ``find_period_words`` looks through a whole sentence for the words that
-name a stretch of time, so that the program can take the time from the
-user's own words when the model did not copy it. Better to find nothing
+name a stretch of time, so that the program can check a time the model
+wrote in other words against the user's own. Better to find nothing
 than the wrong thing: a piece counts only when it has one of the shapes on
 the list of ``period_list`` and ``read_period`` reads it as a stretch, or
 as one with two meanings or in the future; a piece may not start or

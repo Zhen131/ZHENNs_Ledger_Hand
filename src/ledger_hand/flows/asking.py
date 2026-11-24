@@ -18,17 +18,19 @@ this module turns that into a lookup the ledger can answer, and asks it:
 
 ``judge_read`` judges a call to the two narrowed tools: the asset is taken
 out first and checked apart, and the rest is judged as any call is
-(``assistant.judging``). When the model's period is not the user's words,
-or it gave none, the program looks for the time in what the user just said
-itself (``core.time_range.find_period_words``): exactly one found is used,
-is no wrong step, and the header says the time was taken from the user's
-words; more than one found is a wrong step when the model gave a period,
-and a question to the user when it gave none; none found is a wrong step
-when the model gave a period, and all time when it gave none. Exactly one
-found is used whatever the model gave, even words copied right from the
-sentence before: what the user says now comes first, as with the asset.
-With none or several found, a period the model copied right is used as it
-is. (Decided on 2026-11-24.)
+(``assistant.judging``). A period the model copied right, from what the
+user just said or said before, is used as it is: it is not compared with
+anything and never replaced. Only when the model's period is not the
+user's words does the program look at what the user just said
+(``core.time_range.find_period_words``), and it takes the time from there
+only when all of these hold: exactly one time is found in that sentence;
+the model's words, read whole, name a stretch of time; the words found
+name one too; and both stretches have the same first and the same last
+day. The user's words are then used, no wrong step is counted, and the
+header says the time was taken from them. Otherwise the call stays a wrong
+step, as any copy that is not the user's words. With no period from the
+model, the lookup covers all time; the program does not look for one.
+(Decided on 2026-11-24, by the product owner.)
 
 Every figure in a ``Lookup`` is the ledger's own. This module reads no
 clock, no zone of the machine and no settings: all are handed in.
@@ -88,10 +90,6 @@ _PERIOD_WORDS = {
         "{word!r} lies in the future, so there is nothing in the ledger to look up yet."
     ),
 }
-_MANY_PERIODS = (
-    "You named more than one stretch of time ({words}), so I looked nothing up. "
-    "Please ask about one of them."
-)
 _NO_SUCH_ASSET = "The ledger has no asset called {word!r}, so I looked nothing up."
 
 
@@ -118,10 +116,11 @@ def judge_read(
     """Judge a call to a narrowed tool with its asset taken out; the asset comes back apart.
 
     An asset that is not text is left in, so that the judging still calls
-    it a wrong step; a blank one counts as not given. When exactly one
-    stretch of time is found in what the user just said, it takes the place
-    of the model's period, whatever that was; otherwise a period that is not
-    the user's words stays a wrong step, and one that is is used.
+    it a wrong step; a blank one counts as not given. A period that is not
+    the user's words is replaced by the one time found in what the user
+    just said only when both, read whole, name the same first and last
+    day; otherwise it stays a wrong step. A period that is the user's words
+    is used as it is.
     """
     arguments = dict(call.arguments)
     asset = arguments.get("asset")
@@ -131,16 +130,24 @@ def judge_read(
     kept = asset if asset is not None and asset.strip() else None
     verdict = judge(ToolCall(name=call.name, arguments=arguments), user_said)
     given = arguments.get("period")
-    if not isinstance(given, str) or not given.strip():
+    if not isinstance(given, str) or not _period_not_copied(verdict):
         return ReadVerdict(verdict=verdict, asset=kept)
     found = find_period_words(user_said[-1], now, zone)
-    if len(found) != 1 or (found[0] == given and not _period_not_copied(verdict)):
+    if len(found) != 1 or not _same_days(given, found[0], now, zone):
         return ReadVerdict(verdict=verdict, asset=kept)
     arguments["period"] = found[0]
     again = judge(ToolCall(name=call.name, arguments=arguments), user_said)
     if isinstance(again, Misstep):
         return ReadVerdict(verdict=verdict, asset=kept)
     return ReadVerdict(verdict=again, asset=kept, period_found=found[0])
+
+
+def _same_days(given: str, found: str, now: datetime, zone: str) -> bool:
+    """Whether both words, each read whole, name a stretch with the same first and last day."""
+    one, other = read_period(given, now, zone), read_period(found, now, zone)
+    if not isinstance(one, Period) or not isinstance(other, Period):
+        return False
+    return (one.first_day, one.last_day) == (other.first_day, other.last_day)
 
 
 def _period_not_copied(verdict: Accepted | Misstep) -> bool:
@@ -211,18 +218,11 @@ def _period(
 ) -> tuple[Period | None, str | None] | ProgramWords:
     """The period to look up with, and the user's words it was taken from by the program.
 
-    The model's period, when it is the user's words, is used as it stands.
-    With none from the model, the one stretch of time in what the user just
-    said is taken; with more than one there, the user is asked which.
+    With no period from the model, the lookup covers all time.
     """
     words = period_found or accepted.arguments.get("period")
     if words is None:
-        found = find_period_words(said.now_words, said.now, said.zone)
-        if len(found) > 1:
-            return ProgramWords(_MANY_PERIODS.format(words=", ".join(map(repr, found))))
-        if not found:
-            return None, None
-        words = period_found = found[0]
+        return None, None
     reading = read_period(words, said.now, said.zone)
     if isinstance(reading, PeriodRefused):
         return ProgramWords(_PERIOD_WORDS[reading.reason].format(word=words))

@@ -437,9 +437,11 @@ kinds of question can be answered:
   loss on paper, or why it is not worked out;
 - the assets the ledger knows.
 
-When the model copies the time wrongly ("今年" for "this year") or not at
-all, the program finds the time in what the user said itself and, when
-there is exactly one, uses it, saying so in the header. The program turns
+When the model copies the time in other words ("今年" for "this year"), the
+program looks for the time in what the user said and uses the user's own
+words, saying so in the header, only when both name exactly the same days;
+otherwise the model is told to copy it again. With no time from the model,
+the lookup covers all time. The program turns
 the time words into days itself: "10月" is 2026-10-01 to
 2026-10-31, "上周" the Monday to Sunday before this week, "最近7天" today
 and the six days before. Words it cannot read, words with two meanings

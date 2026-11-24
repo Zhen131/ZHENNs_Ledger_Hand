@@ -611,22 +611,15 @@ def test_a_range_said_in_english_is_taken_whole_from_the_users_words() -> None:
     assert lookup.conditions.period_words == "from Oct 1 to Oct 15"
 
 
-def test_no_period_from_the_model_takes_the_one_time_in_the_users_words() -> None:
-    result, _ = turn([calls(("list_trades", {})), "Done."], "上个月我卖了什么")
+def test_no_period_from_the_model_is_all_time_and_nothing_is_looked_for() -> None:
+    for said in ("上个月我卖了什么", "我上周和这周的交易"):
+        result, _ = turn([calls(("list_trades", {})), "Done."], said)
 
-    lookup = only_lookup(result)
-    assert lookup.conditions is not None and lookup.conditions.period_words == "上个月"
-    assert lookup_lines(lookup)[0] == "Time: 2026-10-01 to 2026-10-31"
-
-
-def test_no_period_and_two_times_in_the_users_words_asks_which() -> None:
-    ledger = FakeLedger()
-
-    result, _ = turn([calls(("list_trades", {}))], "我上周和这周的交易", ledger=ledger)
-
-    assert result.ending is Ending.ANSWERED_BY_PROGRAM
-    assert "more than one stretch of time ('上周', '这周')" in result.reply
-    assert "list_trades" not in ledger.calls
+        lookup = only_lookup(result)
+        assert lookup.conditions is not None
+        assert lookup.conditions.period is None
+        assert lookup.conditions.period_words is None
+        assert lookup_lines(lookup)[0] == "Time: all time"
 
 
 def test_a_wrong_period_and_two_times_in_the_users_words_is_still_a_wrong_step() -> None:
@@ -646,14 +639,19 @@ def test_a_wrong_period_and_no_time_in_the_users_words_is_still_a_wrong_step() -
     assert isinstance(refused, RefusedCall)
 
 
-def test_a_time_found_with_two_meanings_is_said_by_the_program() -> None:
-    result, _ = turn([calls(("list_trades", {"period": "December"}))], "12月我买了什么")
+def test_a_time_found_with_two_meanings_cannot_agree_and_stays_a_wrong_step() -> None:
+    ledger = FakeLedger()
 
-    assert result.ending is Ending.ANSWERED_BY_PROGRAM
-    assert "'12月' can mean more than one stretch of time" in result.reply
+    result, _ = turn(
+        [calls(("list_trades", {"period": "December"})), "Sorry."], "12月我买了什么", ledger=ledger
+    )
+
+    (refused,) = result.steps[0].calls
+    assert isinstance(refused, RefusedCall)
+    assert ledger.calls == []
 
 
-def test_the_time_said_now_comes_before_the_one_copied_from_the_sentence_before() -> None:
+def test_a_period_copied_from_the_sentence_before_is_used_and_not_replaced() -> None:
     first, _ = turn([calls(("list_trades", {"period": "10月"})), "Done."], "10月我卖了什么")
 
     second, _ = turn(
@@ -663,8 +661,8 @@ def test_the_time_said_now_comes_before_the_one_copied_from_the_sentence_before(
     lookup = only_lookup(second)
     assert not second.steps[0].wrong
     assert lookup.conditions is not None and lookup.conditions.period is not None
-    assert lookup.conditions.period.first_day == date(2026, 9, 1)
-    assert lookup.conditions.period_words == "9月"
+    assert lookup.conditions.period.first_day == date(2026, 10, 1)
+    assert lookup.conditions.period_words is None
 
 
 def test_a_period_copied_right_is_used_when_it_is_the_time_said_now() -> None:
@@ -724,3 +722,78 @@ def test_a_coin_named_like_a_weekday_is_not_taken_as_a_time() -> None:
         lookup = only_lookup(result)
         assert lookup.conditions is not None and lookup.conditions.period is None
         assert lookup_lines(lookup)[0] == "Time: all time"
+
+
+# --- both ends agree: the rule the product owner chose (2026-11-24) -----------------------
+
+
+def test_this_year_copied_as_its_chinese_is_used_when_both_name_2026() -> None:
+    ledger = FakeLedger()
+
+    result, _ = turn(
+        [calls(("get_period_summary", {"period": "今年", "asset": "ETH"})), "Done."],
+        "How much did I spend on ETH this year?",
+        ledger=ledger,
+    )
+
+    lookup = only_lookup(result)
+    assert not result.steps[0].wrong
+    assert ledger.calls.count("period_summary") == 1
+    assert lookup.conditions is not None and lookup.conditions.period is not None
+    assert (lookup.conditions.period.first_day, lookup.conditions.period.last_day) == (
+        date(2026, 1, 1),
+        date(2026, 12, 31),
+    )
+    assert lookup.conditions.period_words == "this year"
+
+
+def test_last_year_for_this_year_does_not_agree_and_is_a_wrong_step() -> None:
+    ledger = FakeLedger()
+
+    result, _ = turn(
+        [calls(("get_period_summary", {"period": "去年", "asset": "ETH"})), "Sorry."],
+        "How much did I spend on ETH this year?",
+        ledger=ledger,
+    )
+
+    (refused,) = result.steps[0].calls
+    assert isinstance(refused, RefusedCall)
+    assert "period_summary" not in ledger.calls
+
+
+def _no_stretch(result: TurnResult, ledger: FakeLedger) -> None:
+    """The ledger was not asked, or asked for all time: never for one stretch."""
+    for lookup in result.lookups:
+        assert lookup.conditions is None or lookup.conditions.period is None
+    if not result.lookups:
+        assert "list_trades" not in ledger.calls and "period_summary" not in ledger.calls
+
+
+def test_the_five_sentences_never_give_a_table_narrowed_to_a_stretch() -> None:
+    cases = [
+        ("10月之前我买了什么", {"period": "10月之前", "side": "buy"}),
+        ("去年以来一共买了多少", {"period": "去年以来"}),
+        ("What did I buy before October?", {"period": "十月之前", "side": "buy"}),
+        ("我有1000个ADA，都是哪天买的", {"asset": "ADA"}),
+        ("Did I sell SUN tokens?", {"side": "sell"}),
+    ]
+    for said, arguments in cases:
+        ledger = FakeLedger()
+        result, _ = turn(
+            [calls(("list_trades", arguments)), "Sorry.", "Sorry."], said, ledger=ledger
+        )
+
+        _no_stretch(result, ledger)
+
+
+def test_the_sentences_of_the_three_acceptances_with_no_period_are_all_time() -> None:
+    for said in (
+        "我有1000个ADA",
+        "May I see my trades?",
+        "Did I sell SUN tokens?",
+        "我一月一次定投BTC，一共买了多少",
+    ):
+        result, _ = turn([calls(("list_trades", {})), "Done."], said)
+
+        lookup = only_lookup(result)
+        assert lookup.conditions is not None and lookup.conditions.period is None

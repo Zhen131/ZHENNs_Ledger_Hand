@@ -553,22 +553,32 @@ changed.
   shapes listed in `core/period_list.py` (better to find nothing than the
   wrong thing). A weekday ("on Monday"), a month's short name alone
   ("Oct"), a day without its month ("8号"), "上月", "this morning" or
-  "2026-10-06" are not found there, so the lookup takes the model's copy,
-  or all time. A year before 2000 is never read.
+  "2026-10-06" are not found there. It looks only when the model's own
+  time is not the user's words, and uses what it finds only when both name
+  the same days (see below). A year before 2000 is never read.
 - **A person named April, June or August.** A month's full name alone is on
   that list, so "June bought ETH for me" is looked up as June. Not mended.
-- **The model translates a time; the program then takes it from the
-  user's words.** Asked "How much did I spend on ETH this year?", the model
-  copies "今年", which is not the user's words. For the read tools the
-  program then looks for the time in what the user just said and, when it
-  finds exactly one, uses it and says so in the header ("Time taken from
-  your words: 'this year'"). With two times in the sentence ("上周和这周")
-  it does not pick one: a wrong copy stays a wrong step, and with no period
-  from the model the user is asked which. The time said in the sentence
-  just now comes first: asked "那9月呢" after "10月我卖了什么", the program
-  takes "9月" even when the model copies "10月" from the sentence before. A time the finder reads that the
-  user did not mean as one ("this morning" in a sentence about a trade) is
-  taken as said. Changing and deleting do not take a time this way.
+- **The model translates a time; the program takes the user's words only
+  when both agree.** Asked "How much did I spend on ETH this year?", the
+  model copies "今年", which is not the user's words. For the read tools the
+  program then looks in what the user just said, and uses what it finds
+  only when exactly one time is there, the model's words read whole name a
+  stretch of time, and both stretches have the same first and last day; the
+  header then says "Time taken from your words: 'this year'". Otherwise the
+  call stays a wrong step and the ledger is not asked: "10月之前" or "十月之前"
+  for "before October" and "去年以来" are not read, and "December" for "12月"
+  said in November does not agree, as "12月" has two meanings. With no time
+  from the model the lookup is all time; the program does not look for one.
+  A time the model copied right is used as it is, even when the user named
+  another one just now: asked "那9月呢" after "10月我卖了什么", a model that
+  copies "10月" again gets October. Changing and deleting do not take a
+  time this way.
+- **A word the model copies as a time is taken as one.** When the model
+  copies a word of the user's as the time and the program can read it, the
+  table is narrowed by it and the header shows it. In "我一月一次定投BTC，
+  一共买了多少" ("once a month"), a model that copies "一月" gets January.
+  Not mended: no rule on the program's side tells this "一月" from the
+  month.
 - **The side is kept from the time before only one step back.** "那ETH呢",
   asked after "10月我卖了哪些BTC", names no side, so the side of the
   sentence before is kept, as the asset is. A side said two sentences back,
