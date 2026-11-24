@@ -31,6 +31,11 @@ the model settings' prefix, so it is not one of them, and the other
 ``LEDGER_HAND_`` variables the scripts read are left alone as before. Reading
 it makes nothing: the folders are made by whatever first writes there.
 
+``load_assistant_steps`` reads how many times the assistant may ask the
+model in one turn: ``LEDGER_HAND_ASSISTANT_STEPS``, six when it is not set.
+Like the data folder, it is not a model setting and is not shown on the
+settings page; its default, its bounds and why are kept beside it below.
+
 Every default is a named constant below. Tests compare against these
 names, never against the numbers, so a default is tuned here and nowhere
 else. What each variable sets and the reason for its default are kept as
@@ -48,7 +53,9 @@ Names defined here: ``ENV_PREFIX``, ``Variable``, ``Plug``, ``Thinking``, the ``
 constants, ``MAX_RETRIES``, ``MAX_SCREENSHOT_MB``, ``Secret``, ``SettingsError``, ``ModelSettings``,
 ``About``, ``ABOUT``, ``load_model_settings``, ``apply_changes``,
 ``DATA_DIRECTORY_VARIABLE``, ``BOOK_FILE_NAME``, ``EXPORTS_DIRECTORY_NAME``,
-``DataPlaces`` and ``load_data_places``.
+``DataPlaces``, ``load_data_places``, ``ASSISTANT_STEPS_VARIABLE``,
+``DEFAULT_ASSISTANT_STEPS``, ``FEWEST_ASSISTANT_STEPS``, ``MOST_ASSISTANT_STEPS``
+and ``load_assistant_steps``.
 """
 
 from __future__ import annotations
@@ -633,3 +640,40 @@ def load_data_places(
             f"{DATA_DIRECTORY_VARIABLE}: a folder's name cannot hold a NUL character"
         )
     return DataPlaces(base / Path(named).expanduser())
+
+
+# --- how far the assistant may go in one turn --------------------------------
+
+ASSISTANT_STEPS_VARIABLE = "LEDGER_HAND_ASSISTANT_STEPS"
+# Six: a change takes the most steps of any task the assistant is meant to
+# do (look the trade up, propose the change, answer), and six leaves room
+# for that and one wrong step on the way, while a model going round in
+# circles is stopped after about half a minute on this machine.
+DEFAULT_ASSISTANT_STEPS = 6
+# Two: one step to call a tool and one to answer from what came back.
+FEWEST_ASSISTANT_STEPS = 2
+# Twenty: each step is one call to the model, a few seconds each here; more
+# than twenty would leave the person waiting over a minute for one sentence.
+MOST_ASSISTANT_STEPS = 20
+
+
+def load_assistant_steps(environ: Mapping[str, str] | None = None) -> int:
+    """How many times the assistant may ask the model in one turn, from ``environ``.
+
+    The process's environment when ``None``. Not set, or blank: the default.
+    A value that is not a whole number from ``FEWEST_ASSISTANT_STEPS`` to
+    ``MOST_ASSISTANT_STEPS`` is a ``SettingsError`` naming the variable.
+    """
+    source = os.environ if environ is None else environ
+    value = source.get(ASSISTANT_STEPS_VARIABLE)
+    if value is None or not value.strip():
+        return DEFAULT_ASSISTANT_STEPS
+    written = value.strip()
+    if not re.fullmatch(r"[0-9]{1,3}", written) or not (
+        FEWEST_ASSISTANT_STEPS <= int(written) <= MOST_ASSISTANT_STEPS
+    ):
+        raise SettingsError(
+            f"{ASSISTANT_STEPS_VARIABLE}: a whole number from {FEWEST_ASSISTANT_STEPS} "
+            f"to {MOST_ASSISTANT_STEPS}, not {written!r}"
+        )
+    return int(written)
