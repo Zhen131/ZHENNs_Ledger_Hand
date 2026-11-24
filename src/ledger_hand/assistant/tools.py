@@ -144,7 +144,23 @@ _TRADE = Argument(
         f"with, such as '第二笔'. {_COPY}"
     ),
 )
-_FIND_ONE = (_PERIOD, _ASSET, _SIDE, _TRADE)
+# The time of the one trade to change or delete: never one the model makes up,
+# since the program looks for nothing it was not told.
+_WHEN = Argument(
+    name="period",
+    kind=ArgumentKind.COPIED,
+    description=(
+        "The day the user named for the trade, such as '10月6号' or 'October 6', in the user's "
+        "own language: 'October 6' stays 'October 6', never '10月6号'. Leave it out when the "
+        f"user named no time; never write one of your own. {_COPY}"
+    ),
+)
+_FIND_ONE = (_WHEN, _ASSET, _SIDE, _TRADE)
+_THE_PROGRAM_FINDS_IT = (
+    "Call it straight away, without listing trades first: the program finds the trade by the "
+    "words you copy, and when more than one trade matches it lists them and asks the user "
+    "which one itself."
+)
 
 TOOLS = (
     Tool(
@@ -183,7 +199,8 @@ TOOLS = (
         name=ToolName.PROPOSE_TRADE_UPDATE,
         description=(
             "Change one existing trade. Say which trade the same way as for list_trades, which "
-            "part to change, and the new value. Nothing is written until the user confirms."
+            f"part to change, and the new value. {_THE_PROGRAM_FINDS_IT} Nothing is written "
+            "until the user confirms."
         ),
         arguments=(
             *_FIND_ONE,
@@ -206,7 +223,7 @@ TOOLS = (
         name=ToolName.PROPOSE_TRADE_DELETE,
         description=(
             "Delete one existing trade. Say which trade the same way as for list_trades. "
-            "Nothing is deleted until the user confirms."
+            f"{_THE_PROGRAM_FINDS_IT} Nothing is deleted until the user confirms."
         ),
         arguments=_FIND_ONE,
     ),
