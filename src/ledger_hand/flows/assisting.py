@@ -98,7 +98,7 @@ from ledger_hand.assistant.outcome import (
     TurnResult,
 )
 from ledger_hand.assistant.prompting import AssistantPrompt, system_message
-from ledger_hand.assistant.prompts.assistant_first import ASSISTANT_FIRST
+from ledger_hand.assistant.prompts.assistant_second import ASSISTANT_SECOND
 from ledger_hand.assistant.results import (
     answered_by_program_text,
     ledger_error_text,
@@ -202,7 +202,7 @@ def take_turn(
     now: datetime,
     zone: str,
     max_steps: int,
-    prompt: AssistantPrompt = ASSISTANT_FIRST,
+    prompt: AssistantPrompt = ASSISTANT_SECOND,
 ) -> TurnResult:
     """One turn: ``said`` by the user after ``chat``, until the model answers or is stopped."""
     if isinstance(max_steps, bool) or not isinstance(max_steps, int) or max_steps < 1:
