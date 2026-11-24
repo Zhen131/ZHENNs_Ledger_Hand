@@ -36,6 +36,10 @@ So the trade changed or deleted is always either the only one found, or
 the one whose number the user gave; never one the model named, and never
 one picked by the program.
 
+A period the model copied that is cut out of a longer time the user said
+("9月" out of "9月13号") is not looked up at all: the program says the
+same fixed sentence at once (``begun``), and proposes nothing.
+
 When the model goes wrong twice in a row and its second try was a change
 or a deletion, ``taken_over`` goes on from that call alone: a period it
 gave that is not the user's words (or is cut out of a longer time they
@@ -47,7 +51,7 @@ This module reads no clock, no zone of the machine and no settings.
 
 Names defined here: ``EditKind``, ``EditEnding``, ``EditRequest``,
 ``Picking``, ``Choosing``, ``EditWaiting``, ``EditSent``, ``Edited``,
-``start``, ``answer`` and ``taken_over``.
+``start``, ``begun``, ``answer`` and ``taken_over``.
 """
 
 from __future__ import annotations
@@ -385,6 +389,17 @@ def _failed(error: LedgerError) -> Edited:
     return Edited(
         ending=EditEnding.LEDGER_FAILED, reply=edit_words.failed_words(error.message), failure=error
     )
+
+
+def begun(
+    call: ToolCall, ledger: LedgerPort, user_said: Sequence[str], *, now: datetime, zone: str
+) -> Edited:
+    """A call taken by the turn, gone on with; a period cut out of a longer time says the
+    fixed words and looks nothing up."""
+    verdict = judge_edit_at(call, user_said, now=now, zone=zone)
+    if not isinstance(verdict, EditCall):
+        return Edited(ending=EditEnding.TOLD, reply=edit_words.PERIOD_AGAIN)
+    return start(verdict, ledger, user_said, now=now, zone=zone)
 
 
 def taken_over(

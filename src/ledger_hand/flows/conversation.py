@@ -59,7 +59,7 @@ import enum
 from dataclasses import dataclass
 from datetime import datetime
 
-from ledger_hand.assistant.edit_calls import EDIT_TOOLS, EditCall, judge_edit
+from ledger_hand.assistant.edit_calls import EDIT_TOOLS
 from ledger_hand.assistant.edit_words import not_done_words
 from ledger_hand.assistant.outcome import Chat, Ending, TakenCall, TurnResult
 from ledger_hand.flows import editing, recording
@@ -269,10 +269,8 @@ def _with_proposal(chat: Chat, recorded: Recorded) -> Chat:
 def _edit_begun(turn: TurnResult, said: str, around: _Around) -> Said:
     """The model's change or deletion, gone on with by the program."""
     taken = next(call for call in turn.steps[-1].calls if isinstance(call, TakenCall))
-    call = judge_edit(taken.call, turn.chat.user_said)
-    assert isinstance(call, EditCall)
-    edited = editing.start(
-        call, around.ledger, turn.chat.user_said, now=around.now, zone=around.zone
+    edited = editing.begun(
+        taken.call, around.ledger, turn.chat.user_said, now=around.now, zone=around.zone
     )
     left = [
         (

@@ -74,10 +74,11 @@ program's words after them. A first such call that is not taken is a wrong
 step, judged as any call is, its period too; any later one in the same step
 is not run.
 
-A period copied for a read tool or a change is also a wrong step when,
-wherever it stands in what the user said, it is cut out of a longer time
-("9月" out of "9月13号", ``assistant.period_cuts``): it would look wider
-than asked, and a change would find another trade. One piece of code
+A period copied for a read tool is also a wrong step when, wherever it
+stands in what the user said, it is cut out of a longer time ("9月" out of
+"9月13号", ``assistant.period_cuts``): it would look wider than asked. A
+change or a deletion with such a period still goes to the program, which
+looks nothing up and says its fixed words (``editing``). One piece of code
 judges this for both.
 
 The chat handed back holds every call and result of the turn, so that the
@@ -99,7 +100,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
 
-from ledger_hand.assistant.edit_calls import EDIT_TOOLS, EditCall, judge_edit_at
+from ledger_hand.assistant.edit_calls import EDIT_TOOLS, EditCall, judge_edit, judge_edit_at
 from ledger_hand.assistant.explanation import (
     AFTER_A_TABLE,
     NO_TABLE,
@@ -333,9 +334,12 @@ def close_editing(result: TurnResult, ending: str, reply: str, proposal: str | N
 
 
 def _edit_taken(call: ToolCall, around: _Around) -> bool:
-    """Whether a change or a deletion is taken, its period not cut out of a longer time."""
-    verdict = judge_edit_at(call, around.user_said, now=around.now, zone=around.zone)
-    return isinstance(verdict, EditCall)
+    """Whether a change or a deletion goes to the program.
+
+    A period cut out of a longer time goes too: the program then says its
+    fixed words, rather than hand the call back to the model.
+    """
+    return isinstance(judge_edit(call, around.user_said), EditCall)
 
 
 def first_edit(calls: Sequence[ToolCall]) -> ToolCall | None:

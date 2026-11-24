@@ -591,27 +591,25 @@ def test_the_asset_said_the_time_before_is_used_and_the_table_says_so() -> None:
 CUT_SENTENCE = "把9月13号那笔BTC的时间改成9月13号上午10点15分"
 
 
-def test_a_month_cut_out_of_the_day_said_twice_proposes_nothing_and_says_the_fixed_words() -> None:
+def test_a_month_cut_out_of_the_day_proposes_nothing_and_says_the_fixed_words() -> None:
     cut = update(period="9月", asset="BTC", field="time", new_value="9月13号上午10点15分")
     (said,), _, ledger = talk(CUT_SENTENCE, steps=[cut, cut])
 
-    assert said.route is Route.TAKEOVER
     assert said.reply == edit_words.PERIOD_AGAIN
     assert ledger.calls == []
     assert said.edit_sent is None
 
 
-def test_a_month_cut_out_of_the_day_once_is_a_wrong_step_with_the_users_words() -> None:
+def test_a_month_cut_out_of_the_day_says_the_fixed_words_at_once() -> None:
     cut = update(period="9月", asset="BTC", field="time", new_value="9月13号上午10点15分")
-    whole = update(period="9月13号", asset="BTC", field="time", new_value="9月13号上午10点15分")
-    (said,), _, ledger = talk(CUT_SENTENCE, steps=[cut, whole])
+    (said,), model, ledger = talk(CUT_SENTENCE, steps=[cut])
 
-    assert said.turn is not None
-    (refused,) = said.turn.steps[0].calls
-    assert isinstance(refused, RefusedCall)
-    assert json.loads(refused.result)["user_said"] == CUT_SENTENCE
+    assert said.route is Route.MODEL
+    assert said.reply == edit_words.PERIOD_AGAIN
     assert said.edited is not None
-    assert said.edited.ending is EditEnding.NOT_FOUND
+    assert said.edited.ending is EditEnding.TOLD
+    assert len(model.calls) == 1
+    assert ledger.calls == []
     assert proposed(ledger) == []
 
 
