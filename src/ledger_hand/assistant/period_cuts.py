@@ -89,6 +89,7 @@ def cut_misstep(words: str) -> Misstep:
         kind=MisstepKind.NOT_COPIED,
         detail=(
             f"'period' is {words!r}, which is cut out of a longer time the user said. "
-            "Copy the user's whole time exactly; never shorten, convert or rewrite it."
+            "Call the same tool again now, with the user's whole time copied exactly as "
+            "they wrote it, the day too; never shorten, convert or rewrite it."
         ),
     )
