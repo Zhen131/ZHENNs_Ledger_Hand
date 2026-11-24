@@ -100,7 +100,9 @@ def test_a_question_left_waiting_ends_well_and_sends_nothing() -> None:
     assert status == 0
     assert printed.rstrip().endswith("ending: asking")
     assert "sent to the ledger: nothing" in printed
-    assert "recording: asked the model 2 time(s), apart from the steps" in printed
+    assert (
+        "recording: 2 call(s) to the model for this passage so far, apart from the steps" in printed
+    )
 
 
 def test_a_takeover_that_finds_no_trade_gives_status_1() -> None:

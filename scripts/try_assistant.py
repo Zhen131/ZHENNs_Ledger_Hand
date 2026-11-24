@@ -211,7 +211,11 @@ def show_said(words: str, said: Said, out: TextIO) -> None:
     recorded = said.recorded
     if recorded is not None:
         asked = len(recorded.progress.calls)
-        print(f"recording: asked the model {asked} time(s), apart from the steps", file=out)
+        print(
+            f"recording: {asked} call(s) to the model for this passage so far, "
+            "apart from the steps",
+            file=out,
+        )
         for number, trade in zip(recorded.numbers, recorded.trades, strict=True):
             print(f"  trade {number}: {trade_line(trade)}", file=out)
     failure = turn.failure if turn is not None else None
