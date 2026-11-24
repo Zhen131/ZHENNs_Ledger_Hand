@@ -1,0 +1,182 @@
+{
+  "about": "Questions about the ledger written to measure how the program finds a time in the user's words: prices and quantities that are four digits and no time, 'May I ...', a question asked on that names another month, and years said with a mark. Same shape and judging as asks.json. Written by whoever built it and seen; not a hidden test. Every sentence is invented.",
+  "now": "2026-11-24T23:55:00+01:00",
+  "zone": "Europe/Budapest",
+  "groups": [
+    [
+      {
+        "id": "T1",
+        "text": "我有1000个ADA，都是哪天买的",
+        "gold": [
+          {
+            "tool": "list_trades",
+            "from": null,
+            "to": null,
+            "asset": "ADA",
+            "side": "buy"
+          }
+        ]
+      }
+    ],
+    [
+      {
+        "id": "T2",
+        "text": "我按2446的价格买的ETH有哪些",
+        "gold": [
+          {
+            "tool": "list_trades",
+            "from": null,
+            "to": null,
+            "asset": "ETH",
+            "side": "buy"
+          }
+        ]
+      }
+    ],
+    [
+      {
+        "id": "T3",
+        "text": "Which ETH did I buy at 2010 USDT?",
+        "gold": [
+          {
+            "tool": "list_trades",
+            "from": null,
+            "to": null,
+            "asset": "ETH",
+            "side": "buy"
+          }
+        ]
+      }
+    ],
+    [
+      {
+        "id": "T4",
+        "text": "I bought 2000 ADA in all; which trades were those?",
+        "gold": [
+          {
+            "tool": "list_trades",
+            "from": null,
+            "to": null,
+            "asset": "ADA",
+            "side": "buy"
+          }
+        ]
+      }
+    ],
+    [
+      {
+        "id": "T5",
+        "text": "May I see how much I spent?",
+        "gold": [
+          {
+            "tool": "get_period_summary",
+            "from": null,
+            "to": null,
+            "asset": null
+          },
+          {
+            "tool": "list_trades",
+            "from": null,
+            "to": null,
+            "asset": null,
+            "side": "buy"
+          }
+        ]
+      }
+    ],
+    [
+      {
+        "id": "T6",
+        "text": "May I see all my ETH trades?",
+        "gold": [
+          {
+            "tool": "list_trades",
+            "from": null,
+            "to": null,
+            "asset": "ETH",
+            "side": null
+          }
+        ]
+      }
+    ],
+    [
+      {
+        "id": "T7",
+        "text": "10月我卖了哪些币",
+        "gold": [
+          {
+            "tool": "list_trades",
+            "from": "2026-10-01",
+            "to": "2026-10-31",
+            "asset": null,
+            "side": "sell"
+          }
+        ]
+      },
+      {
+        "id": "T8",
+        "text": "那9月呢",
+        "gold": [
+          {
+            "tool": "list_trades",
+            "from": "2026-09-01",
+            "to": "2026-09-30",
+            "asset": null,
+            "side": "sell"
+          }
+        ]
+      }
+    ],
+    [
+      {
+        "id": "T9",
+        "text": "2026年我一共花了多少钱",
+        "gold": [
+          {
+            "tool": "get_period_summary",
+            "from": "2026-01-01",
+            "to": "2026-12-31",
+            "asset": null
+          },
+          {
+            "tool": "list_trades",
+            "from": "2026-01-01",
+            "to": "2026-12-31",
+            "asset": null,
+            "side": "buy"
+          }
+        ]
+      }
+    ],
+    [
+      {
+        "id": "T10",
+        "text": "What did I sell in 2026?",
+        "gold": [
+          {
+            "tool": "list_trades",
+            "from": "2026-01-01",
+            "to": "2026-12-31",
+            "asset": null,
+            "side": "sell"
+          }
+        ]
+      }
+    ],
+    [
+      {
+        "id": "T11",
+        "text": "What did I buy in May?",
+        "gold": [
+          {
+            "tool": "list_trades",
+            "from": "2026-05-01",
+            "to": "2026-05-31",
+            "asset": null,
+            "side": "buy"
+          }
+        ]
+      }
+    ]
+  ]
+}
