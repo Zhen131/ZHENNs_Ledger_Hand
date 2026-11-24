@@ -85,6 +85,7 @@ def main(
         model, max_steps = model or built[0], max_steps or built[1]
     ledger = ledger or FakeLedger()
     print(f"now:    {now.isoformat()} in {zone} ({whose} moment)", file=out)
+    print(f"model:  {getattr(model, 'name', None) or _model_name()}", file=out)
     print(f"ledger: {type(ledger).__name__}; at most {max_steps} steps a turn", file=out)
     chat = Chat()
     every_turn_answered = True
@@ -124,8 +125,15 @@ def _model_and_steps(out: TextIO) -> tuple[ModelPort, int] | None:
             file=out,
         )
         return None
-    print(f"model:  {settings.model}", file=out)
     return connect_model(settings), steps
+
+
+def _model_name() -> str:
+    """The model the settings name, or a word saying it is not known."""
+    try:
+        return load_model_settings().model
+    except SettingsError:
+        return "unknown"
 
 
 def show_turn(said: str, result: TurnResult, out: TextIO) -> None:
