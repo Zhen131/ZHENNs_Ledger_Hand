@@ -24,8 +24,11 @@ itself (``core.time_range.find_period_words``): exactly one found is used,
 is no wrong step, and the header says the time was taken from the user's
 words; more than one found is a wrong step when the model gave a period,
 and a question to the user when it gave none; none found is a wrong step
-when the model gave a period, and all time when it gave none. A period the
-model copied right is used as it is. (Decided on 2026-11-24.)
+when the model gave a period, and all time when it gave none. Exactly one
+found is used whatever the model gave, even words copied right from the
+sentence before: what the user says now comes first, as with the asset.
+With none or several found, a period the model copied right is used as it
+is. (Decided on 2026-11-24.)
 
 Every figure in a ``Lookup`` is the ledger's own. This module reads no
 clock, no zone of the machine and no settings: all are handed in.
@@ -115,10 +118,10 @@ def judge_read(
     """Judge a call to a narrowed tool with its asset taken out; the asset comes back apart.
 
     An asset that is not text is left in, so that the judging still calls
-    it a wrong step; a blank one counts as not given. A period that is not
-    the user's words is replaced by the one stretch of time found in what
-    the user just said, when exactly one is found there; otherwise it stays
-    a wrong step.
+    it a wrong step; a blank one counts as not given. When exactly one
+    stretch of time is found in what the user just said, it takes the place
+    of the model's period, whatever that was; otherwise a period that is not
+    the user's words stays a wrong step, and one that is is used.
     """
     arguments = dict(call.arguments)
     asset = arguments.get("asset")
@@ -127,10 +130,11 @@ def judge_read(
     arguments.pop("asset", None)
     kept = asset if asset is not None and asset.strip() else None
     verdict = judge(ToolCall(name=call.name, arguments=arguments), user_said)
-    if not _period_not_copied(verdict):
+    given = arguments.get("period")
+    if not isinstance(given, str) or not given.strip():
         return ReadVerdict(verdict=verdict, asset=kept)
     found = find_period_words(user_said[-1], now, zone)
-    if len(found) != 1:
+    if len(found) != 1 or (found[0] == given and not _period_not_copied(verdict)):
         return ReadVerdict(verdict=verdict, asset=kept)
     arguments["period"] = found[0]
     again = judge(ToolCall(name=call.name, arguments=arguments), user_said)

@@ -20,8 +20,13 @@ What it reads, in Chinese and in English:
   A phrase with a clock time, or a moment such as "刚才", names no stretch
   of days and is not read;
 - one month: "10月", "10月份", "十月", "2026年10月", "上个月", "这个月",
-  "本月", "October", "Oct 2026", "last month", "this month";
-- one year: "今年", "去年", "2026年", "this year", "last year", "2026";
+  "本月", "October", "Oct 2026", "last month", "this month". "May" and
+  "March" are also ordinary words ("May I ..."), so they count only with a
+  year after them or "in", "during", "last", "this" before them, or as a
+  side of a range that begins with "from" or "between";
+- one year: "今年", "去年", "2026年", "this year", "last year", "in 2026",
+  "the year 2026". Four digits alone ("2026") are not a year: a price or a
+  quantity is written the same way (decided on 2026-11-24);
 - one week, which starts on Monday: "这周", "本周", "上周", "this week",
   "last week";
 - days counted back, today included: "最近7天", "过去30天", "近七天",
@@ -49,7 +54,8 @@ name a stretch of time, as ``read_period`` reads them, so that the program
 can take the time from the user's own words when the model did not copy
 it: every piece of the sentence that ``read_period`` reads as a stretch, or
 as one with two meanings or in the future, counts; a piece may not start or
-end inside a run of Latin letters or digits, nor at a gap or a mark; the
+end inside a run of Latin letters or digits, nor at a gap or a mark, nor
+end with a word that says nothing more ("的"); the
 longest pieces are kept first, and a piece that overlaps one already kept
 is not ("10月6号" is one, and the "10月" inside it is not another).
 
@@ -148,12 +154,19 @@ _BEHIND = ("期间", "的", "内", "里")
 _ENDING_MARKS = ".?!。？！"
 
 
+# What only counts as a time with "in" or "during" before it: a bare year
+# and the month names that are also other words. The word is kept for them.
+_NEEDS_A_MARK = re.compile(r"^(?:[1-9][0-9]{3}|may|march|mar)$")
+
+
 def _tidy(text: str) -> str:
     plain = unicodedata.normalize("NFKC", text).casefold()
     plain = _GAP_BESIDE_CHINESE.sub("", _GAPS.sub(" ", plain).strip())
     plain = plain.rstrip(_ENDING_MARKS).strip()
     while True:
         shorter = _IN_FRONT.sub("", plain)
+        if _NEEDS_A_MARK.match(shorter) and plain.startswith(("in ", "during ")):
+            shorter = plain
         for word in _BEHIND:
             if shorter.endswith(word) and len(shorter) > len(word):
                 shorter = shorter[: -len(word)]
@@ -179,14 +192,17 @@ def _days(text: str, local_now: datetime, zone: str) -> _Days:
         return _span(text, local_now, zone)
     words = dict(found.groupdict())
     start_words = words.get("start") or words.get("first") or words.get("bare") or ""
-    start = _span(start_words, local_now, zone)
+    # "from May to June", "between March and May": the range's words mark the
+    # months; a bare "March to ..." does not.
+    marked = words.get("bare") is None
+    start = _span(_marked(start_words, marked), local_now, zone)
     if isinstance(start, PeriodRefusal):
         return start
     bare = _BARE_DAY.match(found["end"])
     if bare is not None and start[0] == start[1]:
         end = _same_month(start[0], int(bare["day"]))
     else:
-        end = _span(found["end"], local_now, zone)
+        end = _span(_marked(found["end"], marked), local_now, zone)
     if isinstance(end, PeriodRefusal):
         return end
     if end[1] < start[0]:
@@ -194,6 +210,13 @@ def _days(text: str, local_now: datetime, zone: str) -> _Days:
     if start[0] > local_now.date():
         return _FUTURE
     return start[0], end[1]
+
+
+def _marked(side: str, marked: object) -> str:
+    """A side of a range that is a month name like "may", marked when the range is."""
+    if marked and side.strip() in _OTHER_WORDS:
+        return f"in {side.strip()}"
+    return side
 
 
 def _same_month(start: date, day: int) -> _Days:
@@ -289,8 +312,12 @@ _CHINESE_MONTH = re.compile(
     rf"^(?:(?P<year>[1-9][0-9]{{3}})年)?(?P<month>[0-9]{{1,2}}|{_CHINESE_NUMBER})月份?$"
 )
 _ENGLISH_MONTH = re.compile(
-    rf"^(?:the month of )?(?P<name>{_MONTH_NAMES})\.?(?:,? (?P<year>[1-9][0-9]{{3}}))?$"
+    rf"^(?P<mark>in |during |last |this |the month of )?(?P<name>{_MONTH_NAMES})\.?"
+    rf"(?:,? (?P<year>[1-9][0-9]{{3}}))?$"
 )
+# Month names that are also ordinary words ("May I ...", "march"): a time only
+# with a year after them or a word such as "in" before them.
+_OTHER_WORDS = frozenset({"may", "march", "mar"})
 _MONTHS_AWAY = {
     "上上个月": -2,
     "上个月": -1,
@@ -317,7 +344,9 @@ def _month(text: str, today: date) -> _Days | None:
     else:
         found = _ENGLISH_MONTH.match(text)
         if found is None:
-            return None
+            return _UNKNOWN if text in _OTHER_WORDS else None
+        if found["name"] in _OTHER_WORDS and not (found["mark"] or found["year"]):
+            return _UNKNOWN
         month = _MONTHS[found["name"]]
     if month is None or not 1 <= month <= 12:
         return _UNKNOWN
@@ -349,7 +378,9 @@ _YEARS_AWAY = {
     "this year": 0,
     "next year": 1,
 }
-_YEAR = re.compile(r"^(?:the year )?(?P<year>[1-9][0-9]{3})年?$")
+# A year is read only with a mark: "年" after it, or "in", "during" or "year"
+# before it. Four digits alone are as often a price or a quantity ("1000个ADA").
+_YEAR = re.compile(r"^(?P<mark>in |during |(?:the )?year )?(?P<year>[1-9][0-9]{3})(?P<nian>年)?$")
 
 
 def _year(text: str, today: date) -> _Days | None:
@@ -359,6 +390,8 @@ def _year(text: str, today: date) -> _Days | None:
         found = _YEAR.match(text)
         if found is None:
             return None
+        if not (found["mark"] or found["nian"]):
+            return _UNKNOWN
         year = int(found["year"])
     first = date(year, 1, 1)
     if first > today:
@@ -417,12 +450,12 @@ def _may_stand_alone(text: str, start: int, end: int) -> bool:
 
     A piece that is only a number with points ("0.02") is never one, though
     the time reader may take it for a date written with points; nor is one
-    that begins or ends with a word that says nothing more ("in", "的").
+    that ends with a word that says nothing more ("的").
     """
     piece = text[start:end]
     if piece[0] in _EDGE_MARKS or piece[-1] in _EDGE_MARKS or _DECIMAL.fullmatch(piece):
         return False
-    if _IN_FRONT.match(piece.casefold()) or piece.endswith(_BEHIND):
+    if piece.endswith(_BEHIND):
         return False
     if start > 0 and _is_latin(text[start - 1]) and _is_latin(piece[0]):
         return False

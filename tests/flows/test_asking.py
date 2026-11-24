@@ -653,17 +653,58 @@ def test_a_time_found_with_two_meanings_is_said_by_the_program() -> None:
     assert "'12月' can mean more than one stretch of time" in result.reply
 
 
-def test_a_period_copied_right_is_used_as_the_model_gave_it() -> None:
+def test_the_time_said_now_comes_before_the_one_copied_from_the_sentence_before() -> None:
     first, _ = turn([calls(("list_trades", {"period": "10月"})), "Done."], "10月我卖了什么")
 
     second, _ = turn(
-        [calls(("list_trades", {"period": "10月"})), "Done."], "那上周呢", chat=first.chat
+        [calls(("list_trades", {"period": "10月"})), "Done."], "那9月呢", chat=first.chat
     )
 
     lookup = only_lookup(second)
+    assert not second.steps[0].wrong
     assert lookup.conditions is not None and lookup.conditions.period is not None
-    assert lookup.conditions.period.first_day == date(2026, 10, 1)
+    assert lookup.conditions.period.first_day == date(2026, 9, 1)
+    assert lookup.conditions.period_words == "9月"
+
+
+def test_a_period_copied_right_is_used_when_it_is_the_time_said_now() -> None:
+    result, _ = turn([calls(("list_trades", {"period": "10月"})), "Done."], "10月我卖了什么")
+
+    lookup = only_lookup(result)
+    assert lookup.conditions is not None and lookup.conditions.period_words is None
+
+
+def test_a_period_copied_right_is_used_when_two_times_are_said_and_it_is_one() -> None:
+    result, _ = turn([calls(("list_trades", {"period": "上周"})), "Done."], "我上周和这周的交易")
+
+    lookup = only_lookup(result)
+    assert lookup.conditions is not None and lookup.conditions.period is not None
+    assert lookup.conditions.period.first_day == date(2026, 11, 16)
     assert lookup.conditions.period_words is None
+
+
+def test_a_price_in_the_users_words_is_not_taken_as_a_year() -> None:
+    for said in ("我有1000个ADA，都是哪天买的", "Which ETH did I buy at 2446?"):
+        result, _ = turn([calls(("list_trades", {"asset": "ADA"})), "Done."], said)
+
+        lookup = only_lookup(result)
+        assert lookup.conditions is not None
+        assert lookup.conditions.period is None
+        assert lookup_lines(lookup)[0] == "Time: all time"
+
+
+def test_may_i_is_not_taken_as_a_month() -> None:
+    result, _ = turn([calls(("get_period_summary", {})), "Done."], "May I see how much I spent?")
+
+    lookup = only_lookup(result)
+    assert lookup.conditions is not None and lookup.conditions.period is None
+
+
+def test_a_bare_year_the_model_copied_is_not_read() -> None:
+    result, _ = turn([calls(("list_trades", {"period": "2446"}))], "Which ETH did I buy at 2446?")
+
+    assert result.ending is Ending.ANSWERED_BY_PROGRAM
+    assert "could not read '2446'" in result.reply
 
 
 def test_changing_and_deleting_do_not_take_a_time_from_the_users_words() -> None:

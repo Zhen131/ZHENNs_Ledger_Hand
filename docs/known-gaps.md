@@ -540,7 +540,14 @@ changed.
   "最近一个月", "past week", "since October", "10月以来", "至今", or a time
   of day ("昨天晚上9点"); each is answered "I could not read". "12月" said
   in November is not guessed at: the user is asked to say the year. "10/6"
-  is not read either, as month and day differ by place.
+  is not read either, as month and day differ by place. Four digits alone
+  ("2026") are not read as a year, since a price or a quantity looks the
+  same ("我有1000个ADA", "bought at 2446"); a year needs "年" after it or
+  "in", "during" or "year" before it, or a month before it ("Oct 2026").
+  "May" and "March" alone are not read as months ("May I see ..."); they
+  need a year or a day after them, or "in", "during", "last" or "this"
+  before them, or a range that begins with "from" or "between". So "March
+  to April" is read as April only, and "since May" not at all.
 - **The model translates a time; the program then takes it from the
   user's words.** Asked "How much did I spend on ETH this year?", the model
   copies "今年", which is not the user's words. For the read tools the
@@ -548,7 +555,9 @@ changed.
   finds exactly one, uses it and says so in the header ("Time taken from
   your words: 'this year'"). With two times in the sentence ("上周和这周")
   it does not pick one: a wrong copy stays a wrong step, and with no period
-  from the model the user is asked which. A time the finder reads that the
+  from the model the user is asked which. The time said in the sentence
+  just now comes first: asked "那9月呢" after "10月我卖了什么", the program
+  takes "9月" even when the model copies "10月" from the sentence before. A time the finder reads that the
   user did not mean as one ("this morning" in a sentence about a trade) is
   taken as said. Changing and deleting do not take a time this way.
 - **The side is kept from the time before only one step back.** "那ETH呢",
