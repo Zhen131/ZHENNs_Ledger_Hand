@@ -1,0 +1,406 @@
+{
+  "about": "Questions about the ledger, each with its gold answers: the tool, and for list_trades and get_period_summary the first and last day (null: all time), the asset (null: all assets) and, for list_trades, the side (null: both). 'no_tool': the assistant cannot answer and calls nothing; 'no_such_asset': the program says the ledger has no such asset. The sentences of one group are said one after the other in one chat. Q1 to Q6 come from the assistant's first set and were seen while the prompt was written; the other sentences were written for this set by whoever built it and were seen too. This is not a hidden test. Every sentence is invented.",
+  "now": "2026-11-24T23:55:00+01:00",
+  "zone": "Europe/Budapest",
+  "groups": [
+    [
+      {
+        "id": "Q1",
+        "text": "我10月一共买了多少钱的币？",
+        "gold": [
+          {
+            "tool": "get_period_summary",
+            "from": "2026-10-01",
+            "to": "2026-10-31",
+            "asset": null
+          },
+          {
+            "tool": "list_trades",
+            "from": "2026-10-01",
+            "to": "2026-10-31",
+            "asset": null,
+            "side": "buy"
+          }
+        ]
+      }
+    ],
+    [
+      {
+        "id": "Q2",
+        "text": "我9月份的收益是多少",
+        "gold": [
+          {
+            "tool": "get_period_summary",
+            "from": "2026-09-01",
+            "to": "2026-09-30",
+            "asset": null
+          }
+        ]
+      }
+    ],
+    [
+      {
+        "id": "Q3",
+        "text": "我现在手里有哪些币，浮动盈亏多少",
+        "gold": [
+          {
+            "tool": "get_positions"
+          }
+        ]
+      }
+    ],
+    [
+      {
+        "id": "Q4",
+        "text": "10月6号那天我都做了什么交易",
+        "gold": [
+          {
+            "tool": "list_trades",
+            "from": "2026-10-06",
+            "to": "2026-10-06",
+            "asset": null,
+            "side": null
+          }
+        ]
+      }
+    ],
+    [
+      {
+        "id": "Q5",
+        "text": "上个月哪几笔卖出最赚钱",
+        "gold": [
+          {
+            "tool": "list_trades",
+            "from": "2026-10-01",
+            "to": "2026-10-31",
+            "asset": null,
+            "side": "sell"
+          }
+        ]
+      }
+    ],
+    [
+      {
+        "id": "Q6",
+        "text": "How much did I spend on ETH this year?",
+        "gold": [
+          {
+            "tool": "get_period_summary",
+            "from": "2026-01-01",
+            "to": "2026-12-31",
+            "asset": "ETH"
+          },
+          {
+            "tool": "list_trades",
+            "from": "2026-01-01",
+            "to": "2026-12-31",
+            "asset": "ETH",
+            "side": "buy"
+          }
+        ]
+      }
+    ],
+    [
+      {
+        "id": "A1",
+        "text": "我上周卖了哪些币",
+        "gold": [
+          {
+            "tool": "list_trades",
+            "from": "2026-11-16",
+            "to": "2026-11-22",
+            "asset": null,
+            "side": "sell"
+          }
+        ]
+      }
+    ],
+    [
+      {
+        "id": "A2",
+        "text": "今年我在大饼上一共花了多少钱",
+        "gold": [
+          {
+            "tool": "get_period_summary",
+            "from": "2026-01-01",
+            "to": "2026-12-31",
+            "asset": "BTC"
+          },
+          {
+            "tool": "list_trades",
+            "from": "2026-01-01",
+            "to": "2026-12-31",
+            "asset": "BTC",
+            "side": "buy"
+          }
+        ]
+      }
+    ],
+    [
+      {
+        "id": "A3",
+        "text": "Show me my trades from Oct 1 to Oct 15",
+        "gold": [
+          {
+            "tool": "list_trades",
+            "from": "2026-10-01",
+            "to": "2026-10-15",
+            "asset": null,
+            "side": null
+          }
+        ]
+      }
+    ],
+    [
+      {
+        "id": "A4",
+        "text": "What did I sell last month?",
+        "gold": [
+          {
+            "tool": "list_trades",
+            "from": "2026-10-01",
+            "to": "2026-10-31",
+            "asset": null,
+            "side": "sell"
+          }
+        ]
+      }
+    ],
+    [
+      {
+        "id": "A5",
+        "text": "最近7天我有没有买卖过东西",
+        "gold": [
+          {
+            "tool": "list_trades",
+            "from": "2026-11-18",
+            "to": "2026-11-24",
+            "asset": null,
+            "side": null
+          }
+        ]
+      }
+    ],
+    [
+      {
+        "id": "A6",
+        "text": "过去30天的收益怎么样",
+        "gold": [
+          {
+            "tool": "get_period_summary",
+            "from": "2026-10-26",
+            "to": "2026-11-24",
+            "asset": null
+          }
+        ]
+      }
+    ],
+    [
+      {
+        "id": "A7",
+        "text": "10月我买了多少DOGE",
+        "gold": [
+          {
+            "tool": "no_such_asset",
+            "word": "DOGE"
+          }
+        ]
+      }
+    ],
+    [
+      {
+        "id": "A8",
+        "text": "10月我卖了哪些BTC",
+        "gold": [
+          {
+            "tool": "list_trades",
+            "from": "2026-10-01",
+            "to": "2026-10-31",
+            "asset": "BTC",
+            "side": "sell"
+          }
+        ]
+      },
+      {
+        "id": "A9",
+        "text": "那ETH呢",
+        "gold": [
+          {
+            "tool": "list_trades",
+            "from": "2026-10-01",
+            "to": "2026-10-31",
+            "asset": "ETH",
+            "side": "sell"
+          }
+        ]
+      }
+    ],
+    [
+      {
+        "id": "A10",
+        "text": "账本里都有哪些资产",
+        "gold": [
+          {
+            "tool": "list_assets"
+          }
+        ]
+      }
+    ],
+    [
+      {
+        "id": "A11",
+        "text": "What do I hold right now?",
+        "gold": [
+          {
+            "tool": "get_positions"
+          }
+        ]
+      }
+    ],
+    [
+      {
+        "id": "A12",
+        "text": "我这个月的手续费一共多少",
+        "gold": [
+          {
+            "tool": "get_period_summary",
+            "from": "2026-11-01",
+            "to": "2026-11-30",
+            "asset": null
+          }
+        ]
+      }
+    ],
+    [
+      {
+        "id": "A13",
+        "text": "How much profit did I make in September?",
+        "gold": [
+          {
+            "tool": "get_period_summary",
+            "from": "2026-09-01",
+            "to": "2026-09-30",
+            "asset": null
+          }
+        ]
+      }
+    ],
+    [
+      {
+        "id": "A14",
+        "text": "2026年10月6日我买了什么",
+        "gold": [
+          {
+            "tool": "list_trades",
+            "from": "2026-10-06",
+            "to": "2026-10-06",
+            "asset": null,
+            "side": "buy"
+          }
+        ]
+      }
+    ],
+    [
+      {
+        "id": "A15",
+        "text": "去年我交易了几笔",
+        "gold": [
+          {
+            "tool": "get_period_summary",
+            "from": "2025-01-01",
+            "to": "2025-12-31",
+            "asset": null
+          },
+          {
+            "tool": "list_trades",
+            "from": "2025-01-01",
+            "to": "2025-12-31",
+            "asset": null,
+            "side": null
+          }
+        ]
+      }
+    ],
+    [
+      {
+        "id": "A16",
+        "text": "我11月底的资产比11月初多了多少",
+        "gold": [
+          {
+            "tool": "no_tool"
+          }
+        ]
+      }
+    ],
+    [
+      {
+        "id": "A17",
+        "text": "Should I sell my ETH now?",
+        "gold": [
+          {
+            "tool": "no_tool"
+          }
+        ]
+      }
+    ],
+    [
+      {
+        "id": "A18",
+        "text": "今天我买了什么",
+        "gold": [
+          {
+            "tool": "list_trades",
+            "from": "2026-11-24",
+            "to": "2026-11-24",
+            "asset": null,
+            "side": "buy"
+          }
+        ]
+      }
+    ],
+    [
+      {
+        "id": "A19",
+        "text": "以太坊在10月份的买入记录",
+        "gold": [
+          {
+            "tool": "list_trades",
+            "from": "2026-10-01",
+            "to": "2026-10-31",
+            "asset": "ETH",
+            "side": "buy"
+          }
+        ]
+      }
+    ],
+    [
+      {
+        "id": "A20",
+        "text": "本周的交易",
+        "gold": [
+          {
+            "tool": "list_trades",
+            "from": "2026-11-23",
+            "to": "2026-11-29",
+            "asset": null,
+            "side": null
+          }
+        ]
+      }
+    ],
+    [
+      {
+        "id": "A21",
+        "text": "近七天的汇总",
+        "gold": [
+          {
+            "tool": "get_period_summary",
+            "from": "2026-11-18",
+            "to": "2026-11-24",
+            "asset": null
+          }
+        ]
+      }
+    ]
+  ]
+}
