@@ -350,3 +350,19 @@ def test_the_chat_handed_back_holds_the_turns_calls_and_results() -> None:
     kinds = [type(item).__name__ for item in result.chat.items]
     assert kinds == ["Message", "ToolCallTurn", "ToolResult", "Message"]
     assert result.chat.user_said == (HOLDINGS,)
+
+
+def test_figures_given_to_a_tool_that_takes_none_never_reach_the_model_again() -> None:
+    said = "查一下 0.02 BTC 的持仓"
+
+    result, model = turn(
+        [calls(("get_positions", {"quantity": "0.02", "price": "94900"})), "Done."], said
+    )
+
+    (taken,) = result.steps[0].calls
+    assert dict(taken.call.arguments) == {"quantity": "0.02", "price": "94900"}
+    later = model.calls[1].items
+    kept = [item for item in later if isinstance(item, ToolCallTurn)]
+    assert kept == [ToolCallTurn(text="", calls=(ToolCall(name="get_positions", arguments={}),))]
+    assert "94900" not in repr(later)
+    assert "94900" not in repr(result.chat.items)

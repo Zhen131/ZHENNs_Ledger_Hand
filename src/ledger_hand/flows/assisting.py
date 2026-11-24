@@ -35,7 +35,11 @@ assets are handed to the model, which words the answer; that is for now
 only, until the program lays such figures out itself.
 
 The chat handed back holds every call and result of the turn, so that the
-next turn can tie what the user says to what was listed. This module reads
+next turn can tie what the user says to what was listed. A call to a tool
+that takes no argument is kept in it with its arguments emptied: the ones
+the model gave are dropped unread, and handing them back to the model would
+bring the figures it wrote into the next ask. The steps keep the calls as
+the model made them, for the record. This module reads
 no clock, no zone of the machine and no settings: all are handed in.
 
 Names defined here: ``take_turn``.
@@ -69,7 +73,7 @@ from ledger_hand.assistant.results import (
     positions_text,
     status_text,
 )
-from ledger_hand.assistant.tools import ToolName, tool_specs
+from ledger_hand.assistant.tools import ToolName, tool_named, tool_specs
 from ledger_hand.ports import (
     ChatItem,
     LedgerError,
@@ -146,7 +150,7 @@ def take_turn(
         if not reply.calls:
             turn.steps.append(Step(text=reply.text, calls=()))
             return turn.ended(Ending.ANSWERED, reply.text)
-        turn.items.append(ToolCallTurn(text=reply.text, calls=reply.calls))
+        turn.items.append(ToolCallTurn(text=reply.text, calls=_as_kept(reply.calls)))
         try:
             step = _step(reply.text, reply.calls, turn, user_said, ledger)
         except _LedgerFailedError as stopped:
@@ -157,6 +161,19 @@ def take_turn(
         if wrong_in_a_row == 2:
             return turn.ended(Ending.TWO_MISSTEPS, TWO_MISSTEPS_REPLY)
     return turn.ended(Ending.STEP_LIMIT, STEP_LIMIT_REPLY)
+
+
+def _as_kept(calls: Sequence[ToolCall]) -> tuple[ToolCall, ...]:
+    """The calls as the chat keeps them: a tool that takes no argument gets none."""
+    return tuple(
+        ToolCall(name=call.name, arguments={}) if _takes_nothing(call.name) else call
+        for call in calls
+    )
+
+
+def _takes_nothing(name: str) -> bool:
+    tool = tool_named(name)
+    return tool is not None and not tool.arguments
 
 
 def _step(
