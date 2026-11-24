@@ -1,0 +1,171 @@
+{
+  "about": "Sentences that change or delete one trade of the fake ledger's invented book, each said in a chat of its own, with its gold answer written before any run. 'send': the proposal that must reach the ledger: a change or a delete of the trade 'trade'; for a change, the field and its new value as text. 'pick': more than one trade matches, so the program must ask which; the ruler answers with 'answer', which names 'trade'. 'choose': the change leaves quantity times price away from the total, so the program must ask which follows; the ruler answers with that amount's name, and 'amounts' are what the proposal must then hold. 'not_found': the program must say no trade matches. 'refuse': the program must change nothing and say why. E1 to E3 come from the assistant's first set and were seen while the prompt was written; the rest were written for this set and seen too. This is not a hidden test. Every sentence is invented.",
+  "now": "2026-11-24T23:55:00+01:00",
+  "zone": "Europe/Budapest",
+  "sentences": [
+    {
+      "id": "E1",
+      "text": "帮我把10月6号那笔BTC的数量改成0.0081",
+      "gold": {
+        "expect": "send",
+        "kind": "change",
+        "trade": "t-05",
+        "field": "quantity",
+        "value": "0.0081",
+        "choose": "总额",
+        "amounts": {"quantity": "0.0081", "price": "61940", "total": "501.714"}
+      }
+    },
+    {
+      "id": "E2",
+      "text": "把9月25号那笔ADA删掉",
+      "gold": {"expect": "send", "kind": "delete", "trade": "t-03"}
+    },
+    {
+      "id": "E3",
+      "text": "把10月6号那笔的手续费改成0.000009",
+      "gold": {
+        "expect": "send",
+        "kind": "change",
+        "trade": "t-06",
+        "field": "fee",
+        "value": "0.000009",
+        "pick": {"answer": "第二笔", "trade": "t-06"}
+      }
+    },
+    {
+      "id": "N1",
+      "text": "把10月21号卖的那笔BTC的成交价改成66150",
+      "gold": {
+        "expect": "send",
+        "kind": "change",
+        "trade": "t-08",
+        "field": "price",
+        "value": "66150",
+        "choose": "总额",
+        "amounts": {"quantity": "0.006", "price": "66150", "total": "396.9"}
+      }
+    },
+    {
+      "id": "N2",
+      "text": "Change the total of the MSFT trade on 2 October to 1237.12",
+      "gold": {
+        "expect": "send",
+        "kind": "change",
+        "trade": "t-04",
+        "field": "total",
+        "value": "1237.12"
+      }
+    },
+    {
+      "id": "N3",
+      "text": "把9月25号那笔ADA的平台改成Binance",
+      "gold": {
+        "expect": "send",
+        "kind": "change",
+        "trade": "t-03",
+        "field": "platform",
+        "value": "Binance"
+      }
+    },
+    {
+      "id": "N4",
+      "text": "把11月3号那笔ADA的备注改成补仓",
+      "gold": {
+        "expect": "send",
+        "kind": "change",
+        "trade": "t-09",
+        "field": "note",
+        "value": "补仓"
+      }
+    },
+    {
+      "id": "N5",
+      "text": "把10月2号那笔MSFT的时间改成10月2号上午9:25",
+      "gold": {
+        "expect": "send",
+        "kind": "change",
+        "trade": "t-04",
+        "field": "time",
+        "value": "2026-10-02T09:25:00+02:00"
+      }
+    },
+    {
+      "id": "N6",
+      "text": "Change the fee of the ETH sell on 14 October to 0.52 USDT",
+      "gold": {
+        "expect": "send",
+        "kind": "change",
+        "trade": "t-07",
+        "field": "fee",
+        "value": "0.52"
+      }
+    },
+    {
+      "id": "N7",
+      "text": "Delete the trade from October 6",
+      "gold": {
+        "expect": "send",
+        "kind": "delete",
+        "trade": "t-05",
+        "pick": {"answer": "the first one", "trade": "t-05"}
+      }
+    },
+    {
+      "id": "N8",
+      "text": "把10月卖出的那笔删掉",
+      "gold": {
+        "expect": "send",
+        "kind": "delete",
+        "trade": "t-08",
+        "pick": {"answer": "第二笔", "trade": "t-08"}
+      }
+    },
+    {
+      "id": "N9",
+      "text": "Delete the BTC sell from October 21",
+      "gold": {"expect": "send", "kind": "delete", "trade": "t-08"}
+    },
+    {
+      "id": "N10",
+      "text": "把ADA那笔的平台改成Binance",
+      "gold": {
+        "expect": "send",
+        "kind": "change",
+        "trade": "t-09",
+        "field": "platform",
+        "value": "Binance",
+        "pick": {"answer": "最后一笔", "trade": "t-09"}
+      }
+    },
+    {
+      "id": "N11",
+      "text": "Change the price of my October ETH trade to 2450",
+      "gold": {
+        "expect": "send",
+        "kind": "change",
+        "trade": "t-06",
+        "field": "price",
+        "value": "2450",
+        "pick": {"answer": "the first one", "trade": "t-06"},
+        "choose": "total",
+        "amounts": {"quantity": "0.15", "price": "2450", "total": "367.5"}
+      }
+    },
+    {
+      "id": "N12",
+      "text": "把10月30号那笔BTC删掉",
+      "gold": {"expect": "not_found"}
+    },
+    {
+      "id": "N13",
+      "text": "Delete my ETH trade on November 20",
+      "gold": {"expect": "not_found"}
+    },
+    {
+      "id": "N14",
+      "text": "把9月25号那笔ADA的时间改成9月24号",
+      "gold": {"expect": "refuse"}
+    }
+  ]
+}
