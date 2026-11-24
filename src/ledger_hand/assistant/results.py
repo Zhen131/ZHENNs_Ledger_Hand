@@ -9,7 +9,11 @@ go by:
 - ``no_proposal``: there is no proposal in this chat to ask about;
 - ``wrong_step``: the call was not taken, and ``problem`` says why;
 - ``ledger_error``: the ledger refused, with its code and its sentence;
-- ``not_run``: the call was not run, because its step went to recording;
+- ``not_run``: the call was not run, because its step went to recording,
+  or because the program answered the user itself in that step;
+- ``answered_by_program``: the program told the user something itself
+  (a time it cannot read, an asset the ledger does not have), and the
+  ``message`` is what it said;
 - for a call to record a trade, how the program's recording of what the
   user said ended (``recording_text``), in one word and with no figure:
   the program, not the model, tells the user the rest.
@@ -19,9 +23,10 @@ model reads the digits the ledger has. Money is always named beside an
 amount. A figure that was not worked out is written as its reason.
 
 Names defined here: ``assets_text``, ``positions_text``, ``trades_text``,
-``summary_text``, ``status_text``, ``not_connected_text``,
+``summary_text``, ``lookup_text``, ``status_text``, ``not_connected_text``,
 ``no_proposal_text``, ``misstep_text``, ``ledger_error_text``,
-``not_run_text`` and ``recording_text``.
+``not_run_text``, ``answered_by_program_text``, ``skipped_text`` and
+``recording_text``.
 """
 
 from __future__ import annotations
@@ -31,6 +36,8 @@ from collections.abc import Sequence
 from decimal import Decimal
 
 from ledger_hand.assistant.judging import Misstep
+from ledger_hand.assistant.lookups import Conditions, Lookup
+from ledger_hand.assistant.tools import ToolName
 from ledger_hand.core.ledger_records import (
     Asset,
     Figure,
@@ -93,48 +100,88 @@ def positions_text(positions: Sequence[Position]) -> str:
     )
 
 
+def _trade_entry(trade: LedgerTrade) -> dict[str, object]:
+    facts = trade.facts
+    entry: dict[str, object] = {
+        "id": trade.id,
+        "time": facts.occurred.isoformat(),
+        "side": facts.side.value,
+        "asset": facts.asset,
+        "quantity": _number(facts.quantity),
+        "price": _number(facts.price),
+        "total": _number(facts.total),
+        "priced_in": facts.quote,
+        "fee": _number(facts.fee),
+        "fee_in": facts.fee_asset,
+        "platform": facts.platform,
+        "note": facts.note,
+    }
+    if trade.realized is not None:
+        entry["realized_profit"] = _figure(trade.realized)
+    return entry
+
+
 def trades_text(trades: Sequence[LedgerTrade]) -> str:
     """Trades of the ledger, each with its identifier."""
-    listed = []
-    for trade in trades:
-        facts = trade.facts
-        entry: dict[str, object] = {
-            "id": trade.id,
-            "time": facts.occurred.isoformat(),
-            "side": facts.side.value,
-            "asset": facts.asset,
-            "quantity": _number(facts.quantity),
-            "price": _number(facts.price),
-            "total": _number(facts.total),
-            "priced_in": facts.quote,
-            "fee": _number(facts.fee),
-            "fee_in": facts.fee_asset,
-            "platform": facts.platform,
-            "note": facts.note,
-        }
-        if trade.realized is not None:
-            entry["realized_profit"] = _figure(trade.realized)
-        listed.append(entry)
-    return _text({"trades": listed})
+    return _text({"trades": [_trade_entry(trade) for trade in trades]})
+
+
+def _summary_data(summary: PeriodSummary) -> dict[str, object]:
+    return {
+        "trade_count": summary.trade_count,
+        "by_currency": [
+            {
+                "currency": totals.currency,
+                "spent_on_buys": _number(totals.spent),
+                "received_from_sells": _number(totals.received),
+                "realized_profit": _figure(totals.realized),
+            }
+            for totals in summary.by_currency
+        ],
+        "fees": [_figure(fee) for fee in summary.fees],
+    }
 
 
 def summary_text(summary: PeriodSummary) -> str:
     """The sums of a stretch of time, one set for each money."""
-    return _text(
-        {
-            "trade_count": summary.trade_count,
-            "by_currency": [
-                {
-                    "currency": totals.currency,
-                    "spent_on_buys": _number(totals.spent),
-                    "received_from_sells": _number(totals.received),
-                    "realized_profit": _figure(totals.realized),
-                }
-                for totals in summary.by_currency
-            ],
-            "fees": [_figure(fee) for fee in summary.fees],
-        }
-    )
+    return _text(_summary_data(summary))
+
+
+def _conditions_data(conditions: Conditions) -> dict[str, object]:
+    period = conditions.period
+    data: dict[str, object] = {
+        "from": period.first_day.isoformat() if period else "all time",
+        "to": period.last_day.isoformat() if period else "all time",
+        "asset": conditions.asset or "all assets",
+        "side": conditions.side.value if conditions.side else "buys and sells",
+    }
+    if conditions.not_narrowed:
+        data["not_narrowed"] = list(conditions.not_narrowed)
+    return data
+
+
+def lookup_text(lookup: Lookup) -> str:
+    """What a read tool found, as the model is handed it: the trades shown, never more.
+
+    A list of trades or a summary comes with the conditions it was looked
+    up with; a list of trades with the count of all of them and of those
+    shown. The holdings and the assets are as ``positions_text`` and
+    ``assets_text`` write them.
+    """
+    if lookup.tool is ToolName.GET_POSITIONS:
+        return positions_text(lookup.positions)
+    if lookup.tool is ToolName.LIST_ASSETS:
+        return assets_text(lookup.assets)
+    data: dict[str, object] = {}
+    if lookup.conditions is not None:
+        data["conditions"] = _conditions_data(lookup.conditions)
+    if lookup.summary is not None:
+        data.update(_summary_data(lookup.summary))
+    else:
+        data["trade_count"] = lookup.trade_count
+        data["shown"] = len(lookup.trades)
+        data["trades"] = [_trade_entry(trade) for trade in lookup.trades]
+    return _text(data)
 
 
 def status_text(proposal_id: str, status: ProposalStatus) -> str:
@@ -165,6 +212,16 @@ def ledger_error_text(error: LedgerError) -> str:
 def not_run_text() -> str:
     """The answer to a call not run, because another call of its step went to recording."""
     return _text({"status": "not_run", "message": "Not run: this step went to recording."})
+
+
+def answered_by_program_text(words: str) -> str:
+    """The answer to a call after which the program told the user something itself."""
+    return _text({"status": "answered_by_program", "message": words})
+
+
+def skipped_text() -> str:
+    """The answer to a call not run, because the program answered the user in its step."""
+    return _text({"status": "not_run", "message": "Not run: the program answered the user."})
 
 
 def recording_text(ending: str) -> str:

@@ -64,6 +64,8 @@ from ledger_hand.ports import LedgerPort, Message, ModelPort, Role
 
 # After a takeover, only this ending means it could not be done at all.
 _NOT_A_TRADE = frozenset({RecordEnding.NO_TRADE})
+# A turn of the model that ended with the user told something, nothing failing.
+_TOLD = frozenset({Ending.ANSWERED, Ending.ANSWERED_BY_PROGRAM})
 
 
 class Route(enum.Enum):
@@ -109,7 +111,7 @@ class Said:
             if self.route is Route.TAKEOVER and self.recorded.ending in _NOT_A_TRADE:
                 return False
             return self.recorded.well_ended
-        return self.turn is not None and self.turn.ending is Ending.ANSWERED
+        return self.turn is not None and self.turn.ending in _TOLD
 
 
 @dataclass(frozen=True)

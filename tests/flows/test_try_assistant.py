@@ -93,11 +93,11 @@ def test_arguments_dropped_unread_are_named() -> None:
 def test_a_wrong_step_is_printed_with_why() -> None:
     status, printed, _ = run(
         ["我上个月买了多少比特币"],
-        ScriptedModel([asks("list_trades", asset="BTC"), "Sorry."]),
+        ScriptedModel([asks("list_trades", period="2023-10-06"), "Sorry."]),
     )
 
     assert status == 0
-    assert "    wrong step (not_copied): 'asset' is 'BTC'" in printed
+    assert "    wrong step (not_copied): 'period' is '2023-10-06'" in printed
 
 
 def test_several_sentences_make_one_chat_and_a_failure_gives_status_1() -> None:

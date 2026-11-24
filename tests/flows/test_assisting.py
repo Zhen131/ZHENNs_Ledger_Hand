@@ -247,12 +247,19 @@ def test_tools_not_built_yet_answer_not_connected() -> None:
     ledger = FakeLedger()
 
     result, _ = turn(
-        [calls(("list_trades", {"period": "10月6号"})), "Not yet."],
-        "10月6号那天我都做了什么交易",
+        [
+            calls(
+                ("propose_trade_delete", {"period": "10月6号"}),
+                ("propose_trade_update", {"field": "fee", "new_value": "0.000009"}),
+            ),
+            "Not yet.",
+        ],
+        "把10月6号那笔的手续费改成0.000009，或者删掉",
         ledger=ledger,
     )
 
     assert ledger.calls == []
+    assert len(result.steps[0].calls) == 2
     for taken in result.steps[0].calls:
         assert isinstance(taken, TakenCall)
         assert json.loads(taken.result)["status"] == "not_connected"

@@ -27,10 +27,27 @@ a way of its own. A ledger that answers "no such asset" or "no such trade"
 is not a failure of the turn: its code and sentence are handed to the model,
 which tells the user.
 
-Of the eight tools, these reach the ledger so far: the list of assets,
-the holdings, and where the last proposal of this chat stands. The
-holdings and the assets are handed to the model, which words the answer;
-that is for now only, until the program lays such figures out itself.
+Of the eight tools, these reach the ledger: the four read tools (the list
+of assets, the list of trades, the sums of a stretch of time, the
+holdings; ``asking``) and where the last proposal of this chat stands. What
+a read tool finds is kept as a ``Lookup`` on its call, which the program
+lays out for the user, and handed to the model, which only writes a
+sentence or two beside it. The asset and the side the model gives a read
+tool are checked against what the user said and not used when the user
+did not ask for them; that is not a wrong step. When the program cannot
+read the period, or the user named an asset the ledger does not have, the
+ledger is not asked: the program tells the user itself and the turn ends
+there (``Ending.ANSWERED_BY_PROGRAM``), with a result after every call of
+that step, so no call in the chat is left without one.
+
+The model's last words are checked before the user sees them
+(``assistant.explanation``): after a lookup, every number in them must be
+in what the ledger returned, the table, or what the user just said; with
+no lookup, they may hold no figure that looks like an amount. Words that
+fail give way to the program's own, and the chat keeps the program's
+words, so the model's wrong figure never reaches it again; the step keeps
+the model's words for the record, and the turn says why
+(``TurnResult.withheld``). The turn still ends as answered.
 
 Recording a trade (``propose_trade_add``) is the program's, not the
 model's: a step with such a call ends the loop at once (``Ending.RECORDING``),
@@ -39,8 +56,8 @@ run (``NotRunCall``) and count as no wrong step. Whoever called then
 records what the user said and hands the outcome to ``close_recording``,
 which puts a result after every call of that step and the program's own
 words after them, so that no call in the chat is left without a result.
-Asking about the ledger, changing and deleting are on the list, so that the
-model can choose them, and are answered "not connected yet".
+Changing and deleting are on the list, so that the model can choose them,
+and are answered "not connected yet".
 
 The chat handed back holds every call and result of the turn, so that the
 next turn can tie what the user says to what was listed. A call to a tool
@@ -60,7 +77,15 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
 
+from ledger_hand.assistant.explanation import (
+    AFTER_A_TABLE,
+    NO_TABLE,
+    Withheld,
+    check_explanation,
+    check_plain_answer,
+)
 from ledger_hand.assistant.judging import Accepted, Misstep, judge
+from ledger_hand.assistant.lookups import lookup_lines
 from ledger_hand.assistant.outcome import (
     STEP_LIMIT_REPLY,
     TWO_MISSTEPS_REPLY,
@@ -75,17 +100,25 @@ from ledger_hand.assistant.outcome import (
 from ledger_hand.assistant.prompting import AssistantPrompt, system_message
 from ledger_hand.assistant.prompts.assistant_first import ASSISTANT_FIRST
 from ledger_hand.assistant.results import (
-    assets_text,
+    answered_by_program_text,
     ledger_error_text,
+    lookup_text,
     misstep_text,
     no_proposal_text,
     not_connected_text,
     not_run_text,
-    positions_text,
     recording_text,
+    skipped_text,
     status_text,
 )
 from ledger_hand.assistant.tools import ToolName, tool_named, tool_specs
+from ledger_hand.flows.asking import (
+    NARROWED_TOOLS,
+    READ_TOOLS,
+    ProgramWords,
+    judge_read,
+    look_up,
+)
 from ledger_hand.ports import (
     ChatItem,
     LedgerError,
@@ -113,6 +146,25 @@ class _LedgerFailedError(Exception):
         self.step = step
 
 
+class _AnsweredByProgramError(Exception):
+    """Carries the program's own words, and the step they ended, out of that step."""
+
+    def __init__(self, words: str, step: Step) -> None:
+        super().__init__(words)
+        self.words = words
+        self.step = step
+
+
+@dataclass(frozen=True)
+class _Around:
+    """What every call of a turn is handed: the ledger, the user's words, the moment, the zone."""
+
+    ledger: LedgerPort
+    user_said: tuple[str, ...]
+    now: datetime
+    zone: str
+
+
 @dataclass
 class _Turn:
     """What a turn has gathered so far."""
@@ -126,12 +178,18 @@ class _Turn:
         ending: Ending,
         reply: str,
         failure: ModelError | LedgerError | None = None,
+        withheld: Withheld | None = None,
     ) -> TurnResult:
         if reply:
             self.items.append(Message(Role.ASSISTANT, reply))
         chat = Chat(items=tuple(self.items), proposals=self.chat.proposals)
         return TurnResult(
-            reply=reply, ending=ending, steps=tuple(self.steps), chat=chat, failure=failure
+            reply=reply,
+            ending=ending,
+            steps=tuple(self.steps),
+            chat=chat,
+            failure=failure,
+            withheld=withheld,
         )
 
 
@@ -152,7 +210,7 @@ def take_turn(
     turn = _Turn(chat=chat, items=[*chat.items, Message(Role.USER, said)])
     system = system_message(prompt, now, zone)
     tools = tool_specs()
-    user_said = (*chat.user_said, said)
+    around = _Around(ledger, (*chat.user_said, said), now, zone)
     wrong_in_a_row = 0
     for _ in range(max_steps):
         try:
@@ -161,16 +219,20 @@ def take_turn(
             return turn.ended(Ending.MODEL_FAILED, "", error)
         if not reply.calls:
             turn.steps.append(Step(text=reply.text, calls=()))
-            return turn.ended(Ending.ANSWERED, reply.text)
+            words, withheld = _checked_words(reply.text, turn.steps, said)
+            return turn.ended(Ending.ANSWERED, words, withheld=withheld)
         turn.items.append(ToolCallTurn(text=reply.text, calls=_as_kept(reply.calls)))
         if any(call.name == ToolName.PROPOSE_TRADE_ADD.value for call in reply.calls):
-            turn.steps.append(_to_recording(reply.text, reply.calls, user_said))
+            turn.steps.append(_to_recording(reply.text, reply.calls, around.user_said))
             return turn.ended(Ending.RECORDING, "")
         try:
-            step = _step(reply.text, reply.calls, turn, user_said, ledger)
+            step = _step(reply.text, reply.calls, turn, around)
         except _LedgerFailedError as stopped:
             turn.steps.append(stopped.step)
             return turn.ended(Ending.LEDGER_FAILED, "", stopped.error)
+        except _AnsweredByProgramError as answered:
+            turn.steps.append(answered.step)
+            return turn.ended(Ending.ANSWERED_BY_PROGRAM, answered.words)
         turn.steps.append(step)
         wrong_in_a_row = wrong_in_a_row + 1 if step.wrong else 0
         if wrong_in_a_row == 2:
@@ -235,40 +297,74 @@ def _takes_nothing(name: str) -> bool:
     return tool is not None and not tool.arguments
 
 
-def _step(
-    text: str,
-    calls: Sequence[ToolCall],
-    turn: _Turn,
-    user_said: Sequence[str],
-    ledger: LedgerPort,
-) -> Step:
+def _step(text: str, calls: Sequence[ToolCall], turn: _Turn, around: _Around) -> Step:
     """Judge and run each call of one step in order, handing every result back."""
     handled: list[TakenCall | RefusedCall | NotRunCall] = []
-    for call in calls:
-        verdict = judge(call, user_said)
-        if isinstance(verdict, Misstep):
-            result = misstep_text(verdict)
-            handled.append(RefusedCall(call=call, misstep=verdict, result=result))
-        else:
-            try:
-                result = _run(verdict, ledger, turn.chat.proposals)
-            except LedgerError as error:
-                if error.kind not in _TOLD_TO_THE_MODEL:
-                    raise _LedgerFailedError(error, Step(text=text, calls=tuple(handled))) from None
-                result = ledger_error_text(error)
-            handled.append(
-                TakenCall(call=call, tool=verdict.tool, result=result, dropped=verdict.dropped)
-            )
-        turn.items.append(ToolResult(name=call.name, content=result))
+    for index, call in enumerate(calls):
+        try:
+            done = _handled(call, turn, around)
+        except LedgerError as error:
+            if error.kind not in _TOLD_TO_THE_MODEL:
+                raise _LedgerFailedError(error, Step(text=text, calls=tuple(handled))) from None
+            # Only a call taken reaches the ledger, so its tool is on the list.
+            tool = ToolName(call.name)
+            done = TakenCall(call=call, tool=tool, result=ledger_error_text(error))
+        except _AnsweredByProgramError as answered:
+            rest = [NotRunCall(call=other, result=skipped_text()) for other in calls[index + 1 :]]
+            for one in (*answered.step.calls, *rest):
+                turn.items.append(ToolResult(name=one.call.name, content=one.result))
+            step = Step(text=text, calls=(*handled, *answered.step.calls, *rest))
+            raise _AnsweredByProgramError(answered.words, step) from None
+        handled.append(done)
+        turn.items.append(ToolResult(name=call.name, content=done.result))
     return Step(text=text, calls=tuple(handled))
 
 
+def _handled(call: ToolCall, turn: _Turn, around: _Around) -> TakenCall | RefusedCall:
+    """One call judged, and run when it is taken."""
+    asset: str | None = None
+    if call.name in NARROWED_TOOLS:
+        verdict, asset = judge_read(call, around.user_said)
+    else:
+        verdict = judge(call, around.user_said)
+    if isinstance(verdict, Misstep):
+        return RefusedCall(call=call, misstep=verdict, result=misstep_text(verdict))
+    if verdict.tool in READ_TOOLS:
+        found = look_up(
+            verdict, asset, around.ledger, around.user_said, now=around.now, zone=around.zone
+        )
+        if isinstance(found, ProgramWords):
+            taken = TakenCall(
+                call=call, tool=verdict.tool, result=answered_by_program_text(found.words)
+            )
+            raise _AnsweredByProgramError(found.words, Step(text="", calls=(taken,)))
+        return TakenCall(
+            call=call,
+            tool=verdict.tool,
+            result=lookup_text(found),
+            dropped=verdict.dropped,
+            lookup=found,
+        )
+    result = _run(verdict, around.ledger, turn.chat.proposals)
+    return TakenCall(call=call, tool=verdict.tool, result=result, dropped=verdict.dropped)
+
+
+def _checked_words(text: str, steps: Sequence[Step], said: str) -> tuple[str, Withheld | None]:
+    """The model's last words, or the program's when they fail the check, and why."""
+    taken = [call for step in steps for call in step.calls if isinstance(call, TakenCall)]
+    lookups = [call.lookup for call in taken if call.lookup is not None]
+    if not lookups:
+        withheld = check_plain_answer(text)
+        return (NO_TABLE, withheld) if withheld is not None else (text, None)
+    against = [call.result for call in taken]
+    against.extend(line for lookup in lookups for line in lookup_lines(lookup))
+    against.append(said)
+    withheld = check_explanation(text, against)
+    return (AFTER_A_TABLE, withheld) if withheld is not None else (text, None)
+
+
 def _run(accepted: Accepted, ledger: LedgerPort, proposals: Sequence[str]) -> str:
-    """What the program hands back for a call taken."""
-    if accepted.tool is ToolName.LIST_ASSETS:
-        return assets_text(ledger.list_assets())
-    if accepted.tool is ToolName.GET_POSITIONS:
-        return positions_text(ledger.positions())
+    """What the program hands back for a call taken that is not a read tool."""
     if accepted.tool is ToolName.GET_PROPOSAL_STATUS:
         if not proposals:
             return no_proposal_text()

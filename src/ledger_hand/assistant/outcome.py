@@ -7,12 +7,15 @@
   that what the user says next can be tied to what was listed before.
 - ``Ending``: why the turn ended.
 - ``TakenCall`` and ``RefusedCall``: one tool call, and what the program
-  handed back for it, or the wrong step it was and why. ``NotRunCall``: a
-  call that was not run, because its step went to recording instead.
+  handed back for it, or the wrong step it was and why; a read tool's call
+  also keeps what it found (``lookups.Lookup``), which the program lays
+  out for the user. ``NotRunCall``: a call that was not run, because its
+  step went to recording, or the program answered the user in it.
 - ``Step``: one answer of the model: its text, and the calls in it, in order.
 - ``TurnResult``: what the assistant says at the end, why the turn ended,
-  every step, the chat to hand the next turn, and the failure that stopped
-  it, if one did.
+  every step, the chat to hand the next turn, the failure that stopped
+  it, if one did, and, when the model's last words were not used, why
+  (``explanation.Withheld``); the lookups of the turn, in order.
 
 ``TWO_MISSTEPS_REPLY`` and ``STEP_LIMIT_REPLY`` are the program's own words
 when it stops the model.
@@ -26,7 +29,9 @@ from __future__ import annotations
 import enum
 from dataclasses import dataclass
 
+from ledger_hand.assistant.explanation import Withheld
 from ledger_hand.assistant.judging import Misstep
+from ledger_hand.assistant.lookups import Lookup
 from ledger_hand.assistant.tools import ToolName
 from ledger_hand.ports import ChatItem, LedgerError, Message, ModelError, Role, ToolCall
 
@@ -53,6 +58,9 @@ class Ending(enum.Enum):
     """The ledger could not be reached, or failed in a way the model cannot mend."""
     RECORDING = "recording"
     """The model chose to record a trade; the program takes what the user said on from there."""
+    ANSWERED_BY_PROGRAM = "answered_by_program"
+    """The program told the user something itself and asked the ledger nothing: a time it
+    cannot read, or an asset the ledger does not have."""
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -75,12 +83,14 @@ class Chat:
 @dataclass(frozen=True, kw_only=True)
 class TakenCall:
     """A call taken: the call as the model made it, the tool it named, the names of the
-    arguments dropped unread (for a tool that takes none), and what was handed back."""
+    arguments dropped unread (for a tool that takes none), what was handed back, and for
+    a read tool what it found."""
 
     call: ToolCall
     tool: ToolName
     result: str
     dropped: tuple[str, ...] = ()
+    lookup: Lookup | None = None
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -115,10 +125,25 @@ class Step:
 
 @dataclass(frozen=True, kw_only=True)
 class TurnResult:
-    """How one turn went: the last word, why it ended, its steps, the chat, the failure."""
+    """How one turn went: the last word, why it ended, its steps, the chat, the failure.
+
+    ``withheld`` says why the model's last words gave way to the program's,
+    when they did; the step keeps the model's words for the record.
+    """
 
     reply: str
     ending: Ending
     steps: tuple[Step, ...]
     chat: Chat
     failure: ModelError | LedgerError | None = None
+    withheld: Withheld | None = None
+
+    @property
+    def lookups(self) -> tuple[Lookup, ...]:
+        """What every read tool of the turn found, in order."""
+        return tuple(
+            call.lookup
+            for step in self.steps
+            for call in step.calls
+            if isinstance(call, TakenCall) and call.lookup is not None
+        )
