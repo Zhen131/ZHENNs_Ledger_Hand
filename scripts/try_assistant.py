@@ -268,11 +268,14 @@ def _ending(said: Said) -> str:
 
 
 def trade_line(trade: TradeFacts) -> str:
-    """One trade on one line, every figure as the proposal holds it."""
+    """One trade on one line, every figure as the proposal holds it, written out in full."""
+    quantity, price, total, fee = (
+        format(value, "f") for value in (trade.quantity, trade.price, trade.total, trade.fee)
+    )
     return (
-        f"{trade.occurred.isoformat()} {trade.side.value} {trade.quantity} {trade.asset} "
-        f"at {trade.price} {trade.quote}, total {trade.total} {trade.quote}, "
-        f"fee {trade.fee} {trade.fee_asset}, platform {trade.platform or '-'}, "
+        f"{trade.occurred.isoformat()} {trade.side.value} {quantity} {trade.asset} "
+        f"at {price} {trade.quote}, total {total} {trade.quote}, "
+        f"fee {fee} {trade.fee_asset}, platform {trade.platform or '-'}, "
         f"note {trade.note or '-'}"
     )
 

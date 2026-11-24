@@ -124,3 +124,31 @@ def test_an_option_twice_or_both_actions_stop_the_script(options: list[str]) -> 
 
     assert try_assistant.main([*options, "你好"], out=out) == 2
     assert "give each option once" in out.getvalue()
+
+
+def test_a_small_figure_is_written_out_in_full() -> None:
+    from datetime import UTC, datetime
+    from decimal import Decimal
+
+    from ledger_hand.core.ledger_records import TradeFacts
+    from ledger_hand.core.trade import Side
+
+    trade = TradeFacts(
+        occurred=datetime(2026, 11, 24, 8, 5, tzinfo=UTC),
+        side=Side.BUY,
+        asset="BTC",
+        quantity=Decimal("0.00040811"),
+        price=Decimal("61258.60"),
+        total=Decimal("25"),
+        quote="USDT",
+        fee=Decimal("0.0000004"),
+        fee_asset="BTC",
+        platform="OKX",
+        note="",
+        raw_text="今早8点05分OKX买入0.00040811BTC",
+    )
+
+    line = try_assistant.trade_line(trade)
+
+    assert "fee 0.0000004 BTC" in line
+    assert "at 61258.60 USDT" in line
