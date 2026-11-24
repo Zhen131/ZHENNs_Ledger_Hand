@@ -2,8 +2,11 @@
 
     .venv/bin/python -m evals.ask_run
     .venv/bin/python -m evals.ask_run --model qwen2.5:7b
+    .venv/bin/python -m evals.ask_run --set evals/sets/asks_times.json
 
-Run from the top of the repository. Each group of the set is one chat with
+Run from the top of the repository. ``--set`` names another set of the same
+shape (``evals/sets/asks_times.json``); the default is ``evals/sets/asks.json``.
+Each group of the set is one chat with
 the whole assistant (``flows.conversation.say``): the real model, the
 system prompt a turn uses by default (``flows.assisting.DEFAULT_PROMPT``),
 the fake ledger with its invented book, and the set's fixed moment and
@@ -186,7 +189,9 @@ def main(arguments: Sequence[str] = (), *, out: TextIO = sys.stdout) -> int:
     """Run the measure; print the table."""
     parser = argparse.ArgumentParser(prog="evals.ask_run")
     parser.add_argument("--model", default=None)
+    parser.add_argument("--set", default=str(ASK_SET), help="the set of questions to run")
     options = parser.parse_args(arguments)
+    set_file = Path(options.set).resolve()
     try:
         backend = local_backend(options.model)
         steps = load_assistant_steps()
@@ -196,10 +201,11 @@ def main(arguments: Sequence[str] = (), *, out: TextIO = sys.stdout) -> int:
     started = datetime.now(UTC)
     TOOL_RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     prompt = assisting.DEFAULT_PROMPT.name
-    path = TOOL_RESULTS_DIR / f"run-{started.strftime('%Y%m%dT%H%M%SZ')}-asks-{prompt}.jsonl"
-    head = _conditions(backend, started, ASK_SET, steps)
+    stamp = started.strftime("%Y%m%dT%H%M%SZ")
+    path = TOOL_RESULTS_DIR / f"run-{stamp}-{set_file.stem}-{prompt}.jsonl"
+    head = _conditions(backend, started, set_file, steps)
     path.write_text(json.dumps(head, ensure_ascii=False) + "\n", encoding="utf-8")
-    rows = run(backend, ASK_SET, path, steps)
+    rows = run(backend, set_file, path, steps)
     verdicts = {sentence.id: verdict for sentence, _, verdict, _ in rows}
     end = {
         "record": "end",
