@@ -7,7 +7,7 @@ words the model is shown so that it can try again. A call is a wrong step
 when:
 
 - its tool is not one of the eight (``UNKNOWN_TOOL``);
-- it gives an argument the tool does not take (``UNKNOWN_ARGUMENT``), leaves
+- it gives a tool that takes arguments one it does not take (``UNKNOWN_ARGUMENT``), leaves
   out a required one (``MISSING_ARGUMENT``), gives one that is not text
   (``NOT_TEXT``), or a choice that is not on its list (``NOT_A_CHOICE``);
 - a copied argument is not a piece of anything the user said
@@ -20,6 +20,18 @@ that cuts a number in two is not a piece ("0.0016" is not a piece of "改成
 0.00167"). A new value for a number field is judged as a number, as a
 copied number is in extraction. A phrase is looked for in each thing the
 user said, one at a time.
+
+A tool that takes no argument at all (``list_assets``, ``get_positions``,
+``get_proposal_status``, ``propose_trade_add``) is taken whatever arguments
+the model gave it: they are dropped, unread, and only their names are
+kept, so that the record can say what was dropped. The model often hands
+``propose_trade_add`` the trade's figures, though the tool says to give
+nothing; dropping them keeps a trade told from costing a wrong step, and
+no figure the model wrote reaches the ledger. A tool that does take
+arguments still counts one it does not know as a wrong step: a time put
+under a name of the model's own would otherwise be dropped without a
+word, and the lookup would quietly cover everything. (Decided on
+2026-11-24, after the first measure of the first step.)
 
 An optional argument given as blank text counts as not given: a model often
 fills every argument it sees, and an empty one says nothing the program
@@ -68,10 +80,15 @@ class Misstep:
 
 @dataclass(frozen=True, kw_only=True)
 class Accepted:
-    """A call taken as it stands: its tool, and the arguments given, all text."""
+    """A call taken: its tool, the arguments given, all text, and the names of those dropped.
+
+    ``dropped`` names what the model gave a tool that takes no argument; the
+    values are not kept here, so nothing after judging can use them.
+    """
 
     tool: ToolName
     arguments: Mapping[str, str]
+    dropped: tuple[str, ...] = ()
 
 
 def judge(call: ToolCall, user_said: Sequence[str]) -> Accepted | Misstep:
@@ -81,6 +98,8 @@ def judge(call: ToolCall, user_said: Sequence[str]) -> Accepted | Misstep:
         return Misstep(
             kind=MisstepKind.UNKNOWN_TOOL, detail=f"There is no tool called {call.name!r}."
         )
+    if not tool.arguments:
+        return Accepted(tool=tool.name, arguments={}, dropped=tuple(call.arguments))
     given: dict[str, str] = {}
     for name, value in call.arguments.items():
         argument = tool.argument(name)

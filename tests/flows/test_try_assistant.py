@@ -73,6 +73,17 @@ def test_a_turn_prints_the_fixed_now_each_step_and_the_ending() -> None:
     assert lines[-2:] == ["assistant: You hold four assets.", "ending: answered"]
 
 
+def test_arguments_dropped_unread_are_named() -> None:
+    status, printed, _ = run(
+        ["Bought 0.02 BTC at 94900"],
+        ScriptedModel([asks("propose_trade_add", quantity="0.02", price="94900"), "Not yet."]),
+    )
+
+    assert status == 0
+    assert "    dropped, unread: quantity, price" in printed
+    assert "wrong step" not in printed
+
+
 def test_a_wrong_step_is_printed_with_why() -> None:
     status, printed, _ = run(
         ["我上个月买了多少比特币"],

@@ -478,9 +478,10 @@ changed.
 - **The model fills the recording tool with arguments it does not take.**
   Measured on the nineteen sentences, the model asks for the right tool
   first every time, but on every trade it records it also hands over the
-  trade's figures, which the recording tool does not take; the program
-  counts each such call as a wrong step. In the full loop a trade told would
-  cost one wrong step before the model sees why. See the last section of
+  trade's figures, which the recording tool does not take. The program
+  drops them unread, as it does for every tool that takes no argument, and
+  records which were dropped; the call is not a wrong step, and no figure
+  the model wrote reaches the ledger. See the last section of
   `evals/RESULTS.md`.
 - **Another name for an asset is not taken as copied.** The user says
   "比特币" and the model fills "BTC"; the user writes "this year" and the

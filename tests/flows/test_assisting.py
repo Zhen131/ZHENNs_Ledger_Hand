@@ -131,7 +131,7 @@ def test_an_unknown_tool_then_a_call_off_its_schema_stop_the_turn_after_two_step
     "wrong",
     [
         ("place_order", {}),
-        ("get_positions", {"asset": "BTC"}),
+        ("list_trades", {"from_date": "2026-10-06"}),
         ("propose_trade_update", {"field": "fee"}),
         ("list_trades", {"period": "2023-10-06"}),
     ],
@@ -161,6 +161,39 @@ def test_a_date_the_model_wrote_itself_is_judged_not_copied() -> None:
     assert isinstance(refused, RefusedCall)
     assert refused.misstep.kind is MisstepKind.NOT_COPIED
     assert "not copied from what the user said" in refused.misstep.detail
+
+
+def test_figures_handed_to_the_recording_tool_are_dropped_not_a_wrong_step() -> None:
+    ledger = FakeLedger()
+    said = "Bought 0.02 BTC at 94900 on Binance at 9:40 this morning, fee 2 USDT."
+
+    result, model = turn(
+        [calls(("propose_trade_add", {"quantity": "0.02", "price": "94900"})), "Not yet."],
+        said,
+        ledger=ledger,
+    )
+
+    (taken,) = result.steps[0].calls
+    assert isinstance(taken, TakenCall)
+    assert not result.steps[0].wrong
+    assert taken.tool is ToolName.PROPOSE_TRADE_ADD
+    assert taken.dropped == ("quantity", "price")
+    assert "0.02" not in taken.result and "94900" not in taken.result
+    assert ledger.calls == []
+    assert result.ending is Ending.ANSWERED
+    assert len(model.calls) == 2
+
+
+def test_a_field_a_tool_with_arguments_does_not_know_is_still_a_wrong_step() -> None:
+    result, _ = turn(
+        [calls(("list_trades", {"from_date": "2026-10-06"})), "Sorry."],
+        "10月6号那天我都做了什么交易",
+    )
+
+    (refused,) = result.steps[0].calls
+    assert isinstance(refused, RefusedCall)
+    assert refused.misstep.kind is MisstepKind.UNKNOWN_ARGUMENT
+    assert result.steps[0].wrong
 
 
 def test_a_right_step_between_two_wrong_ones_starts_the_count_again() -> None:

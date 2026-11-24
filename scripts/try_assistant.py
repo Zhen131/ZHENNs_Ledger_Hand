@@ -153,6 +153,8 @@ def show_turn(said: str, result: TurnResult, out: TextIO) -> None:
                     file=out,
                 )
             else:
+                if handled.dropped:
+                    print(f"    dropped, unread: {', '.join(handled.dropped)}", file=out)
                 print(f"    handed back: {handled.result}", file=out)
     if result.failure is not None:
         print(f"failure: {type(result.failure).__name__}: {result.failure}", file=out)

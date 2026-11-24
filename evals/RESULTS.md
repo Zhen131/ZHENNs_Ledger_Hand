@@ -8624,3 +8624,12 @@ Model `qwen2.5:7b`, prompt `assistant-1`: first step right on 19 of 19 sentences
 - The side was chosen wrong once without being a wrong step: E2 asks to
   delete a buy, and the model chose `sell`. A choice on the list is taken
   as it stands.
+
+**Changed after this measure (2026-11-24).** The program now drops the
+arguments given to a tool that takes none, instead of counting the call as
+a wrong step; it records only which were dropped. So the six recording
+calls above, marked "unknown_argument" in the last column, would now be
+taken. The first step's count does not change: it never looked at the
+arguments. The prompt and the tools were not changed, so the measure was
+not run again.
+

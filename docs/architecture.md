@@ -704,10 +704,13 @@ The assistant turns one thing the user says into work through the tools
 argument of a tool is either a choice from a fixed list or the user's own
 words copied, never a number or a date the model writes. Each call is judged
 before the ledger is asked (`assistant/judging.py`): a tool not on the list,
-an argument the tool does not take, a required one left out, a choice not on
+an argument a tool with arguments does not take, a required one left out, a choice not on
 its list, or a copied argument that is not a piece of what the user said
 (judged as extraction judges a copy, `extraction/passage.py`) is a wrong
-step, not run, and the model is shown why. The program asks the model at
+step, not run, and the model is shown why. Arguments given to one of the
+four tools that take none (`list_assets`, `get_positions`,
+`get_proposal_status`, `propose_trade_add`) are dropped unread instead, and
+the step records their names. The program asks the model at
 most `LEDGER_HAND_ASSISTANT_STEPS` times a turn (six by default); two wrong
 steps in a row stop the turn. The chat handed to the next turn holds every
 call and result, so what the user says next can be tied to what was listed.

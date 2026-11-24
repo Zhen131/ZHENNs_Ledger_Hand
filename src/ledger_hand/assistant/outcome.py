@@ -71,11 +71,13 @@ class Chat:
 
 @dataclass(frozen=True, kw_only=True)
 class TakenCall:
-    """A call taken: the call, the tool it named, and what was handed back for it."""
+    """A call taken: the call as the model made it, the tool it named, the names of the
+    arguments dropped unread (for a tool that takes none), and what was handed back."""
 
     call: ToolCall
     tool: ToolName
     result: str
+    dropped: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, kw_only=True)

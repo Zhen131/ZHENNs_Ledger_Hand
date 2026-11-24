@@ -39,8 +39,21 @@ def test_a_tool_not_on_the_list_is_a_wrong_step() -> None:
     assert misstep(judge(call("place_order"), SAID)) is MisstepKind.UNKNOWN_TOOL
 
 
-def test_an_argument_the_tool_does_not_take_is_a_wrong_step() -> None:
-    assert misstep(judge(call("get_positions", asset="BTC"), SAID)) is MisstepKind.UNKNOWN_ARGUMENT
+def test_an_argument_a_tool_with_arguments_does_not_take_is_a_wrong_step() -> None:
+    verdict = judge(call("list_trades", from_date="2026-10-06"), SAID)
+
+    assert misstep(verdict) is MisstepKind.UNKNOWN_ARGUMENT
+
+
+@pytest.mark.parametrize(
+    "name", ["list_assets", "get_positions", "get_proposal_status", "propose_trade_add"]
+)
+def test_arguments_given_to_a_tool_that_takes_none_are_dropped_unread(name: str) -> None:
+    verdict = judge(call(name, quantity="0.02", price=94900, asset="BTC"), SAID)
+
+    assert verdict == Accepted(
+        tool=ToolName(name), arguments={}, dropped=("quantity", "price", "asset")
+    )
 
 
 def test_a_choice_not_on_the_list_is_a_wrong_step() -> None:

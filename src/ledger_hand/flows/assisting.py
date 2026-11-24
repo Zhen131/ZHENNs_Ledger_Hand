@@ -12,7 +12,9 @@ it. The program holds the model to three limits:
   many; six by default);
 - a step is wrong when any call in it is: an unknown tool, arguments that do
   not follow the tool's schema, or a copied argument that is not the user's
-  words. Calls of one step are judged and run in order;
+  words. Arguments given to a tool that takes none are dropped instead, and
+  the step records their names. Calls of one step are judged and run in
+  order;
 - two wrong steps in a row stop the turn; a step with no wrong call between
   them starts the count again.
 
@@ -178,7 +180,9 @@ def _step(
                 if error.kind not in _TOLD_TO_THE_MODEL:
                     raise _LedgerFailedError(error, Step(text=text, calls=tuple(handled))) from None
                 result = ledger_error_text(error)
-            handled.append(TakenCall(call=call, tool=verdict.tool, result=result))
+            handled.append(
+                TakenCall(call=call, tool=verdict.tool, result=result, dropped=verdict.dropped)
+            )
         turn.items.append(ToolResult(name=call.name, content=result))
     return Step(text=text, calls=tuple(handled))
 
