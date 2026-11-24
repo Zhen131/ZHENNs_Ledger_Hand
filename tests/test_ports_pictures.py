@@ -107,14 +107,14 @@ def test_a_picture_cannot_be_changed() -> None:
         picture.data = JPEG  # type: ignore[misc]
 
 
-def test_the_model_port_has_exactly_two_calls() -> None:
+def test_the_model_port_has_exactly_three_calls() -> None:
     calls = {
         name
         for name, member in vars(ModelPort).items()
         if inspect.isfunction(member) and not name.startswith("_")
     }
 
-    assert calls == {"chat", "chat_with_pictures"}
+    assert calls == {"chat", "chat_with_pictures", "chat_with_tools"}
 
 
 def test_the_call_with_pictures_takes_messages_pictures_and_parameters_but_no_schema() -> None:

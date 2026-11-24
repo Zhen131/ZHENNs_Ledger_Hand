@@ -1,4 +1,4 @@
-"""The two ports: what the rest of the program may ask of a language model and of storage.
+"""The three ports: what the program may ask of a language model, of storage and of the ledger.
 
 The rest of the program only ever talks to a ``ModelPort``. Behind it sits a
 plug: the local model server today, perhaps a cloud service later, or a
@@ -14,6 +14,15 @@ takes no reply schema: what is asked of a picture is its text as it stands.
 A plug that cannot send pictures refuses such a call before sending
 anything, as the caller's mistake rather than as a model failure.
 
+A third kind of call hands the model a list of tools it may ask for
+(``ToolSpec``: a name, what it does, and the JSON schema of what it takes).
+Its reply is either text or one or more tool calls (``ToolReply``,
+``ToolCall``). The conversation it is sent may hold, besides plain messages,
+the model's own earlier tool calls (``ToolCallTurn``) and what the program
+handed back for each (``ToolResult``); only this call takes them. A tool
+call is untrusted input like any reply: whether its tool is on the list and
+its arguments follow the tool's schema is for the caller to judge.
+
 Saved trades are kept behind a ``StoragePort``: a SQLite file today, or an
 in-memory stand-in in the tests. It saves the trades recorded from one
 passage together, with the coins the user confirmed for them; says whether a
@@ -22,6 +31,15 @@ all of them or those not exported yet; marks trades as exported; and lists
 the confirmed coins. Every failure, whatever the plug, is one
 ``StorageError`` carrying one of eight kinds. The shapes it takes and gives
 carry moments, so they are declared in ``core.book`` and only named here.
+
+The ledger itself, the one the person keeps their trades in, is reached
+through a ``LedgerPort``: list its assets and trades, sum a stretch of time
+up, say what is held, and propose to record, change or delete trades. A
+proposal writes nothing: it waits in the ledger for the person to save or
+reject it there. Every failure is one ``LedgerError`` carrying one of four
+kinds, a fixed code and a sentence; a trade that fails the ledger's check is
+not a failure, but part of the proposal's answer. Its shapes are declared in
+``core.ledger_records`` and ``core.proposals``.
 
 This module only declares shapes. It sends nothing, stores nothing, reads no
 settings and holds no prompt. Whether the text of a reply is valid JSON that
@@ -32,8 +50,10 @@ is built from the settings.
 Names defined here: ``Role``, ``Message``, ``JsonSchema``,
 ``PictureKind``, ``Picture``, ``picture_kind``, ``ModelParameters``,
 ``FinishReason``, ``ReplyRecord``, ``ModelReply``, ``ModelErrorKind``,
-``ModelError``, ``ModelPort``, ``StorageErrorKind``, ``StorageError`` and
-``StoragePort``.
+``ModelError``, ``ToolSpec``, ``ToolCall``, ``ToolCallTurn``, ``ToolResult``,
+``ChatItem``, ``ToolReply``, ``ModelPort``, ``StorageErrorKind``,
+``StorageError``, ``StoragePort``, ``LedgerErrorKind``, ``LedgerError`` and
+``LedgerPort``.
 """
 
 from __future__ import annotations
@@ -51,6 +71,16 @@ from ledger_hand.core.book import (
     Listing,
     PassageSave,
 )
+from ledger_hand.core.ledger_records import (
+    Asset,
+    LedgerTrade,
+    PeriodRequest,
+    PeriodSummary,
+    Position,
+    TradeFacts,
+    TradeFilter,
+)
+from ledger_hand.core.proposals import ProposalResult, ProposalStatus
 from ledger_hand.core.stored import StoredTrade
 
 
@@ -282,6 +312,94 @@ class ModelError(Exception):
         return shown + ")"
 
 
+@dataclass(frozen=True, kw_only=True)
+class ToolSpec:
+    """A tool the model may ask for: its name, what it does, and the schema of its arguments."""
+
+    name: str
+    description: str
+    parameters: JsonSchema
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.name, str) or not self.name:
+            raise ValueError("a tool's name is text that is not empty")
+        if not isinstance(self.description, str):
+            raise TypeError("a tool's description is text")
+        if not isinstance(self.parameters, Mapping):
+            raise TypeError("a tool's parameters are a JSON schema, a mapping")
+
+
+@dataclass(frozen=True, kw_only=True)
+class ToolCall:
+    """One tool the model asked for, by name, and the arguments it gave, as plain JSON values.
+
+    Neither has been checked against the list of tools: that is the caller's job.
+    """
+
+    name: str
+    arguments: Mapping[str, object]
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.name, str):
+            raise TypeError(f"a tool call's name is text, not {type(self.name).__name__}")
+        if not isinstance(self.arguments, Mapping) or not all(
+            isinstance(key, str) for key in self.arguments
+        ):
+            raise TypeError("a tool call's arguments are a mapping with text keys")
+
+
+@dataclass(frozen=True, kw_only=True)
+class ToolCallTurn:
+    """The model's turn in which it asked for tools: any text it wrote, and its calls."""
+
+    text: str
+    calls: tuple[ToolCall, ...]
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.text, str):
+            raise TypeError("a tool-call turn's text is text")
+        if not isinstance(self.calls, tuple) or not self.calls:
+            raise ValueError("a tool-call turn holds a tuple of at least one call")
+        if not all(isinstance(call, ToolCall) for call in self.calls):
+            raise TypeError("a tool-call turn's calls are ToolCall values")
+
+
+@dataclass(frozen=True, kw_only=True)
+class ToolResult:
+    """What the program handed back for one tool call: the tool's name and the text of it."""
+
+    name: str
+    content: str
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.name, str) or not isinstance(self.content, str):
+            raise TypeError("a tool result's name and content are text")
+
+
+type ChatItem = Message | ToolCallTurn | ToolResult
+"""One item of a conversation that may use tools."""
+
+
+@dataclass(frozen=True, kw_only=True)
+class ToolReply:
+    """The model's answer when it was handed tools: text, tool calls, or both, and the record.
+
+    With no call, the text is not blank.
+    """
+
+    text: str
+    calls: tuple[ToolCall, ...]
+    record: ReplyRecord
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.text, str) or not isinstance(self.calls, tuple):
+            raise TypeError("a tool reply holds text and a tuple of calls")
+        if not all(isinstance(call, ToolCall) for call in self.calls):
+            raise TypeError("a tool reply's calls are ToolCall values")
+        if not self.calls and not self.text.strip():
+            raise ValueError("a tool reply with no call has text that is not blank")
+
+
 class ModelPort(Protocol):
     """Anything the program can ask for a reply."""
 
@@ -313,6 +431,25 @@ class ModelPort(Protocol):
         with ``TypeError`` or ``ValueError`` before anything is sent. The
         reply is read as ``chat`` reads it, and fails as ``chat`` fails, with
         ``ModelError``. Without ``parameters`` the plug uses its defaults.
+        """
+        ...
+
+    def chat_with_tools(
+        self,
+        items: Sequence[ChatItem],
+        tools: Sequence[ToolSpec],
+        *,
+        parameters: ModelParameters | None = None,
+    ) -> ToolReply:
+        """Send ``items`` with ``tools`` the model may ask for; return its text or its calls.
+
+        ``items`` may hold the model's earlier tool calls and the results
+        handed back for them. A reply that comes back in a shape that cannot
+        be read (a tool's name that is not text, arguments that are not a
+        JSON object) is ``MALFORMED_REPLY``, as for ``chat``. A plug that
+        cannot send tools refuses the call before sending anything, as the
+        caller's mistake (``ValueError``). Without ``parameters`` the plug
+        uses its defaults.
         """
         ...
 
@@ -398,4 +535,82 @@ class StoragePort(Protocol):
 
     def confirmed_coins(self) -> tuple[ConfirmedCoin, ...]:
         """Every coin the user confirmed and saved a trade with, in the order of their symbols."""
+        ...
+
+
+class LedgerErrorKind(enum.Enum):
+    """The four kinds of ledger failure. Every plug sorts every failure into one of them."""
+
+    UNREACHABLE = "unreachable"
+    """The ledger could not be reached."""
+    UNKNOWN_ASSET = "unknown_asset"
+    """The ledger does not know an asset it was asked about."""
+    NOT_FOUND = "not_found"
+    """The trade or the proposal asked about is not in the ledger."""
+    OTHER = "other"
+    """A failure that fits no other kind; the message says what the ledger reported."""
+
+
+class LedgerError(Exception):
+    """A call to the ledger failed; ``kind`` says how, ``code`` is the ledger's fixed
+    code for it, and ``message`` says it in one plain sentence.
+
+    A trade that fails the ledger's check when it is proposed is not a
+    failure: the proposal's answer says so for each trade.
+    """
+
+    def __init__(self, kind: LedgerErrorKind, code: str, message: str) -> None:
+        super().__init__(kind, code, message)
+        self.kind = kind
+        self.code = code
+        self.message = message
+
+    def __str__(self) -> str:
+        return f"{self.kind.value} ({self.code}): {self.message}"
+
+    def __repr__(self) -> str:
+        return f"LedgerError({self.kind.name}, {self.code!r}, {self.message!r})"
+
+
+class LedgerPort(Protocol):
+    """The person's ledger. Every method raises ``LedgerError`` when it fails.
+
+    Nothing here writes to the ledger: a proposal waits there until the
+    person saves or rejects it on the ledger's own page.
+    """
+
+    def list_assets(self) -> tuple[Asset, ...]:
+        """Every asset the ledger knows."""
+        ...
+
+    def list_trades(self, trade_filter: TradeFilter) -> tuple[LedgerTrade, ...]:
+        """The trades ``trade_filter`` asks for, oldest first. An asset the ledger does not
+        know is ``UNKNOWN_ASSET``."""
+        ...
+
+    def period_summary(self, request: PeriodRequest) -> PeriodSummary:
+        """The sums of the stretch of time ``request`` names."""
+        ...
+
+    def positions(self) -> tuple[Position, ...]:
+        """What is held now, one holding for each asset and the money it was bought with."""
+        ...
+
+    def propose_add(self, trades: tuple[TradeFacts, ...]) -> ProposalResult:
+        """Propose to record ``trades``; the answer holds the check of each, in order."""
+        ...
+
+    def propose_update(self, trade_id: str, facts: TradeFacts) -> ProposalResult:
+        """Propose that the trade ``trade_id`` becomes ``facts``. A trade not in the
+        ledger is ``NOT_FOUND``."""
+        ...
+
+    def propose_delete(self, trade_id: str) -> ProposalResult:
+        """Propose to delete the trade ``trade_id``. A trade not in the ledger is
+        ``NOT_FOUND``."""
+        ...
+
+    def proposal_status(self, proposal_id: str) -> ProposalStatus:
+        """Where the proposal ``proposal_id`` stands. One the ledger never kept is
+        ``NOT_FOUND``."""
         ...
