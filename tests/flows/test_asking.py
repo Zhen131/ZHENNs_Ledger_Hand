@@ -520,3 +520,51 @@ def test_the_programs_own_answer_counts_as_well_ended_in_the_conversation() -> N
     assert said.well_ended
     assert said.turn is not None and said.turn.ending is Ending.ANSWERED_BY_PROGRAM
     assert said.reply == said.turn.reply
+
+
+def test_a_side_said_the_time_before_is_kept_when_none_is_said_now() -> None:
+    first, _ = turn(
+        [calls(("list_trades", {"period": "10月", "asset": "BTC", "side": "sell"})), "Done."],
+        "10月我卖了哪些BTC",
+    )
+
+    second, _ = turn(
+        [calls(("list_trades", {"period": "10月", "asset": "ETH", "side": "sell"})), "Done."],
+        "那ETH呢",
+        chat=first.chat,
+    )
+
+    lookup = only_lookup(second)
+    assert lookup.conditions is not None
+    assert lookup.conditions.side is Side.SELL
+    assert lookup.conditions.not_narrowed == ()
+    assert [trade.id for trade in lookup.trades] == ["t-07"]
+
+
+def test_a_period_not_copied_is_handed_back_with_the_users_own_words() -> None:
+    said = "How much did I spend on ETH this year?"
+
+    result, model = turn(
+        [calls(("get_period_summary", {"period": "今年", "asset": "ETH"})), "Sorry."], said
+    )
+
+    (refused,) = result.steps[0].calls
+    assert isinstance(refused, RefusedCall)
+    assert refused.misstep.kind.value == "not_copied"
+    handed = json.loads(model.calls[1].items[-1].content)  # type: ignore[union-attr]
+    assert handed["status"] == "wrong_step"
+    assert handed["problem"] == refused.misstep.detail
+    assert handed["user_said"] == said
+    assert "in the language the user wrote it in" in handed["how"]
+    assert "2026" not in refused.result
+    assert refused.result == model.calls[1].items[-1].content  # type: ignore[union-attr]
+
+
+def test_other_wrong_steps_are_handed_back_as_before() -> None:
+    result, model = turn(
+        [calls(("list_trades", {"from_date": "2026-10-06"})), "Sorry."],
+        "10月6号那天我都做了什么交易",
+    )
+
+    handed = json.loads(model.calls[1].items[-1].content)  # type: ignore[union-attr]
+    assert set(handed) == {"status", "kind", "problem"}

@@ -24,8 +24,8 @@ amount. A figure that was not worked out is written as its reason.
 
 Names defined here: ``assets_text``, ``positions_text``, ``trades_text``,
 ``summary_text``, ``lookup_text``, ``status_text``, ``not_connected_text``,
-``no_proposal_text``, ``misstep_text``, ``ledger_error_text``,
-``not_run_text``, ``answered_by_program_text``, ``skipped_text`` and
+``no_proposal_text``, ``misstep_text``, ``period_misstep_text``,
+``ledger_error_text``, ``not_run_text``, ``answered_by_program_text``, ``skipped_text`` and
 ``recording_text``.
 """
 
@@ -202,6 +202,27 @@ def no_proposal_text() -> str:
 def misstep_text(misstep: Misstep) -> str:
     """The answer to a call that was not taken: what was wrong with it."""
     return _text({"status": "wrong_step", "kind": misstep.kind.value, "problem": misstep.detail})
+
+
+def period_misstep_text(misstep: Misstep, said: str) -> str:
+    """The answer to a period that is not the user's words: what is wrong, and their words.
+
+    ``said`` is what the user just said, as they said it; nothing the program
+    worked out (a date, a range) is added.
+    """
+    return _text(
+        {
+            "status": "wrong_step",
+            "kind": misstep.kind.value,
+            "problem": misstep.detail,
+            "user_said": said,
+            "how": (
+                "Copy the time from user_said exactly as it is written there, in the "
+                "language the user wrote it in: English words stay English, Chinese words "
+                "stay Chinese. Do not translate it and do not turn it into a date."
+            ),
+        }
+    )
 
 
 def ledger_error_text(error: LedgerError) -> str:

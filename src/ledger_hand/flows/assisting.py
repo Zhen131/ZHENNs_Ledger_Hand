@@ -56,6 +56,13 @@ run (``NotRunCall``) and count as no wrong step. Whoever called then
 records what the user said and hands the outcome to ``close_recording``,
 which puts a result after every call of that step and the program's own
 words after them, so that no call in the chat is left without a result.
+A period that is not the user's words is a wrong step as any copy is,
+but what the model is handed for it also holds what the user just said,
+word for word, and asks for the time to be copied from it as written, in
+the user's language (the model tends to write "今年" for "this year" and
+then write it again). No date the program worked out is in it.
+(Decided on 2026-11-24.)
+
 Changing and deleting are on the list, so that the model can choose them,
 and are answered "not connected yet".
 
@@ -84,7 +91,7 @@ from ledger_hand.assistant.explanation import (
     check_explanation,
     check_plain_answer,
 )
-from ledger_hand.assistant.judging import Accepted, Misstep, judge
+from ledger_hand.assistant.judging import Accepted, Misstep, MisstepKind, judge
 from ledger_hand.assistant.lookups import lookup_lines
 from ledger_hand.assistant.outcome import (
     STEP_LIMIT_REPLY,
@@ -107,6 +114,7 @@ from ledger_hand.assistant.results import (
     no_proposal_text,
     not_connected_text,
     not_run_text,
+    period_misstep_text,
     recording_text,
     skipped_text,
     status_text,
@@ -331,7 +339,11 @@ def _handled(call: ToolCall, turn: _Turn, around: _Around) -> TakenCall | Refuse
     else:
         verdict = judge(call, around.user_said)
     if isinstance(verdict, Misstep):
-        return RefusedCall(call=call, misstep=verdict, result=misstep_text(verdict))
+        if _period_not_copied(verdict):
+            result = period_misstep_text(verdict, around.user_said[-1])
+        else:
+            result = misstep_text(verdict)
+        return RefusedCall(call=call, misstep=verdict, result=result)
     if verdict.tool in READ_TOOLS:
         found = look_up(
             verdict, asset, around.ledger, around.user_said, now=around.now, zone=around.zone
@@ -350,6 +362,11 @@ def _handled(call: ToolCall, turn: _Turn, around: _Around) -> TakenCall | Refuse
         )
     result = _run(verdict, around.ledger, turn.chat.proposals)
     return TakenCall(call=call, tool=verdict.tool, result=result, dropped=verdict.dropped)
+
+
+def _period_not_copied(misstep: Misstep) -> bool:
+    """Whether the wrong step is a period that is not the user's words."""
+    return misstep.kind is MisstepKind.NOT_COPIED and misstep.detail.startswith("'period' is ")
 
 
 def _checked_words(text: str, steps: Sequence[Step], said: str) -> tuple[str, Withheld | None]:
