@@ -8553,3 +8553,74 @@ Results file: `evals/results/run-20261019T123144Z-voice-first.jsonl`, with its s
 | --- | --- | --- | --- | --- | --- | --- |
 
 </details>
+
+
+## 2026-11-24: the assistant's first step, nineteen sentences, `qwen2.5:7b`
+
+**What was measured.** Which tool the model asks for first, when it is
+handed the assistant's system prompt (`assistant-1`), one sentence and the
+eight tools, and nothing is run. The nineteen sentences
+(`evals/sets/tools.json`) are seven trades told (one of them an order not
+filled yet), six questions about the ledger, three changes or deletions and
+three things the assistant does not do (a greeting, a forecast, an order to
+place). Each is read at the fixed moment 2026-11-24 23:55 in
+Europe/Budapest. The run: `evals/tool_results/run-20261124T140434Z-tools-assistant-1.jsonl`,
+`qwen2.5:7b` (fingerprint `845dbda0ea48`), Ollama 0.34.3, temperature 0,
+the settings' other defaults, `.venv/bin/python -m evals.tool_run`.
+
+**How it is counted.** Only the tools' names count: a first step is right
+when every tool it asks for is among those accepted for the sentence, or
+when it asks for none and that is accepted. Whether the arguments follow
+the rules does not count toward it. The last two columns are noted beside
+and are not part of the pass line: which words a copied argument was
+expected to hold, and what the program's own judging says of each call.
+
+**These nineteen sentences were seen while the prompt was written. This is
+not a hidden test.** The line of 95% right is judged later, on new
+sentences that nobody has looked at while writing the prompt. The pass line
+here is 18 of 19: no fewer than an earlier hand-run trial with an older
+list of tools, with one sentence of room because the list of tools and the
+accepted answers have changed since.
+
+**Result: first step right on 19 of 19 sentences.** The prompt was not
+changed; this is its first and only version so far.
+
+Model `qwen2.5:7b`, prompt `assistant-1`: first step right on 19 of 19 sentences.
+
+| Sentence | Accepted | First step | Right | Expected words copied | Judged by the program |
+| --- | --- | --- | --- | --- | --- |
+| R1 | propose_trade_add | `propose_trade_add` {"asset": "ADA", "period": "今晚", "quote_currency": "USDT", "fee": "0.0966494ADA", "fee_currency": "ADA", "time": "23:41", "platform": "OKX", "side": "buy", "quantity": "96.6494", "price": "0.3104", "total": "30USDT", "note": "今晚23:41在OKX买入ADA，花了30USDT，成交96.6494个，均价0.3104，手续费0.0966494ADA。ADA是我目前亏损最多的币种-45%，现在低位购买目的是拉低ADA平均持仓成本"} | yes | - | propose_trade_add: unknown_argument: propose_trade_add takes no argument 'asset'. |
+| R2 | propose_trade_add | `propose_trade_add` {"quantity": "318.4713", "price": "0.314", "total": "100.000000000000000000", "fee": "0.3184713", "fee_currency": "ADA", "platform": "OKX", "period": "9月25号", "side": "buy", "time": "21:06", "note": "跟着博主看多", "asset": "ADA"} | yes | - | propose_trade_add: unknown_argument: propose_trade_add takes no argument 'quantity'. |
+| R3 | propose_trade_add | `propose_trade_add` {"quote_currency": "USDT", "note": "补仓", "period": "今天下午3点50", "side": "buy", "quantity": "0.00167785BTC", "price": "59600", "total": "100USDT", "fee": "0.00000168BTC", "fee_currency": "BTC", "platform": "OKX", "asset": "BTC"}; `propose_trade_add` {"quantity": "0.008291ETH", "price": "2412.25", "quote_currency": "USDT", "platform": "OKX", "note": "顺手购买", "asset": "ETH", "period": "今天下午3点50", "side": "buy", "total": "20USDT", "fee": "0.00000829ETH", "fee_currency": "ETH"} | yes | - | propose_trade_add: unknown_argument: propose_trade_add takes no argument 'quote_currency'.; propose_trade_add: unknown_argument: propose_trade_add takes no argument 'quantity'. |
+| R4 | propose_trade_add | `propose_trade_add` {"quantity": "0.00040811BTC", "fee": "0.0000004BTC", "platform": "OKX", "note": "BTC 60000有支撑，买点，毕竟在牛市初期，无论是60,000还是62,000或是等到突破66,000之后回调的60,000都是一样的。今早8点05分OKX买入0.00040811BTC，花了25USDT，均价61258.60，手续费0.0000004BTC", "asset": "BTC", "period": "今早8点05分", "price": "61258.60", "total": "25USDT", "side": "buy"} | yes | - | propose_trade_add: unknown_argument: propose_trade_add takes no argument 'quantity'. |
+| R5 | propose_trade_add | `propose_trade_add` {"asset": "BTC", "quantity": "0.02", "price": "94900", "platform": "Binance", "time": "今天早上9:40", "fee": "2", "fee_currency": "USDT", "side": "buy"} | yes | - | propose_trade_add: unknown_argument: propose_trade_add takes no argument 'asset'. |
+| R6 | no_tool, propose_trade_add | no_tool | yes | - | taken |
+| R7 | propose_trade_add | `propose_trade_add` {"price": "2,388", "quote_currency": "USDT", "platform": "OKX", "asset": "ETH", "period": "今天下午", "side": "buy"} | yes | - | propose_trade_add: unknown_argument: propose_trade_add takes no argument 'price'. |
+| Q1 | get_period_summary, list_trades | `get_period_summary` {"asset": "币", "period": "10月"} | yes | 10月 | taken |
+| Q2 | get_period_summary | `get_period_summary` {"period": "9月", "asset": ""} | yes | 9月 | taken |
+| Q3 | get_positions | `get_positions` {} | yes | - | taken |
+| Q4 | list_trades | `list_trades` {"asset": "", "period": "10月6号", "side": ""} | yes | 10月6号 | taken |
+| Q5 | list_trades | `list_trades` {"asset": "BTC", "period": "上个月", "side": "sell"} | yes | 上个月 | list_trades: not_copied: 'asset' is 'BTC', which is not copied from what the user said. Copy the user's own words exactly; never convert or rewrite them. |
+| Q6 | get_period_summary, list_trades | `get_period_summary` {"asset": "ETH", "period": "今年"} | yes | ETH (missing: this year) | get_period_summary: not_copied: 'period' is '今年', which is not copied from what the user said. Copy the user's own words exactly; never convert or rewrite them. |
+| E1 | list_trades, propose_trade_update | `propose_trade_update` {"period": "10月6号", "side": "buy", "trade": "10月6号那笔", "asset": "BTC", "field": "quantity", "new_value": "0.0081"} | yes | 10月6号, BTC, 0.0081 | taken |
+| E2 | list_trades, propose_trade_delete | `propose_trade_delete` {"trade": "那笔", "asset": "ADA", "period": "9月25号", "side": "sell"} | yes | 9月25号, ADA | taken |
+| E3 | list_trades, propose_trade_update | `propose_trade_update` {"new_value": "0.000009", "period": "10月6号", "side": "sell", "trade": "10月6号那笔", "asset": "BTC", "field": "fee"} | yes | 10月6号, 0.000009 | propose_trade_update: not_copied: 'asset' is 'BTC', which is not copied from what the user said. Copy the user's own words exactly; never convert or rewrite them. |
+| O1 | no_tool | no_tool | yes | - | taken |
+| O2 | no_tool | no_tool | yes | - | taken |
+| O3 | no_tool | no_tool | yes | - | taken |
+
+**What the last column shows.**
+
+- The model fills `propose_trade_add` with arguments the tool does not take
+  (quantity, price, fee and the rest) on all six trades it records. The
+  program counts each such call as a wrong step, so in the full loop a
+  trade told would cost one wrong step before the model learns from what is
+  handed back. The tool's description says to give nothing; the model does
+  not follow it.
+- Copied words the program refuses: "BTC" for an asset the user did not
+  name (Q5, E3, the user said nothing about BTC), and "今年" for the user's
+  "this year" (Q6), a translation. Q2 copied "9月" out of "9月份", which is
+  a piece of the user's words and taken.
+- The side was chosen wrong once without being a wrong step: E2 asks to
+  delete a buy, and the model chose `sell`. A choice on the list is taken
+  as it stands.
