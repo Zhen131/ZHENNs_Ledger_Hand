@@ -121,8 +121,8 @@ _PERIOD = Argument(
     name="period",
     kind=ArgumentKind.COPIED,
     description=(
-        "The time the user named, in the user's own words and language, such as '10月6号' "
-        f"or 'last month'. {_COPY}"
+        "The time the user named, such as '10月6号' or 'last month', in the user's own "
+        f"language: 'last week' stays 'last week', never '上周'. {_COPY}"
     ),
 )
 _ASSET = Argument(

@@ -1,7 +1,7 @@
 """Measure the assistant's first step: each sentence of the tool set, one ask, no tool run.
 
     .venv/bin/python -m evals.tool_run
-    .venv/bin/python -m evals.tool_run --prompt assistant-3 --model qwen2.5:7b
+    .venv/bin/python -m evals.tool_run --prompt assistant-4 --model qwen2.5:7b
 
 Run from the top of the repository. For each sentence the model is handed
 the assistant's system prompt (at the set's fixed moment and zone), the
@@ -43,7 +43,12 @@ from typing import TextIO
 from evals.run import Backend, local_backend
 from evals.tool_set import TOOL_SET, FirstStep, load_tool_set, markdown, score_first_step
 from ledger_hand.assistant.prompting import AssistantPrompt, system_message
-from ledger_hand.assistant.prompts import assistant_first, assistant_second, assistant_third
+from ledger_hand.assistant.prompts import (
+    assistant_first,
+    assistant_fourth,
+    assistant_second,
+    assistant_third,
+)
 from ledger_hand.assistant.tools import tool_specs
 from ledger_hand.ports import Message, ModelError, Role, ToolCall
 from ledger_hand.settings import SettingsError
@@ -55,6 +60,7 @@ PROMPTS: dict[str, tuple[AssistantPrompt, ModuleType]] = {
     assistant_first.ASSISTANT_FIRST.name: (assistant_first.ASSISTANT_FIRST, assistant_first),
     assistant_second.ASSISTANT_SECOND.name: (assistant_second.ASSISTANT_SECOND, assistant_second),
     assistant_third.ASSISTANT_THIRD.name: (assistant_third.ASSISTANT_THIRD, assistant_third),
+    assistant_fourth.ASSISTANT_FOURTH.name: (assistant_fourth.ASSISTANT_FOURTH, assistant_fourth),
 }
 
 
