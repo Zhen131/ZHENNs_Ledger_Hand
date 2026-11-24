@@ -146,9 +146,8 @@ _TRADE = Argument(
 )
 _FIND_ONE = (_PERIOD, _ASSET, _SIDE, _TRADE)
 _THE_PROGRAM_FINDS_IT = (
-    "Call it straight away, without listing trades first: the program finds the trade by the "
-    "words you copy, and when more than one trade matches it lists them and asks the user "
-    "which one itself."
+    "Call it straight away: the program finds the trade by the words you copy, and when more "
+    "than one trade matches it shows them to the user and asks which one itself."
 )
 
 TOOLS = (
