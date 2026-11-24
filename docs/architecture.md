@@ -49,7 +49,6 @@ src/ledger_hand/
         time_wording.py       which known parts a time phrase is made of              (exists)
         timeparse.py          time phrases to exact moments ("now" is passed in)      (exists)
         time_range.py         a stretch of time named in words to two exact moments   (exists)
-        period_list.py        the only shapes of a time taken from a whole sentence   (exists)
         validation.py         validation; which fields are still missing              (exists)
         zones.py              which time zone names are taken                         (exists)
         stored.py             a saved trade: record, identifier, two moments          (exists)
@@ -725,13 +724,10 @@ its list, or a copied argument that is not a piece of what the user said
 step, not run, and the model is shown why. The asset given to
 `list_trades` or `get_period_summary` is taken out before judging and
 checked apart, against what the user said (see below). A period that is
-not the user's words makes the program look for the time in what the
-user just said (`core/time_range.py`, `find_period_words`): the one found
-is used, and named in the header, only when it is the only one and names
-the same first and last day as the model's words read whole; otherwise
-the call stays a wrong step, handed back with what the user just said,
-word for word, and asked to be copied in the user's language. With no
-period from the model nothing is looked for: the lookup covers all time. Arguments given to one of the
+not the user's words is a wrong step like any other copy, handed back
+with what the user just said, word for word, and asked to be copied in
+the user's language. With no period from the model the lookup covers all
+time. Arguments given to one of the
 four tools that take none (`list_assets`, `get_positions`,
 `get_proposal_status`, `propose_trade_add`) are dropped unread instead, and
 the step records their names. The program asks the model at

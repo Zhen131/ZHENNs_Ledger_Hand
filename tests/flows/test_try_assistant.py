@@ -92,7 +92,7 @@ def test_arguments_dropped_unread_are_named() -> None:
 
 def test_a_wrong_step_is_printed_with_why() -> None:
     status, printed, _ = run(
-        ["我买了多少比特币"],
+        ["我上个月买了多少比特币"],
         ScriptedModel([asks("list_trades", period="2023-10-06"), "Sorry."]),
     )
 

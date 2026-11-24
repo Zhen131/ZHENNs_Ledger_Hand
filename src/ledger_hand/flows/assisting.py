@@ -334,10 +334,8 @@ def _step(text: str, calls: Sequence[ToolCall], turn: _Turn, around: _Around) ->
 def _handled(call: ToolCall, turn: _Turn, around: _Around) -> TakenCall | RefusedCall:
     """One call judged, and run when it is taken."""
     asset: str | None = None
-    period_found: str | None = None
     if call.name in NARROWED_TOOLS:
-        read = judge_read(call, around.user_said, now=around.now, zone=around.zone)
-        verdict, asset, period_found = read.verdict, read.asset, read.period_found
+        verdict, asset = judge_read(call, around.user_said)
     else:
         verdict = judge(call, around.user_said)
     if isinstance(verdict, Misstep):
@@ -348,13 +346,7 @@ def _handled(call: ToolCall, turn: _Turn, around: _Around) -> TakenCall | Refuse
         return RefusedCall(call=call, misstep=verdict, result=result)
     if verdict.tool in READ_TOOLS:
         found = look_up(
-            verdict,
-            asset,
-            around.ledger,
-            around.user_said,
-            now=around.now,
-            zone=around.zone,
-            period_found=period_found,
+            verdict, asset, around.ledger, around.user_said, now=around.now, zone=around.zone
         )
         if isinstance(found, ProgramWords):
             taken = TakenCall(

@@ -51,20 +51,8 @@ the end goes, and so do a few words around a period that say nothing more
 
 A stretch that begins before ``EARLIEST_YEAR`` is not read, whoever wrote it.
 
-``find_period_words`` looks through a whole sentence for the words that
-name a stretch of time, so that the program can check a time the model
-wrote in other words against the user's own. Better to find nothing
-than the wrong thing: a piece counts only when it has one of the shapes on
-the list of ``period_list`` and ``read_period`` reads it as a stretch, or
-as one with two meanings or in the future; a piece may not start or
-end inside a run of Latin letters or digits, nor at a gap or a mark, nor
-end with a word that says nothing more ("的"); the
-longest pieces are kept first, and a piece that overlaps one already kept
-is not ("10月6号" is one, and the "10月" inside it is not another).
-
 Names defined here: ``PeriodRefusal``, ``Period``, ``PeriodRefused``,
-``PeriodReading``, ``EARLIEST_YEAR``, ``read_period`` and
-``find_period_words``.
+``PeriodReading``, ``EARLIEST_YEAR`` and ``read_period``.
 """
 
 from __future__ import annotations
@@ -76,7 +64,6 @@ from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
-from ledger_hand.core.period_list import on_the_list
 from ledger_hand.core.time_wording import MAX_PHRASE_LENGTH
 from ledger_hand.core.timeparse import TimeRecognised, TimeRefused, read_time
 from ledger_hand.core.trade import TimePrecision
@@ -443,59 +430,3 @@ def _days_back(text: str, today: date) -> _Days | None:
     if count is None or not 1 <= count <= _MOST_DAYS_BACK:
         return _UNKNOWN
     return today - timedelta(days=count - 1), today
-
-
-# --- finding the words in a sentence ---------------------------------------------
-
-# A time said in a sentence is far shorter than this; longer pieces are not tried.
-_LONGEST_PIECE = 40
-_DECIMAL = re.compile(r"[0-9]+(?:\.[0-9]+)+")
-_EDGE_MARKS = " ,.;:!?，。；：！？、()（）\"'“”‘’"
-
-
-def _is_latin(character: str) -> bool:
-    return character.isascii() and character.isalnum()
-
-
-def _may_stand_alone(text: str, start: int, end: int) -> bool:
-    """Whether ``text[start:end]`` starts and ends at a word's edge, with no mark at either end.
-
-    A piece that is only a number with points ("0.02") is never one, though
-    the time reader may take it for a date written with points; nor is one
-    that ends with a word that says nothing more ("的").
-    """
-    piece = text[start:end]
-    if piece[0] in _EDGE_MARKS or piece[-1] in _EDGE_MARKS or _DECIMAL.fullmatch(piece):
-        return False
-    if piece.endswith(_BEHIND):
-        return False
-    if start > 0 and _is_latin(text[start - 1]) and _is_latin(piece[0]):
-        return False
-    return not (end < len(text) and _is_latin(text[end]) and _is_latin(piece[-1]))
-
-
-def _names_a_stretch(piece: str, now: datetime, zone: str) -> bool:
-    reading = read_period(piece, now, zone)
-    return not (isinstance(reading, PeriodRefused) and reading.reason is _UNKNOWN)
-
-
-def find_period_words(text: str, now: datetime, zone: str) -> tuple[str, ...]:
-    """The pieces of ``text`` that name a stretch of time, longest first kept, in their order."""
-    if not isinstance(now, datetime) or now.utcoffset() is None:
-        raise ValueError("the current moment must be a datetime that carries an offset")
-    zone_named(zone)
-    found: list[tuple[int, int]] = []
-    for start in range(len(text)):
-        for end in range(start + 1, min(len(text), start + _LONGEST_PIECE) + 1):
-            piece = text[start:end]
-            if (
-                _may_stand_alone(text, start, end)
-                and on_the_list(piece)
-                and _names_a_stretch(piece, now, zone)
-            ):
-                found.append((start, end))
-    kept: list[tuple[int, int]] = []
-    for start, end in sorted(found, key=lambda span: (span[0] - span[1], span[0])):
-        if all(end <= other_start or start >= other_end for other_start, other_end in kept):
-            kept.append((start, end))
-    return tuple(text[start:end] for start, end in sorted(kept))

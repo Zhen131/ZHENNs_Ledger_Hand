@@ -11,7 +11,6 @@ from ledger_hand.core.time_range import (
     Period,
     PeriodRefusal,
     PeriodRefused,
-    find_period_words,
     read_period,
 )
 
@@ -235,130 +234,10 @@ def test_a_moment_without_an_offset_is_the_callers_mistake() -> None:
 
 
 @pytest.mark.parametrize(
-    ("sentence", "found"),
-    [
-        ("How much did I spend on ETH this year?", ("this year",)),
-        ("Show me my trades from Oct 1 to Oct 15", ("from Oct 1 to Oct 15",)),
-        ("How much profit did I make in September?", ("in September",)),
-        ("我10月一共买了多少钱的币？", ("10月",)),
-        ("10月6号那天我都做了什么交易", ("10月6号",)),
-        ("2026年10月6日我买了什么", ("2026年10月6日",)),
-        ("过去30天的收益怎么样", ("过去30天",)),
-        ("10月1号到10月15号的交易", ("10月1号到10月15号",)),
-        ("上个月BTC卖了多少", ("上个月",)),
-        ("我last month买了什么", ("last month",)),
-        ("this year我花了多少", ("this year",)),
-        ("我上周和这周的交易", ("上周", "这周")),
-        ("Show me last week and this week", ("last week", "this week")),
-        ("我11月底的资产比11月初多了多少", ("11月", "11月")),
-        ("12月我买了什么", ("12月",)),
-        ("我现在手里有哪些币", ()),
-        ("What do I hold right now?", ()),
-        ("Should I sell my ETH now?", ()),
-        ("那ETH呢", ()),
-        ("the history of my trades", ()),
-        ("Bought 0.02 BTC at 94900, fee 2 USDT", ()),
-        ("Mayday trades", ()),
-    ],
-)
-def test_the_times_said_in_a_sentence_are_found_longest_first(
-    sentence: str, found: tuple[str, ...]
-) -> None:
-    assert find_period_words(sentence, NOW, ZONE) == found
-
-
-@pytest.mark.parametrize(
     "text", ["2026", "1000", "2446", "may", "May", "march", "mar", "March to April"]
 )
 def test_four_digits_alone_and_may_or_march_alone_are_not_read(text: str) -> None:
     assert refused(text) is PeriodRefusal.UNKNOWN_WORDING
-
-
-@pytest.mark.parametrize(
-    ("sentence", "found"),
-    [
-        ("我有1000个ADA，都是哪天买的", ()),
-        ("我按2446的价格买的ETH有哪些", ()),
-        ("我买了 2020 个 ADA", ()),
-        ("Which ETH did I buy at 2010 USDT?", ()),
-        ("Which ETH did I buy at 2446?", ()),
-        ("I bought 2000 ADA", ()),
-        ("May I see how much I spent?", ()),
-        ("May I see all my ETH trades?", ()),
-        ("I may have sold some ETH", ()),
-        ("did I march into ETH", ()),
-        ("what did I sell in May", ("in May",)),
-        ("May 2026 trades", ("May 2026",)),
-        ("What did I sell in 2026?", ("in 2026",)),
-        ("2026年我一共花了多少钱", ("2026年",)),
-        ("我1000个ADA是2026年买的吗", ("2026年",)),
-        ("Show me the trades of the year 2026", ("the year 2026",)),
-    ],
-)
-def test_a_price_a_quantity_or_may_is_not_found_as_a_time(
-    sentence: str, found: tuple[str, ...]
-) -> None:
-    assert find_period_words(sentence, NOW, ZONE) == found
-
-
-@pytest.mark.parametrize(
-    "sentence",
-    [
-        # Read wrong before: a weekday or a month's short name alone, a sat, a year
-        # before 2000.
-        "Did I sell SUN tokens?",
-        "I hold SUN and TRX",
-        "I sat on my BTC, show my BTC trades",
-        "a sat is 1e-8 BTC, how many sats did I buy",
-        "Jan asked me what I bought",
-        "Did I wed my BTC to ETH?",
-        "mon, what did I buy",
-        "I sold some, fri?",
-        "What did I buy, Dec?",
-        "Show my DEC trades",
-        "SAT score",
-        "Did I buy BTC in 1000 lots?",
-        "我1000年前买的",
-        # Off the list, written for this test.
-        "What did I sell on Monday?",
-        "Did I buy on Sun?",
-        "Show my trades from Tuesday",
-        "我在1号平台买的ETH",
-        "8号那笔ETH",
-        "上月我买了什么",
-        "this morning I asked about BTC",
-        "Show trades of 2026-10-06",
-        "What did I buy since May?",
-        "Trades in the 1990s",
-        "Any trades this quarter?",
-        "I bought OCT tokens",
-        "The NOV and DEC coins",
-        "Show me trades in 1999",
-        "1998年我买了什么",
-    ],
-)
-def test_nothing_off_the_list_is_found_as_a_time(sentence: str) -> None:
-    assert find_period_words(sentence, NOW, ZONE) == ()
-
-
-@pytest.mark.parametrize(
-    ("sentence", "found"),
-    [
-        ("Oct 6 I bought 3000 ADA", ("Oct 6",)),
-        ("On Oct 6, 2026 I bought 1500 ADA at 0.35", ("Oct 6, 2026",)),
-        ("Show my Jan 5 trades", ("Jan 5",)),
-        ("What did I buy in Oct 2026?", ("Oct 2026",)),
-        ("10月6号以2,026的价格买的ETH", ("10月6号",)),
-        ("上个月我sold了多少ETH at 2500", ("上个月",)),
-        ("What did I sell in March?", ("in March",)),
-        ("What did I buy yesterday?", ("yesterday",)),
-        ("past 30 days of trades", ("past 30 days",)),
-        ("from Oct 1 to Oct 15", ("from Oct 1 to Oct 15",)),
-        ("10月1号到15号的交易", ("10月1号到15号",)),
-    ],
-)
-def test_what_is_on_the_list_is_still_found(sentence: str, found: tuple[str, ...]) -> None:
-    assert find_period_words(sentence, NOW, ZONE) == found
 
 
 @pytest.mark.parametrize("text", ["1999年", "in 1999", "Oct 1999", "1999年10月6日", "Oct 6, 1999"])

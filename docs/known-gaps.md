@@ -548,37 +548,22 @@ changed.
   need a year or a day after them, or "in", "during", "last" or "this"
   before them, or a range that begins with "from" or "between". So "March
   to April" is read as April only, and "since May" not at all.
-- **The program finds a time in a sentence only in a few shapes.** When it
-  looks for the time in what the user said itself, it takes only the
-  shapes listed in `core/period_list.py` (better to find nothing than the
-  wrong thing). A weekday ("on Monday"), a month's short name alone
-  ("Oct"), a day without its month ("8号"), "上月", "this morning" or
-  "2026-10-06" are not found there. It looks only when the model's own
-  time is not the user's words, and uses what it finds only when both name
-  the same days (see below). A year before 2000 is never read.
-- **A person named April, June or August.** A month's full name alone is on
-  that list, so "June bought ETH for me" is looked up as June. Not mended.
-- **The model translates a time; the program takes the user's words only
-  when both agree.** Asked "How much did I spend on ETH this year?", the
-  model copies "今年", which is not the user's words. For the read tools the
-  program then looks in what the user just said, and uses what it finds
-  only when exactly one time is there, the model's words read whole name a
-  stretch of time, and both stretches have the same first and last day; the
-  header then says "Time taken from your words: 'this year'". Otherwise the
-  call stays a wrong step and the ledger is not asked: "10月之前" or "十月之前"
-  for "before October" and "去年以来" are not read, and "December" for "12月"
-  said in November does not agree, as "12月" has two meanings. With no time
-  from the model the lookup is all time; the program does not look for one.
-  A time the model copied right is used as it is, even when the user named
-  another one just now: asked "那9月呢" after "10月我卖了什么", a model that
-  copies "10月" again gets October. Changing and deleting do not take a
-  time this way.
+- **A time asked in English and translated by the model gets no table.**
+  The time is taken only from the model's copy of the user's own words. Asked
+  "How much did I spend on ETH this year?", the model copies "今年", which is
+  not the user's words: it is a wrong step, the ledger is not asked, and
+  what the model is handed back holds the user's sentence and asks for the
+  time in the user's language. When the model writes it wrongly again, or
+  answers in words instead, the turn ends with a sentence and no table.
+  "Oct 1 to Oct 15" and "September" go the same way. With no time from the
+  model the lookup covers all time.
 - **A word the model copies as a time is taken as one.** When the model
   copies a word of the user's as the time and the program can read it, the
-  table is narrowed by it and the header shows it. In "我一月一次定投BTC，
-  一共买了多少" ("once a month"), a model that copies "一月" gets January.
-  Not mended: no rule on the program's side tells this "一月" from the
-  month.
+  table is narrowed by it and the header shows the days. In "我一月一次定投
+  BTC，一共买了多少" ("once a month"), a model that copies "一月" gets
+  January; in "How much ETH did I buy until October?", a model that copies
+  "October" gets October alone, not everything up to it. Not mended: no
+  rule on the program's side tells these words from a time asked for.
 - **The side is kept from the time before only one step back.** "那ETH呢",
   asked after "10月我卖了哪些BTC", names no side, so the side of the
   sentence before is kept, as the asset is. A side said two sentences back,

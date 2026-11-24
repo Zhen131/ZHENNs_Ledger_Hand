@@ -50,15 +50,11 @@ MOST_TRADES_SHOWN = 20
 class Conditions:
     """What a lookup was actually narrowed by; ``None`` for a part that does not narrow it.
 
-    ``period_words`` are the user's own words the program took the period
-    from, when it took it from them rather than from the model.
-
     ``not_narrowed`` holds one sentence for each thing the model asked for
     that the program did not use, and why.
     """
 
     period: Period | None = None
-    period_words: str | None = None
     asset: str | None = None
     side: Side | None = None
     not_narrowed: tuple[str, ...] = ()
@@ -112,8 +108,6 @@ def _header(lookup: Lookup) -> list[str]:
         f"Time: {_period_words(conditions.period)}",
         f"Asset: {conditions.asset or 'all assets'}",
     ]
-    if conditions.period_words is not None:
-        lines.insert(1, f"Time taken from your words: {conditions.period_words!r}")
     if lookup.tool is ToolName.LIST_TRADES:
         side = f"{conditions.side.value}s" if conditions.side else "buys and sells"
         lines.append(f"Side: {side}")

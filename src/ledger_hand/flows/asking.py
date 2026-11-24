@@ -18,25 +18,13 @@ this module turns that into a lookup the ledger can answer, and asks it:
 
 ``judge_read`` judges a call to the two narrowed tools: the asset is taken
 out first and checked apart, and the rest is judged as any call is
-(``assistant.judging``). A period the model copied right, from what the
-user just said or said before, is used as it is: it is not compared with
-anything and never replaced. Only when the model's period is not the
-user's words does the program look at what the user just said
-(``core.time_range.find_period_words``), and it takes the time from there
-only when all of these hold: exactly one time is found in that sentence;
-the model's words, read whole, name a stretch of time; the words found
-name one too; and both stretches have the same first and the same last
-day. The user's words are then used, no wrong step is counted, and the
-header says the time was taken from them. Otherwise the call stays a wrong
-step, as any copy that is not the user's words. With no period from the
-model, the lookup covers all time; the program does not look for one.
-(Decided on 2026-11-24, by the product owner.)
+(``assistant.judging``), so the period must still be the user's own words.
 
 Every figure in a ``Lookup`` is the ledger's own. This module reads no
 clock, no zone of the machine and no settings: all are handed in.
 
 Names defined here: ``READ_TOOLS``, ``NARROWED_TOOLS``, ``ProgramWords``,
-``ReadVerdict``, ``judge_read`` and ``look_up``.
+``judge_read`` and ``look_up``.
 """
 
 from __future__ import annotations
@@ -45,7 +33,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
 
-from ledger_hand.assistant.judging import Accepted, Misstep, MisstepKind, judge
+from ledger_hand.assistant.judging import Accepted, Misstep, judge
 from ledger_hand.assistant.lookups import Conditions, Lookup, latest_trades
 from ledger_hand.assistant.narrowing import (
     AssetDropped,
@@ -57,13 +45,7 @@ from ledger_hand.assistant.narrowing import (
 )
 from ledger_hand.assistant.tools import ToolName
 from ledger_hand.core.ledger_records import PeriodRequest, TradeFilter
-from ledger_hand.core.time_range import (
-    Period,
-    PeriodRefusal,
-    PeriodRefused,
-    find_period_words,
-    read_period,
-)
+from ledger_hand.core.time_range import Period, PeriodRefusal, PeriodRefused, read_period
 from ledger_hand.core.trade import Side
 from ledger_hand.ports import LedgerPort, ToolCall
 
@@ -100,63 +82,19 @@ class ProgramWords:
     words: str
 
 
-@dataclass(frozen=True)
-class ReadVerdict:
-    """A call to a narrowed tool judged: the verdict, the model's asset apart, and the period
-    the program took from the user's words in place of the model's, if it took one."""
-
-    verdict: Accepted | Misstep
-    asset: str | None = None
-    period_found: str | None = None
-
-
-def judge_read(
-    call: ToolCall, user_said: Sequence[str], *, now: datetime, zone: str
-) -> ReadVerdict:
+def judge_read(call: ToolCall, user_said: Sequence[str]) -> tuple[Accepted | Misstep, str | None]:
     """Judge a call to a narrowed tool with its asset taken out; the asset comes back apart.
 
     An asset that is not text is left in, so that the judging still calls
-    it a wrong step; a blank one counts as not given. A period that is not
-    the user's words is replaced by the one time found in what the user
-    just said only when both, read whole, name the same first and last
-    day; otherwise it stays a wrong step. A period that is the user's words
-    is used as it is.
+    it a wrong step; a blank one counts as not given.
     """
     arguments = dict(call.arguments)
     asset = arguments.get("asset")
-    if asset is not None and not isinstance(asset, str):
-        return ReadVerdict(verdict=judge(call, user_said))
-    arguments.pop("asset", None)
-    kept = asset if asset is not None and asset.strip() else None
+    if not isinstance(asset, str):
+        return judge(call, user_said), None
+    del arguments["asset"]
     verdict = judge(ToolCall(name=call.name, arguments=arguments), user_said)
-    given = arguments.get("period")
-    if not isinstance(given, str) or not _period_not_copied(verdict):
-        return ReadVerdict(verdict=verdict, asset=kept)
-    found = find_period_words(user_said[-1], now, zone)
-    if len(found) != 1 or not _same_days(given, found[0], now, zone):
-        return ReadVerdict(verdict=verdict, asset=kept)
-    arguments["period"] = found[0]
-    again = judge(ToolCall(name=call.name, arguments=arguments), user_said)
-    if isinstance(again, Misstep):
-        return ReadVerdict(verdict=verdict, asset=kept)
-    return ReadVerdict(verdict=again, asset=kept, period_found=found[0])
-
-
-def _same_days(given: str, found: str, now: datetime, zone: str) -> bool:
-    """Whether both words, each read whole, name a stretch with the same first and last day."""
-    one, other = read_period(given, now, zone), read_period(found, now, zone)
-    if not isinstance(one, Period) or not isinstance(other, Period):
-        return False
-    return (one.first_day, one.last_day) == (other.first_day, other.last_day)
-
-
-def _period_not_copied(verdict: Accepted | Misstep) -> bool:
-    """Whether the verdict is a wrong step for a period that is not the user's words."""
-    return (
-        isinstance(verdict, Misstep)
-        and verdict.kind is MisstepKind.NOT_COPIED
-        and verdict.detail.startswith("'period' is ")
-    )
+    return verdict, (asset if asset.strip() else None)
 
 
 @dataclass(frozen=True)
@@ -177,19 +115,14 @@ def look_up(
     *,
     now: datetime,
     zone: str,
-    period_found: str | None = None,
 ) -> Lookup | ProgramWords:
-    """Ask the ledger what the read tool of ``accepted`` asks; ``asset`` as the model gave it.
-
-    ``period_found`` is the period the program took from the user's words in
-    place of the model's (``judge_read``).
-    """
+    """Ask the ledger what the read tool of ``accepted`` asks; ``asset`` as the model gave it."""
     if accepted.tool is ToolName.GET_POSITIONS:
         return Lookup(tool=accepted.tool, positions=ledger.positions())
     if accepted.tool is ToolName.LIST_ASSETS:
         return Lookup(tool=accepted.tool, assets=ledger.list_assets())
     said = _Said(user_said[-1], user_said[-2] if len(user_said) > 1 else None, now, zone)
-    conditions = _conditions(accepted, asset, ledger, said, period_found)
+    conditions = _conditions(accepted, asset, ledger, said)
     if isinstance(conditions, ProgramWords):
         return conditions
     period = conditions.period
@@ -213,35 +146,18 @@ def look_up(
     )
 
 
-def _period(
-    accepted: Accepted, said: _Said, period_found: str | None
-) -> tuple[Period | None, str | None] | ProgramWords:
-    """The period to look up with, and the user's words it was taken from by the program.
-
-    With no period from the model, the lookup covers all time.
-    """
-    words = period_found or accepted.arguments.get("period")
-    if words is None:
-        return None, None
-    reading = read_period(words, said.now, said.zone)
-    if isinstance(reading, PeriodRefused):
-        return ProgramWords(_PERIOD_WORDS[reading.reason].format(word=words))
-    return reading, period_found
-
-
 def _conditions(
-    accepted: Accepted,
-    asset: str | None,
-    ledger: LedgerPort,
-    said: _Said,
-    period_found: str | None,
+    accepted: Accepted, asset: str | None, ledger: LedgerPort, said: _Said
 ) -> Conditions | ProgramWords:
     """The period, asset and side to look up with, or the program's words instead."""
     not_narrowed: list[str] = []
-    settled = _period(accepted, said, period_found)
-    if isinstance(settled, ProgramWords):
-        return settled
-    period, taken_from = settled
+    period: Period | None = None
+    words = accepted.arguments.get("period")
+    if words is not None:
+        reading = read_period(words, said.now, said.zone)
+        if isinstance(reading, PeriodRefused):
+            return ProgramWords(_PERIOD_WORDS[reading.reason].format(word=words))
+        period = reading
     code: str | None = None
     if asset is not None:
         checked = check_asset(asset, ledger.list_assets(), said.now_words, said.before)
@@ -259,10 +175,4 @@ def _conditions(
             not_narrowed.append(side_checked.why)
         else:
             side = side_checked.side
-    return Conditions(
-        period=period,
-        period_words=taken_from,
-        asset=code,
-        side=side,
-        not_narrowed=tuple(not_narrowed),
-    )
+    return Conditions(period=period, asset=code, side=side, not_narrowed=tuple(not_narrowed))

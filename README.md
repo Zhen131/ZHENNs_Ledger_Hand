@@ -437,10 +437,9 @@ kinds of question can be answered:
   loss on paper, or why it is not worked out;
 - the assets the ledger knows.
 
-When the model copies the time in other words ("今年" for "this year"), the
-program looks for the time in what the user said and uses the user's own
-words, saying so in the header, only when both name exactly the same days;
-otherwise the model is told to copy it again. With no time from the model,
+The time is taken only from the model's copy of the user's own words; a
+time the model writes in other words ("今年" for "this year") is a wrong
+step, and the model is told to copy it again. With no time from the model,
 the lookup covers all time. The program turns
 the time words into days itself: "10月" is 2026-10-01 to
 2026-10-31, "上周" the Monday to Sunday before this week, "最近7天" today
@@ -1466,7 +1465,7 @@ check and the hygiene scan).
 | `requirements.txt` | Exact versions of the run-time dependencies (httpx, Streamlit, tzlocal, and what Streamlit brings with it) and the development tools, so the environment can be rebuilt identically. |
 | `.streamlit/config.toml` | Streamlit's settings for the interface: no usage statistics, listen on this machine only, start without questions at the terminal, no developer options (and so no Deploy button) in the menu. Read from the folder Streamlit is started in. |
 | `src/ledger_hand/` | The package. Today it holds its version, `core/`, `export/`, the ports file, the settings, `llm/`, `storage/`, `ledger/`, `extraction/`, `asking/`, `assistant/`, `flows/`, the wiring module and `ui/`. |
-| `src/ledger_hand/core/` | Core rules: pure computation, no network, files, database, user interface or clock. Holds the shapes of a trade (`trade.py`), the coin table (`coins.py`), the ledger's limits (`ledger_limits.py`), exact decimal arithmetic (`arithmetic.py`), the reading and writing of numbers (`numbers.py`), the reading and writing of times (`timeparse.py`, with the wording of a time phrase in `time_wording.py`), a stretch of time named in words (`time_range.py`), the only shapes of a time the program takes from a sentence itself (`period_list.py`) and the check of a draft (`validation.py`), what to ask next about a draft (`followup.py`), a saved trade (`stored.py`), what the book keeps beside it (`book.py`), the form a passage is compared in (`passage_form.py`), which time zone names are taken (`zones.py`), whether the ledger counts a trade's fee in the cost (`fee_cost.py`), and what the ledger port hands back (`ledger_records.py`, `proposals.py`). |
+| `src/ledger_hand/core/` | Core rules: pure computation, no network, files, database, user interface or clock. Holds the shapes of a trade (`trade.py`), the coin table (`coins.py`), the ledger's limits (`ledger_limits.py`), exact decimal arithmetic (`arithmetic.py`), the reading and writing of numbers (`numbers.py`), the reading and writing of times (`timeparse.py`, with the wording of a time phrase in `time_wording.py`), a stretch of time named in words (`time_range.py`) and the check of a draft (`validation.py`), what to ask next about a draft (`followup.py`), a saved trade (`stored.py`), what the book keeps beside it (`book.py`), the form a passage is compared in (`passage_form.py`), which time zone names are taken (`zones.py`), whether the ledger counts a trade's fee in the cost (`fee_cost.py`), and what the ledger port hands back (`ledger_records.py`, `proposals.py`). |
 | `src/ledger_hand/export/` | The ledger's backup format: the whole file (`backup.py`), one trade (`trade_entry.py`), one coin (`coin_card.py`), bookkeeping moments (`moments.py`) and the file's name (`file_name.py`). Writes no file itself. |
 | `src/ledger_hand/ports.py` | The three ports. The model port: messages, pictures, tools, parameters, the reply and its record, and the error with its six kinds. The ledger port: the person's ledger as the assistant reaches it, and the error with its four kinds. The storage port: its operations and the error with its eight kinds; the shapes it takes and gives are in `core/book.py`. Only shapes; it sends and stores nothing. |
 | `src/ledger_hand/settings.py` | The only place in the package that reads environment variables: the model settings, their defaults and their checks, what each sets and why its default is what it is (as data, `ABOUT`), changes from the settings page read the same way (`apply_changes`), and where the data is kept. |

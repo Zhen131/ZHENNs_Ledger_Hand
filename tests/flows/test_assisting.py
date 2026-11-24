@@ -142,7 +142,7 @@ def test_each_kind_of_wrong_step_is_shown_to_the_model_and_asks_nothing_of_the_l
 ) -> None:
     ledger = FakeLedger()
 
-    result, model = turn([calls(wrong), "Sorry."], "我都做了什么交易", ledger=ledger)
+    result, model = turn([calls(wrong), "Sorry."], "10月6号那天我都做了什么交易", ledger=ledger)
 
     assert result.ending is Ending.ANSWERED
     assert ledger.calls == []
@@ -154,28 +154,13 @@ def test_each_kind_of_wrong_step_is_shown_to_the_model_and_asks_nothing_of_the_l
 def test_a_date_the_model_wrote_itself_is_judged_not_copied() -> None:
     result, _ = turn(
         [calls(("list_trades", {"period": "2023-10-06"})), "Sorry."],
-        "我都做了什么交易",
+        "10月6号那天我都做了什么交易",
     )
 
     (refused,) = result.steps[0].calls
     assert isinstance(refused, RefusedCall)
     assert refused.misstep.kind is MisstepKind.NOT_COPIED
     assert "not copied from what the user said" in refused.misstep.detail
-
-
-def test_a_date_the_model_wrote_that_is_not_the_users_day_is_a_wrong_step() -> None:
-    ledger = FakeLedger()
-
-    result, _ = turn(
-        [calls(("list_trades", {"period": "2023-10-06"})), "Sorry."],
-        "10月6号那天我都做了什么交易",
-        ledger=ledger,
-    )
-
-    (refused,) = result.steps[0].calls
-    assert isinstance(refused, RefusedCall)
-    assert refused.misstep.kind is MisstepKind.NOT_COPIED
-    assert ledger.calls == []
 
 
 def test_figures_handed_to_the_recording_tool_are_dropped_not_a_wrong_step() -> None:
