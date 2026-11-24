@@ -56,7 +56,7 @@ from typing import TextIO
 
 import tzlocal
 
-from ledger_hand.assistant.outcome import Chat, NotRunCall, RefusedCall, Step
+from ledger_hand.assistant.outcome import Chat, NotRunCall, RefusedCall, Step, TurnResult
 from ledger_hand.core.ledger_records import TradeFacts, TradeFilter
 from ledger_hand.core.proposals import ProposalStatus
 from ledger_hand.core.zones import is_zone_name
@@ -224,6 +224,17 @@ def show_said(words: str, said: Said, out: TextIO) -> None:
     print(f"sent to the ledger: {to_ledger}", file=out)
     print(f"assistant: {said.reply or '-'}", file=out)
     print(f"ending: {_ending(said)}", file=out)
+
+
+def show_turn(said: str, result: TurnResult, out: TextIO) -> None:
+    """Print one turn of the model alone: what was said, each step, the last words, the end."""
+    print(f"\nyou said: {said}", file=out)
+    for number, step in enumerate(result.steps, start=1):
+        _show_step(number, step, out)
+    if result.failure is not None:
+        print(f"failure: {type(result.failure).__name__}: {result.failure}", file=out)
+    print(f"assistant: {result.reply or '-'}", file=out)
+    print(f"ending: {result.ending.value}", file=out)
 
 
 def _show_step(number: int, step: Step, out: TextIO) -> None:
