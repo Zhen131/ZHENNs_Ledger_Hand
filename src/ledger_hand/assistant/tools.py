@@ -120,7 +120,10 @@ _COPY = "Copy it word for word from the user's message; never convert or rewrite
 _PERIOD = Argument(
     name="period",
     kind=ArgumentKind.COPIED,
-    description=f"The time the user named, such as '10月6号' or 'last month'. {_COPY}",
+    description=(
+        "The time the user named, in the user's own words and language, such as '10月6号' "
+        f"or 'last month'. {_COPY}"
+    ),
 )
 _ASSET = Argument(
     name="asset",

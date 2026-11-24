@@ -98,7 +98,7 @@ from ledger_hand.assistant.outcome import (
     TurnResult,
 )
 from ledger_hand.assistant.prompting import AssistantPrompt, system_message
-from ledger_hand.assistant.prompts.assistant_second import ASSISTANT_SECOND
+from ledger_hand.assistant.prompts.assistant_third import ASSISTANT_THIRD
 from ledger_hand.assistant.results import (
     answered_by_program_text,
     ledger_error_text,
@@ -134,7 +134,7 @@ from ledger_hand.ports import (
 )
 
 # The system prompt a turn uses unless it is handed another: the latest version.
-DEFAULT_PROMPT = ASSISTANT_SECOND
+DEFAULT_PROMPT = ASSISTANT_THIRD
 
 # Ledger failures the model can tell the user about; any other ends the turn.
 _TOLD_TO_THE_MODEL = frozenset({LedgerErrorKind.UNKNOWN_ASSET, LedgerErrorKind.NOT_FOUND})
