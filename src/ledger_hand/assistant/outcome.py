@@ -7,7 +7,8 @@
   that what the user says next can be tied to what was listed before.
 - ``Ending``: why the turn ended.
 - ``TakenCall`` and ``RefusedCall``: one tool call, and what the program
-  handed back for it, or the wrong step it was and why.
+  handed back for it, or the wrong step it was and why. ``NotRunCall``: a
+  call that was not run, because its step went to recording instead.
 - ``Step``: one answer of the model: its text, and the calls in it, in order.
 - ``TurnResult``: what the assistant says at the end, why the turn ended,
   every step, the chat to hand the next turn, and the failure that stopped
@@ -17,7 +18,7 @@
 when it stops the model.
 
 Names defined here: ``Ending``, ``Chat``, ``TakenCall``, ``RefusedCall``,
-``Step``, ``TurnResult``, ``TWO_MISSTEPS_REPLY`` and ``STEP_LIMIT_REPLY``.
+``NotRunCall``, ``Step``, ``TurnResult``, ``TWO_MISSTEPS_REPLY`` and ``STEP_LIMIT_REPLY``.
 """
 
 from __future__ import annotations
@@ -50,6 +51,8 @@ class Ending(enum.Enum):
     """The model could not be asked."""
     LEDGER_FAILED = "ledger_failed"
     """The ledger could not be reached, or failed in a way the model cannot mend."""
+    RECORDING = "recording"
+    """The model chose to record a trade; the program takes what the user said on from there."""
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -90,11 +93,19 @@ class RefusedCall:
 
 
 @dataclass(frozen=True, kw_only=True)
+class NotRunCall:
+    """A call not run, because its step went to recording, and what was handed back for it."""
+
+    call: ToolCall
+    result: str
+
+
+@dataclass(frozen=True, kw_only=True)
 class Step:
     """One answer of the model: its text, and its calls in order, each taken or refused."""
 
     text: str
-    calls: tuple[TakenCall | RefusedCall, ...]
+    calls: tuple[TakenCall | RefusedCall | NotRunCall, ...]
 
     @property
     def wrong(self) -> bool:

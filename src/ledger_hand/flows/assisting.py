@@ -27,12 +27,20 @@ a way of its own. A ledger that answers "no such asset" or "no such trade"
 is not a failure of the turn: its code and sentence are handed to the model,
 which tells the user.
 
-Of the eight tools, only these reach the ledger so far: the list of
-assets, the holdings, and where the last proposal of this chat stands
-(none made yet, so far). The others are on the list, so that the model can
-choose them, and are answered "not connected yet". The holdings and the
-assets are handed to the model, which words the answer; that is for now
-only, until the program lays such figures out itself.
+Of the eight tools, these reach the ledger so far: the list of assets,
+the holdings, and where the last proposal of this chat stands. The
+holdings and the assets are handed to the model, which words the answer;
+that is for now only, until the program lays such figures out itself.
+
+Recording a trade (``propose_trade_add``) is the program's, not the
+model's: a step with such a call ends the loop at once (``Ending.RECORDING``),
+however many such calls it holds, and the other calls of that step are not
+run (``NotRunCall``) and count as no wrong step. Whoever called then
+records what the user said and hands the outcome to ``close_recording``,
+which puts a result after every call of that step and the program's own
+words after them, so that no call in the chat is left without a result.
+Asking about the ledger, changing and deleting are on the list, so that the
+model can choose them, and are answered "not connected yet".
 
 The chat handed back holds every call and result of the turn, so that the
 next turn can tie what the user says to what was listed. A call to a tool
@@ -42,11 +50,12 @@ bring the figures it wrote into the next ask. The steps keep the calls as
 the model made them, for the record. This module reads
 no clock, no zone of the machine and no settings: all are handed in.
 
-Names defined here: ``take_turn``.
+Names defined here: ``take_turn`` and ``close_recording``.
 """
 
 from __future__ import annotations
 
+import dataclasses
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -57,6 +66,7 @@ from ledger_hand.assistant.outcome import (
     TWO_MISSTEPS_REPLY,
     Chat,
     Ending,
+    NotRunCall,
     RefusedCall,
     Step,
     TakenCall,
@@ -70,7 +80,9 @@ from ledger_hand.assistant.results import (
     misstep_text,
     no_proposal_text,
     not_connected_text,
+    not_run_text,
     positions_text,
+    recording_text,
     status_text,
 )
 from ledger_hand.assistant.tools import ToolName, tool_named, tool_specs
@@ -151,6 +163,9 @@ def take_turn(
             turn.steps.append(Step(text=reply.text, calls=()))
             return turn.ended(Ending.ANSWERED, reply.text)
         turn.items.append(ToolCallTurn(text=reply.text, calls=_as_kept(reply.calls)))
+        if any(call.name == ToolName.PROPOSE_TRADE_ADD.value for call in reply.calls):
+            turn.steps.append(_to_recording(reply.text, reply.calls, user_said))
+            return turn.ended(Ending.RECORDING, "")
         try:
             step = _step(reply.text, reply.calls, turn, user_said, ledger)
         except _LedgerFailedError as stopped:
@@ -161,6 +176,50 @@ def take_turn(
         if wrong_in_a_row == 2:
             return turn.ended(Ending.TWO_MISSTEPS, TWO_MISSTEPS_REPLY)
     return turn.ended(Ending.STEP_LIMIT, STEP_LIMIT_REPLY)
+
+
+def close_recording(
+    result: TurnResult, ending: str, reply: str, proposal: str | None
+) -> TurnResult:
+    """``result``, ended in recording, with its last step's results and the program's words.
+
+    ``ending`` says in one word how the recording ended; ``proposal`` is the
+    identifier of the proposal it made, if it made one.
+    """
+    if result.ending is not Ending.RECORDING:
+        raise ValueError(f"the turn did not go to recording: {result.ending.value}")
+    *earlier, last = result.steps
+    handed = recording_text(ending)
+    calls = tuple(
+        dataclasses.replace(call, result=handed) if isinstance(call, TakenCall) else call
+        for call in last.calls
+    )
+    items = (
+        *result.chat.items,
+        *(ToolResult(name=call.call.name, content=call.result) for call in calls),
+        Message(Role.ASSISTANT, reply),
+    )
+    proposals = result.chat.proposals + ((proposal,) if proposal is not None else ())
+    return dataclasses.replace(
+        result,
+        reply=reply,
+        steps=(*earlier, dataclasses.replace(last, calls=calls)),
+        chat=Chat(items=items, proposals=proposals),
+    )
+
+
+def _to_recording(text: str, calls: Sequence[ToolCall], user_said: Sequence[str]) -> Step:
+    """The step that goes to recording: its recording calls taken, every other call not run."""
+    handled: list[TakenCall | RefusedCall | NotRunCall] = []
+    for call in calls:
+        verdict = judge(call, user_said)
+        if call.name == ToolName.PROPOSE_TRADE_ADD.value and isinstance(verdict, Accepted):
+            handled.append(
+                TakenCall(call=call, tool=verdict.tool, result="", dropped=verdict.dropped)
+            )
+        else:
+            handled.append(NotRunCall(call=call, result=not_run_text()))
+    return Step(text=text, calls=tuple(handled))
 
 
 def _as_kept(calls: Sequence[ToolCall]) -> tuple[ToolCall, ...]:
@@ -184,7 +243,7 @@ def _step(
     ledger: LedgerPort,
 ) -> Step:
     """Judge and run each call of one step in order, handing every result back."""
-    handled: list[TakenCall | RefusedCall] = []
+    handled: list[TakenCall | RefusedCall | NotRunCall] = []
     for call in calls:
         verdict = judge(call, user_said)
         if isinstance(verdict, Misstep):

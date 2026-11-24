@@ -168,7 +168,7 @@ def test_figures_handed_to_the_recording_tool_are_dropped_not_a_wrong_step() -> 
     said = "Bought 0.02 BTC at 94900 on Binance at 9:40 this morning, fee 2 USDT."
 
     result, model = turn(
-        [calls(("propose_trade_add", {"quantity": "0.02", "price": "94900"})), "Not yet."],
+        [calls(("propose_trade_add", {"quantity": "0.02", "price": "94900"}))],
         said,
         ledger=ledger,
     )
@@ -180,8 +180,8 @@ def test_figures_handed_to_the_recording_tool_are_dropped_not_a_wrong_step() -> 
     assert taken.dropped == ("quantity", "price")
     assert "0.02" not in taken.result and "94900" not in taken.result
     assert ledger.calls == []
-    assert result.ending is Ending.ANSWERED
-    assert len(model.calls) == 2
+    assert result.ending is Ending.RECORDING
+    assert len(model.calls) == 1
 
 
 def test_a_field_a_tool_with_arguments_does_not_know_is_still_a_wrong_step() -> None:
@@ -247,7 +247,7 @@ def test_tools_not_built_yet_answer_not_connected() -> None:
     ledger = FakeLedger()
 
     result, _ = turn(
-        [calls(("propose_trade_add", {}), ("list_trades", {"period": "10月6号"})), "Not yet."],
+        [calls(("list_trades", {"period": "10月6号"})), "Not yet."],
         "10月6号那天我都做了什么交易",
         ledger=ledger,
     )

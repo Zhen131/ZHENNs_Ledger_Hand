@@ -8,7 +8,11 @@ go by:
 - ``not_connected``: the tool is on the list but its work is not built yet;
 - ``no_proposal``: there is no proposal in this chat to ask about;
 - ``wrong_step``: the call was not taken, and ``problem`` says why;
-- ``ledger_error``: the ledger refused, with its code and its sentence.
+- ``ledger_error``: the ledger refused, with its code and its sentence;
+- ``not_run``: the call was not run, because its step went to recording;
+- for a call to record a trade, how the program's recording of what the
+  user said ended (``recording_text``), in one word and with no figure:
+  the program, not the model, tells the user the rest.
 
 Amounts are written as exact decimal text, never as JSON numbers, so the
 model reads the digits the ledger has. Money is always named beside an
@@ -16,7 +20,8 @@ amount. A figure that was not worked out is written as its reason.
 
 Names defined here: ``assets_text``, ``positions_text``, ``trades_text``,
 ``summary_text``, ``status_text``, ``not_connected_text``,
-``no_proposal_text``, ``misstep_text`` and ``ledger_error_text``.
+``no_proposal_text``, ``misstep_text``, ``ledger_error_text``,
+``not_run_text`` and ``recording_text``.
 """
 
 from __future__ import annotations
@@ -155,3 +160,18 @@ def misstep_text(misstep: Misstep) -> str:
 def ledger_error_text(error: LedgerError) -> str:
     """The answer to a call the ledger refused."""
     return _text({"status": "ledger_error", "code": error.code, "message": error.message})
+
+
+def not_run_text() -> str:
+    """The answer to a call not run, because another call of its step went to recording."""
+    return _text({"status": "not_run", "message": "Not run: this step went to recording."})
+
+
+def recording_text(ending: str) -> str:
+    """The answer to a call to record a trade: how the program's recording of it ended."""
+    return _text(
+        {
+            "status": ending,
+            "message": "The program recorded this itself and has told the user how it went.",
+        }
+    )
