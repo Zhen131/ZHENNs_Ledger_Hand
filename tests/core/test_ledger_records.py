@@ -39,7 +39,13 @@ NEW_PARTS = (
     PACKAGE / "ledger",
     PACKAGE / "assistant",
     PACKAGE / "flows" / "assisting.py",
+    PACKAGE / "flows" / "conversation.py",
+    PACKAGE / "flows" / "recorded.py",
+    PACKAGE / "flows" / "record_words.py",
+    PACKAGE / "flows" / "proposing.py",
 )
+# The one place a new part may name it, for now: the money a proposal is priced in.
+OLD_MONEY_ALLOWED = {PACKAGE / "flows" / "proposing.py": 1}
 WHEN = datetime(2026, 10, 6, 11, 48, tzinfo=timezone.utc)
 
 
@@ -80,7 +86,9 @@ def test_nothing_new_names_the_old_single_money() -> None:
 
     assert files
     for path in files:
-        assert "QUOTE_CURRENCY" not in path.read_text(encoding="utf-8"), path
+        lines = path.read_text(encoding="utf-8").splitlines()
+        naming = [line for line in lines if "QUOTE_CURRENCY" in line]
+        assert len(naming) == OLD_MONEY_ALLOWED.get(path, 0), (path, naming)
 
 
 @pytest.mark.parametrize(
