@@ -541,11 +541,16 @@ changed.
   of day ("昨天晚上9点"); each is answered "I could not read". "12月" said
   in November is not guessed at: the user is asked to say the year. "10/6"
   is not read either, as month and day differ by place.
-- **The model translates a time.** Asked "How much did I spend on ETH this
-  year?", the model copies "今年", which is not the user's words. It is a
-  wrong step; what the model is handed back then holds the user's own
-  sentence and asks for the time in the user's language. Whether that is
-  enough is measured in `evals/RESULTS.md`.
+- **The model translates a time; the program then takes it from the
+  user's words.** Asked "How much did I spend on ETH this year?", the model
+  copies "今年", which is not the user's words. For the read tools the
+  program then looks for the time in what the user just said and, when it
+  finds exactly one, uses it and says so in the header ("Time taken from
+  your words: 'this year'"). With two times in the sentence ("上周和这周")
+  it does not pick one: a wrong copy stays a wrong step, and with no period
+  from the model the user is asked which. A time the finder reads that the
+  user did not mean as one ("this morning" in a sentence about a trade) is
+  taken as said. Changing and deleting do not take a time this way.
 - **The side is kept from the time before only one step back.** "那ETH呢",
   asked after "10月我卖了哪些BTC", names no side, so the side of the
   sentence before is kept, as the asset is. A side said two sentences back,

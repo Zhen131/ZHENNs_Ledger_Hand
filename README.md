@@ -437,7 +437,10 @@ kinds of question can be answered:
   loss on paper, or why it is not worked out;
 - the assets the ledger knows.
 
-The program turns the time words into days itself: "10月" is 2026-10-01 to
+When the model copies the time wrongly ("今年" for "this year") or not at
+all, the program finds the time in what the user said itself and, when
+there is exactly one, uses it, saying so in the header. The program turns
+the time words into days itself: "10月" is 2026-10-01 to
 2026-10-31, "上周" the Monday to Sunday before this week, "最近7天" today
 and the six days before. Words it cannot read, words with two meanings
 ("12月" said in November, which may be last December), and times wholly in
