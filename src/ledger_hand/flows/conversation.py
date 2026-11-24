@@ -59,7 +59,8 @@ import enum
 from dataclasses import dataclass
 from datetime import datetime
 
-from ledger_hand.assistant.edit_calls import EditCall, judge_edit
+from ledger_hand.assistant.edit_calls import EDIT_TOOLS, EditCall, judge_edit
+from ledger_hand.assistant.edit_words import not_done_words
 from ledger_hand.assistant.outcome import Chat, Ending, TakenCall, TurnResult
 from ledger_hand.flows import editing, recording
 from ledger_hand.flows.assisting import close_editing, close_recording, first_edit, take_turn
@@ -273,10 +274,24 @@ def _edit_begun(turn: TurnResult, said: str, around: _Around) -> Said:
     edited = editing.start(
         call, around.ledger, turn.chat.user_said, now=around.now, zone=around.zone
     )
+    left = [
+        (
+            one.call.name,
+            _text(one.call.arguments.get("field")),
+            _text(one.call.arguments.get("new_value")),
+        )
+        for one in turn.steps[-1].calls
+        if one.call.name in EDIT_TOOLS and one.call is not taken.call
+    ]
+    reply = edited.reply if not left else f"{edited.reply}\n{not_done_words(left)}"
     proposal = edited.sent.proposal if edited.sent is not None else None
-    closed = close_editing(turn, edited.ending.value, edited.reply, proposal)
+    closed = close_editing(turn, edited.ending.value, reply, proposal)
     state = AssistantChat(chat=closed.chat, editing=edited.waiting)
-    return Said(route=Route.MODEL, reply=edited.reply, state=state, turn=closed, edited=edited)
+    return Said(route=Route.MODEL, reply=reply, state=state, turn=closed, edited=edited)
+
+
+def _text(value: object) -> str | None:
+    return value if isinstance(value, str) and value.strip() else None
 
 
 def _edit_answered(state: AssistantChat, waiting: EditWaiting, said: str, around: _Around) -> Said:
