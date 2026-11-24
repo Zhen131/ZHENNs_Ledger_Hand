@@ -9049,7 +9049,13 @@ counts as off: T10, "What did I sell in 2026?". The time was right (the
 model copied "2026", which is not read alone, and the program took "in
 2026" from the sentence), but the model chose `get_period_summary`, and the
 gold answer accepts only `list_trades`; a table from a tool not in the gold
-counts as off. No table was narrowed by a price, a quantity or "May": in T1
+counts as off. Counted by the conditions alone (the days, the asset
+and the side looked up with, narrower than the gold or other than it), as
+the pass line is worded, T10 is not narrower or off: its days are the
+gold's, it is not narrowed by an asset, and a summary takes no side, which
+is wider than the sells asked for. So it is not right, but not off either:
+0 sentences off by the conditions, 1 by the runner, which also counts a
+tool not in the gold as off. The runner's count is kept as it came out. No table was narrowed by a price, a quantity or "May": in T1
 to T6 the model either called no tool, wrote a time of its own ("今天",
 "今天之前", "all") that the program could not read or was told was not the
 user's words, or answered in words; T9's answer gave way to the program's
