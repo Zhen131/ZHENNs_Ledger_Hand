@@ -29,6 +29,8 @@ AREA_FILE = {
     "export": "export/writer.py",
     "llm": "llm/client.py",
     "storage": "storage/store.py",
+    "ledger": "ledger/fake_ledger.py",
+    "assistant": "assistant/tools.py",
     "settings": "settings.py",
     "flows": "flows/record.py",
     "wiring": "wiring.py",
@@ -46,6 +48,8 @@ MAY_IMPORT = {
     "export": {"core", "ports"},
     "llm": {"core", "ports", "settings"},
     "storage": {"core", "ports", "settings"},
+    "ledger": {"core", "ports"},
+    "assistant": {"core", "ports", "extraction"},
     "settings": set(),
     "flows": {
         "root",
@@ -56,6 +60,8 @@ MAY_IMPORT = {
         "export",
         "llm",
         "storage",
+        "ledger",
+        "assistant",
         "settings",
     },
     "ui": {
@@ -67,6 +73,8 @@ MAY_IMPORT = {
         "export",
         "llm",
         "storage",
+        "ledger",
+        "assistant",
         "settings",
         "flows",
         "wiring",
@@ -80,6 +88,8 @@ MAY_IMPORT = {
         "export",
         "llm",
         "storage",
+        "ledger",
+        "assistant",
         "settings",
         "flows",
     },
@@ -111,6 +121,8 @@ AREAS_WITH_ANY_STDLIB = (
     "export",
     "llm",
     "storage",
+    "ledger",
+    "assistant",
     "settings",
     "flows",
     "ui",
@@ -846,7 +858,7 @@ def test_an_environment_read_names_the_line(tmp_path: Path) -> None:
 
 # Written out by hand: the areas that read neither the clock nor the
 # machine's time zone. The core is checked above; extraction is checked here.
-CLOCK_FREE = {"core", "extraction", "asking", "flows"}
+CLOCK_FREE = {"core", "extraction", "asking", "flows", "ledger", "assistant"}
 EXTRACTION_FILE = AREA_FILE["extraction"]
 
 TIME_MODULE_CLOCK_READS = [

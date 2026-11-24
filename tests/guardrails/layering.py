@@ -5,7 +5,8 @@ each import the layering table below does not allow. For ``core/`` it also
 reports reads of the clock or of the machine's time zone, and builtins that
 reach outside the program.
 In ``core/`` it reports floating-point numbers as well.
-For ``extraction/``, ``asking/`` and ``flows/`` it reports reads of the clock
+For ``extraction/``, ``asking/``, ``flows/``, ``ledger/`` and ``assistant/``
+it reports reads of the clock
 and of the machine's time zone too, including those through the ``time``
 module, which they may import for other uses.
 Everywhere but ``settings.py`` it reports reads of environment variables.
@@ -36,6 +37,8 @@ class Area(enum.Enum):
     EXPORT = "export"
     LLM = "llm"
     STORAGE = "storage"
+    LEDGER = "ledger"
+    ASSISTANT = "assistant"
     SETTINGS = "settings"
     FLOWS = "flows"
     WIRING = "wiring"
@@ -127,6 +130,8 @@ _FLOWS_IMPORTS = frozenset(
         Area.EXPORT,
         Area.LLM,
         Area.STORAGE,
+        Area.LEDGER,
+        Area.ASSISTANT,
         Area.SETTINGS,
     }
 )
@@ -139,6 +144,10 @@ LAYERING_TABLE: dict[Area, AreaRule] = {
     Area.EXPORT: AreaRule(areas=_CORE_AND_PORTS, stdlib=ANY_STDLIB),
     Area.LLM: AreaRule(areas=_PLUG_IMPORTS, stdlib=ANY_STDLIB),
     Area.STORAGE: AreaRule(areas=_PLUG_IMPORTS, stdlib=ANY_STDLIB),
+    Area.LEDGER: AreaRule(areas=_CORE_AND_PORTS, stdlib=ANY_STDLIB),
+    Area.ASSISTANT: AreaRule(
+        areas=frozenset({Area.CORE, Area.PORTS, Area.EXTRACTION}), stdlib=ANY_STDLIB
+    ),
     Area.SETTINGS: AreaRule(areas=frozenset(), stdlib=ANY_STDLIB),
     Area.FLOWS: AreaRule(areas=_FLOWS_IMPORTS, stdlib=ANY_STDLIB),
     Area.WIRING: AreaRule(areas=_EVERY_AREA - {Area.UI}, stdlib=ANY_STDLIB),
@@ -172,7 +181,9 @@ _FLOAT_MAKERS = frozenset({"float", "complex", "__float__", "__complex__", "from
 ENVIRONMENT_AREAS = frozenset({Area.SETTINGS})
 # Areas that are handed the current moment and the zone and never read them
 # from the machine.
-CLOCK_FREE_AREAS = frozenset({Area.CORE, Area.EXTRACTION, Area.ASKING, Area.FLOWS})
+CLOCK_FREE_AREAS = frozenset(
+    {Area.CORE, Area.EXTRACTION, Area.ASKING, Area.FLOWS, Area.LEDGER, Area.ASSISTANT}
+)
 # The clock-free areas that may import the time module for other uses, and
 # so are checked for its reads of the clock and the zone. The core may not
 # import the module at all, which is reported as such.
