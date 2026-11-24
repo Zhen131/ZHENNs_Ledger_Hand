@@ -11,7 +11,7 @@ reply and every trade is invented.
 from __future__ import annotations
 
 import json
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -142,7 +142,7 @@ def test_each_kind_of_wrong_step_is_shown_to_the_model_and_asks_nothing_of_the_l
 ) -> None:
     ledger = FakeLedger()
 
-    result, model = turn([calls(wrong), "Sorry."], "10月6号那天我都做了什么交易", ledger=ledger)
+    result, model = turn([calls(wrong), "Sorry."], "我都做了什么交易", ledger=ledger)
 
     assert result.ending is Ending.ANSWERED
     assert ledger.calls == []
@@ -154,13 +154,41 @@ def test_each_kind_of_wrong_step_is_shown_to_the_model_and_asks_nothing_of_the_l
 def test_a_date_the_model_wrote_itself_is_judged_not_copied() -> None:
     result, _ = turn(
         [calls(("list_trades", {"period": "2023-10-06"})), "Sorry."],
-        "10月6号那天我都做了什么交易",
+        "我都做了什么交易",
     )
 
     (refused,) = result.steps[0].calls
     assert isinstance(refused, RefusedCall)
     assert refused.misstep.kind is MisstepKind.NOT_COPIED
     assert "not copied from what the user said" in refused.misstep.detail
+
+
+def test_a_date_the_model_wrote_gives_way_to_the_one_time_in_the_users_words() -> None:
+    ledger = FakeLedger()
+
+    result, _ = turn(
+        [calls(("list_trades", {"period": "2023-10-06"})), "Done."],
+        "10月6号那天我都做了什么交易",
+        ledger=ledger,
+    )
+
+    (taken,) = result.steps[0].calls
+    assert isinstance(taken, TakenCall)
+    assert not result.steps[0].wrong
+    assert ledger.calls == ["list_trades"]
+    assert taken.lookup is not None and taken.lookup.conditions is not None
+    conditions = taken.lookup.conditions
+    assert conditions.period is not None
+    assert (conditions.period.first_day, conditions.period.last_day) == (
+        date(2026, 10, 6),
+        date(2026, 10, 6),
+    )
+    assert conditions.period.start == datetime(2026, 10, 6, tzinfo=ZoneInfo(INVENTED_ZONE))
+    assert conditions.period.end == datetime(2026, 10, 7, tzinfo=ZoneInfo(INVENTED_ZONE))
+    assert conditions.period_words == "10月6号"
+    assert [trade.id for trade in taken.lookup.trades] == ["t-05", "t-06"]
+    assert "2023" not in taken.result
+    assert json.loads(taken.result)["conditions"]["time_taken_from_your_words"] == "10月6号"
 
 
 def test_figures_handed_to_the_recording_tool_are_dropped_not_a_wrong_step() -> None:
