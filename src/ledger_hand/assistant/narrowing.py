@@ -35,8 +35,10 @@ The asset, in four steps:
 The side: only the fixed words for a buy and a sell of
 ``extraction.answer_words`` count. Words that name both sides together
 ("买卖", "buy and sell") are taken out first; English words are found as
-whole words. The side is used when only words of that side are left;
-otherwise it is dropped (``SideDropped``).
+whole words. The side is used when only words of that side are left, or,
+as with the asset, when what the user said just now names no side at all
+and what they said the time before names only that side ("那ETH呢" after
+"10月我卖了哪些BTC"); otherwise it is dropped (``SideDropped``).
 
 Names defined here: ``AssetUsed``, ``AssetDropped``, ``NoSuchAsset``,
 ``SideUsed``, ``SideDropped``, ``check_asset``, ``check_side`` and
@@ -220,11 +222,18 @@ def _sides_said(text: str, words: Iterable[tuple[str, Side]]) -> frozenset[Side]
     return frozenset(sides)
 
 
-def check_side(given: str, said_now: str) -> SideUsed | SideDropped:
-    """Whether to narrow a list of trades to the side the model chose, ``given``."""
+def check_side(given: str, said_now: str, said_before: str | None = None) -> SideUsed | SideDropped:
+    """Whether to narrow a list of trades to the side the model chose, ``given``.
+
+    ``said_before`` is what the user said the time before in this chat; its
+    side is kept only when nothing said just now names a side at all.
+    """
     side = Side(given)
     said = _sides_said(said_now, SIDE_WORDS.items())
     if said == {side}:
+        return SideUsed(side=side)
+    said_then = _sides_said(said_before, SIDE_WORDS.items()) if said_before else frozenset()
+    if not said and said_then == {side}:
         return SideUsed(side=side)
     return SideDropped(
         given=given,

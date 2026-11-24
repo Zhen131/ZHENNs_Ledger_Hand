@@ -133,3 +133,25 @@ def test_a_side_not_named_alone_is_dropped(given: str, said: str) -> None:
 
     assert isinstance(checked, SideDropped)
     assert checked.why == (f"Not narrowed to {given}s: what you said does not name {given}s alone.")
+
+
+def test_a_side_said_the_time_before_is_kept_when_none_is_said_now() -> None:
+    assert check_side("sell", "那ETH呢", "10月我卖了哪些BTC") == SideUsed(side=Side.SELL)
+    assert check_side("buy", "And ETH?", "What did I buy in October?") == SideUsed(side=Side.BUY)
+
+
+@pytest.mark.parametrize(
+    ("given", "now", "before"),
+    [
+        ("sell", "那ETH呢", "10月我买了哪些BTC"),
+        ("sell", "那ETH呢", "10月我买卖了哪些BTC"),
+        ("sell", "那ETH呢", "10月我买了又卖了哪些BTC"),
+        ("sell", "那ETH买了哪些", "10月我卖了哪些BTC"),
+        ("sell", "那ETH呢", None),
+    ],
+    ids=["the other side", "both together", "both apart", "a side now", "nothing before"],
+)
+def test_a_side_said_the_time_before_is_not_kept_otherwise(
+    given: str, now: str, before: str | None
+) -> None:
+    assert isinstance(check_side(given, now, before), SideDropped)

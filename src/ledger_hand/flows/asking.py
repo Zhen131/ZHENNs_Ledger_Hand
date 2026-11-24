@@ -170,7 +170,7 @@ def _conditions(
     side: Side | None = None
     given_side = accepted.arguments.get("side")
     if accepted.tool is ToolName.LIST_TRADES and given_side is not None:
-        side_checked = check_side(given_side, said.now_words)
+        side_checked = check_side(given_side, said.now_words, said.before)
         if isinstance(side_checked, SideDropped):
             not_narrowed.append(side_checked.why)
         else:
