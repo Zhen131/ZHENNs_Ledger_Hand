@@ -18,9 +18,11 @@ routes (``Route``):
   the question, or that a proposal was sent, or why nothing was.
 - When the model goes wrong two steps in a row, the program takes over
   once: it hands what the user said to the recording flow as what may be
-  a trade. If the flow finds no trade in it, or only things the ledger does
-  not record, the user is told it could not be done. A turn stopped at the
-  step limit, or by a failure, is not taken over.
+  a trade, and says what the flow found, in the same words as when the
+  model asks to record: only things the ledger does not record, such as an
+  open order, is said with its reason. Only when the flow finds no trade at
+  all is the user told it could not be done. A turn stopped at the step
+  limit, or by a failure, is not taken over. (Decided on 2026-11-24.)
 
 Once every trade is settled, the records are sent to the ledger as one
 proposal (``proposing``); nothing is confirmed here, since the user confirms
@@ -60,8 +62,8 @@ from ledger_hand.flows.recorded import (
 )
 from ledger_hand.ports import LedgerPort, Message, ModelPort, Role
 
-# Takeover goes on only when the flow finds a trade; these say it found none.
-_NOT_A_TRADE = frozenset({RecordEnding.NO_TRADE, RecordEnding.STOPPED})
+# After a takeover, only this ending means it could not be done at all.
+_NOT_A_TRADE = frozenset({RecordEnding.NO_TRADE})
 
 
 class Route(enum.Enum):

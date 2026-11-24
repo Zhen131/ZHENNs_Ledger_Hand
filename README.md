@@ -431,8 +431,10 @@ nothing is confirmed in the assistant. Every figure is the recording flow's,
 and the user's words go with each trade. A trade said only with its day, or
 naming an asset the ledger does not have, is left out, with a sentence
 saying why; an open order, or words with no trade in them, send nothing.
-If the model goes wrong two steps in a row, the program tries the words
-once as a trade before it gives up.
+If the model goes wrong two steps in a row, the program hands the words
+once to the recording flow and says what it found, an open order among
+them; only words with no trade in them end with "please say it another
+way".
 
 Each argument is one thing the user says, in order, in one chat. For each
 the script prints which way it went (the model chose the tools, it was the

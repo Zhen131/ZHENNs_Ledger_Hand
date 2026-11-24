@@ -662,3 +662,22 @@ def test_after_a_proposal_is_sent_the_next_ask_finds_a_result_after_every_call()
         if isinstance(item, ToolCallTurn):
             results = items[position + 1 : position + 1 + len(item.calls)]
             assert all(isinstance(result, ToolResult) for result in results)
+
+
+def test_after_two_wrong_steps_an_open_order_is_said_with_its_reason() -> None:
+    words = "在OKX挂了个BTC限价单，59,500买100U"
+    (said,), _, ledger = talk(
+        words,
+        tools=[calls("place_order"), calls("place_order")],
+        screen=[screened(("open_order", "挂了个BTC限价单"))],
+    )
+
+    assert said.route is Route.TAKEOVER
+    assert said.recorded is not None and said.recorded.ending is RecordEnding.STOPPED
+    assert said.reply.startswith("Nothing was sent to the ledger: what you said reports only")
+    assert "open_order" in said.reply
+    assert said.reply != TWO_MISSTEPS_REPLY
+    assert said.state.chat.items[-1] == Message(Role.ASSISTANT, said.reply)
+    assert said.sent is None
+    assert pending(ledger) == []
+    assert said.well_ended

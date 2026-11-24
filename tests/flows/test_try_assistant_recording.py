@@ -154,3 +154,17 @@ def test_a_small_figure_is_written_out_in_full() -> None:
 
     assert "fee 0.0000004 BTC" in line
     assert "at 61258.60 USDT" in line
+
+
+def test_a_takeover_that_finds_an_open_order_says_why_and_gives_status_0() -> None:
+    wrong = ToolReply(
+        text="", calls=(ToolCall(name="place_order", arguments={}),), record=scripted_record()
+    )
+    model = RoutedModel(tools=[wrong, wrong], screen=[screened(("open_order", "挂了个BTC限价单"))])
+
+    status, printed = run(["在OKX挂了个BTC限价单，59,500买100U"], model, FakeLedger())
+
+    assert status == 0
+    assert "route: the program took over after two wrong steps" in printed
+    assert "sent to the ledger: nothing" in printed
+    assert printed.rstrip().endswith("ending: two_missteps, taken over: stopped")
