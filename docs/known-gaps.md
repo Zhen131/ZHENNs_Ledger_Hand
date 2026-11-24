@@ -542,22 +542,26 @@ changed.
   in November is not guessed at: the user is asked to say the year. "10/6"
   is not read either, as month and day differ by place.
 - **The model translates a time.** Asked "How much did I spend on ETH this
-  year?", the model copies "今年", which is not the user's words, and goes
-  on doing so after it is shown why; the turn stops after two wrong steps.
-  "Oct 1 to Oct 15" and "September" go the same way. No version of the
-  prompt measured so far stopped it (`evals/RESULTS.md`).
-- **The side is looked for in what was said just now.** "那ETH呢", asked
-  after "10月我卖了哪些BTC", names no side, so the sells of ETH are not
-  picked out: the table holds the buys too, and says it was not narrowed.
-  The asset, by contrast, is kept from the time before when none is named.
+  year?", the model copies "今年", which is not the user's words. It is a
+  wrong step; what the model is handed back then holds the user's own
+  sentence and asks for the time in the user's language. Whether that is
+  enough is measured in `evals/RESULTS.md`.
+- **The side is kept from the time before only one step back.** "那ETH呢",
+  asked after "10月我卖了哪些BTC", names no side, so the side of the
+  sentence before is kept, as the asset is. A side said two sentences back,
+  or in a sentence that named both sides, is not.
 - **The model's words often give way to the program's.** Beside a table
   the model tends to add numbers up, round them or say them again wrongly
   (adding two moneys together, writing a fee ten times too large); every
   number it writes must be in the table, the ledger's answer or what the
   user said, or the program's words "Here is what the ledger returned."
   are shown instead. Words longer than 300 characters are not shown
-  either. A sign before a number is not checked, so a loss written as a
-  gain of the same size would pass. With no table, any figure with a
+  either.
+- **A loss written as a gain is not caught.** The check looks at the
+  numbers only: not at a sign before them, and not at words such as
+  "赚", "亏", "profit" or "loss". So "你赚了 12.5 USDT" passes beside a
+  table whose realized figure is -12.5 USDT. The table itself is always
+  the ledger's own. With no table, any figure with a
   decimal point or three digits or more ("2026") turns the answer away.
 - **A general word that is a code.** "coin", "crypto", "token", "stock"
   and a few more are never taken for an asset's code, so a ledger asset

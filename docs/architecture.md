@@ -723,7 +723,9 @@ its list, or a copied argument that is not a piece of what the user said
 (judged as extraction judges a copy, `extraction/passage.py`) is a wrong
 step, not run, and the model is shown why. The asset given to
 `list_trades` or `get_period_summary` is taken out before judging and
-checked apart, against what the user said (see below). Arguments given to one of the
+checked apart, against what the user said (see below). A period that is
+not the user's words is handed back with what the user just said, word
+for word, and asked to be copied in the user's language. Arguments given to one of the
 four tools that take none (`list_assets`, `get_positions`,
 `get_proposal_status`, `propose_trade_add`) are dropped unread instead, and
 the step records their names. The program asks the model at

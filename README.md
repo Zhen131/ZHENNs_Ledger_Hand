@@ -444,7 +444,8 @@ and the six days before. Words it cannot read, words with two meanings
 the future are not guessed at: nothing is looked up, and the program says
 which words, and why. The asset and the side are used only when the user
 named them; "比特币" and "BTC" are the same asset, "币" names none, and
-"买卖" asks for both sides. An asset the ledger does not have ("DOGE") is
+"买卖" asks for both sides. A question asked on ("那ETH呢") keeps the asset
+and the side of the one before when it names none. An asset the ledger does not have ("DOGE") is
 said so. The program lays the table out itself, under a header that names
 the days, the asset and the side it was looked up with; every figure is the
 ledger's own. The model writes a sentence or two beside it; a number in
