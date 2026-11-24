@@ -8,6 +8,9 @@ kinds. It tries once: trying again is ``retry``'s job, and
 goes to the same endpoint, the pictures in the last message
 (``ollama_request.picture_body``), and its answer is read the same way: a
 model that cannot see pictures is refused by the server, as a server error.
+A call that hands the model tools goes to the same endpoint too, the tools
+in ``tools`` (``ollama_request.tool_body``), and its answer is read for the
+tools the model asked for as well as its text (``ollama_tool_reply``).
 
 The default parameters come from the settings; a call can hand in others.
 Whether the model is asked to think first comes from the settings too
@@ -32,11 +35,21 @@ from collections.abc import Callable, Sequence
 
 import httpx
 
-from ledger_hand.llm.exchange import Endpoint, exchange
+from ledger_hand.llm.exchange import Answer, Endpoint, exchange
 from ledger_hand.llm.ollama_reply import read_chat_answer
-from ledger_hand.llm.ollama_request import CHAT_PATH, chat_body, picture_body
+from ledger_hand.llm.ollama_request import CHAT_PATH, chat_body, picture_body, tool_body
+from ledger_hand.llm.ollama_tool_reply import read_tool_answer
 from ledger_hand.llm.request_body import encode
-from ledger_hand.ports import JsonSchema, Message, ModelParameters, ModelReply, Picture
+from ledger_hand.ports import (
+    ChatItem,
+    JsonSchema,
+    Message,
+    ModelParameters,
+    ModelReply,
+    Picture,
+    ToolReply,
+    ToolSpec,
+)
 from ledger_hand.settings import ModelSettings
 
 
@@ -111,8 +124,32 @@ class OllamaModel:
         )
         return self._send(content, chosen)
 
+    def chat_with_tools(
+        self,
+        items: Sequence[ChatItem],
+        tools: Sequence[ToolSpec],
+        *,
+        parameters: ModelParameters | None = None,
+    ) -> ToolReply:
+        chosen = self._defaults if parameters is None else parameters
+        content = encode(tool_body(self._model, items, tools, chosen, thinking=self._thinking))
+        answer, elapsed = self._exchange(content, chosen)
+        return read_tool_answer(
+            answer, self._endpoint, requested_model=self._model, elapsed_seconds=elapsed
+        )
+
     def _send(self, content: bytes, chosen: ModelParameters) -> ModelReply:
         """Send one body and read the answer to it."""
+        answer, elapsed = self._exchange(content, chosen)
+        return read_chat_answer(
+            answer,
+            self._endpoint,
+            requested_model=self._model,
+            elapsed_seconds=elapsed,
+        )
+
+    def _exchange(self, content: bytes, chosen: ModelParameters) -> tuple[Answer, float]:
+        """Send one body; the answer, and the seconds from sending to having it whole."""
         clock = self._endpoint.clock
         started = clock()
         answer = exchange(
@@ -122,9 +159,4 @@ class OllamaModel:
             content=content,
             timeout_seconds=chosen.timeout_seconds,
         )
-        return read_chat_answer(
-            answer,
-            self._endpoint,
-            requested_model=self._model,
-            elapsed_seconds=clock() - started,
-        )
+        return answer, clock() - started

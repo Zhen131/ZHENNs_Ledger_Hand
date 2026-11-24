@@ -12,6 +12,8 @@ A call with pictures, reading a screenshot, sends no schema; every such call
 takes its reply from a list of its own, ``pictures``, and a call after the
 last one scripted fails the test.
 
+A call with tools takes its reply from a list of its own, ``tools``, too.
+
 Names defined here: ``RoutedModel``.
 """
 
@@ -24,6 +26,7 @@ from ledger_hand.extraction.answer_table import ANSWER_TABLE
 from ledger_hand.extraction.reply_table import REPLY_TABLE
 from ledger_hand.extraction.screen_table import SCREEN_TABLE
 from ledger_hand.ports import (
+    ChatItem,
     JsonSchema,
     Message,
     ModelError,
@@ -31,6 +34,8 @@ from ledger_hand.ports import (
     ModelParameters,
     ModelReply,
     Picture,
+    ToolReply,
+    ToolSpec,
 )
 from tests.fakes.scripted_model import ScriptedModel, Step
 
@@ -46,12 +51,14 @@ class RoutedModel:
         questions: Iterable[Step] = (),
         answers: Iterable[Step] = (),
         pictures: Iterable[Step] = (),
+        tools: Iterable[Step] = (),
     ) -> None:
         self.screen = ScriptedModel(screen)
         self.extraction = ScriptedModel(extraction)
         self.questions = ScriptedModel(questions)
         self.answers = ScriptedModel(answers)
         self.pictures = ScriptedModel(pictures)
+        self.tools = ScriptedModel(tools)
         # The parameters of every attempt to word a question, scripted or not.
         self.question_parameters: list[ModelParameters | None] = []
 
@@ -85,3 +92,12 @@ class RoutedModel:
         parameters: ModelParameters | None = None,
     ) -> ModelReply:
         return self.pictures.chat_with_pictures(messages, pictures, parameters=parameters)
+
+    def chat_with_tools(
+        self,
+        items: Sequence[ChatItem],
+        tools: Sequence[ToolSpec],
+        *,
+        parameters: ModelParameters | None = None,
+    ) -> ToolReply:
+        return self.tools.chat_with_tools(items, tools, parameters=parameters)

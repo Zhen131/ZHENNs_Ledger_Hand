@@ -27,10 +27,14 @@ mistake, not a failure of the model, so it is never tried again and never
 sorted into one of the six kinds, none of which says "this plug does not
 send pictures". Pictures are read through the local plug only.
 
+It hands the model no tools either: a call with tools is refused the same
+way, before anything is sent, with ``ValueError`` naming the plug setting
+(``NO_TOOLS``). The assistant runs on the local plug only.
+
 This module keeps nothing between calls: each call opens its own connection
 and closes it. It writes nothing to disk and records nothing that was said.
 
-Names defined here: ``CloudModel``, ``NO_PICTURES``.
+Names defined here: ``CloudModel``, ``NO_PICTURES``, ``NO_TOOLS``.
 """
 
 from __future__ import annotations
@@ -45,13 +49,28 @@ from ledger_hand.llm.cloud_request import CHAT_PATH, chat_body
 from ledger_hand.llm.exchange import Endpoint, exchange
 from ledger_hand.llm.ollama import parameters_from
 from ledger_hand.llm.request_body import encode
-from ledger_hand.ports import JsonSchema, Message, ModelParameters, ModelReply, Picture
+from ledger_hand.ports import (
+    ChatItem,
+    JsonSchema,
+    Message,
+    ModelParameters,
+    ModelReply,
+    Picture,
+    ToolReply,
+    ToolSpec,
+)
 from ledger_hand.settings import ModelSettings, Plug, Variable
 
 # Why a call with pictures is refused, naming the setting that chooses the plug.
 NO_PICTURES = (
     "the cloud plug sends no pictures; pictures are read through the local plug only. "
     f"Set {Variable.PLUG.value} to {Plug.LOCAL.value} to read a picture."
+)
+
+# Why a call with tools is refused, naming the setting that chooses the plug.
+NO_TOOLS = (
+    "the cloud plug hands the model no tools; the assistant runs on the local plug only. "
+    f"Set {Variable.PLUG.value} to {Plug.LOCAL.value} to use the assistant."
 )
 
 
@@ -122,3 +141,13 @@ class CloudModel:
     ) -> ModelReply:
         """Refused before anything is sent: this plug sends no pictures."""
         raise ValueError(NO_PICTURES)
+
+    def chat_with_tools(
+        self,
+        items: Sequence[ChatItem],
+        tools: Sequence[ToolSpec],
+        *,
+        parameters: ModelParameters | None = None,
+    ) -> ToolReply:
+        """Refused before anything is sent: this plug hands the model no tools."""
+        raise ValueError(NO_TOOLS)

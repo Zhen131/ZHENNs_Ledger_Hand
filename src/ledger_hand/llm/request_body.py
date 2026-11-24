@@ -10,12 +10,17 @@ are not model failures and are never turned into one.
 the pictures must be a non-empty sequence of ``Picture``, and the last
 message, which they are attached to, must be the user's.
 
+``check_tools`` does the same for a call that hands the model tools: the
+conversation must be a non-empty sequence of messages, the model's earlier
+tool-call turns and the results handed back for them, and the tools a
+non-empty sequence of ``ToolSpec`` with no name twice.
+
 ``encode`` turns a body into the bytes that are sent: UTF-8 JSON text, with
 the text of the messages kept as written. A schema or a message that cannot
 be written as JSON text is the caller's mistake and is refused with
 ``ValueError`` before anything is sent.
 
-Names defined here: ``check_call``, ``check_pictures``, ``encode``.
+Names defined here: ``check_call``, ``check_pictures``, ``check_tools``, ``encode``.
 """
 
 from __future__ import annotations
@@ -23,7 +28,17 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping, Sequence
 
-from ledger_hand.ports import JsonSchema, Message, ModelParameters, Picture, Role
+from ledger_hand.ports import (
+    ChatItem,
+    JsonSchema,
+    Message,
+    ModelParameters,
+    Picture,
+    Role,
+    ToolCallTurn,
+    ToolResult,
+    ToolSpec,
+)
 
 
 def check_call(
@@ -60,6 +75,27 @@ def check_pictures(messages: Sequence[Message], pictures: Sequence[Picture]) -> 
             f"the pictures go with the last message, which must be the user's, "
             f"not the {messages[-1].role.value}'s"
         )
+
+
+def check_tools(
+    items: Sequence[ChatItem], tools: Sequence[ToolSpec], parameters: ModelParameters
+) -> None:
+    """Refuse a call with tools in the wrong shape; return nothing when it is in the right one."""
+    if isinstance(items, str | bytes) or not isinstance(items, Sequence):
+        raise TypeError("the conversation must be a sequence of messages, calls and results")
+    if not items:
+        raise ValueError("a call needs at least one message")
+    for item in items:
+        if not isinstance(item, Message | ToolCallTurn | ToolResult):
+            raise TypeError(f"a conversation holds no {type(item).__name__}")
+    if isinstance(tools, str | bytes) or not isinstance(tools, Sequence) or not tools:
+        raise ValueError("a call with tools needs a sequence of at least one ToolSpec")
+    if not all(isinstance(tool, ToolSpec) for tool in tools):
+        raise TypeError("the tools must be ToolSpec values")
+    if len({tool.name for tool in tools}) != len(tools):
+        raise ValueError("two tools share a name")
+    if not isinstance(parameters, ModelParameters):
+        raise TypeError(f"parameters must be ModelParameters, not {type(parameters).__name__}")
 
 
 def encode(body: Mapping[str, object]) -> bytes:

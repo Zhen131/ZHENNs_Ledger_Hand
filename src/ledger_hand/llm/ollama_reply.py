@@ -47,7 +47,10 @@ Whether the text is valid JSON that follows a schema is not checked here; a
 model reply is untrusted input, and the caller checks it. Reading the body
 as JSON, and the fields every chat reply shares, are in ``reply_json``.
 
-Names defined here: ``read_chat_answer``.
+``read_message`` and ``call_record`` are the parts of reading an answer that
+the reading of a reply with tools (``ollama_tool_reply``) shares.
+
+Names defined here: ``read_chat_answer``, ``read_message`` and ``call_record``.
 """
 
 from __future__ import annotations
@@ -70,6 +73,26 @@ def read_chat_answer(
     answer: Answer, endpoint: Endpoint, *, requested_model: str, elapsed_seconds: float
 ) -> ModelReply:
     """The reply in ``answer``, or the ``ModelError`` that says why there is none."""
+    data, message = read_message(answer, endpoint, requested_model=requested_model)
+    text = message.get("content")
+    if not isinstance(text, str):
+        raise malformed("has no text in its message", answer, endpoint)
+    if not text.strip():
+        raise malformed(_why_empty(message, data), answer, endpoint)
+    if not is_valid_unicode(text):
+        raise malformed("has a reply that is not valid Unicode text", answer, endpoint)
+    if data.get("done") is not True:
+        raise malformed("is not marked as complete", answer, endpoint)
+    return ModelReply(text=text, record=call_record(data, requested_model, elapsed_seconds))
+
+
+def read_message(
+    answer: Answer, endpoint: Endpoint, *, requested_model: str
+) -> tuple[dict[str, object], dict[object, object]]:
+    """The answer as a JSON object and its message, or the ``ModelError`` that says why not.
+
+    Its text is not looked at here: a reply with tools may have none.
+    """
     if answer.status == 404 and _says_not_found(answer):
         raise ModelError(
             ModelErrorKind.MODEL_NOT_FOUND,
@@ -83,23 +106,20 @@ def read_chat_answer(
     message = data.get("message")
     if not isinstance(message, dict):
         raise malformed("has no message", answer, endpoint)
-    text = message.get("content")
-    if not isinstance(text, str):
-        raise malformed("has no text in its message", answer, endpoint)
-    if not text.strip():
-        raise malformed(_why_empty(message, data), answer, endpoint)
-    if not is_valid_unicode(text):
-        raise malformed("has a reply that is not valid Unicode text", answer, endpoint)
-    if data.get("done") is not True:
-        raise malformed("is not marked as complete", answer, endpoint)
-    record = ReplyRecord(
+    return data, message
+
+
+def call_record(
+    data: dict[str, object], requested_model: str, elapsed_seconds: float
+) -> ReplyRecord:
+    """The record of a call, from what the answer says of it."""
+    return ReplyRecord(
         model=model_name(data.get("model"), requested_model),
         elapsed_seconds=elapsed_seconds,
         prompt_tokens=count(data.get("prompt_eval_count")),
         reply_tokens=count(data.get("eval_count")),
         finish=_finish(data.get("done_reason")),
     )
-    return ModelReply(text=text, record=record)
 
 
 def _why_empty(message: dict[object, object], data: dict[str, object]) -> str:

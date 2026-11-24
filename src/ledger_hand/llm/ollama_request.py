@@ -19,6 +19,15 @@ message, each as the standard base64 of its bytes (not the URL-safe kind,
 and with no ``data:`` prefix). Their media type is not sent: Ollama tells
 the kind from the bytes.
 
+``tool_body`` lays out a call that hands the model tools, as Ollama's own
+chat endpoint takes them (checked against Ollama 0.34.3 and its tool-calling
+documentation): each tool as ``{"type": "function", "function": {"name",
+"description", "parameters"}}`` in ``tools``; the model's earlier tool-call
+turn as an assistant message with its ``tool_calls``, each
+``{"function": {"name", "arguments"}}``; and each result handed back as a
+message whose role is ``tool``, with the tool's name in ``tool_name``. No
+schema is sent for the reply: the tools are what shape it.
+
 A call in the wrong shape is refused before anything is sent, by the
 checks every plug shares (``request_body.check_call``, and
 ``request_body.check_pictures`` for the pictures). ``encode``, also shared
@@ -26,7 +35,7 @@ and kept in ``request_body``, turns the body into the bytes that are sent;
 it can be imported from here as well.
 
 Names defined here: ``CHAT_PATH``, ``OPTION_FIELDS``, ``THINK_VALUES``,
-``chat_body``, ``picture_body``.
+``chat_body``, ``picture_body``, ``tool_body``.
 """
 
 from __future__ import annotations
@@ -34,9 +43,17 @@ from __future__ import annotations
 import base64
 from collections.abc import Sequence
 
-from ledger_hand.llm.request_body import check_call, check_pictures
+from ledger_hand.llm.request_body import check_call, check_pictures, check_tools
 from ledger_hand.llm.request_body import encode as encode
-from ledger_hand.ports import JsonSchema, Message, ModelParameters, Picture
+from ledger_hand.ports import (
+    ChatItem,
+    JsonSchema,
+    Message,
+    ModelParameters,
+    Picture,
+    ToolCallTurn,
+    ToolSpec,
+)
 from ledger_hand.settings import Thinking
 
 CHAT_PATH = "/api/chat"
@@ -98,3 +115,53 @@ def picture_body(
         {"role": last.role.value, "content": last.content, "images": images},
     ]
     return body
+
+
+def tool_body(
+    model: str,
+    items: Sequence[ChatItem],
+    tools: Sequence[ToolSpec],
+    parameters: ModelParameters,
+    *,
+    thinking: Thinking = Thinking.MODEL,
+) -> dict[str, object]:
+    """The request body for one call that hands the model ``tools``, as plain JSON values."""
+    check_tools(items, tools, parameters)
+    if not isinstance(thinking, Thinking):
+        raise TypeError(f"thinking must be a Thinking, not {type(thinking).__name__}")
+    body: dict[str, object] = {
+        "model": model,
+        "messages": [_item(item) for item in items],
+        "tools": [
+            {
+                "type": "function",
+                "function": {
+                    "name": tool.name,
+                    "description": tool.description,
+                    "parameters": dict(tool.parameters),
+                },
+            }
+            for tool in tools
+        ],
+        "stream": False,
+        "options": {field: getattr(parameters, name) for name, field in OPTION_FIELDS.items()},
+    }
+    if thinking in THINK_VALUES:
+        body["think"] = THINK_VALUES[thinking]
+    return body
+
+
+def _item(item: ChatItem) -> dict[str, object]:
+    """One item of the conversation as one message of Ollama's chat endpoint."""
+    if isinstance(item, Message):
+        return {"role": item.role.value, "content": item.content}
+    if isinstance(item, ToolCallTurn):
+        return {
+            "role": "assistant",
+            "content": item.text,
+            "tool_calls": [
+                {"function": {"name": call.name, "arguments": dict(call.arguments)}}
+                for call in item.calls
+            ],
+        }
+    return {"role": "tool", "tool_name": item.name, "content": item.content}
