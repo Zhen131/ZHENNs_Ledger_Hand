@@ -172,6 +172,6 @@ def recording_text(ending: str) -> str:
     return _text(
         {
             "status": ending,
-            "message": "The program recorded this itself and has told the user how it went.",
+            "message": "The program took this over and has told the user where it stands.",
         }
     )
