@@ -8675,3 +8675,201 @@ line here, and no prompt was changed for it.
   the flow asked for the fee; the answer "手续费 0.1 USDT" sent one trade with
   the fee 0.1 USDT, and saving it added the trade to the fake ledger's book,
   11 trades before and 12 after.
+
+## 2026-11-24: asking the ledger, twenty-seven questions, `qwen2.5:7b`
+
+**What was measured.** Whether a question about the ledger, run through the
+whole assistant to the end, comes back as a table looked up with the right
+conditions. The set, `evals/sets/asks.json`, holds Q1 to Q6 of
+`evals/sets/tools.json` and twenty-one sentences written for it (A1 to A21,
+two of them, A8 and A9, said one after the other in one chat): every read
+tool, every kind of time words the program reads, two other names of a
+coin, a coin the fake ledger does not have, "买卖", a question asked on from
+the one before, and two questions none of the tools answers. Each sentence
+has its gold answers: the tool, and for `list_trades` and
+`get_period_summary` the first and last day, the asset and, for
+`list_trades`, the side. The sentences and the gold answers were written and
+committed before any run, and not changed after. Each group was run with
+`.venv/bin/python -m evals.ask_run`: `qwen2.5:7b` (fingerprint
+`845dbda0ea48`), Ollama 0.34.3, temperature 0, the settings' other
+defaults, six steps a turn, the fake ledger, the fixed moment 2026-11-24
+23:55 in Europe/Budapest. The last table of each turn is judged
+(`evals/ask_set.py`): right (the tool and every condition the gold's),
+wider (a condition left wider: all time, all assets, both sides), narrower
+or off (a table whose conditions are narrower or other than the gold, a tool
+not in the gold, or a table for a question that has none), or no table.
+
+**These sentences were seen while the prompts were written. This is not a
+hidden test.** Q1 to Q6 were seen when the first prompt was written and
+again here; A1 to A21 were written by whoever built the set and were seen
+too. The fourth prompt's tool description names "last week", which is the
+wording of no sentence here.
+
+**The pass lines,** fixed before the run: no table narrower or off; Q1 to Q6
+all right; at least 80% of all sentences right (the share of the extraction
+set's whole-trade line). Beside them the nineteen sentences of the first
+step are run again with each version, and must have the first step right
+on 18 of them at least.
+
+**Result: not passed.** Three versions of the prompt were measured, the most
+the rule allows; none passed all three lines.
+
+| Prompt | Right of 27 | Narrower or off | Q1 to Q6 right | First step right of 19 | Results files |
+| --- | --- | --- | --- | --- | --- |
+| `assistant-2` | 15 | 1 (A16) | Q1, Q2, Q3, Q4 | 12 | `run-20261124T154531Z-asks-assistant-2.jsonl`, `run-20261124T154832Z-tools-assistant-2.jsonl` |
+| `assistant-3` | 21 | 0 | Q1, Q2, Q4, Q5 | 14 | `run-20261124T155017Z-asks-assistant-3.jsonl`, `run-20261124T155242Z-tools-assistant-3.jsonl` |
+| `assistant-4` | 21 | 0 | Q1 to Q5 | 18 | `run-20261124T155614Z-asks-assistant-4.jsonl`, `run-20261124T160007Z-tools-assistant-4.jsonl` |
+
+`assistant-4` is the default now: no table narrower or off, and 18 of 19 on
+the first step, but Q6 is not right and 21 of 27 is 78%, short of 80% by
+one sentence. The first prompt, `assistant-1`, was run once more on the
+nineteen sentences with the tools as `assistant-3` had them, to see whether
+the tools or the prompt had changed the first step: 19 of 19
+(`run-20261124T155344Z-tools-assistant-1.jsonl`). The run of `assistant-4`
+on the nineteen sentences was made with the documentation already changed
+and not committed, which is why its first line says the work tree was not
+clean; no code, prompt or tool had changed.
+
+**What went wrong, version by version.**
+
+- `assistant-2` set out the four questions it answers in a paragraph of its
+  own, naming a tool for each. The model then often wrote a call as text
+  ("get_positions", "call list_trades with ...") instead of making it, on
+  six recording sentences of the nineteen as well, and on A16 it summed a
+  month to answer how much the holdings grew.
+- `assistant-3` went back to the first prompt's words and added five short
+  rules. The model still wrote a tool's name as its whole reply on four
+  recording sentences and on Q3 and A11 ("get_positions").
+- `assistant-4` is the first prompt's words with two rules changed and the
+  period's tool description saying the user's language; it called the
+  tools again. What is left: Q6, A3 and A13 (the model translates "this
+  year", "Oct 1 to Oct 15" and "September" into Chinese, is shown why, does
+  it again, and the turn stops after two wrong steps); A15 and A18 (the
+  model asks back instead of calling a tool); A9 ("那ETH呢" names no side, so
+  the sells of ETH asked for the time before are not picked out; wider).
+
+A16 is counted right under `assistant-4` because no table was given: the
+model called a tool with "11月初", which the program could not read, and
+the program said so. Counted as the model calling nothing, as the gold
+says, it would be 20 of 27.
+
+**The model's words beside the table** were turned away under
+`assistant-4` on 7 of the 19 tables, for a number not in the table (a
+numbered list's "1" twice, a fee ten times too large, a profit rounded to
+two places, fees taken in three assets added together) or for words over
+300 characters (twice); under `assistant-3` the model added two moneys
+together once (Q1, "2111.918"), and the program showed its own words.
+
+### `assistant-4`
+
+Model `qwen2.5:7b`, prompt `assistant-4`: looked up right on 21 of 27 sentences.
+
+- nothing narrower or off: passed
+- Q1 to Q6 all right: NOT passed
+- at least 80% right: NOT passed
+
+| Sentence | Gold | Table given | Verdict | Words by |
+| --- | --- | --- | --- | --- |
+| Q1 | `get_period_summary` 2026-10-01 to 2026-10-31, all assets; `list_trades` 2026-10-01 to 2026-10-31, all assets, buy | `get_period_summary` 2026-10-01 to 2026-10-31, all assets | right | the model |
+| Q2 | `get_period_summary` 2026-09-01 to 2026-09-30, all assets | `get_period_summary` 2026-09-01 to 2026-09-30, all assets | right | the model |
+| Q3 | `get_positions` all time, all assets | `get_positions` all time, all assets | right | the program (withheld: 103.03 is not in what the ledger returned) |
+| Q4 | `list_trades` 2026-10-06 to 2026-10-06, all assets | `list_trades` 2026-10-06 to 2026-10-06, all assets | right | the program (withheld: 1 is not in what the ledger returned) |
+| Q5 | `list_trades` 2026-10-01 to 2026-10-31, all assets, sell | `list_trades` 2026-10-01 to 2026-10-31, all assets, sell | right | the program (withheld: longer than 300 characters) |
+| Q6 | `get_period_summary` 2026-01-01 to 2026-12-31, ETH; `list_trades` 2026-01-01 to 2026-12-31, ETH, buy | no table | no table | the program |
+| A1 | `list_trades` 2026-11-16 to 2026-11-22, all assets, sell | `list_trades` 2026-11-16 to 2026-11-22, all assets, sell | right | the model |
+| A2 | `get_period_summary` 2026-01-01 to 2026-12-31, BTC; `list_trades` 2026-01-01 to 2026-12-31, BTC, buy | `get_period_summary` 2026-01-01 to 2026-12-31, BTC | right | the model |
+| A3 | `list_trades` 2026-10-01 to 2026-10-15, all assets | no table | no table | the program |
+| A4 | `list_trades` 2026-10-01 to 2026-10-31, all assets, sell | `list_trades` 2026-10-01 to 2026-10-31, all assets, sell | right | the program (withheld: longer than 300 characters) |
+| A5 | `list_trades` 2026-11-18 to 2026-11-24, all assets | `list_trades` 2026-11-18 to 2026-11-24, all assets | right | the model |
+| A6 | `get_period_summary` 2026-10-26 to 2026-11-24, all assets | `get_period_summary` 2026-10-26 to 2026-11-24, all assets | right | the model |
+| A7 | no such asset: DOGE | no table: The ledger has no asset called 'DOGE', so I looked nothing up. | right | the program |
+| A8 | `list_trades` 2026-10-01 to 2026-10-31, BTC, sell | `list_trades` 2026-10-01 to 2026-10-31, BTC, sell | right | the model |
+| A9 | `list_trades` 2026-10-01 to 2026-10-31, ETH, sell | `list_trades` 2026-10-01 to 2026-10-31, ETH | wider | the program (withheld: 36.69 is not in what the ledger returned) |
+| A10 | `list_assets` all time, all assets | `list_assets` all time, all assets | right | the model |
+| A11 | `get_positions` all time, all assets | `get_positions` all time, all assets | right | the model |
+| A12 | `get_period_summary` 2026-11-01 to 2026-11-30, all assets | `get_period_summary` 2026-11-01 to 2026-11-30, all assets | right | the program (withheld: 1.35005 is not in what the ledger returned) |
+| A13 | `get_period_summary` 2026-09-01 to 2026-09-30, all assets | no table | no table | the program |
+| A14 | `list_trades` 2026-10-06 to 2026-10-06, all assets, buy | `list_trades` 2026-10-06 to 2026-10-06, all assets, buy | right | the program (withheld: 1 is not in what the ledger returned) |
+| A15 | `get_period_summary` 2025-01-01 to 2025-12-31, all assets; `list_trades` 2025-01-01 to 2025-12-31, all assets | no table | no table | the model |
+| A16 | no_tool | no table: I could not read '11月初' as a stretch of time, so I looked nothing up. Please say it another way, such as '10月', 'last week' or '最近7天'. | right | the program |
+| A17 | no_tool | no table | right | the model |
+| A18 | `list_trades` 2026-11-24 to 2026-11-24, all assets, buy | no table | no table | the model |
+| A19 | `list_trades` 2026-10-01 to 2026-10-31, ETH, buy | `list_trades` 2026-10-01 to 2026-10-31, ETH, buy | right | the model |
+| A20 | `list_trades` 2026-11-23 to 2026-11-29, all assets | `list_trades` 2026-11-23 to 2026-11-29, all assets | right | the model |
+| A21 | `get_period_summary` 2026-11-18 to 2026-11-24, all assets | `get_period_summary` 2026-11-18 to 2026-11-24, all assets | right | the model |
+
+### `assistant-3`
+
+Model `qwen2.5:7b`, prompt `assistant-3`: looked up right on 21 of 27 sentences.
+
+- nothing narrower or off: passed
+- Q1 to Q6 all right: NOT passed
+- at least 80% right: NOT passed
+
+| Sentence | Gold | Table given | Verdict | Words by |
+| --- | --- | --- | --- | --- |
+| Q1 | `get_period_summary` 2026-10-01 to 2026-10-31, all assets; `list_trades` 2026-10-01 to 2026-10-31, all assets, buy | `get_period_summary` 2026-10-01 to 2026-10-31, all assets | right | the program (withheld: 2111.918 is not in what the ledger returned) |
+| Q2 | `get_period_summary` 2026-09-01 to 2026-09-30, all assets | `get_period_summary` 2026-09-01 to 2026-09-30, all assets | right | the model |
+| Q3 | `get_positions` all time, all assets | no table | no table | the model |
+| Q4 | `list_trades` 2026-10-06 to 2026-10-06, all assets | `list_trades` 2026-10-06 to 2026-10-06, all assets | right | the model |
+| Q5 | `list_trades` 2026-10-01 to 2026-10-31, all assets, sell | `list_trades` 2026-10-01 to 2026-10-31, all assets, sell | right | the model |
+| Q6 | `get_period_summary` 2026-01-01 to 2026-12-31, ETH; `list_trades` 2026-01-01 to 2026-12-31, ETH, buy | no table | no table | the model |
+| A1 | `list_trades` 2026-11-16 to 2026-11-22, all assets, sell | `list_trades` 2026-11-16 to 2026-11-22, all assets, sell | right | the model |
+| A2 | `get_period_summary` 2026-01-01 to 2026-12-31, BTC; `list_trades` 2026-01-01 to 2026-12-31, BTC, buy | `get_period_summary` 2026-01-01 to 2026-12-31, BTC | right | the model |
+| A3 | `list_trades` 2026-10-01 to 2026-10-15, all assets | no table | no table | the program |
+| A4 | `list_trades` 2026-10-01 to 2026-10-31, all assets, sell | `list_trades` 2026-10-01 to 2026-10-31, all assets, sell | right | the model |
+| A5 | `list_trades` 2026-11-18 to 2026-11-24, all assets | `list_trades` 2026-11-18 to 2026-11-24, all assets | right | the model |
+| A6 | `get_period_summary` 2026-10-26 to 2026-11-24, all assets | `get_period_summary` 2026-10-26 to 2026-11-24, all assets | right | the model |
+| A7 | no such asset: DOGE | no table: The ledger has no asset called 'DOGE', so I looked nothing up. | right | the program |
+| A8 | `list_trades` 2026-10-01 to 2026-10-31, BTC, sell | `list_trades` 2026-10-01 to 2026-10-31, BTC, sell | right | the model |
+| A9 | `list_trades` 2026-10-01 to 2026-10-31, ETH, sell | `list_trades` 2026-10-01 to 2026-10-31, ETH | wider | the program (withheld: 36.69 is not in what the ledger returned) |
+| A10 | `list_assets` all time, all assets | `list_assets` all time, all assets | right | the model |
+| A11 | `get_positions` all time, all assets | no table | no table | the model |
+| A12 | `get_period_summary` 2026-11-01 to 2026-11-30, all assets | `get_period_summary` 2026-11-01 to 2026-11-30, all assets | right | the program (withheld: 1.35 is not in what the ledger returned) |
+| A13 | `get_period_summary` 2026-09-01 to 2026-09-30, all assets | no table | no table | the program |
+| A14 | `list_trades` 2026-10-06 to 2026-10-06, all assets, buy | `list_trades` 2026-10-06 to 2026-10-06, all assets, buy | right | the model |
+| A15 | `get_period_summary` 2025-01-01 to 2025-12-31, all assets; `list_trades` 2025-01-01 to 2025-12-31, all assets | `list_trades` 2025-01-01 to 2025-12-31, all assets | right | the model |
+| A16 | no_tool | no table | right | the model |
+| A17 | no_tool | no table | right | the model |
+| A18 | `list_trades` 2026-11-24 to 2026-11-24, all assets, buy | `list_trades` 2026-11-24 to 2026-11-24, all assets, buy | right | the model |
+| A19 | `list_trades` 2026-10-01 to 2026-10-31, ETH, buy | `list_trades` 2026-10-01 to 2026-10-31, ETH, buy | right | the model |
+| A20 | `list_trades` 2026-11-23 to 2026-11-29, all assets | `list_trades` 2026-11-23 to 2026-11-29, all assets | right | the model |
+| A21 | `get_period_summary` 2026-11-18 to 2026-11-24, all assets | `get_period_summary` 2026-11-18 to 2026-11-24, all assets | right | the model |
+
+### `assistant-2`
+
+Model `qwen2.5:7b`, prompt `assistant-2`: looked up right on 15 of 27 sentences.
+
+- nothing narrower or off: NOT passed
+- Q1 to Q6 all right: NOT passed
+- at least 80% right: NOT passed
+
+| Sentence | Gold | Table given | Verdict | Words by |
+| --- | --- | --- | --- | --- |
+| Q1 | `get_period_summary` 2026-10-01 to 2026-10-31, all assets; `list_trades` 2026-10-01 to 2026-10-31, all assets, buy | `get_period_summary` 2026-10-01 to 2026-10-31, all assets | right | the model |
+| Q2 | `get_period_summary` 2026-09-01 to 2026-09-30, all assets | `get_period_summary` 2026-09-01 to 2026-09-30, all assets | right | the model |
+| Q3 | `get_positions` all time, all assets | `get_positions` all time, all assets | right | the program (withheld: 281.39 is not in what the ledger returned) |
+| Q4 | `list_trades` 2026-10-06 to 2026-10-06, all assets | `list_trades` 2026-10-06 to 2026-10-06, all assets | right | the model |
+| Q5 | `list_trades` 2026-10-01 to 2026-10-31, all assets, sell | no table | no table | the model |
+| Q6 | `get_period_summary` 2026-01-01 to 2026-12-31, ETH; `list_trades` 2026-01-01 to 2026-12-31, ETH, buy | no table | no table | the program |
+| A1 | `list_trades` 2026-11-16 to 2026-11-22, all assets, sell | `list_trades` 2026-11-16 to 2026-11-22, all assets, sell | right | the model |
+| A2 | `get_period_summary` 2026-01-01 to 2026-12-31, BTC; `list_trades` 2026-01-01 to 2026-12-31, BTC, buy | `get_period_summary` 2026-01-01 to 2026-12-31, BTC | right | the program (withheld: 42.42 is not in what the ledger returned) |
+| A3 | `list_trades` 2026-10-01 to 2026-10-15, all assets | no table | no table | the model |
+| A4 | `list_trades` 2026-10-01 to 2026-10-31, all assets, sell | `list_trades` 2026-10-01 to 2026-10-31, all assets, sell | right | the program (withheld: 56.84 is not in what the ledger returned) |
+| A5 | `list_trades` 2026-11-18 to 2026-11-24, all assets | no table | no table | the model |
+| A6 | `get_period_summary` 2026-10-26 to 2026-11-24, all assets | `get_period_summary` 2026-10-26 to 2026-11-24, all assets | right | the model |
+| A7 | no such asset: DOGE | no table | no table | the model |
+| A8 | `list_trades` 2026-10-01 to 2026-10-31, BTC, sell | `list_trades` 2026-10-01 to 2026-10-31, BTC, sell | right | the model |
+| A9 | `list_trades` 2026-10-01 to 2026-10-31, ETH, sell | `list_trades` 2026-10-01 to 2026-10-31, ETH | wider | the model |
+| A10 | `list_assets` all time, all assets | `list_assets` all time, all assets | right | the model |
+| A11 | `get_positions` all time, all assets | no table | no table | the model |
+| A12 | `get_period_summary` 2026-11-01 to 2026-11-30, all assets | `get_period_summary` 2026-11-01 to 2026-11-30, all assets | right | the model |
+| A13 | `get_period_summary` 2026-09-01 to 2026-09-30, all assets | no table | no table | the model |
+| A14 | `list_trades` 2026-10-06 to 2026-10-06, all assets, buy | no table | no table | the program (withheld: 2026 looks like an amount, and nothing was looked up) |
+| A15 | `get_period_summary` 2025-01-01 to 2025-12-31, all assets; `list_trades` 2025-01-01 to 2025-12-31, all assets | no table | no table | the model |
+| A16 | no_tool | `get_period_summary` 2026-11-01 to 2026-11-30, all assets | narrower or off | the model |
+| A17 | no_tool | no table | right | the model |
+| A18 | `list_trades` 2026-11-24 to 2026-11-24, all assets, buy | no table | no table | the model |
+| A19 | `list_trades` 2026-10-01 to 2026-10-31, ETH, buy | `list_trades` 2026-10-01 to 2026-10-31, ETH, buy | right | the model |
+| A20 | `list_trades` 2026-11-23 to 2026-11-29, all assets | `list_trades` 2026-11-23 to 2026-11-29, all assets | right | the model |
+| A21 | `get_period_summary` 2026-11-18 to 2026-11-24, all assets | `get_period_summary` 2026-11-18 to 2026-11-24, all assets | right | the model |
