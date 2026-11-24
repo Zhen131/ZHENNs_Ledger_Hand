@@ -18,6 +18,7 @@ from ledger_hand.ports import ModelError, ModelErrorKind, ToolCall, ToolReply
 from ledger_hand.settings import Variable
 from scripts import try_assistant
 from tests.fakes.scripted_model import ScriptedModel, scripted_record
+from tests.flows.scripted_flow import screened
 
 
 def asks(name: str, **arguments: object) -> ToolReply:
@@ -76,7 +77,12 @@ def test_a_turn_prints_the_fixed_now_each_step_and_the_ending() -> None:
 def test_arguments_dropped_unread_are_named() -> None:
     status, printed, _ = run(
         ["Bought 0.02 BTC at 94900"],
-        ScriptedModel([asks("propose_trade_add", quantity="0.02", price="94900"), "Not yet."]),
+        ScriptedModel(
+            [
+                asks("propose_trade_add", quantity="0.02", price="94900"),
+                screened(("open_order", "Bought 0.02 BTC at 94900")),
+            ]
+        ),
     )
 
     assert status == 0
