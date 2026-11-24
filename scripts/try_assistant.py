@@ -36,7 +36,8 @@ machine's clock and zone instead. Which "now" is used is printed first.
 ``--save`` or ``--reject`` saves or rejects, once everything is said, every
 proposal still pending in the fake ledger, as the person would on the
 ledger's own page, and prints how many trades the book holds before and
-after, and the trades added. The options come before the sentences.
+after, the trades added, and each trade changed (before and after) or
+deleted. The options come before the sentences.
 ``--help`` or ``-h``, given alone, prints this text and does nothing else.
 
 The assistant runs on the local plug only: with the cloud plug set, the
@@ -72,6 +73,7 @@ from ledger_hand.assistant.outcome import (
     Step,
     TurnResult,
 )
+from ledger_hand.assistant.results import not_done_text
 from ledger_hand.core.ledger_records import TradeFacts, TradeFilter
 from ledger_hand.core.proposals import ProposalStatus
 from ledger_hand.core.zones import is_zone_name
@@ -238,10 +240,16 @@ def show_said(words: str, said: Said, out: TextIO) -> None:
         failure = recorded.failure
     if failure is not None:
         print(f"failure: {type(failure).__name__}: {failure}", file=out)
+    if said.edited is not None and said.edited.failure is not None:
+        failure = said.edited.failure
+        print(f"failure: {type(failure).__name__}: {failure}", file=out)
     sent = said.sent
     to_ledger = f"{sent.proposal}, {sent.trades} trade(s)" if sent is not None else "nothing"
+    edit_sent = said.edit_sent
+    if edit_sent is not None:
+        to_ledger = f"{edit_sent.proposal}, {edit_sent.kind.value} of {edit_sent.trade}"
     print(f"sent to the ledger: {to_ledger}", file=out)
-    by_the_model = recorded is None and turn is not None
+    by_the_model = recorded is None and said.edited is None and turn is not None
     print(f"words by: {_words_by(turn) if by_the_model else 'the program'}", file=out)
     print(f"assistant: {said.reply or '-'}", file=out)
     print(f"ending: {_ending(said)}", file=out)
@@ -273,7 +281,10 @@ def _show_step(number: int, step: Step, out: TextIO) -> None:
                 file=out,
             )
         elif isinstance(handled, NotRunCall):
-            print("    not run: its step went to recording", file=out)
+            if handled.result == not_done_text():
+                print("    not run: one change or deletion at a time", file=out)
+            else:
+                print("    not run: its step went to recording", file=out)
         else:
             if handled.dropped:
                 print(f"    dropped, unread: {', '.join(handled.dropped)}", file=out)
@@ -295,6 +306,10 @@ def _words_by(result: TurnResult) -> str:
 
 def _ending(said: Said) -> str:
     turn, recorded = said.turn, said.recorded
+    if said.edited is not None:
+        if said.route is Route.TAKEOVER and turn is not None:
+            return f"{turn.ending.value}, taken over: {said.edited.ending.value}"
+        return said.edited.ending.value
     if said.route is Route.TAKEOVER and turn is not None and recorded is not None:
         return f"{turn.ending.value}, taken over: {recorded.ending.value}"
     if recorded is not None:
@@ -337,6 +352,13 @@ def _then(afterwards: Afterwards, chat: Chat, ledger: FakeLedger, out: TextIO) -
         print(f"  added {trade.id}: {trade_line(trade.facts)}", file=out)
     if not added:
         print("  added: none", file=out)
+    now = {trade.id: trade.facts for trade in after}
+    for trade in before:
+        if trade.id not in now:
+            print(f"  deleted {trade.id}: {trade_line(trade.facts)}", file=out)
+        elif now[trade.id] != trade.facts:
+            print(f"  changed {trade.id}, before: {trade_line(trade.facts)}", file=out)
+            print(f"  changed {trade.id}, after:  {trade_line(now[trade.id])}", file=out)
 
 
 if __name__ == "__main__":
