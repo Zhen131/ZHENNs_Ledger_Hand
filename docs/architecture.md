@@ -10,9 +10,9 @@ every time `scripts/check.sh` runs.
 The rules of the product (what a trade is, how a spoken number becomes an
 exact one, what is still missing from a draft) live in `core/` and use
 nothing but a short list of standard-library modules. Everything that touches
-the outside world sits further out and is replaceable: the language model and
-the database each hide behind a port, and the user interface is the outermost
-layer. Swapping the model, the database or the interface must never require a
+the outside world sits further out and is replaceable: the language model,
+the database and the person's ledger each hide behind a port, and the user
+interface is the outermost layer. Swapping the model, the database or the interface must never require a
 change in `core/`.
 
 ## Layout
@@ -37,6 +37,7 @@ scripts/                  scripts outside the package                           
     record_trades.py      record, save, list and export at the command line           (exists)
     try_extraction.py     try extraction by hand with the real model                  (exists)
     try_screenshot.py     try a screenshot by hand: the text read, then the drafts    (exists)
+    try_assistant.py      try the assistant by hand: every step, with the fake ledger (exists)
 data/                     run-time output: the book and the export files; never in Git
 src/ledger_hand/
     core/                 core rules: no network, database or user interface          (exists)
@@ -54,7 +55,9 @@ src/ledger_hand/
         passage_form.py       a passage in the form it is compared in                 (exists)
         followup.py           what to ask next when something is missing or wrong     (exists)
         fee_cost.py           whether the ledger counts a trade's fee in the cost     (exists)
-    ports.py              the two ports: model and storage                            (exists)
+        ledger_records.py     what the ledger port hands back: assets, trades, sums, holdings (exists)
+        proposals.py          the ledger's answer to a proposal, and where one stands (exists)
+    ports.py              the three ports: model, storage and ledger                  (exists)
     extraction/           a passage of text to drafts                                 (exists)
         extractor.py          the entry point: one passage in, drafts and issues out  (exists)
         reply_table.py        the flat table the model fills, as a JSON schema        (exists)
@@ -102,6 +105,7 @@ src/ledger_hand/
         ollama.py             the local plug: one chat call to Ollama, one try        (exists)
         ollama_request.py     what is sent: the body of one chat request              (exists)
         ollama_reply.py       what comes back: the reply, or the kind of failure      (exists)
+        ollama_tool_reply.py  what comes back to a call with tools: text and tool calls (exists)
         cloud.py              the cloud plug: one call to an OpenAI-style chat endpoint (exists)
         cloud_request.py      what it sends: the body of one chat request             (exists)
         cloud_reply.py        what comes back: the reply, or the kind of failure      (exists)
@@ -122,6 +126,19 @@ src/ledger_hand/
         failures.py           SQLite's failures as the port's kinds                   (exists)
         upgrades/             the numbered upgrade scripts, never changed once committed (exists)
             upgrade_0001.py       an empty file becomes a book of version 1           (exists)
+    ledger/               plugs for the ledger port: the fake ledger so far           (exists)
+        fake_ledger.py        the fake ledger: an invented book in memory; save, reject (exists)
+        invented_book.py      the invented book: assets, trades, market prices, "now"  (exists)
+        moving_average.py     the fake ledger's own way of working out cost and profit (exists)
+        fake_sums.py          the fake ledger's sums of a stretch of time and holdings (exists)
+    assistant/            what the assistant's model is handed, and how its calls are judged (exists)
+        tools.py              the eight tools; every argument a choice or copied words (exists)
+        judging.py            one tool call taken, or a wrong step and why            (exists)
+        results.py            what is handed back for a call, as JSON text            (exists)
+        outcome.py            how one turn went: the chat, the steps, the ending      (exists)
+        prompting.py          what a version of the system prompt is; its message     (exists)
+        prompts/              the system prompt versions                              (exists)
+            assistant_first.py    the assistant's rules, no example                   (exists)
     export/               writes the ledger's backup format as text                   (exists)
         backup.py             the whole file; refuses what the ledger would refuse    (exists)
         trade_entry.py        one saved trade in the ledger's fields                  (exists)
@@ -135,6 +152,7 @@ src/ledger_hand/
         progress.py           where it stands: one value that never changes           (exists)
         questions.py          putting a question together: facts and notes            (exists)
         filling.py            putting an answer back into a trade                     (exists)
+        assisting.py          one turn of the assistant: ask the model, judge, run, again (exists)
         saving.py             the final records kept in the book                      (exists)
         identifiers.py        a new identifier for a saved trade                      (exists)
         fingerprint.py        a passage's fingerprint, worked out in one place        (exists)
@@ -159,7 +177,7 @@ src/ledger_hand/
         notes.py              the last word after Export or on the settings page, shown (exists)
         session.py            what lasts between reruns: parts, progress, chat, a reading (exists)
 evals/                    prompt experiments: test sentences, scoring, runner, results (exists)
-    sets/                 the test sentences with gold answers: debug, final, writings, voice (exists)
+    sets/                 the test sentences with gold answers: debug, final, writings, voice, tools (exists)
     gold.py               the shapes of a sentence and its gold answer             (exists)
     coverage.py           what the sentences cover                                 (exists)
     writings.py           the writings set: hard ways of writing a number          (exists)
@@ -180,6 +198,9 @@ evals/                    prompt experiments: test sentences, scoring, runner, r
     compare_models.py     two models side by side on one set                       (exists)
     compare_sets.py       prompt versions side by side on each set; the rule for a candidate (exists)
     results/              one results file per run, with its summary               (exists)
+    tool_set.py           the assistant's sentences; the measure of its first step (exists)
+    tool_run.py           the runner of that measure                               (exists)
+    tool_results/         one results file per run of that measure                 (exists)
     RESULTS.md            the results record                                       (exists)
 tests/                    mirrors src; also holds the guardrails, fakes and golden samples  (exists)
     conftest.py           stops every test but the live ones from reaching the network (exists)
@@ -189,6 +210,8 @@ tests/                    mirrors src; also holds the guardrails, fakes and gold
     llm/                  tests of both plugs against fake servers; attacks on them   (exists)
     ledger_check/         what the ledger tier checks, and tests of its logic         (exists)
     fakes/                stand-ins for the outside world: scripted models, a book in memory (exists)
+    ledger/               tests of the ledger port against every plug                 (exists)
+    assistant/            tests of the tools, the judging, the prompt and the results (exists)
     storage/              tests of the storage port against every plug; the golden book (exists)
     live/                 the live check against a real model, run by hand only       (exists)
     extraction/           tests of extraction against the scripted model              (exists)
@@ -200,7 +223,8 @@ tests/                    mirrors src; also holds the guardrails, fakes and gold
 
 A **port** is an interface that the inner code talks to ("ask the model",
 "save a trade"). A **plug** is one implementation of a port (a local model
-server, a SQLite file). There are exactly two ports: model and storage.
+server, a SQLite file). There are exactly three ports: model, storage and
+ledger.
 
 ## Who may import whom
 
@@ -210,6 +234,8 @@ server, a SQLite file). There are exactly two ports: model and storage.
 | `ports.py` | `core/`; standard-library modules of the annotation kind (below) | third-party libraries; every other part |
 | `extraction/`, `asking/`, `export/` | `core/`, `ports.py` | `llm/`, `storage/`, `settings.py`, `flows/`, `ui/` |
 | `llm/`, `storage/` (the plugs) | `core/`, `ports.py`, `settings.py` | `extraction/`, `export/`, `flows/`, `ui/`, each other |
+| `ledger/` (the ledger's plugs) | `core/`, `ports.py` | everything else |
+| `assistant/` | `core/`, `ports.py`, `extraction/` (to judge a copied phrase) | everything else |
 | `settings.py` | the standard library | every other part of the package |
 | `flows/` | everything except `ui/` and the wiring module | `ui/`, the wiring module |
 | the wiring module `wiring.py` | everything except `ui/` | `ui/` |
@@ -413,7 +439,7 @@ or names an environment variable, and `asking/` imports only the standard
 library, the core and the ports file.
 
 The layering check's rules about the clock and the machine's zone cover
-`core/`, `extraction/`, `asking/` and `flows/`: in `flows/` it reports the
+`core/`, `extraction/`, `asking/`, `flows/`, `ledger/` and `assistant/`: in `flows/` it reports the
 same reads as in `extraction/` and `asking/`, those through the `time`
 module among them. The gate above is a second guard beside it. Its judging
 is one function that its own tests feed every form the layering tests list,
@@ -427,7 +453,7 @@ and it sees the forms it once missed: the methods `now`, `utcnow` and
 | --- | --- | --- |
 | 1 | `core/` holds only pure computation and the shapes of data. It does not touch the network, a database or the user interface, and it never reads the clock itself. | It can be tested with no setup, and it can be carried anywhere, forever. |
 | 2 | Outer layers use inner layers, never the reverse: interface, then flows, then core. An automated check enforces it. | Changing the model or the database does not touch the core. |
-| 3 | There are only two ports: model and storage. Everywhere else the code just says "ask the model" or "save a trade". | This is what keeps the program from bloating: a different storage or a cloud model changes one piece. |
+| 3 | There are only three ports: model, storage and ledger. Everywhere else the code just says "ask the model", "save a trade" or "list the ledger's trades". | This is what keeps the program from bloating: a different storage, a cloud model or the real ledger changes one piece. |
 | 4 | Streamlit appears only in `ui/`, and the interface makes no business decisions. | The interface reruns from the top on every click; business logic mixed into it is convoluted and cannot be tested. |
 | 5 | Numbers are exact decimals and are stored as text. Times are written the way the ledger writes them. | Ordinary floating-point numbers carry error, and a ledger cannot. |
 | 6 | A model reply is untrusted input. It first becomes a draft, and the core then validates the draft. A draft that fails leads to a follow-up question, not an error. | A different model replies in a different shape; the validation line stays where it is. |
@@ -464,7 +490,7 @@ How the rules are applied in practice:
 
 ## The model port
 
-The model port in `ports.py` is a `ModelPort` with two methods. `chat`:
+The model port in `ports.py` is a `ModelPort` with three methods. `chat`:
 messages in (each with a role and its text), optionally a JSON schema the
 reply has to follow and a set of `ModelParameters`; a `ModelReply` out (the
 text and a `ReplyRecord`). `chat_with_pictures`: the same messages, one or
@@ -543,6 +569,23 @@ for `model`, the default, so that the model does as its own default says.
 The cloud plug never sends it. `ModelParameters` stays as it is: the field
 has no counterpart in the cloud plug's request, and every parameter is
 either sent in Ollama's `options` or is the time allowed.
+
+The third method, `chat_with_tools`, hands the model a list of tools
+(`ToolSpec`: a name, what it does, the JSON schema of its arguments) with
+the conversation. The conversation may hold, besides messages, the model's
+earlier tool-call turns (`ToolCallTurn`) and what the program handed back
+for each (`ToolResult`); `Role`, `Message` and `FinishReason` are the same
+as for the other two calls, and only this call takes the two new shapes.
+The reply is a `ToolReply`: its text, the tool calls it asks for (`ToolCall`:
+a name and arguments as plain JSON values), or both, and the record. The
+local plug sends the tools in Ollama's `tools` field and reads the calls
+from `message.tool_calls`; an answer whose calls cannot be read (a name that
+is not text, arguments that are not a JSON object) is a `MALFORMED_REPLY`.
+Whether the tool is on the list and its arguments follow its schema is not
+the plug's to judge (`assistant/judging.py` does). The cloud plug refuses a
+call with tools before sending anything, as it refuses pictures
+(`ValueError` naming `LEDGER_HAND_MODEL_PLUG`); the retries treat a call
+with tools as any other.
 
 Whether a reply's text is valid JSON that follows the schema is not checked
 by the plug. A model reply is untrusted input (rule 6), and the code that
@@ -623,6 +666,55 @@ bytes committed.
 everything in memory, does what the port promises the way the SQLite plug
 does, passes the same tests of the port, and can be made to fail.
 
+## The ledger port
+
+The ledger port in `ports.py` is a `LedgerPort`: the person's own ledger,
+reached by the assistant. Its shapes are declared in
+`core/ledger_records.py` and `core/proposals.py` and only named in the
+ports file.
+
+| Method | What it does |
+| --- | --- |
+| `list_assets()` | The ledger's assets: name, code, kind, identifier, and whether it can price a trade. |
+| `list_trades(TradeFilter)` | The trades within a time, of an asset, on a side, each part optional; each trade names the money it is priced in and what its fee was taken in, and a sell carries its profit or loss. |
+| `period_summary(PeriodRequest)` | The sums of a stretch of time, one set for each money, never added together. |
+| `positions()` | What is held, one holding for each asset and the money it was bought with. |
+| `propose_add`, `propose_update`, `propose_delete` | Propose to record, change or delete trades. The answer holds each trade's check (passed, or failed with a code and a sentence) and an identifier when the ledger kept the proposal. Nothing is written: a proposal waits for the person on the ledger's own page. |
+| `proposal_status(id)` | Where a kept proposal stands: pending, saved, rejected or void. |
+
+Every failure is a `LedgerError` with one of four kinds (`LedgerErrorKind`:
+`UNREACHABLE`, `UNKNOWN_ASSET`, `NOT_FOUND`, `OTHER`), a fixed code and a
+sentence. A trade that fails the ledger's check is not a failure. No trade
+has a default money: the money it is priced in and what its fee was taken
+in are always named.
+
+The one plug so far is `ledger/fake_ledger.py`: an invented book in memory,
+which reads no file, no clock and no network, and with its own simple way
+of working out cost and profit (a moving average, which says nothing about
+the real ledger's). It keeps a proposal only when every trade passes, and
+offers two things outside the port, for tests and the try-out script:
+saving and rejecting a proposal. `tests/ledger/test_ledger_port.py` runs the
+port's tests against every plug.
+
+## The assistant
+
+The assistant turns one thing the user says into work through the tools
+(`flows/assisting.py`, `take_turn`). The model is handed the eight tools
+(`assistant/tools.py`) and the system prompt (`assistant/prompts/`). Every
+argument of a tool is either a choice from a fixed list or the user's own
+words copied, never a number or a date the model writes. Each call is judged
+before the ledger is asked (`assistant/judging.py`): a tool not on the list,
+an argument the tool does not take, a required one left out, a choice not on
+its list, or a copied argument that is not a piece of what the user said
+(judged as extraction judges a copy, `extraction/passage.py`) is a wrong
+step, not run, and the model is shown why. The program asks the model at
+most `LEDGER_HAND_ASSISTANT_STEPS` times a turn (six by default); two wrong
+steps in a row stop the turn. The chat handed to the next turn holds every
+call and result, so what the user says next can be tied to what was listed.
+Only the list of assets, the holdings and where a proposal stands reach the
+ledger so far; the other tools answer "not connected yet". The assistant
+runs on the local plug only.
+
 ## Deliberately left out
 
 Too heavy for a program of this size: wrapper frameworks around language
@@ -645,7 +737,13 @@ formatting tool.
   `ui/failure_words.py`.
 - **Voice input:** a new folder of its own that turns speech into text; the
   text then takes the existing path.
-- **Asking questions about the ledger:** one more file in `flows/`.
+- **Asking questions about the ledger, recording, changing and deleting
+  through the assistant:** the tools are listed in `assistant/tools.py`;
+  what the program does for each goes in `flows/assisting.py`'s `_run`, or a
+  file of its own in `flows/` beside it, with what it hands back in
+  `assistant/results.py`.
+- **The real ledger:** one more plug in `ledger/`, which must pass
+  `tests/ledger/test_ledger_port.py`.
 - **Another kind of model server:** one more plug in `llm/`, one more value
   of `Plug` in the settings, and one more branch in `llm/connect.py`.
 - **Another model in an experiment:** no change to the code. Pull it into
@@ -660,7 +758,7 @@ formatting tool.
 Adding a rule, a check or a test is always welcome. Loosening one is a design
 decision for the project owner and never a routine edit. That covers widening
 a cell of the import table, switching off a lint rule, raising a threshold,
-granting a new run-time dependency, adding a third port, and changing or
+granting a new run-time dependency, adding another port, and changing or
 removing an existing test.
 
 The tests of the layering check write the table out a second time by hand, so

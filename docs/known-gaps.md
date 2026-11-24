@@ -459,3 +459,32 @@ with its text short or empty. How the record of such a call reads is in
 sends the field as the setting says and reads the answer as it reads any
 other. The default sends nothing, so it applies only when the setting is
 changed.
+
+## The assistant: what is not there yet
+
+- **The cloud model does not run the assistant.** The cloud plug refuses a
+  call with tools before sending anything, naming `LEDGER_HAND_MODEL_PLUG`.
+  Whether it should hand tools to a cloud service is a later choice.
+- **Recording, questions about the ledger, changes and deletions are not
+  connected yet.** The tools are on the list the model is handed, so it can
+  choose them, but the program answers "not connected yet". Only the list of
+  assets, the holdings and where a proposal stands reach the ledger. Until
+  questions are connected, the holdings are handed to the model and it words
+  the answer itself, figures included; the program does not yet lay such
+  figures out on its own.
+- **Only the fake ledger is behind the tools.** It is an invented book in
+  memory with its own way of working out cost and profit, which says
+  nothing about the real ledger's.
+- **The model fills the recording tool with arguments it does not take.**
+  Measured on the nineteen sentences, the model asks for the right tool
+  first every time, but on every trade it records it also hands over the
+  trade's figures, which the recording tool does not take; the program
+  counts each such call as a wrong step. In the full loop a trade told would
+  cost one wrong step before the model sees why. See the last section of
+  `evals/RESULTS.md`.
+- **Another name for an asset is not taken as copied.** The user says
+  "比特币" and the model fills "BTC"; the user writes "this year" and the
+  model fills "今年". Copied means the user's own words, so both are wrong
+  steps. Whether the program should know other names of an asset, and
+  letter case, is a later choice.
+
