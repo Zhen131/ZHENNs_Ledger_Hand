@@ -188,7 +188,7 @@ def test_the_next_turn_after_the_program_answers_holds_no_call_without_a_result(
 def test_a_date_the_model_wrote_itself_is_still_a_wrong_step() -> None:
     result, _ = turn(
         [calls(("list_trades", {"period": "2026-10-06"})), "Sorry."],
-        "10月6号那天我都做了什么交易",
+        "那天我都做了什么交易",
     )
 
     (refused,) = result.steps[0].calls
@@ -542,7 +542,7 @@ def test_a_side_said_the_time_before_is_kept_when_none_is_said_now() -> None:
 
 
 def test_a_period_not_copied_is_handed_back_with_the_users_own_words() -> None:
-    said = "How much did I spend on ETH this year?"
+    said = "How much did I spend on ETH last year and this year?"
 
     result, model = turn(
         [calls(("get_period_summary", {"period": "今年", "asset": "ETH"})), "Sorry."], said
@@ -568,3 +568,109 @@ def test_other_wrong_steps_are_handed_back_as_before() -> None:
 
     handed = json.loads(model.calls[1].items[-1].content)  # type: ignore[union-attr]
     assert set(handed) == {"status", "kind", "problem"}
+
+
+# --- the period taken from the user's words ----------------------------------------------
+
+
+def test_a_translated_period_gives_way_to_the_one_time_in_the_users_words() -> None:
+    result, _ = turn(
+        [calls(("get_period_summary", {"period": "今年", "asset": "ETH"})), "Done."],
+        "How much did I spend on ETH this year?",
+    )
+
+    assert not result.steps[0].wrong
+    lookup = only_lookup(result)
+    assert lookup.conditions is not None and lookup.conditions.period is not None
+    assert lookup.conditions.period.first_day == date(2026, 1, 1)
+    assert lookup.conditions.period.last_day == date(2026, 12, 31)
+    assert lookup.conditions.period_words == "this year"
+    lines = lookup_lines(lookup)
+    assert lines[:2] == (
+        "Time: 2026-01-01 to 2026-12-31",
+        "Time taken from your words: 'this year'",
+    )
+    assert lookup.conditions.asset == "ETH"
+    taken = result.steps[0].calls[0]
+    assert isinstance(taken, TakenCall)
+    assert json.loads(taken.result)["conditions"]["time_taken_from_your_words"] == "this year"
+
+
+def test_a_range_said_in_english_is_taken_whole_from_the_users_words() -> None:
+    result, _ = turn(
+        [calls(("list_trades", {"period": "10月1号到10月15号"})), "Done."],
+        "Show me my trades from Oct 1 to Oct 15",
+    )
+
+    lookup = only_lookup(result)
+    assert lookup.conditions is not None and lookup.conditions.period is not None
+    assert (lookup.conditions.period.first_day, lookup.conditions.period.last_day) == (
+        date(2026, 10, 1),
+        date(2026, 10, 15),
+    )
+    assert lookup.conditions.period_words == "from Oct 1 to Oct 15"
+
+
+def test_no_period_from_the_model_takes_the_one_time_in_the_users_words() -> None:
+    result, _ = turn([calls(("list_trades", {})), "Done."], "上个月我卖了什么")
+
+    lookup = only_lookup(result)
+    assert lookup.conditions is not None and lookup.conditions.period_words == "上个月"
+    assert lookup_lines(lookup)[0] == "Time: 2026-10-01 to 2026-10-31"
+
+
+def test_no_period_and_two_times_in_the_users_words_asks_which() -> None:
+    ledger = FakeLedger()
+
+    result, _ = turn([calls(("list_trades", {}))], "我上周和这周的交易", ledger=ledger)
+
+    assert result.ending is Ending.ANSWERED_BY_PROGRAM
+    assert "more than one stretch of time ('上周', '这周')" in result.reply
+    assert "list_trades" not in ledger.calls
+
+
+def test_a_wrong_period_and_two_times_in_the_users_words_is_still_a_wrong_step() -> None:
+    result, _ = turn(
+        [calls(("list_trades", {"period": "上周"})), "Sorry."],
+        "Show me last week and this week",
+    )
+
+    (refused,) = result.steps[0].calls
+    assert isinstance(refused, RefusedCall)
+
+
+def test_a_wrong_period_and_no_time_in_the_users_words_is_still_a_wrong_step() -> None:
+    result, _ = turn([calls(("list_trades", {"period": "10月"})), "Sorry."], "我所有的交易")
+
+    (refused,) = result.steps[0].calls
+    assert isinstance(refused, RefusedCall)
+
+
+def test_a_time_found_with_two_meanings_is_said_by_the_program() -> None:
+    result, _ = turn([calls(("list_trades", {"period": "December"}))], "12月我买了什么")
+
+    assert result.ending is Ending.ANSWERED_BY_PROGRAM
+    assert "'12月' can mean more than one stretch of time" in result.reply
+
+
+def test_a_period_copied_right_is_used_as_the_model_gave_it() -> None:
+    first, _ = turn([calls(("list_trades", {"period": "10月"})), "Done."], "10月我卖了什么")
+
+    second, _ = turn(
+        [calls(("list_trades", {"period": "10月"})), "Done."], "那上周呢", chat=first.chat
+    )
+
+    lookup = only_lookup(second)
+    assert lookup.conditions is not None and lookup.conditions.period is not None
+    assert lookup.conditions.period.first_day == date(2026, 10, 1)
+    assert lookup.conditions.period_words is None
+
+
+def test_changing_and_deleting_do_not_take_a_time_from_the_users_words() -> None:
+    result, _ = turn(
+        [calls(("propose_trade_delete", {"period": "今年"})), "Sorry."],
+        "Delete my ETH trade from this year",
+    )
+
+    (refused,) = result.steps[0].calls
+    assert isinstance(refused, RefusedCall)

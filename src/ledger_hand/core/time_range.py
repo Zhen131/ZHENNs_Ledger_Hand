@@ -44,8 +44,17 @@ whitespace beside a Chinese character goes, a full stop or question mark at
 the end goes, and so do a few words around a period that say nothing more
 ("in", "during" in front; "的", "内", "里", "期间" behind).
 
+``find_period_words`` looks through a whole sentence for the words that
+name a stretch of time, as ``read_period`` reads them, so that the program
+can take the time from the user's own words when the model did not copy
+it: every piece of the sentence that ``read_period`` reads as a stretch, or
+as one with two meanings or in the future, counts; a piece may not start or
+end inside a run of Latin letters or digits, nor at a gap or a mark; the
+longest pieces are kept first, and a piece that overlaps one already kept
+is not ("10月6号" is one, and the "10月" inside it is not another).
+
 Names defined here: ``PeriodRefusal``, ``Period``, ``PeriodRefused``,
-``PeriodReading`` and ``read_period``.
+``PeriodReading``, ``read_period`` and ``find_period_words``.
 """
 
 from __future__ import annotations
@@ -157,7 +166,9 @@ def _tidy(text: str) -> str:
 
 _CHINESE_RANGE = re.compile(r"^(?:从)?(?P<start>.+?)(?:到|至|~)(?P<end>.+)$")
 _ENGLISH_RANGE = re.compile(
-    r"^(?:from |between )?(?P<start>.+?) (?:to|until|till|through|and) (?P<end>.+)$"
+    r"^(?:from (?P<start>.+?) (?:to|until|till|through)"
+    r"|between (?P<first>.+?) and"
+    r"|(?P<bare>.+?) (?:to|until|till|through)) (?P<end>.+)$"
 )
 _BARE_DAY = re.compile(r"^(?P<day>[0-9]{1,2})(?:号|日)$")
 
@@ -166,7 +177,9 @@ def _days(text: str, local_now: datetime, zone: str) -> _Days:
     found = _CHINESE_RANGE.match(text) or _ENGLISH_RANGE.match(text)
     if found is None:
         return _span(text, local_now, zone)
-    start = _span(found["start"], local_now, zone)
+    words = dict(found.groupdict())
+    start_words = words.get("start") or words.get("first") or words.get("bare") or ""
+    start = _span(start_words, local_now, zone)
     if isinstance(start, PeriodRefusal):
         return start
     bare = _BARE_DAY.match(found["end"])
@@ -385,3 +398,54 @@ def _days_back(text: str, today: date) -> _Days | None:
     if count is None or not 1 <= count <= _MOST_DAYS_BACK:
         return _UNKNOWN
     return today - timedelta(days=count - 1), today
+
+
+# --- finding the words in a sentence ---------------------------------------------
+
+# A time said in a sentence is far shorter than this; longer pieces are not tried.
+_LONGEST_PIECE = 40
+_DECIMAL = re.compile(r"[0-9]+(?:\.[0-9]+)+")
+_EDGE_MARKS = " ,.;:!?，。；：！？、()（）\"'“”‘’"
+
+
+def _is_latin(character: str) -> bool:
+    return character.isascii() and character.isalnum()
+
+
+def _may_stand_alone(text: str, start: int, end: int) -> bool:
+    """Whether ``text[start:end]`` starts and ends at a word's edge, with no mark at either end.
+
+    A piece that is only a number with points ("0.02") is never one, though
+    the time reader may take it for a date written with points; nor is one
+    that begins or ends with a word that says nothing more ("in", "的").
+    """
+    piece = text[start:end]
+    if piece[0] in _EDGE_MARKS or piece[-1] in _EDGE_MARKS or _DECIMAL.fullmatch(piece):
+        return False
+    if _IN_FRONT.match(piece.casefold()) or piece.endswith(_BEHIND):
+        return False
+    if start > 0 and _is_latin(text[start - 1]) and _is_latin(piece[0]):
+        return False
+    return not (end < len(text) and _is_latin(text[end]) and _is_latin(piece[-1]))
+
+
+def _names_a_stretch(piece: str, now: datetime, zone: str) -> bool:
+    reading = read_period(piece, now, zone)
+    return not (isinstance(reading, PeriodRefused) and reading.reason is _UNKNOWN)
+
+
+def find_period_words(text: str, now: datetime, zone: str) -> tuple[str, ...]:
+    """The pieces of ``text`` that name a stretch of time, longest first kept, in their order."""
+    if not isinstance(now, datetime) or now.utcoffset() is None:
+        raise ValueError("the current moment must be a datetime that carries an offset")
+    zone_named(zone)
+    found: list[tuple[int, int]] = []
+    for start in range(len(text)):
+        for end in range(start + 1, min(len(text), start + _LONGEST_PIECE) + 1):
+            if _may_stand_alone(text, start, end) and _names_a_stretch(text[start:end], now, zone):
+                found.append((start, end))
+    kept: list[tuple[int, int]] = []
+    for start, end in sorted(found, key=lambda span: (span[0] - span[1], span[0])):
+        if all(end <= other_start or start >= other_end for other_start, other_end in kept):
+            kept.append((start, end))
+    return tuple(text[start:end] for start, end in sorted(kept))

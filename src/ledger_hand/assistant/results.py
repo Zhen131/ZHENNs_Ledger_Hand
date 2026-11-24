@@ -155,6 +155,8 @@ def _conditions_data(conditions: Conditions) -> dict[str, object]:
         "asset": conditions.asset or "all assets",
         "side": conditions.side.value if conditions.side else "buys and sells",
     }
+    if conditions.period_words is not None:
+        data["time_taken_from_your_words"] = conditions.period_words
     if conditions.not_narrowed:
         data["not_narrowed"] = list(conditions.not_narrowed)
     return data

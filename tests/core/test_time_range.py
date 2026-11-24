@@ -7,7 +7,13 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from ledger_hand.core.time_range import Period, PeriodRefusal, PeriodRefused, read_period
+from ledger_hand.core.time_range import (
+    Period,
+    PeriodRefusal,
+    PeriodRefused,
+    find_period_words,
+    read_period,
+)
 
 ZONE = "Europe/Budapest"
 BUDAPEST = ZoneInfo(ZONE)
@@ -215,3 +221,36 @@ def test_a_current_moment_in_another_zone_is_read_in_the_zone_handed_in() -> Non
 def test_a_moment_without_an_offset_is_the_callers_mistake() -> None:
     with pytest.raises(ValueError, match="offset"):
         read_period("上个月", datetime(2026, 11, 24, 23, 55), ZONE)
+
+
+@pytest.mark.parametrize(
+    ("sentence", "found"),
+    [
+        ("How much did I spend on ETH this year?", ("this year",)),
+        ("Show me my trades from Oct 1 to Oct 15", ("from Oct 1 to Oct 15",)),
+        ("How much profit did I make in September?", ("September",)),
+        ("我10月一共买了多少钱的币？", ("10月",)),
+        ("10月6号那天我都做了什么交易", ("10月6号",)),
+        ("2026年10月6日我买了什么", ("2026年10月6日",)),
+        ("过去30天的收益怎么样", ("过去30天",)),
+        ("10月1号到10月15号的交易", ("10月1号到10月15号",)),
+        ("上个月BTC卖了多少", ("上个月",)),
+        ("我last month买了什么", ("last month",)),
+        ("this year我花了多少", ("this year",)),
+        ("我上周和这周的交易", ("上周", "这周")),
+        ("Show me last week and this week", ("last week", "this week")),
+        ("我11月底的资产比11月初多了多少", ("11月", "11月")),
+        ("12月我买了什么", ("12月",)),
+        ("我现在手里有哪些币", ()),
+        ("What do I hold right now?", ()),
+        ("Should I sell my ETH now?", ()),
+        ("那ETH呢", ()),
+        ("the history of my trades", ()),
+        ("Bought 0.02 BTC at 94900, fee 2 USDT", ()),
+        ("Mayday trades", ()),
+    ],
+)
+def test_the_times_said_in_a_sentence_are_found_longest_first(
+    sentence: str, found: tuple[str, ...]
+) -> None:
+    assert find_period_words(sentence, NOW, ZONE) == found
