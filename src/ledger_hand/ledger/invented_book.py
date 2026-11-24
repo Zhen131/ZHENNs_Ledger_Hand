@@ -15,7 +15,9 @@ What the book is built to show:
 - two sells of coins and one of the stock, each with its profit or loss;
 - fees taken in the asset bought and fees taken in the money paid;
 - a market price for every asset held but ADA, whose profit or loss on
-  paper is therefore not worked out.
+  paper is therefore not worked out;
+- for each trade, the words it was recorded from, made up too, whose
+  figures agree with the trade.
 
 Names defined here: ``INVENTED_ZONE``, ``INVENTED_NOW``, ``INVENTED_ASSETS``,
 ``INVENTED_TRADES`` and ``INVENTED_MARKET_PRICES``.
@@ -81,6 +83,7 @@ def _trade(
     fee: tuple[str, str],
     platform: str,
     note: str,
+    raw_text: str,
 ) -> TradeFacts:
     """One invented trade: ``amounts`` are quantity, price, total; ``fee`` its amount, asset."""
     quantity, price, total = (Decimal(amount) for amount in amounts)
@@ -96,6 +99,7 @@ def _trade(
         fee_asset=fee[1],
         platform=platform,
         note=note,
+        raw_text=raw_text,
     )
 
 
@@ -114,6 +118,7 @@ INVENTED_TRADES = (
             ("0.0000153", "BTC"),
             "OKX",
             "first buy after the summer",
+            "9月12号10:15在OKX买了0.0153 BTC，均价57310，花了876.843U，手续费0.0000153 BTC",
         ),
     ),
     (
@@ -127,6 +132,7 @@ INVENTED_TRADES = (
             ("0.96054", "USDT"),
             "Binance",
             "",
+            "Bought 0.42 ETH at 2287 on Binance, 18 September 14:02, fee 0.96054 USDT.",
         ),
     ),
     (
@@ -140,6 +146,7 @@ INVENTED_TRADES = (
             ("0.64", "ADA"),
             "OKX",
             "small bet",
+            "9月25号20:37在OKX买了640个ADA，0.2931一个，共187.584 USDT，手续费0.64 ADA，小试一下",
         ),
     ),
     (
@@ -153,6 +160,7 @@ INVENTED_TRADES = (
             ("1.05", "USD"),
             "Broker",
             "",
+            "Bought 3 MSFT at 412.37 USD on 2 October at 9:20, fee 1.05 USD.",
         ),
     ),
     (
@@ -166,6 +174,7 @@ INVENTED_TRADES = (
             ("0.0000082", "BTC"),
             "OKX",
             "",
+            "10月6号11:48在OKX买了0.0082 BTC，均价61940，花了507.908 USDT，手续费0.0000082 BTC",
         ),
     ),
     (
@@ -179,6 +188,7 @@ INVENTED_TRADES = (
             ("0.3669", "USDT"),
             "Binance",
             "",
+            "10月6号16:25在币安买了0.15 ETH，2446一个，共366.9 USDT，手续费0.3669 USDT",
         ),
     ),
     (
@@ -192,6 +202,7 @@ INVENTED_TRADES = (
             ("0.5236", "USDT"),
             "Binance",
             "took some profit",
+            "Sold 0.2 ETH at 2618 on Binance, 14 October 13:11, fee 0.5236 USDT.",
         ),
     ),
     (
@@ -205,6 +216,7 @@ INVENTED_TRADES = (
             ("0.39672", "USDT"),
             "OKX",
             "",
+            "10月21号8:54在OKX卖了0.006 BTC，66120一个，收到396.72 USDT，手续费0.39672 USDT",
         ),
     ),
     (
@@ -218,6 +230,7 @@ INVENTED_TRADES = (
             ("0.3", "ADA"),
             "OKX",
             "",
+            "11月3号19:30在OKX买了300个ADA，0.3127一个，共93.81 USDT，手续费0.3 ADA",
         ),
     ),
     (
@@ -231,6 +244,7 @@ INVENTED_TRADES = (
             ("1.05", "USD"),
             "Broker",
             "",
+            "Sold 1 MSFT at 438.15 USD on 12 November at 15:40 through the broker, fee 1.05 USD.",
         ),
     ),
     (
@@ -244,6 +258,7 @@ INVENTED_TRADES = (
             ("0.00005", "ETH"),
             "Binance",
             "",
+            "11月19号10:05在币安买了0.05 ETH，2734一个，共136.7 USDT，手续费0.00005 ETH",
         ),
     ),
 )

@@ -11,7 +11,9 @@ clock: whoever is behind the port fills them in.
 - ``TradeFacts``: the facts of one trade, as the user stated them. Every trade
   names the money it is priced in (``quote``) and what its fee was taken in
   (``fee_asset``); neither has a default, because a ledger holds stocks
-  bought with dollars as well as coins bought with USDT.
+  bought with dollars as well as coins bought with USDT. It also keeps the
+  user's own words it came from (``raw_text``), byte for byte; this has no
+  default either.
 - ``LedgerTrade``: a trade in the ledger: its identifier, its facts, and for
   a sell the profit or loss it made (``realized``); a buy has none.
 - ``TradeFilter``: which trades to list; every part of it may be left out.
@@ -132,7 +134,10 @@ type Figure = MoneyAmount | NotWorkedOut
 
 @dataclass(frozen=True, kw_only=True)
 class TradeFacts:
-    """The facts of one trade. ``quote`` and ``fee_asset`` are asset codes, never assumed."""
+    """The facts of one trade. ``quote`` and ``fee_asset`` are asset codes, never assumed.
+
+    ``raw_text`` is what the user said, kept as it was said, never tidied.
+    """
 
     occurred: datetime
     side: Side
@@ -145,12 +150,13 @@ class TradeFacts:
     fee_asset: str
     platform: str
     note: str
+    raw_text: str
 
     def __post_init__(self) -> None:
         _require_moment("a trade's moment", self.occurred)
         if not isinstance(self.side, Side):
             raise TypeError(f"a trade's side is a Side, not {type(self.side).__name__}")
-        for name in ("asset", "quote", "fee_asset"):
+        for name in ("asset", "quote", "fee_asset", "raw_text"):
             _require_text(f"a trade's {name}", getattr(self, name))
         for name in ("quantity", "price", "total", "fee"):
             _require_amount(f"a trade's {name}", getattr(self, name))

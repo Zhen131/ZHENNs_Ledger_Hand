@@ -58,6 +58,7 @@ def facts(
         fee_asset=quote,
         platform="OKX",
         note="",
+        raw_text=f"Bought {quantity} {asset} at 10 on OKX.",
     )
 
 
@@ -163,6 +164,20 @@ def test_a_pending_proposal_changes_nothing_until_it_is_saved() -> None:
     assert len(ledger.list_trades(TradeFilter())) == len(before[0]) + 1
     assert ledger.positions() != before[1]
     assert ledger.proposal_status(result.proposal_id) is ProposalStatus.SAVED
+
+
+def test_every_trade_comes_back_with_the_words_it_was_recorded_from() -> None:
+    ledger = FakeLedger()
+    said = "  Bought 0.01 BTC at 10 on OKX.\n"
+    proposed = dataclasses.replace(facts(Side.BUY, "BTC", "0.01"), raw_text=said)
+
+    assert all(trade.facts.raw_text.strip() for trade in ledger.list_trades(TradeFilter()))
+    result = ledger.propose_add((proposed,))
+    assert result.proposal_id is not None
+    ledger.save(result.proposal_id)
+
+    (added,) = [t for t in ledger.list_trades(TradeFilter()) if t.facts == proposed]
+    assert added.facts.raw_text == said
 
 
 def test_a_rejected_proposal_changes_nothing() -> None:

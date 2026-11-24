@@ -56,6 +56,7 @@ def a_trade(**changed: object) -> TradeFacts:
         "fee_asset": "BTC",
         "platform": "OKX",
         "note": "",
+        "raw_text": "10月6号11:48在OKX买了0.0082 BTC，均价61940",
     }
     fields.update(changed)
     return TradeFacts(**fields)  # type: ignore[arg-type]
