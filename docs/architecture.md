@@ -49,6 +49,7 @@ src/ledger_hand/
         time_wording.py       which known parts a time phrase is made of              (exists)
         timeparse.py          time phrases to exact moments ("now" is passed in)      (exists)
         time_range.py         a stretch of time named in words to two exact moments   (exists)
+        period_list.py        the only shapes of a time taken from a whole sentence   (exists)
         validation.py         validation; which fields are still missing              (exists)
         zones.py              which time zone names are taken                         (exists)
         stored.py             a saved trade: record, identifier, two moments          (exists)

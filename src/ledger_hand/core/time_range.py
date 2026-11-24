@@ -49,18 +49,22 @@ whitespace beside a Chinese character goes, a full stop or question mark at
 the end goes, and so do a few words around a period that say nothing more
 ("in", "during" in front; "的", "内", "里", "期间" behind).
 
+A stretch that begins before ``EARLIEST_YEAR`` is not read, whoever wrote it.
+
 ``find_period_words`` looks through a whole sentence for the words that
-name a stretch of time, as ``read_period`` reads them, so that the program
-can take the time from the user's own words when the model did not copy
-it: every piece of the sentence that ``read_period`` reads as a stretch, or
-as one with two meanings or in the future, counts; a piece may not start or
+name a stretch of time, so that the program can take the time from the
+user's own words when the model did not copy it. Better to find nothing
+than the wrong thing: a piece counts only when it has one of the shapes on
+the list of ``period_list`` and ``read_period`` reads it as a stretch, or
+as one with two meanings or in the future; a piece may not start or
 end inside a run of Latin letters or digits, nor at a gap or a mark, nor
 end with a word that says nothing more ("的"); the
 longest pieces are kept first, and a piece that overlaps one already kept
 is not ("10月6号" is one, and the "10月" inside it is not another).
 
 Names defined here: ``PeriodRefusal``, ``Period``, ``PeriodRefused``,
-``PeriodReading``, ``read_period`` and ``find_period_words``.
+``PeriodReading``, ``EARLIEST_YEAR``, ``read_period`` and
+``find_period_words``.
 """
 
 from __future__ import annotations
@@ -72,6 +76,7 @@ from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
+from ledger_hand.core.period_list import on_the_list
 from ledger_hand.core.time_wording import MAX_PHRASE_LENGTH
 from ledger_hand.core.timeparse import TimeRecognised, TimeRefused, read_time
 from ledger_hand.core.trade import TimePrecision
@@ -105,6 +110,11 @@ class PeriodRefused:
 
 PeriodReading = Period | PeriodRefused
 
+# This is one person's ledger of their own trades, which are of recent
+# years; a stretch before this year is taken for a number misread, never
+# for a time. (Decided on 2026-11-24.)
+EARLIEST_YEAR = 2000
+
 # A count of days back longer than this is taken as a slip, not read.
 _MOST_DAYS_BACK = 3660
 
@@ -128,6 +138,8 @@ def read_period(text: str, now: datetime, zone: str) -> PeriodReading:
         if isinstance(days, PeriodRefusal):
             return PeriodRefused(days)
         first, last = days
+        if first.year < EARLIEST_YEAR:
+            return PeriodRefused(_UNKNOWN)
         return Period(
             start=_midnight(first, zone_info),
             end=_midnight(last + timedelta(days=1), zone_info),
@@ -475,7 +487,12 @@ def find_period_words(text: str, now: datetime, zone: str) -> tuple[str, ...]:
     found: list[tuple[int, int]] = []
     for start in range(len(text)):
         for end in range(start + 1, min(len(text), start + _LONGEST_PIECE) + 1):
-            if _may_stand_alone(text, start, end) and _names_a_stretch(text[start:end], now, zone):
+            piece = text[start:end]
+            if (
+                _may_stand_alone(text, start, end)
+                and on_the_list(piece)
+                and _names_a_stretch(piece, now, zone)
+            ):
                 found.append((start, end))
     kept: list[tuple[int, int]] = []
     for start, end in sorted(found, key=lambda span: (span[0] - span[1], span[0])):

@@ -548,6 +548,15 @@ changed.
   need a year or a day after them, or "in", "during", "last" or "this"
   before them, or a range that begins with "from" or "between". So "March
   to April" is read as April only, and "since May" not at all.
+- **The program finds a time in a sentence only in a few shapes.** When it
+  looks for the time in what the user said itself, it takes only the
+  shapes listed in `core/period_list.py` (better to find nothing than the
+  wrong thing). A weekday ("on Monday"), a month's short name alone
+  ("Oct"), a day without its month ("8号"), "上月", "this morning" or
+  "2026-10-06" are not found there, so the lookup takes the model's copy,
+  or all time. A year before 2000 is never read.
+- **A person named April, June or August.** A month's full name alone is on
+  that list, so "June bought ETH for me" is looked up as June. Not mended.
 - **The model translates a time; the program then takes it from the
   user's words.** Asked "How much did I spend on ETH this year?", the model
   copies "今年", which is not the user's words. For the read tools the

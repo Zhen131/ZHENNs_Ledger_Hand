@@ -715,3 +715,12 @@ def test_changing_and_deleting_do_not_take_a_time_from_the_users_words() -> None
 
     (refused,) = result.steps[0].calls
     assert isinstance(refused, RefusedCall)
+
+
+def test_a_coin_named_like_a_weekday_is_not_taken_as_a_time() -> None:
+    for said in ("Did I sell SUN tokens?", "I sat on my BTC, show my BTC trades"):
+        result, _ = turn([calls(("list_trades", {})), "Done."], said)
+
+        lookup = only_lookup(result)
+        assert lookup.conditions is not None and lookup.conditions.period is None
+        assert lookup_lines(lookup)[0] == "Time: all time"
