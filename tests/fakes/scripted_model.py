@@ -97,7 +97,11 @@ class ScriptedModel:
             )
         step = self._steps[len(self.calls)]
         self.calls.append(RecordedCall(tuple(messages), reply_schema, parameters))
-        return _plain(step)
+        if isinstance(step, ModelError):
+            raise step
+        if isinstance(step, ModelReply):
+            return step
+        return ModelReply(text=step, record=_record())
 
     def chat_with_pictures(
         self,
@@ -115,7 +119,11 @@ class ScriptedModel:
             )
         step = self._steps[len(self.calls)]
         self.calls.append(RecordedCall(tuple(messages), None, parameters, tuple(pictures)))
-        return _plain(step)
+        if isinstance(step, ModelError):
+            raise step
+        if isinstance(step, ModelReply):
+            return step
+        return ModelReply(text=step, record=_record())
 
     def chat_with_tools(
         self,
@@ -140,17 +148,6 @@ class ScriptedModel:
             return step
         text = step.text if isinstance(step, ModelReply) else step
         return ToolReply(text=text, calls=(), record=_record())
-
-
-def _plain(step: Step) -> ModelReply:
-    """The reply a step gives a call without tools; a tool reply has no place there."""
-    if isinstance(step, ModelError):
-        raise step
-    if isinstance(step, ToolReply):
-        raise AssertionError("a tool reply was scripted for a call without tools")
-    if isinstance(step, ModelReply):
-        return step
-    return ModelReply(text=step, record=_record())
 
 
 # Stands in for the parameters a call without any would be sent with, for the checks only.
