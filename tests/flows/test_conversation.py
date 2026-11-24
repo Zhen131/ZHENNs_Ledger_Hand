@@ -637,3 +637,28 @@ def test_a_model_failure_while_judging_ends_it_as_a_failure() -> None:
     assert said.recorded.progress.stage is Stage.FAILED
     assert said.recorded.ending is RecordEnding.MODEL_FAILED
     assert not said.well_ended
+
+
+def test_after_a_proposal_is_sent_the_next_ask_finds_a_result_after_every_call() -> None:
+    (first, _), model, _ = talk(
+        ONE_BUY,
+        "我现在手里有哪些币",
+        tools=[RECORD, calls("get_positions"), "Four assets."],
+        screen=[SPOT],
+        extraction=[table(ONE_BUY_ROW)],
+    )
+
+    assert first.sent is not None
+    items = model.tools.calls[1].items
+    asked = items.index(
+        ToolCallTurn(text="", calls=(ToolCall(name="propose_trade_add", arguments={}),))
+    )
+    after = items[asked + 1]
+    assert isinstance(after, ToolResult)
+    assert after.name == "propose_trade_add"
+    assert '"status":"sent"' in after.content
+    assert items[asked + 2] == Message(Role.ASSISTANT, first.reply)
+    for position, item in enumerate(items):
+        if isinstance(item, ToolCallTurn):
+            results = items[position + 1 : position + 1 + len(item.calls)]
+            assert all(isinstance(result, ToolResult) for result in results)
