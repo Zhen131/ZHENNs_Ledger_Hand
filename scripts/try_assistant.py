@@ -1,6 +1,7 @@
 """Try the assistant by hand: say one or more things, see every step it takes.
 
     .venv/bin/python scripts/try_assistant.py "我现在手里有哪些币"
+    .venv/bin/python scripts/try_assistant.py "我10月一共买了多少钱的币" "那9月呢"
     .venv/bin/python scripts/try_assistant.py "What do I hold?" "And which assets are there?"
     .venv/bin/python scripts/try_assistant.py "今天下午OKX 25U买了点ETH" "下午3点" "手续费0.01 USDT"
     .venv/bin/python scripts/try_assistant.py --save "Bought 0.02 BTC at 94900 at 9:40, fee 2 USDT."
@@ -14,12 +15,18 @@ tools. For each thing said it prints which way it went (the model chose the
 tools, it was taken as the answer to the question waiting, or the program
 took over after two wrong steps); for each step, what the model asked for
 and with what, and what was handed back, or why the call was a wrong step,
-or that it was not run because its step went to recording. When a trade is
+or that it was not run because its step went to recording. A read tool's
+call is followed by the table the program laid out of what the ledger
+found: the header first (the days, the asset and the side it was looked up
+with, and anything the model asked for that was not used), then one line a
+row, every figure as the ledger gave it. When a trade is
 recorded, it prints how many times the recording asked the model (counted
 apart from the steps), the table of the trades sent, laid out from the
 proposal itself, and one line from the program saying what reached the
-ledger ("sent to the ledger: nothing" when nothing did); then the
-assistant's last words and how it ended. ``LEDGER_HAND_ASSISTANT_STEPS``
+ledger ("sent to the ledger: nothing" when nothing did); then who wrote
+the last words ("words by: the model", or the program, and when the
+model's words were withheld, why), the assistant's last words and how it
+ended. ``LEDGER_HAND_ASSISTANT_STEPS``
 says how many times the model may be asked in one turn (six by default).
 When a question waits, the next argument is its answer.
 
@@ -56,7 +63,15 @@ from typing import TextIO
 
 import tzlocal
 
-from ledger_hand.assistant.outcome import Chat, NotRunCall, RefusedCall, Step, TurnResult
+from ledger_hand.assistant.lookups import lookup_lines
+from ledger_hand.assistant.outcome import (
+    Chat,
+    Ending,
+    NotRunCall,
+    RefusedCall,
+    Step,
+    TurnResult,
+)
 from ledger_hand.core.ledger_records import TradeFacts, TradeFilter
 from ledger_hand.core.proposals import ProposalStatus
 from ledger_hand.core.zones import is_zone_name
@@ -226,6 +241,8 @@ def show_said(words: str, said: Said, out: TextIO) -> None:
     sent = said.sent
     to_ledger = f"{sent.proposal}, {sent.trades} trade(s)" if sent is not None else "nothing"
     print(f"sent to the ledger: {to_ledger}", file=out)
+    by_the_model = recorded is None and turn is not None
+    print(f"words by: {_words_by(turn) if by_the_model else 'the program'}", file=out)
     print(f"assistant: {said.reply or '-'}", file=out)
     print(f"ending: {_ending(said)}", file=out)
 
@@ -237,6 +254,7 @@ def show_turn(said: str, result: TurnResult, out: TextIO) -> None:
         _show_step(number, step, out)
     if result.failure is not None:
         print(f"failure: {type(result.failure).__name__}: {result.failure}", file=out)
+    print(f"words by: {_words_by(result)}", file=out)
     print(f"assistant: {result.reply or '-'}", file=out)
     print(f"ending: {result.ending.value}", file=out)
 
@@ -260,6 +278,19 @@ def _show_step(number: int, step: Step, out: TextIO) -> None:
             if handled.dropped:
                 print(f"    dropped, unread: {', '.join(handled.dropped)}", file=out)
             print(f"    handed back: {handled.result}", file=out)
+            if handled.lookup is not None:
+                print("    table:", file=out)
+                for line in lookup_lines(handled.lookup):
+                    print(f"      {line}", file=out)
+
+
+def _words_by(result: TurnResult) -> str:
+    """Who wrote the last words of a turn: the model, or the program, and why."""
+    if result.ending is not Ending.ANSWERED:
+        return "the program"
+    if result.withheld is not None:
+        return f"the program (the model's words were withheld: {result.withheld.reason})"
+    return "the model"
 
 
 def _ending(said: Said) -> str:
