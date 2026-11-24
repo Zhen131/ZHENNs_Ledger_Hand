@@ -9373,3 +9373,81 @@ Model `qwen2.5:7b`, prompt `assistant-4`: looked up right on 2 of 11 sentences.
 | T9 | `get_period_summary` 2026-01-01 to 2026-12-31, all assets; `list_trades` 2026-01-01 to 2026-12-31, all assets, buy | no table | no table | the program (withheld: 2026 looks like an amount, and nothing was looked up) |
 | T10 | `list_trades` 2026-01-01 to 2026-12-31, all assets, sell | no table: I could not read '2026' as a stretch of time, so I looked nothing up. Please say it another way, such as '10月', 'last week' or '最近7天'. | no table | the program |
 | T11 | `list_trades` 2026-05-01 to 2026-05-31, all assets, buy | no table: I could not read 'May' as a stretch of time, so I looked nothing up. Please say it another way, such as '10月', 'last week' or '最近7天'. | no table | the program |
+
+## 2026-11-24: changing and deleting one trade, seventeen sentences, `qwen2.5:7b`
+
+**What changed.** The assistant now changes or deletes one trade. The model
+says which trade (the user's words for the time, the asset, the side), the
+part and the new value; the program finds the trade, lists the trades and
+asks which when more than one matches, reads the new value, asks which of
+quantity, price and total follows when the three fall out of step, and
+proposes the change to the fake ledger. A new set, `evals/sets/edits.json`,
+holds E1 to E3 of the first set and fourteen new sentences, in Chinese and
+English, each with its gold answer: the proposal that must reach the
+ledger, or that the program must say nothing matches, or change nothing
+and say why. The sentences and gold answers were committed at `7b04fb3`,
+before any run, and not changed after. The ruler (`evals/edit_run.py`) says
+each sentence in a chat of its own and, when the program asks, answers
+with the gold answer's pick or choice; a sentence and those answers count
+as one. "Silently wrong" is a proposal that is not the gold one, or one
+sent where the program should have asked first.
+
+**Versions.** The prompt (`assistant-4`) was not changed; the words of the
+two tools that change and delete were, three times, each committed before
+it was run, the tree clean each time:
+
+| Version | Commit | Tools' words | Right | Silently wrong | Results |
+| --- | --- | --- | --- | --- | --- |
+| 1 | `7b04fb3` | as before | 13 of 17 | 0 | `run-20261124T225651Z-edits-assistant-4.jsonl` |
+| 2 | `4a0b1dd` | call straight away, no listing first; a time of the trade's own, with examples in both languages | 13 of 17 | 0 | `run-20261124T225934Z-edits-assistant-4.jsonl` |
+| 3 | `e3cba7a` | call straight away, no listing first; the lookups' own words for the time | 15 of 17 | 0 | `run-20261124T230056Z-edits-assistant-4.jsonl` |
+| 4 | `88259a1` | call straight away, nothing said about listing | 14 of 17 | 0 | `run-20261124T230916Z-edits-assistant-4.jsonl` |
+
+Version 1 missed the line of 80%: on the sentences where more than one
+trade matches, the model listed the trades and asked in its own words, or
+wrote a time of its own. Version 2's examples in two languages made the
+model mix them ("25号9月"). Version 3 passed all three lines, but run
+again, the questions about the ledger came out worse than before
+(`run-20261124T230358Z-asks-assistant-4.jsonl` and `run-20261124T230647Z-asks-assistant-4.jsonl`, the same both times): 21 of 27
+right, and A20 ("本周的交易") answered with the sums instead of the trades,
+which is off. Version 4 says nothing about listing, and is the one kept.
+
+**Result, version 4.** Right on 14 of 17; nothing silently wrong; E1 to E3
+right. Of the three not done, the model listed the trades and asked in its
+own words (N8), wrote the time again after being told it was not the
+user's ("10月21号" for "October 21", N9), and wrote "今天" where no time was
+said (N10); in each the program proposed nothing.
+
+Model `qwen2.5:7b`, prompt `assistant-4`: done right on 14 of 17 sentences.
+
+- nothing silently wrong: passed
+- E1 to E3 right: passed
+- at least 80% right: passed
+
+| Sentence | Gold | What came of it | Verdict |
+| --- | --- | --- | --- |
+| E1 | change t-05 quantity to 0.0081; ask which follows; '总额' | choosing; then sent: change of t-05 | right |
+| E2 | delete t-03 | sent: delete of t-03 | right |
+| E3 | ask which; '第二笔': change t-06 fee to 0.000009 | picking; then sent: change of t-06 | right |
+| N1 | change t-08 price to 66150; ask which follows; '总额' | choosing; then sent: change of t-08 | right |
+| N2 | change t-04 total to 1237.12 | sent: change of t-04 | right |
+| N3 | change t-03 platform to Binance | sent: change of t-03 | right |
+| N4 | change t-09 note to 补仓 | sent: change of t-09 | right |
+| N5 | change t-04 time to 2026-10-02T09:25:00+02:00 | sent: change of t-04 | right |
+| N6 | change t-07 fee to 0.52 | sent: change of t-07 | right |
+| N7 | ask which; 'the first one': delete t-05 | picking; then sent: delete of t-05 | right |
+| N8 | ask which; '第二笔': delete t-08 | no change taken on; first call `list_trades` {"asset": "BTC", "period": "10月", "side": "sell"} | not done |
+| N9 | delete t-08 | no change taken on; first call `propose_trade_delete` {"asset": "BTC", "period": "10月21号", "side": "sell"} | not done |
+| N10 | ask which; '最后一笔': change t-09 platform to Binance | no change taken on; first call `propose_trade_update` {"asset": "ADA", "field": "platform", "new_value": "Binance", "side": "buy", "period": "今天"} | not done |
+| N11 | ask which; 'the first one': change t-06 price to 2450; ask which follows; 'total' | picking; then choosing; then sent: change of t-06 | right |
+| N12 | say nothing matches | not_found | right |
+| N13 | say nothing matches | not_found | right |
+| N14 | change nothing, say why | told | right |
+
+**The other two measures, again, at `88259a1`.** The tools' words changed,
+so the first step and the questions about the ledger were run again. First
+step right on 19 of 19 (`run-20261124T231349Z-tools-assistant-4.jsonl`).
+The twenty-seven (`run-20261124T231037Z-asks-assistant-4.jsonl`): right on
+23 of 27 (22 before); nothing narrower or off (none before); Q1 to Q5
+right and Q6 not (the same as before). The four not right are Q6, A13, A15
+and A18, each with no table, as before; A3 is now right.

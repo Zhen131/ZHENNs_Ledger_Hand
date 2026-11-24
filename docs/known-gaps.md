@@ -465,9 +465,6 @@ changed.
 - **The cloud model does not run the assistant.** The cloud plug refuses a
   call with tools before sending anything, naming `LEDGER_HAND_MODEL_PLUG`.
   Whether it should hand tools to a cloud service is a later choice.
-- **Changes and deletions are not connected yet.** The tools are on the
-  list the model is handed, so it can choose them, but the program answers
-  "not connected yet".
 - **Only the fake ledger is behind the tools.** It is an invented book in
   memory with its own way of working out cost and profit, which says
   nothing about the real ledger's.
@@ -481,10 +478,10 @@ changed.
   `evals/RESULTS.md`.
 - **Another name for an asset is taken only when asking the ledger.** For
   `list_trades` and `get_period_summary` the program checks the asset
-  against what the user said, so "比特币" and "BTC" are the same. For
-  changing and deleting, "BTC" for "比特币" is still not copied, and a wrong
-  step. A time is never taken in another language: the user writes "this
-  year" and the model fills "今年", which is a wrong step.
+  against what the user said, so "比特币" and "BTC" are the same, and so
+  for changing and deleting. A time is never taken in another language:
+  the user writes "this year" and the model fills "今年", which is a wrong
+  step.
 
 ## The assistant: recording a trade
 
@@ -522,6 +519,42 @@ changed.
   So every thing said carries the program's own word on what reached the
   ledger, which the script prints as one line each time ("sent to the
   ledger: nothing"), and which an interface is to show the same way.
+
+## The assistant: changing and deleting
+
+- **One trade and one part at a time.** A change or a deletion touches one
+  trade, and a change one part of it. When one thing said asks for two
+  (two parts, or a change and a deletion), only the first call the model
+  makes is gone on with, and the program says what was not done and asks
+  for it again afterwards. Changing many trades at once is not built.
+- **Changing the subject while a question waits.** While the program waits
+  for which trade, or which amount follows, whatever the user says next is
+  read as the answer. A question about the holdings at that moment is not
+  an answer the program can read, and the same question is asked again.
+  Saying "cancel" drops the change.
+- **Ways of saying which trade that are not read.** Only a number ("2"),
+  "第" and a number with or without "笔", "个", "条" or "项", English
+  ordinals to the tenth ("second", "2nd", "the second one") and the last
+  one ("最后一笔", "the last one") are read. "BTC那笔", "早上那笔", "the one
+  from Binance" and "两笔都删" are not, and the question is asked again.
+  At most ten trades are listed to choose from; with more, the program asks
+  the user to say more and waits for nothing.
+- **A time of day with no half of the day is not taken.** "10月2号9:25" is
+  read with a caution (no morning or afternoon was said), and a time read
+  with a caution is not put into a trade; "10月2号上午9:25" or "21:25" is.
+- **"U", "刀" and "美元" are not taken for USDT beside a new value.** A unit
+  counts only when it is the ledger's own code, name or another name the
+  coin table gives that asset. Whether these words name USDT is not
+  settled, so "手续费改成0.3U" changes nothing on a fee taken in USDT.
+- **A unit the model leaves out is not seen.** The program reads the new
+  value the model copied. When the user wrote "0.4U" and the model copies
+  "0.4", the unit is gone before the program reads it, and the number is
+  put in as it stands.
+- **The model often answers in words instead.** Measured on the set of
+  sentences that change or delete, the model sometimes writes a time of its
+  own ("今天" where none was said), is told, and then asks the user in
+  words instead of calling again. See the last section of
+  `evals/RESULTS.md`.
 
 ## The assistant: asking the ledger
 

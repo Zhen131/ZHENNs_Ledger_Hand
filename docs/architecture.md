@@ -140,6 +140,10 @@ src/ledger_hand/
         explanation.py        whether the model's words beside a table, or without one, may be shown (exists)
         results.py            what is handed back for a call, as JSON text            (exists)
         outcome.py            how one turn went: the chat, the steps, the ending      (exists)
+        edit_calls.py         a change or a deletion judged: asset apart, `trade` dropped (exists)
+        new_values.py         a change's new value read, and put into the trade found (exists)
+        picking.py            which listed trade, or which amount follows, the user said (exists)
+        edit_words.py         the program's words and tables for a change or a deletion (exists)
         prompting.py          what a version of the system prompt is; its message     (exists)
         prompts/              the system prompt versions                              (exists)
             assistant_first.py    the assistant's rules, no example                   (exists)
@@ -161,7 +165,8 @@ src/ledger_hand/
         filling.py            putting an answer back into a trade                     (exists)
         assisting.py          one turn of the assistant: ask the model, judge, run, again (exists)
         asking.py             the four read tools: the period read, asset and side checked, the ledger asked (exists)
-        conversation.py       one thing said to the assistant: answer, model, or recording (exists)
+        conversation.py       one thing said to the assistant: answer, model, recording, or a change (exists)
+        editing.py            one trade changed or deleted: found, picked, read, proposed (exists)
         proposing.py          a settled passage's trades sent to the ledger as one proposal (exists)
         recorded.py           how recording through the assistant ended this time     (exists)
         record_words.py       the program's own words about that, one for each ending (exists)
@@ -736,9 +741,8 @@ steps in a row stop the turn. The chat handed to the next turn holds every
 call and result, so what the user says next can be tied to what was listed;
 a call to one of the four tools that take none is kept in it with its
 arguments emptied, so that figures the model wrote never reach it again.
-The four read tools and where a proposal stands reach the ledger;
-changing and deleting answer "not connected yet". The assistant runs on
-the local plug only.
+The four read tools, where a proposal stands, and changing and deleting
+one trade reach the ledger. The assistant runs on the local plug only.
 
 Asking the ledger is the program's as well (`flows/asking.py`). The model
 picks a read tool and copies the user's words for the period; the program
@@ -777,6 +781,39 @@ row, the program hands what was said to the recording flow once before it
 gives up. The money a proposal is priced in is, for now, the ledger's USDT;
 this is the one place the new parts name the extraction's single money.
 
+Changing or deleting one trade is the program's too (`flows/editing.py`).
+The model says only which trade (the user's words for the time, the asset
+and the side), which part (a choice) and the new value (the user's words);
+the call is judged with the asset kept apart, as for the read tools, and
+the `trade` argument dropped unread (`assistant/edit_calls.py`), so a time
+the model wrote itself is a wrong step. A taken call ends the model's turn
+(`Ending.EDITING`), and every other call of that step is not run: one
+change or deletion at a time. The program then finds the trade itself,
+every time, with the read tools' own conditions (`asking.find_conditions`):
+with no condition at all it looks through nothing and asks which trade;
+with none found it says so and what it looked for, and does not look again
+more widely; with more than one found it lists them, numbered from 1 in
+time order, and asks which (`assistant/picking.py`, `MOST_LISTED`). The new
+value is read by the field (`assistant/new_values.py`): numbers by
+`core/numbers.py`, a unit beside one only when it names what the field is
+in now; a time by `core/timeparse.py`, and only a moment with no caution;
+assets from the ledger's own list. A new quantity, price or total that
+leaves the three out of step makes the program ask which of the other two
+follows; each way is worked out by the recording check's own rules
+(`core/validation.py`, `third_amount`). The whole trade is then proposed,
+every other part as the ledger holds it, the user's words untouched
+(`propose_update`, `propose_delete`); the ledger checks it, and the program
+gives its reason when it turns it down. While a question waits
+(`flows/conversation.py`, `AssistantChat.editing`), the next words are read
+by the program, and the trade is looked up again by the same conditions
+before anything is sent, so only the trade found alone, or the one whose
+number the user gave, is ever changed. The program's words and tables are
+in `assistant/edit_words.py`; what reached the ledger is kept apart from a
+recording's (`Said.edit_sent`). When the model goes wrong twice and its
+second try is a change, the program goes on from that call alone: a time
+or a new value that is not the user's words is said in a fixed sentence,
+and nothing is looked for.
+
 ## Deliberately left out
 
 Too heavy for a program of this size: wrapper frameworks around language
@@ -804,12 +841,11 @@ formatting tool.
   name its dates; a new read tool is one more case in `flows/asking.py`,
   one more layout in `assistant/lookups.py`, and what it hands the model in
   `assistant/results.py`.
-- **Changing and deleting through the assistant:** the tools are listed in
-  `assistant/tools.py`; what the program does for each goes in
-  `flows/assisting.py`'s `_run`, or a file of its own in `flows/` beside
-  it, with what it hands back in `assistant/results.py`. One the program
-  carries on itself, as it does recording, ends the model's turn as
-  recording does and is taken on in `flows/conversation.py`.
+- **Changing and deleting through the assistant:** in place
+  (`flows/editing.py`). A new way it can end is one more `EditEnding`, its
+  words in `assistant/edit_words.py`; a new part to change is one more
+  field in `assistant/tools.py` and a case in `assistant/new_values.py`; a
+  new way of saying which trade is one more rule in `assistant/picking.py`.
 - **Recording through the assistant:** in place. A new way it can end is
   one more `RecordEnding`, and a new reason a trade is not sent one more
   `LeftOut` (`flows/recorded.py`), each with its sentence in
