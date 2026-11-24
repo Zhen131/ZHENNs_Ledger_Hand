@@ -38,7 +38,8 @@ one picked by the program.
 
 When the model goes wrong twice in a row and its second try was a change
 or a deletion, ``taken_over`` goes on from that call alone: a period it
-gave that is not the user's words, or a new value that is not, is said
+gave that is not the user's words (or is cut out of a longer time they
+said), or a new value that is not, is said
 to the user in a fixed sentence and nothing is looked for; a call that can
 be taken after all goes on as above.
 
@@ -57,7 +58,7 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from ledger_hand.assistant import edit_words
-from ledger_hand.assistant.edit_calls import EditCall, judge_edit, wrong_parts
+from ledger_hand.assistant.edit_calls import EditCall, judge_edit_at, wrong_parts
 from ledger_hand.assistant.lookups import Conditions
 from ledger_hand.assistant.new_values import (
     Fixes,
@@ -394,10 +395,10 @@ def taken_over(
     ``None`` when nothing in the call can be gone on with: the turn's own
     words stand.
     """
-    verdict = judge_edit(call, user_said)
+    verdict = judge_edit_at(call, user_said, now=now, zone=zone)
     if isinstance(verdict, EditCall):
         return start(verdict, ledger, user_said, now=now, zone=zone)
-    parts = wrong_parts(call, user_said)
+    parts = wrong_parts(call, user_said, now=now, zone=zone)
     if parts.period_wrong:
         return Edited(ending=EditEnding.TOLD, reply=edit_words.PERIOD_AGAIN)
     if parts.field_taken and parts.new_value_wrong:

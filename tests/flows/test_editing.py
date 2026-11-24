@@ -16,6 +16,8 @@ from datetime import datetime
 from decimal import Decimal
 from zoneinfo import ZoneInfo
 
+import pytest
+
 from ledger_hand.assistant import edit_words
 from ledger_hand.assistant.outcome import Ending, NotRunCall, RefusedCall, TakenCall
 from ledger_hand.core.ledger_records import TradeFacts, TradeFilter
@@ -582,3 +584,52 @@ def test_the_asset_said_the_time_before_is_used_and_the_table_says_so() -> None:
     assert said.edit_sent is not None
     assert said.edit_sent.trade == "t-03"
     assert "Asset: ADA" in said.reply
+
+
+# --- a period cut out of a longer time ---------------------------------------------
+
+CUT_SENTENCE = "把9月13号那笔BTC的时间改成9月13号上午10点15分"
+
+
+def test_a_month_cut_out_of_the_day_said_twice_proposes_nothing_and_says_the_fixed_words() -> None:
+    cut = update(period="9月", asset="BTC", field="time", new_value="9月13号上午10点15分")
+    (said,), _, ledger = talk(CUT_SENTENCE, steps=[cut, cut])
+
+    assert said.route is Route.TAKEOVER
+    assert said.reply == edit_words.PERIOD_AGAIN
+    assert ledger.calls == []
+    assert said.edit_sent is None
+
+
+def test_a_month_cut_out_of_the_day_once_is_a_wrong_step_with_the_users_words() -> None:
+    cut = update(period="9月", asset="BTC", field="time", new_value="9月13号上午10点15分")
+    whole = update(period="9月13号", asset="BTC", field="time", new_value="9月13号上午10点15分")
+    (said,), _, ledger = talk(CUT_SENTENCE, steps=[cut, whole])
+
+    assert said.turn is not None
+    (refused,) = said.turn.steps[0].calls
+    assert isinstance(refused, RefusedCall)
+    assert json.loads(refused.result)["user_said"] == CUT_SENTENCE
+    assert said.edited is not None
+    assert said.edited.ending is EditEnding.NOT_FOUND
+    assert proposed(ledger) == []
+
+
+@pytest.mark.parametrize(
+    ("sentence", "month"),
+    [("把9月30号那笔BTC删掉", "9月"), ("把11月4号那笔ADA删掉", "11月")],
+)
+def test_other_days_cut_to_their_month_propose_nothing(sentence: str, month: str) -> None:
+    asset = "BTC" if "BTC" in sentence else "ADA"
+    cut = delete(period=month, asset=asset)
+    (said,), _, ledger = talk(sentence, steps=[cut, cut])
+
+    assert said.reply == edit_words.PERIOD_AGAIN
+    assert ledger.calls == []
+
+
+def test_a_month_said_as_a_month_still_finds_its_trades() -> None:
+    (said,), _, _ = talk("把10月份那笔BTC删掉", steps=[delete(period="10月", asset="BTC")])
+
+    assert said.edited is not None
+    assert said.edited.ending is EditEnding.PICKING

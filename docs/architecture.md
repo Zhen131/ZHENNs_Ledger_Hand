@@ -144,6 +144,7 @@ src/ledger_hand/
         new_values.py         a change's new value read, and put into the trade found (exists)
         picking.py            which listed trade, or which amount follows, the user said (exists)
         edit_words.py         the program's words and tables for a change or a deletion (exists)
+        period_cuts.py        whether a copied period is cut out of a longer time said (exists)
         prompting.py          what a version of the system prompt is; its message     (exists)
         prompts/              the system prompt versions                              (exists)
             assistant_first.py    the assistant's rules, no example                   (exists)
@@ -786,7 +787,9 @@ The model says only which trade (the user's words for the time, the asset
 and the side), which part (a choice) and the new value (the user's words);
 the call is judged with the asset kept apart, as for the read tools, and
 the `trade` argument dropped unread (`assistant/edit_calls.py`), so a time
-the model wrote itself is a wrong step. A taken call ends the model's turn
+the model wrote itself is a wrong step; so is a time cut out of a longer
+one the user said ("9月" out of "9月13号", `assistant/period_cuts.py`),
+which is checked for the read tools too. A taken call ends the model's turn
 (`Ending.EDITING`), and every other call of that step is not run: one
 change or deletion at a time. The program then finds the trade itself,
 every time, with the read tools' own conditions (`asking.find_conditions`):

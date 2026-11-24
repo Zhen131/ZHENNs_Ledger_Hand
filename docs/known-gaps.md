@@ -522,11 +522,20 @@ changed.
 
 ## The assistant: changing and deleting
 
-- **One trade and one part at a time.** A change or a deletion touches one
-  trade, and a change one part of it. When one thing said asks for two
-  (two parts, or a change and a deletion), only the first call the model
-  makes is gone on with, and the program says what was not done and asks
-  for it again afterwards. Changing many trades at once is not built.
+- **One trade and one part at a time, and the rest not always told.** A
+  change or a deletion touches one trade, and a change one part of it.
+  Changing many trades at once is not built. When one thing said asks for
+  two (two trades, two parts, or a change and a deletion), only one is
+  done. The program says what else was not done only when the model asked
+  for it as a second call in the same step. More often the model makes one
+  call only ("删掉10月6号和10月21号那两笔BTC" gives one call, for 10月6号;
+  "数量改成0.0081，成交价改成62000" one call, for the quantity), and then
+  nothing is said about the other one.
+- **A time cut short is a wrong step, not a narrower lookup.** A period
+  the model copied that stands, wherever it is in what the user said, cut
+  out of a longer time ("9月" out of "9月13号") is taken for a wrong step,
+  for a lookup and for a change alike. Nothing in the user's words is
+  looked for in its place, so the model has to copy the whole time.
 - **Changing the subject while a question waits.** While the program waits
   for which trade, or which amount follows, whatever the user says next is
   read as the answer. A question about the holdings at that moment is not

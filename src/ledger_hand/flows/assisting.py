@@ -74,6 +74,12 @@ program's words after them. A first such call that is not taken is a wrong
 step, judged as any call is, its period too; any later one in the same step
 is not run.
 
+A period copied for a read tool or a change is also a wrong step when,
+wherever it stands in what the user said, it is cut out of a longer time
+("9月" out of "9月13号", ``assistant.period_cuts``): it would look wider
+than asked, and a change would find another trade. One piece of code
+judges this for both.
+
 The chat handed back holds every call and result of the turn, so that the
 next turn can tie what the user says to what was listed. A call to a tool
 that takes no argument is kept in it with its arguments emptied: the ones
@@ -93,7 +99,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
 
-from ledger_hand.assistant.edit_calls import EDIT_TOOLS, EditCall, judge_edit
+from ledger_hand.assistant.edit_calls import EDIT_TOOLS, EditCall, judge_edit_at
 from ledger_hand.assistant.explanation import (
     AFTER_A_TABLE,
     NO_TABLE,
@@ -114,6 +120,7 @@ from ledger_hand.assistant.outcome import (
     TakenCall,
     TurnResult,
 )
+from ledger_hand.assistant.period_cuts import cut_misstep, is_cut
 from ledger_hand.assistant.prompting import AssistantPrompt, system_message
 from ledger_hand.assistant.prompts.assistant_fourth import ASSISTANT_FOURTH
 from ledger_hand.assistant.results import (
@@ -249,7 +256,7 @@ def take_turn(
             turn.steps.append(_to_recording(reply.text, reply.calls, around.user_said))
             return turn.ended(Ending.RECORDING, "")
         edit = first_edit(reply.calls)
-        if edit is not None and isinstance(judge_edit(edit, around.user_said), EditCall):
+        if edit is not None and _edit_taken(edit, around):
             turn.steps.append(_to_editing(reply.text, reply.calls, edit))
             return turn.ended(Ending.EDITING, "")
         try:
@@ -323,6 +330,12 @@ def close_editing(result: TurnResult, ending: str, reply: str, proposal: str | N
         steps=(*earlier, dataclasses.replace(last, calls=calls)),
         chat=Chat(items=items, proposals=proposals),
     )
+
+
+def _edit_taken(call: ToolCall, around: _Around) -> bool:
+    """Whether a change or a deletion is taken, its period not cut out of a longer time."""
+    verdict = judge_edit_at(call, around.user_said, now=around.now, zone=around.zone)
+    return isinstance(verdict, EditCall)
 
 
 def first_edit(calls: Sequence[ToolCall]) -> ToolCall | None:
@@ -402,9 +415,12 @@ def _handled(call: ToolCall, turn: _Turn, around: _Around) -> TakenCall | Refuse
     asset: str | None = None
     if call.name in NARROWED_TOOLS:
         verdict, asset = judge_read(call, around.user_said)
+        period = verdict.arguments.get("period") if isinstance(verdict, Accepted) else None
+        if period is not None and is_cut(period, around.user_said, around.now, around.zone):
+            verdict = cut_misstep(period)
     elif call.name in EDIT_TOOLS:
         # Only a first change that is not taken reaches here: a taken one ends the loop.
-        edit_verdict = judge_edit(call, around.user_said)
+        edit_verdict = judge_edit_at(call, around.user_said, now=around.now, zone=around.zone)
         if isinstance(edit_verdict, EditCall):
             raise AssertionError("a change taken is gone on with before the step is run")
         verdict = edit_verdict

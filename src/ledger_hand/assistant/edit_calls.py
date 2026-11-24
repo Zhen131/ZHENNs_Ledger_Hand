@@ -23,16 +23,22 @@ and its new value each were wrong on their own: when the model goes wrong
 twice in a row and its second try is such a call, the program tells the
 user which of the two it could not take (``flows.editing``).
 
+``judge_edit_at`` judges the same way, and also takes a period cut out of
+a longer time the user said for a wrong step (``period_cuts``); it is the
+one the program goes by.
+
 Names defined here: ``EDIT_TOOLS``, ``EditCall``, ``WrongParts``,
-``judge_edit`` and ``wrong_parts``.
+``judge_edit``, ``judge_edit_at`` and ``wrong_parts``.
 """
 
 from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass
+from datetime import datetime
 
 from ledger_hand.assistant.judging import Accepted, Misstep, judge, judge_argument
+from ledger_hand.assistant.period_cuts import cut_misstep, is_cut
 from ledger_hand.assistant.tools import FIELD_CHOICES, ToolName
 from ledger_hand.ports import ToolCall
 
@@ -83,6 +89,17 @@ def judge_edit(call: ToolCall, user_said: Sequence[str]) -> EditCall | Misstep:
     return _taken(verdict, asset if isinstance(asset, str) and asset.strip() else None)
 
 
+def judge_edit_at(
+    call: ToolCall, user_said: Sequence[str], *, now: datetime, zone: str
+) -> EditCall | Misstep:
+    """``judge_edit``, with a period cut out of a longer time the user said a wrong step too."""
+    verdict = judge_edit(call, user_said)
+    period = verdict.period if isinstance(verdict, EditCall) else None
+    if period is not None and is_cut(period, user_said, now, zone):
+        return cut_misstep(period)
+    return verdict
+
+
 def _taken(accepted: Accepted, asset: str | None) -> EditCall:
     given = accepted.arguments
     return EditCall(
@@ -95,17 +112,23 @@ def _taken(accepted: Accepted, asset: str | None) -> EditCall:
     )
 
 
-def wrong_parts(call: ToolCall, user_said: Sequence[str]) -> WrongParts:
+def wrong_parts(
+    call: ToolCall, user_said: Sequence[str], *, now: datetime, zone: str
+) -> WrongParts:
     """Whether the period, and the new value, of ``call`` are each wrong on their own.
 
     A period or a new value left out, or given as blank text, is not wrong
-    here: it was not given.
+    here: it was not given. A period cut out of a longer time is wrong.
     """
     tool = ToolName(call.name)
     given = call.arguments
+    period = given.get("period")
     return WrongParts(
-        period_wrong=_given(given.get("period"))
-        and judge_argument(tool, "period", given, user_said) is not None,
+        period_wrong=_given(period)
+        and (
+            judge_argument(tool, "period", given, user_said) is not None
+            or (isinstance(period, str) and is_cut(period, user_said, now, zone))
+        ),
         field_taken=given.get("field") in FIELD_CHOICES,
         new_value_wrong=tool is ToolName.PROPOSE_TRADE_UPDATE
         and _given(given.get("new_value"))

@@ -5,6 +5,8 @@ from __future__ import annotations
 from ledger_hand.assistant.edit_calls import EditCall, WrongParts, judge_edit, wrong_parts
 from ledger_hand.assistant.judging import Misstep, MisstepKind
 from ledger_hand.assistant.tools import ToolName
+from ledger_hand.ledger.invented_book import INVENTED_NOW as NOW
+from ledger_hand.ledger.invented_book import INVENTED_ZONE as ZONE
 from ledger_hand.ports import ToolCall
 
 SAID = ("把10月6号那笔BTC的数量改成0.0081",)
@@ -73,13 +75,13 @@ def test_which_parts_of_a_wrong_call_are_wrong() -> None:
     unknown = call("propose_trade_delete", when="10月6号")
     no_field = call("propose_trade_update", period="10月6号", field="amount", new_value="0.008")
 
-    assert wrong_parts(both, SAID) == WrongParts(
+    assert wrong_parts(both, SAID, now=NOW, zone=ZONE) == WrongParts(
         period_wrong=True, field_taken=True, new_value_wrong=True
     )
-    assert wrong_parts(value, SAID) == WrongParts(
+    assert wrong_parts(value, SAID, now=NOW, zone=ZONE) == WrongParts(
         period_wrong=False, field_taken=True, new_value_wrong=True
     )
-    assert wrong_parts(unknown, SAID) == WrongParts(
+    assert wrong_parts(unknown, SAID, now=NOW, zone=ZONE) == WrongParts(
         period_wrong=False, field_taken=False, new_value_wrong=False
     )
-    assert wrong_parts(no_field, SAID).field_taken is False
+    assert wrong_parts(no_field, SAID, now=NOW, zone=ZONE).field_taken is False
