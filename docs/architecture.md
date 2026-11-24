@@ -48,6 +48,7 @@ src/ledger_hand/
         numbers.py            reads number phrases; writes numbers for the ledger     (exists)
         time_wording.py       which known parts a time phrase is made of              (exists)
         timeparse.py          time phrases to exact moments ("now" is passed in)      (exists)
+        time_range.py         a stretch of time named in words to two exact moments   (exists)
         validation.py         validation; which fields are still missing              (exists)
         zones.py              which time zone names are taken                         (exists)
         stored.py             a saved trade: record, identifier, two moments          (exists)
@@ -134,11 +135,17 @@ src/ledger_hand/
     assistant/            what the assistant's model is handed, and how its calls are judged (exists)
         tools.py              the eight tools; every argument a choice or copied words (exists)
         judging.py            one tool call taken, or a wrong step and why            (exists)
+        narrowing.py          whether a lookup's asset and side are ones the user asked for (exists)
+        lookups.py            what a read tool found, as the ledger gave it; its header and table (exists)
+        explanation.py        whether the model's words beside a table, or without one, may be shown (exists)
         results.py            what is handed back for a call, as JSON text            (exists)
         outcome.py            how one turn went: the chat, the steps, the ending      (exists)
         prompting.py          what a version of the system prompt is; its message     (exists)
         prompts/              the system prompt versions                              (exists)
             assistant_first.py    the assistant's rules, no example                   (exists)
+            assistant_second.py   the first's rules and a paragraph on asking the ledger (exists)
+            assistant_third.py    the first's words and short rules on asking          (exists)
+            assistant_fourth.py   the first's words with two rules changed: the default (exists)
     export/               writes the ledger's backup format as text                   (exists)
         backup.py             the whole file; refuses what the ledger would refuse    (exists)
         trade_entry.py        one saved trade in the ledger's fields                  (exists)
@@ -153,6 +160,7 @@ src/ledger_hand/
         questions.py          putting a question together: facts and notes            (exists)
         filling.py            putting an answer back into a trade                     (exists)
         assisting.py          one turn of the assistant: ask the model, judge, run, again (exists)
+        asking.py             the four read tools: the period read, asset and side checked, the ledger asked (exists)
         conversation.py       one thing said to the assistant: answer, model, or recording (exists)
         proposing.py          a settled passage's trades sent to the ledger as one proposal (exists)
         recorded.py           how recording through the assistant ended this time     (exists)
@@ -181,7 +189,7 @@ src/ledger_hand/
         notes.py              the last word after Export or on the settings page, shown (exists)
         session.py            what lasts between reruns: parts, progress, chat, a reading (exists)
 evals/                    prompt experiments: test sentences, scoring, runner, results (exists)
-    sets/                 the test sentences with gold answers: debug, final, writings, voice, tools (exists)
+    sets/                 the test sentences with gold answers: debug, final, writings, voice, tools, asks (exists)
     gold.py               the shapes of a sentence and its gold answer             (exists)
     coverage.py           what the sentences cover                                 (exists)
     writings.py           the writings set: hard ways of writing a number          (exists)
@@ -204,7 +212,9 @@ evals/                    prompt experiments: test sentences, scoring, runner, r
     results/              one results file per run, with its summary               (exists)
     tool_set.py           the assistant's sentences; the measure of its first step (exists)
     tool_run.py           the runner of that measure                               (exists)
-    tool_results/         one results file per run of that measure, and the recording runs (exists)
+    ask_set.py            the questions about the ledger; one answer judged against the gold (exists)
+    ask_run.py            the runner of that measure, each question to the end    (exists)
+    tool_results/         one results file per run of those measures, and the recording runs (exists)
     RESULTS.md            the results record                                       (exists)
 tests/                    mirrors src; also holds the guardrails, fakes and golden samples  (exists)
     conftest.py           stops every test but the live ones from reaching the network (exists)
@@ -711,7 +721,9 @@ before the ledger is asked (`assistant/judging.py`): a tool not on the list,
 an argument a tool with arguments does not take, a required one left out, a choice not on
 its list, or a copied argument that is not a piece of what the user said
 (judged as extraction judges a copy, `extraction/passage.py`) is a wrong
-step, not run, and the model is shown why. Arguments given to one of the
+step, not run, and the model is shown why. The asset given to
+`list_trades` or `get_period_summary` is taken out before judging and
+checked apart, against what the user said (see below). Arguments given to one of the
 four tools that take none (`list_assets`, `get_positions`,
 `get_proposal_status`, `propose_trade_add`) are dropped unread instead, and
 the step records their names. The program asks the model at
@@ -720,9 +732,28 @@ steps in a row stop the turn. The chat handed to the next turn holds every
 call and result, so what the user says next can be tied to what was listed;
 a call to one of the four tools that take none is kept in it with its
 arguments emptied, so that figures the model wrote never reach it again.
-The list of assets, the holdings and where a proposal stands reach the
-ledger; asking about the ledger, changing and deleting answer "not
-connected yet". The assistant runs on the local plug only.
+The four read tools and where a proposal stands reach the ledger;
+changing and deleting answer "not connected yet". The assistant runs on
+the local plug only.
+
+Asking the ledger is the program's as well (`flows/asking.py`). The model
+picks a read tool and copies the user's words for the period; the program
+turns them into days (`core/time_range.py`), and words it cannot read, that
+mean more than one stretch of time, or that lie wholly in the future are
+not guessed at: the ledger is not asked, and the program tells the user
+which words and why (`Ending.ANSWERED_BY_PROGRAM`). The asset and the side
+the model gives are checked against what the user said
+(`assistant/narrowing.py`); one the user did not ask for is not used and
+not a wrong step, and an asset the user named that the ledger lacks ends in
+the program's words too. What the ledger hands back is kept as a `Lookup`
+on the call (`assistant/lookups.py`) and laid out by the program as a
+header, which names the days, the asset and the side looked up with, and a
+table, every figure the ledger's own; money of two kinds is never added
+together. The model only writes a sentence or two beside it, and they are
+checked first (`assistant/explanation.py`): a number that is not in what
+the ledger returned, the table or what the user just said, or, with no
+lookup, a figure that looks like an amount, and the program's fixed words
+are shown instead, the chat keeping those.
 
 Recording a trade is the program's (`flows/conversation.py`, `say`, the
 entry for each thing the user says). When the model asks to record a trade,
@@ -764,13 +795,17 @@ formatting tool.
   `ui/failure_words.py`.
 - **Voice input:** a new folder of its own that turns speech into text; the
   text then takes the existing path.
-- **Asking questions about the ledger, changing and deleting through the
-  assistant:** the tools are listed in `assistant/tools.py`; what the
-  program does for each goes in `flows/assisting.py`'s `_run`, or a file of
-  its own in `flows/` beside it, with what it hands back in
-  `assistant/results.py`. One the program carries on itself, as it does
-  recording, ends the model's turn as recording does and is taken on in
-  `flows/conversation.py`.
+- **Asking questions about the ledger:** in place (`flows/asking.py`). A
+  new wording of a period goes in `core/time_range.py`, with tests that
+  name its dates; a new read tool is one more case in `flows/asking.py`,
+  one more layout in `assistant/lookups.py`, and what it hands the model in
+  `assistant/results.py`.
+- **Changing and deleting through the assistant:** the tools are listed in
+  `assistant/tools.py`; what the program does for each goes in
+  `flows/assisting.py`'s `_run`, or a file of its own in `flows/` beside
+  it, with what it hands back in `assistant/results.py`. One the program
+  carries on itself, as it does recording, ends the model's turn as
+  recording does and is taken on in `flows/conversation.py`.
 - **Recording through the assistant:** in place. A new way it can end is
   one more `RecordEnding`, and a new reason a trade is not sent one more
   `LeftOut` (`flows/recorded.py`), each with its sentence in

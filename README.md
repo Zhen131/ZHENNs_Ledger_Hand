@@ -401,6 +401,7 @@ the cloud plug, or the zone).
 
 ```sh
 .venv/bin/python scripts/try_assistant.py "我现在手里有哪些币"
+.venv/bin/python scripts/try_assistant.py "我10月一共买了多少钱的币" "那9月呢"
 .venv/bin/python scripts/try_assistant.py "What do I hold?" "Which assets are there?"
 .venv/bin/python scripts/try_assistant.py "今天上午9:40在币安买了0.02 BTC，价格94900" "手续费 0.1 USDT"
 .venv/bin/python scripts/try_assistant.py --save "Bought 0.02 BTC at 94900 on Binance at 9:40 this morning, fee 2 USDT."
@@ -416,9 +417,42 @@ judges every call before it runs it and stops the model after two wrong
 steps in a row or `LEDGER_HAND_ASSISTANT_STEPS` asks (six by default). Each
 argument is the user's own words copied or a choice from a list, never a
 number or date the model writes. Behind the tools is the fake ledger, an
-invented book kept in memory, never the real ledger. Connected so far: the
-list of assets, the holdings, where a proposal stands, and recording.
-Asking about the ledger, changing and deleting answer "not connected yet".
+invented book kept in memory, never the real ledger. Connected so far:
+asking the ledger, where a proposal stands, and recording. Changing and
+deleting answer "not connected yet".
+
+Asking is answered by the program, with the model's help in two places
+only: it picks the tool, and it copies the words that say which time. Four
+kinds of question can be answered:
+
+- the trades ("10月6号那天我都做了什么交易", "What did I sell last month?"),
+  each with its time, side, asset, quantity, price, total and money, fee and
+  what it was taken in, and platform; a sell also with the profit or loss
+  it made;
+- the sums of a stretch of time ("我10月一共买了多少钱的币"): for each money
+  the trades were priced in, what the buys spent, what the sells brought in
+  and the profit or loss, never two moneys added together; the fees, one
+  line for each asset they were taken in; and how many trades;
+- what is held now ("我现在手里有哪些币"): quantity, cost, and the profit or
+  loss on paper, or why it is not worked out;
+- the assets the ledger knows.
+
+The program turns the time words into days itself: "10月" is 2026-10-01 to
+2026-10-31, "上周" the Monday to Sunday before this week, "最近7天" today
+and the six days before. Words it cannot read, words with two meanings
+("12月" said in November, which may be last December), and times wholly in
+the future are not guessed at: nothing is looked up, and the program says
+which words, and why. The asset and the side are used only when the user
+named them; "比特币" and "BTC" are the same asset, "币" names none, and
+"买卖" asks for both sides. An asset the ledger does not have ("DOGE") is
+said so. The program lays the table out itself, under a header that names
+the days, the asset and the side it was looked up with; every figure is the
+ledger's own. The model writes a sentence or two beside it; a number in
+them that is not in the table is not shown, and the program's own words
+take their place ("Here is what the ledger returned."). Questions none of
+the four answers, such as how much the holdings grew between two days, what
+a price will do or whether to sell, are answered with what the assistant
+can do; an answer with no table may hold no figure like an amount.
 
 Recording is the program's, not the model's. When the model asks to record
 a trade, what the user said is handed, word for word, to the same recording
@@ -442,11 +476,14 @@ answer to a question waiting, or the program took over), then each step:
 the tool asked for and its arguments, and what was handed back, why the
 call was a wrong step (a copied argument that is not the user's words, such
 as "BTC" when the user said "比特币", among them), or that it was not run
-because its step went to recording. When a trade was recorded, it prints
+because its step went to recording. After a read tool it prints the
+table, header first, as the program laid it out. When a trade was recorded, it prints
 the recording's calls to the model and each trade sent, as the proposal
 holds it. Then one line, from the program, on what reached the ledger
 (`sent to the ledger: proposal-1, 1 trade(s)`, or `sent to the ledger:
-nothing`), the assistant's last words and how it ended. `--save` or
+nothing`), who wrote the last words (`words by: the model`, or the program,
+with the reason when the model's were not shown), the assistant's last
+words and how it ended. `--save` or
 `--reject`, before the sentences, saves or rejects every proposal still
 pending once everything is said, and prints the book's count of trades
 before and after and the trades added. "Now" is the invented book's fixed
@@ -461,7 +498,9 @@ trade), `2` the script could not start.
 
 `.venv/bin/python -m evals.tool_run` measures which tool the model asks for
 first on each of the assistant's nineteen sentences (`evals/sets/tools.json`),
-writing into `evals/tool_results/`; see the last section of
+and `.venv/bin/python -m evals.ask_run` runs every question about the ledger
+of `evals/sets/asks.json` to the end and judges the table it came to; both
+write into `evals/tool_results/`; see the last sections of
 `evals/RESULTS.md`.
 
 ### Recording trades by hand
@@ -1421,7 +1460,7 @@ check and the hygiene scan).
 | `requirements.txt` | Exact versions of the run-time dependencies (httpx, Streamlit, tzlocal, and what Streamlit brings with it) and the development tools, so the environment can be rebuilt identically. |
 | `.streamlit/config.toml` | Streamlit's settings for the interface: no usage statistics, listen on this machine only, start without questions at the terminal, no developer options (and so no Deploy button) in the menu. Read from the folder Streamlit is started in. |
 | `src/ledger_hand/` | The package. Today it holds its version, `core/`, `export/`, the ports file, the settings, `llm/`, `storage/`, `ledger/`, `extraction/`, `asking/`, `assistant/`, `flows/`, the wiring module and `ui/`. |
-| `src/ledger_hand/core/` | Core rules: pure computation, no network, files, database, user interface or clock. Holds the shapes of a trade (`trade.py`), the coin table (`coins.py`), the ledger's limits (`ledger_limits.py`), exact decimal arithmetic (`arithmetic.py`), the reading and writing of numbers (`numbers.py`), the reading and writing of times (`timeparse.py`, with the wording of a time phrase in `time_wording.py`) and the check of a draft (`validation.py`), what to ask next about a draft (`followup.py`), a saved trade (`stored.py`), what the book keeps beside it (`book.py`), the form a passage is compared in (`passage_form.py`), which time zone names are taken (`zones.py`), whether the ledger counts a trade's fee in the cost (`fee_cost.py`), and what the ledger port hands back (`ledger_records.py`, `proposals.py`). |
+| `src/ledger_hand/core/` | Core rules: pure computation, no network, files, database, user interface or clock. Holds the shapes of a trade (`trade.py`), the coin table (`coins.py`), the ledger's limits (`ledger_limits.py`), exact decimal arithmetic (`arithmetic.py`), the reading and writing of numbers (`numbers.py`), the reading and writing of times (`timeparse.py`, with the wording of a time phrase in `time_wording.py`), a stretch of time named in words (`time_range.py`) and the check of a draft (`validation.py`), what to ask next about a draft (`followup.py`), a saved trade (`stored.py`), what the book keeps beside it (`book.py`), the form a passage is compared in (`passage_form.py`), which time zone names are taken (`zones.py`), whether the ledger counts a trade's fee in the cost (`fee_cost.py`), and what the ledger port hands back (`ledger_records.py`, `proposals.py`). |
 | `src/ledger_hand/export/` | The ledger's backup format: the whole file (`backup.py`), one trade (`trade_entry.py`), one coin (`coin_card.py`), bookkeeping moments (`moments.py`) and the file's name (`file_name.py`). Writes no file itself. |
 | `src/ledger_hand/ports.py` | The three ports. The model port: messages, pictures, tools, parameters, the reply and its record, and the error with its six kinds. The ledger port: the person's ledger as the assistant reaches it, and the error with its four kinds. The storage port: its operations and the error with its eight kinds; the shapes it takes and gives are in `core/book.py`. Only shapes; it sends and stores nothing. |
 | `src/ledger_hand/settings.py` | The only place in the package that reads environment variables: the model settings, their defaults and their checks, what each sets and why its default is what it is (as data, `ABOUT`), changes from the settings page read the same way (`apply_changes`), and where the data is kept. |
@@ -1429,9 +1468,9 @@ check and the hygiene scan).
 | `src/ledger_hand/llm/` | The plugs for the model port. The local plug (`ollama.py`), what it sends (`ollama_request.py`) and how what comes back is read (`ollama_reply.py`); the cloud plug (`cloud.py`), what it sends (`cloud_request.py`) and how what comes back is read (`cloud_reply.py`); what both share in writing a request (`request_body.py`) and reading a reply (`reply_json.py`); one HTTP exchange and how its failures are sorted (`exchange.py`), making a server's words safe to show (`error_text.py`) and finding the key in them however it was written back (`key_forms.py`), reading how long a server asks to wait (`retry_after.py`), trying again (`retry.py`), the plug the settings choose, checked and assembled, and the plug that reads a screenshot (`connect.py`), the assembled local model alone (`local.py`), and the local server's version and the model's fingerprint (`ollama_identity.py`). The only part that may import httpx. |
 | `src/ledger_hand/extraction/` | A passage to drafts: the entry point (`extractor.py`), the table the model fills (`reply_table.py`) and how its reply is read (`reply_parser.py`), finding a copied phrase in the passage (`passage.py`) and the numbers written in a text (`passage_numbers.py`), one row to one draft (`row_draft.py`), which currency a unit names (`unit_currency.py`), the issues (`issues.py`), the messages a prompt version makes (`prompting.py`), and the prompt versions with their examples (`prompts/`). Also the check of a passage before it is sent (`passage_check.py`), judging a passage (`screening.py`, with the list the model fills in `screen_table.py`), reading an answer to a question (`answer_phrase.py`, with its word lists in `answer_words.py` and what the model copies in `answer_table.py`), splitting a passage first, for experiments (`splitting.py`, with the pieces the model copies in `split_table.py` and the segments made of them in `segments.py`), and reading a screenshot out as text (`picture_reading.py`, with the shape of its prompt in `picture_prompt.py`). Reads no clock, no zone of the machine and no environment variable. |
 | `src/ledger_hand/ledger/` | The plugs for the ledger port: so far the fake ledger (`fake_ledger.py`), an invented book in memory (`invented_book.py`) with its own way of working out cost and profit (`moving_average.py`, `fake_sums.py`). |
-| `src/ledger_hand/assistant/` | What the assistant's model is handed: the eight tools (`tools.py`) and the system prompt (`prompting.py`, `prompts/`); judging each tool call (`judging.py`); what is handed back for one (`results.py`); how a turn went (`outcome.py`). |
+| `src/ledger_hand/assistant/` | What the assistant's model is handed: the eight tools (`tools.py`) and the system prompt (`prompting.py`, `prompts/`); judging each tool call (`judging.py`); whether a lookup's asset and side are ones the user asked for (`narrowing.py`); what a read tool found and its table (`lookups.py`); whether the model's words may be shown (`explanation.py`); what is handed back for one (`results.py`); how a turn went (`outcome.py`). |
 | `src/ledger_hand/asking/` | Wording a follow-up question: the facts, the model's sentence and its checks (`question_text.py`), the program's own sentences (`templates.py`) and the prompt (`prompts/bookkeeper.py`). Imports only `core/` and the ports file; reads no clock. |
-| `src/ledger_hand/flows/` | Recording a passage from start to records (`recording.py`), or from a screenshot and a note (`screenshot.py`), with the checks made on an uploaded screenshot before it is read (`uploading.py`): the state it hands back (`progress.py`), putting a question together (`questions.py`) and putting an answer back (`filling.py`). Saving the records (`saving.py`) with new identifiers (`identifiers.py`), a passage's fingerprint (`fingerprint.py`), the confirmed coins between the book and the coin table (`coin_book.py`), and exporting (`exporting.py`) into a new file that never replaces another (`export_file.py`). One turn of the assistant (`assisting.py`). |
+| `src/ledger_hand/flows/` | Recording a passage from start to records (`recording.py`), or from a screenshot and a note (`screenshot.py`), with the checks made on an uploaded screenshot before it is read (`uploading.py`): the state it hands back (`progress.py`), putting a question together (`questions.py`) and putting an answer back (`filling.py`). Saving the records (`saving.py`) with new identifiers (`identifiers.py`), a passage's fingerprint (`fingerprint.py`), the confirmed coins between the book and the coin table (`coin_book.py`), and exporting (`exporting.py`) into a new file that never replaces another (`export_file.py`). One turn of the assistant (`assisting.py`), and asking the ledger through its read tools (`asking.py`). |
 | `src/ledger_hand/wiring.py` | The wiring module: builds the model, with the local plug the vision model and a way to ask the server whether it has it, the book, the coin table, the clock and the machine's zone from the settings, with the settings page's changes put in, for the interface to hand to the flows. The only part of the package that may import tzlocal. |
 | `src/ledger_hand/ui/` | The interface, two Streamlit pages: the entry (`app.py`), the Record page (`record_page.py`) with the chat (`chat.py`), the table and its buttons (`preview.py`), Export (`export_panel.py`) and the screenshot area under the chat (`screenshot_panel.py`); the Settings page (`settings_page.py`) and its inputs (`settings_form.py`); what happens on a message, an upload or a click (`turns.py`), what the program says (`sayings.py`), the plain sentence for every failure (`failure_words.py`), a setting's value as it is shown (`setting_text.py`), the last word after Export or a change of setting (`notes.py`) and what is kept between reruns (`session.py`). The only part that may import Streamlit. |
 | `tests/` | The tests. `tests/core/`, `tests/export/`, `tests/llm/`, `tests/extraction/`, `tests/asking/`, `tests/storage/` and `tests/flows/` have one test module per module, or more; `tests/llm/` also has a fake Ollama server, the pieces of a fake cloud service and a batch of attacks on each plug, and `tests/extraction/` a batch of attacks on extraction. `tests/storage/` runs the same tests of the storage port against the SQLite plug and the in-memory stand-in, and holds the golden book. `tests/flows/` also tests the scripts for recording trades and for trying a screenshot. `tests/ui/` runs the pages headless with Streamlit's own test runner, against fake models and a book in a temporary folder (Export, the settings page, a screenshot uploaded, every failure, the reminders), checks the plain sentence for every failure, and checks the settings file. `tests/evals/` tests the experiment kit and the test sentences. |
@@ -1444,6 +1483,7 @@ check and the hygiene scan).
 | `evals/` | The experiment kit, outside the package: the test sentences and their gold answers (`sets/debug.json`, `sets/final.json`, read by `gold.py`), what they cover (`coverage.py`), the small set of hard ways of writing a number (`sets/writings.json`, described by `writings.py`), the ten passages in the owner's own voice (`sets/voice.json`, described by `voice.py`), judging one field (`cells.py`), pairing drafts with gold trades (`matching.py`), the scores (`scoring.py`), the results file (`records.py`), the summary and its tables (`tables.py`), the runner (`run.py`), the summary worked out again (`summarize.py`), three more counts beside the summary (`extra_counts.py`), prompt versions side by side with the rule that picks one (`compare.py`), prompt versions side by side on each set with the rule that picks a candidate over `first` (`compare_sets.py`), two runs compared sentence by sentence (`same_replies.py`), the two ways of reading a passage (`methods.py`) side by side with the rule that picks one (`compare_methods.py`), two models side by side on one set (`compare_models.py`), and the record of every reply read for a passage (`reads.py`). |
 | `evals/results/` | One results file per run (`*.jsonl`) and its summary (`*.summary.json`). In Git: all of it is invented data. |
 | `evals/tool_set.py`, `evals/tool_run.py`, `evals/sets/tools.json`, `evals/tool_results/` | The assistant's nineteen sentences, the measure of the model's first step on each, its runner and its results. |
+| `evals/ask_set.py`, `evals/ask_run.py`, `evals/sets/asks.json` | The questions about the ledger with their gold answers, how one answer is judged, and the runner that runs each to the end; its results go to `evals/tool_results/` too. |
 | `evals/RESULTS.md` | The results record: what each run measured, with the tables its results file gives. |
 | `scripts/try_extraction.py` | Try extraction by hand: a passage in, the drafts, the issues and a record of each call to the model out (see "Trying extraction by hand"). |
 | `scripts/try_screenshot.py` | Try a screenshot by hand: a picture and a note in, the text read, the passage, the drafts and a record of each call out (see "Trying a screenshot by hand"). |

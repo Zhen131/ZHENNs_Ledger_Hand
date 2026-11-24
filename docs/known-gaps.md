@@ -465,12 +465,9 @@ changed.
 - **The cloud model does not run the assistant.** The cloud plug refuses a
   call with tools before sending anything, naming `LEDGER_HAND_MODEL_PLUG`.
   Whether it should hand tools to a cloud service is a later choice.
-- **Questions about the ledger, changes and deletions are not connected
-  yet.** The tools are on the list the model is handed, so it can choose
-  them, but the program answers "not connected yet". Until questions are
-  connected, the holdings are handed to the model and it words the answer
-  itself, figures included; the program does not yet lay such figures out
-  on its own.
+- **Changes and deletions are not connected yet.** The tools are on the
+  list the model is handed, so it can choose them, but the program answers
+  "not connected yet".
 - **Only the fake ledger is behind the tools.** It is an invented book in
   memory with its own way of working out cost and profit, which says
   nothing about the real ledger's.
@@ -482,11 +479,12 @@ changed.
   records which were dropped; the call is not a wrong step, and no figure
   the model wrote reaches the ledger. See the last section of
   `evals/RESULTS.md`.
-- **Another name for an asset is not taken as copied.** The user says
-  "比特币" and the model fills "BTC"; the user writes "this year" and the
-  model fills "今年". Copied means the user's own words, so both are wrong
-  steps. Whether the program should know other names of an asset, and
-  letter case, is a later choice.
+- **Another name for an asset is taken only when asking the ledger.** For
+  `list_trades` and `get_period_summary` the program checks the asset
+  against what the user said, so "比特币" and "BTC" are the same. For
+  changing and deleting, "BTC" for "比特币" is still not copied, and a wrong
+  step. A time is never taken in another language: the user writes "this
+  year" and the model fills "今年", which is a wrong step.
 
 ## The assistant: recording a trade
 
@@ -524,3 +522,50 @@ changed.
   So every thing said carries the program's own word on what reached the
   ledger, which the script prints as one line each time ("sent to the
   ledger: nothing"), and which an interface is to show the same way.
+
+## The assistant: asking the ledger
+
+- **What it cannot answer.** Only four kinds of question are answered: the
+  trades, the sums of a stretch of time, what is held now, and the assets.
+  The ledger does not hand over, and the program does not work out, how
+  much the holdings grew between two days ("我11月底的资产比11月初多了多少"),
+  what was held on a past day, a price to come, or whether to buy or sell.
+  The model is told to say so and call nothing; it does not always, and it
+  may call a tool with words the program cannot read, which the program
+  then says.
+- **Time words it does not read.** The program reads one day (what the
+  time reader takes as a day), a month, a year, a week from Monday, days
+  counted back ("最近7天", "last 7 days") and a start and an end of those.
+  It does not read "月初", "月底", "上半年", "Q3", "this quarter", "最近一周",
+  "最近一个月", "past week", "since October", "10月以来", "至今", or a time
+  of day ("昨天晚上9点"); each is answered "I could not read". "12月" said
+  in November is not guessed at: the user is asked to say the year. "10/6"
+  is not read either, as month and day differ by place.
+- **The model translates a time.** Asked "How much did I spend on ETH this
+  year?", the model copies "今年", which is not the user's words, and goes
+  on doing so after it is shown why; the turn stops after two wrong steps.
+  "Oct 1 to Oct 15" and "September" go the same way. No version of the
+  prompt measured so far stopped it (`evals/RESULTS.md`).
+- **The side is looked for in what was said just now.** "那ETH呢", asked
+  after "10月我卖了哪些BTC", names no side, so the sells of ETH are not
+  picked out: the table holds the buys too, and says it was not narrowed.
+  The asset, by contrast, is kept from the time before when none is named.
+- **The model's words often give way to the program's.** Beside a table
+  the model tends to add numbers up, round them or say them again wrongly
+  (adding two moneys together, writing a fee ten times too large); every
+  number it writes must be in the table, the ledger's answer or what the
+  user said, or the program's words "Here is what the ledger returned."
+  are shown instead. Words longer than 300 characters are not shown
+  either. A sign before a number is not checked, so a loss written as a
+  gain of the same size would pass. With no table, any figure with a
+  decimal point or three digits or more ("2026") turns the answer away.
+- **A general word that is a code.** "coin", "crypto", "token", "stock"
+  and a few more are never taken for an asset's code, so a ledger asset
+  with one of them as its code cannot be named by it.
+- **An English code beside a digit is not found.** An asset code in Latin
+  letters is found only as a whole word, with no letter or digit beside
+  it, so "0.5BTC" does not name BTC.
+- **Only the latest twenty trades are shown.** A longer list shows the
+  latest twenty and says how many there are; the model is handed the same
+  twenty.
+
