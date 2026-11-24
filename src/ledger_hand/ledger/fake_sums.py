@@ -87,9 +87,7 @@ def _added(quote: str, figures: list[Figure]) -> Figure:
     return MoneyAmount(currency=quote, amount=total)
 
 
-def positions(
-    replayed: Replay, prices: Mapping[tuple[str, str], Decimal]
-) -> tuple[Position, ...]:
+def positions(replayed: Replay, prices: Mapping[tuple[str, str], Decimal]) -> tuple[Position, ...]:
     """Every holding that is not empty, in the order of asset and money."""
     return tuple(
         _position(pool, prices.get((pool.asset, pool.quote)))
