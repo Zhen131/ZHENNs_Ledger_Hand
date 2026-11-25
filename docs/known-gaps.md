@@ -465,17 +465,17 @@ changed.
 - **The cloud model does not run the assistant.** The cloud plug refuses a
   call with tools before sending anything, naming `LEDGER_HAND_MODEL_PLUG`.
   Whether it should hand tools to a cloud service is a later choice.
-- **Only the fake ledger is behind the Assistant page.** It is an invented
+- **The demo ledger is still where a new tab starts.** It is an invented
   book in memory with its own way of working out cost and profit, which
-  says nothing about the real ledger's. The Assistant page, the try-out
-  script and the tests of the flows reach this demo ledger, never the
-  user's real ledger. The plug for the real ledger exists
-  (`ledger/link_ledger.py`, see "The real ledger's plug" below); choosing
-  it on the page is the third part of batch 68. A
-  proposal is "confirmed" only by the try-out script's `--save` or the
-  page's demo buttons, which work on the demo ledger alone. The invented
-  book gives ADA no market price on purpose, so its profit on paper is
-  always "not worked out".
+  says nothing about the real ledger's. The try-out script, the tests of
+  the flows, the measured results and the sentences for a demo all reach
+  it. The Assistant page can reach the user's own ledger page instead
+  (third part of batch 68; see "The assistant page and your ledger page"
+  below), chosen in each tab; `LEDGER_HAND_ASSISTANT_LEDGER=page` makes it
+  the first. A proposal on the demo ledger is "confirmed" only by the
+  try-out script's `--save` or the page's demo buttons, which work on the
+  demo ledger alone. The invented book gives ADA no market price on
+  purpose, so its profit on paper is always "not worked out".
 - **The line of 95% for choosing what to do is not measured.** Whether
   the model picks the right kind of work (record, ask, change or delete,
   or nothing) for at least 95% of new sentences is to be judged on
@@ -503,8 +503,8 @@ changed.
 ## The real ledger's plug (68B2, 2026-11-25)
 
 The plug for the real ledger (`ledger/link_ledger.py`) is built and walked
-through a real ledger page by a script with no model; the Assistant page
-does not reach it yet (the third part of batch 68). What it does not do:
+through a real ledger page by a script with no model, and since the third
+part of batch 68 the Assistant page reaches it too. What it does not do:
 
 - **A trade with only its day is not sent, though the ledger takes one.**
   See "A trade said with its day only is not sent" under "The assistant:
@@ -1126,6 +1126,48 @@ tools handed to the model and is left for a batch of its own. Until then:
   twenty.
 
 
+## The assistant page and your ledger page (68B3, 2026-11-25)
+
+What reaching the ledger page from the Assistant page does not do yet:
+
+- **No cash.** The ledger tried here (`dev@a6ba639`) has no tool for a
+  cash balance, so the assistant says it cannot look one up (see "The
+  assistant: cash"). The ledger's `dev` has since added one (`5762751`);
+  this program does not use it yet.
+- **A trade in another money than the asset's own is not sent.** The
+  ledger then needs the rate between the two moneys, which the assistant
+  does not ask for (see "The real ledger's plug").
+- **A trade said with its day only is not sent, though the ledger takes
+  one.** See "A trade said with its day only is not sent".
+- **After a timeout or a reload, the assistant only says it cannot tell.**
+  The ledger's rules for an assistant (its `assistant-link/README.md`,
+  "Rules an assistant must keep", 4 and 5) ask it to look through the
+  trades with `list_trades` itself before telling the user anything when a
+  proposal timed out or is "not found" after a reload. This program does
+  not: on the card, and in the chat, it says that the proposal may already
+  be there, or that its result can no longer be looked up, and asks the
+  user to look at the ledger. What is missing is that one look by the
+  program; the user is never told a proposal was not saved.
+- **A ledger page left in the background overnight was not tried.** The
+  ledger warns that the browser may pause a background tab, which drops
+  the connection; the block then says the page disconnected. Whether a
+  page left a whole night still answers was not tried.
+- **"bought_with" keeps its old name for the model.** See "The real
+  ledger's plug"; left for the batch that changes the prompts.
+- **A fee paid in the asset itself can be said oddly in a sum.** In the
+  sums of two moneys, the fees of each group now handed to the model made
+  one reply say "spent 0.0000082 BTC on BTC" for a fee paid in BTC (seen
+  in the second part's acceptance). This is the model's wording; mending
+  it means changing the words sent to the model, left for the batch that
+  changes the prompts (file 69 of the owner's notes).
+- **One link for the whole program.** The link's port is fixed, so every
+  tab shares one; Stop in one tab stops it for all, and the others say so.
+  Two copies of this program on one computer find the port taken; the
+  second says so and starts nothing.
+- **The state of the link is read when the page is drawn.** It is not
+  pushed to the page: a disconnection is seen the next time the page is
+  drawn, or when Refresh is pressed.
+
 ## The assistant page
 
 - **The chat is forgotten when the tab closes.** The Assistant page keeps
@@ -1138,10 +1180,11 @@ tools handed to the model and is left for a batch of its own. Until then:
   leaves several such proposals behind. Not changed in this round, with
   the other rough edges of the page below; it touches no figure.
 - **A proposal is confirmed only on the ledger's own page.** The page shows
-  where each proposal of its chat stands, asked of the ledger each time it
-  is drawn, but it cannot save or reject a proposal in a real ledger, and
-  has no form to change a proposal's figures: a wrong one is rejected and
-  said again.
+  where each proposal of its chat stands (with the demo ledger asked each
+  time it is drawn, with the ledger page only when "Check with the ledger"
+  is pressed), but it cannot save or reject a proposal in a real ledger,
+  and has no form to change a proposal's figures: a wrong one is rejected
+  and said again.
 - **The demo buttons work on the demo ledger alone.** "Save in the demo
   ledger" and "Reject in the demo ledger" are drawn only when the parts say
   the ledger is the demo ledger (an invented book in memory), so the whole

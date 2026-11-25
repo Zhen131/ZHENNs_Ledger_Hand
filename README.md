@@ -312,9 +312,11 @@ setting's default and why.
 
 The third page, Assistant, at the top beside Record and Settings, is a chat
 with the assistant (see "Trying the assistant by hand" for what it does).
-A line at the top always says which ledger it reaches: today the demo
-ledger, an invented book in memory (the demo book; see "The demo book"
-below), never your real ledger. Type a
+A line at the top always says which ledger it reaches: the demo ledger,
+an invented book in memory (the demo book; see "The demo book" below),
+which every new tab reaches first; or your own ledger page, in a coloured
+box that cannot be taken for the demo's, once you choose it in the block
+under that line (see "Connecting the assistant to your ledger"). Type a
 sentence in the box under the chat: ask about your trades ("我现在持有什么",
 "10月6号我买了什么"), record one ("今天15:30在IBKR买了2股MSFT，410美元一股，
 手续费1美元") or change or delete one ("把10月6号那笔的手续费改成0.000009").
@@ -359,9 +361,13 @@ amount follows) are buttons under the latest reply; pressing one says that
 answer, as if typed.
 
 On the right, one card for each proposal sent in this chat says where it
-stands, asked of the ledger each time the page is drawn; Refresh asks
-again. Once the real ledger is connected, a proposal is confirmed on the
-ledger's own page; the demo ledger has none. With the demo ledger, and
+stands. With the demo ledger it is asked each time the page is drawn, and
+Refresh asks again. With your ledger page, a proposal is confirmed on the
+ledger's own page, and a card is asked only when you press "Check with the
+ledger" on it (see "Connecting the assistant to your ledger"). When the
+ledger took some trades of one message and turned others down, the table
+of the trades sent says, for each, whether it waits in the ledger or was
+not taken, and why. With the demo ledger, and
 only then, each waiting card also has "Save in the demo
 ledger" and "Reject in the demo ledger", which do there what you would do
 on the ledger's page, so the whole path can be tried. New chat forgets the
@@ -379,6 +385,80 @@ on the local plug only: with the cloud plug set, the page says so in one
 sentence and greys the input out. When `LEDGER_HAND_ASSISTANT_STEPS` is
 refused, the page says why and greys out both the input and the upload
 box, so no screenshot is read for nothing.
+
+### Connecting the assistant to your ledger
+
+The Assistant page can reach your own ledger, the Local-First Trading
+Ledger, through its assistant link: a small Node.js program in the
+ledger's folder that passes the assistant's questions and proposals to the
+ledger page you have open, and nothing else. The assistant only looks
+things up and proposes; nothing is written to your ledger until you press
+Save in the ledger page's pending list.
+
+What you need:
+
+- the ledger's folder, at its `dev` version (this was walked through
+  against `dev@a6ba639`), with its programs installed: run `npm install`
+  in that folder once, and again whenever the ledger adds a package (when
+  one is missing, the page says so and names this command);
+- Node.js 24 or later, which the ledger asks for;
+- `LEDGER_HAND_LEDGER_DIR` set to that folder before this program starts.
+
+The ports have defaults the ledger shares, and are read only from the
+environment, never from the Settings page, since the whole program runs
+one link:
+
+| Variable | Default | What it sets |
+| --- | --- | --- |
+| `LEDGER_HAND_LEDGER_DIR` | (none) | The ledger's folder, where the link is started. |
+| `LEDGER_HAND_LEDGER_LINK_PORT` | `47651` | The port of this computer the link listens on. |
+| `LEDGER_HAND_LEDGER_PAGE_PORT` | `3000` | The port the ledger page is opened on; the link takes pages from there only. |
+| `LEDGER_HAND_ASSISTANT_LEDGER` | `demo` | Which ledger a new tab of the Assistant page reaches first: `demo` or `page`. The demo ledger is the default because the checks, the measured results and the sentences for a demo all run against it. |
+
+On the Assistant page, choose "Your ledger page" in the block at the top
+(the choice takes at once; the tab's chat is cleared, and says why, since
+the two ledgers number their trades and proposals apart), then press
+Start. The block shows the port and three steps:
+
+1. Open the ledger page (http://127.0.0.1:3000 by default) and open your
+   ledger.
+2. Press "Connect assistant" on the ledger page.
+3. Enter the port, and paste the token: press "Show token" to see it.
+
+The block says where the link stands, read each time the page is drawn
+(Refresh reads it again): not started; waiting for your ledger page;
+connected; your ledger page disconnected (disconnected there, closed or
+reloaded: connect it again); the link stopped by itself. Stop stops the
+link for every tab of this program, which then says so; Start starts a new
+one. While the ledger page is not connected, what you type is answered by
+the page itself, that it is not connected and how to connect, without
+asking the model, and the screenshot box is greyed out.
+
+The token's rules, which are the ledger's: a new token each time the link
+starts; you paste it yourself each time, and press Connect yourself; it is
+never remembered, and nothing connects by itself. Here it is drawn only
+after "Show token" is pressed, as text you can copy, and not drawn at all
+after "Hide token". It is kept nowhere: not in the chat, the assistant's
+record, a log, a failure's words, anything handed to the model, or the
+page's address.
+
+With your ledger page, each card says its proposals were sent to the
+pending list there and wait for you to press Save. Press "Check with the
+ledger" on a card to ask where each stands: still waiting; saved; rejected;
+void, with the ledger's words; void because the ledger page disconnected
+(the ledger lets go of every waiting proposal then; that is not a
+rejection: say it again to send it again); the ledger page not connected
+(connect it first); or, after the ledger page was reloaded, that its result
+can no longer be looked up, which does not mean it was not saved: look at
+the ledger. Drawing the page asks nothing, since a ledger page left in the
+background can take most of a minute to answer.
+
+When it does not connect, the block says why in one sentence: no
+`LEDGER_HAND_LEDGER_DIR`, Node.js missing or too old, the folder not the
+ledger's or its packages not all installed, or the port already used by
+another program (perhaps a second copy of this one). When this program
+stops, the link stops with it. Each entry of the assistant's record says
+which kind of ledger it was said to, never the port or the token.
 
 ### The assistant's record on this computer
 
@@ -1826,12 +1906,12 @@ check and the hygiene scan).
 | `src/ledger_hand/storage/` | The SQLite plug for the storage port (`sqlite_store.py`): opening a book, its version and its mark (`book_file.py`), a trade as a row and back (`rows.py`), SQLite's failures as the port's kinds (`failures.py`), and the numbered upgrade scripts (`upgrades/`). The only part that may import sqlite3. |
 | `src/ledger_hand/llm/` | The plugs for the model port. The local plug (`ollama.py`), what it sends (`ollama_request.py`) and how what comes back is read (`ollama_reply.py`); the cloud plug (`cloud.py`), what it sends (`cloud_request.py`) and how what comes back is read (`cloud_reply.py`); what both share in writing a request (`request_body.py`) and reading a reply (`reply_json.py`); one HTTP exchange and how its failures are sorted (`exchange.py`), making a server's words safe to show (`error_text.py`) and finding the key in them however it was written back (`key_forms.py`), reading how long a server asks to wait (`retry_after.py`), trying again (`retry.py`), the plug the settings choose, checked and assembled, and the plug that reads a screenshot (`connect.py`), the assembled local model alone (`local.py`), and the local server's version and the model's fingerprint (`ollama_identity.py`). The only part that may import httpx. |
 | `src/ledger_hand/extraction/` | A passage to drafts: the entry point (`extractor.py`), the table the model fills (`reply_table.py`) and how its reply is read (`reply_parser.py`), finding a copied phrase in the passage (`passage.py`) and the numbers written in a text (`passage_numbers.py`), one row to one draft (`row_draft.py`), which currency a unit names (`unit_currency.py`), the issues (`issues.py`), the messages a prompt version makes (`prompting.py`), and the prompt versions with their examples (`prompts/`). Also the check of a passage before it is sent (`passage_check.py`), judging a passage (`screening.py`, with the list the model fills in `screen_table.py`), reading an answer to a question (`answer_phrase.py`, with its word lists in `answer_words.py` and what the model copies in `answer_table.py`), splitting a passage first, for experiments (`splitting.py`, with the pieces the model copies in `split_table.py` and the segments made of them in `segments.py`), and reading a screenshot out as text (`picture_reading.py`, with the shape of its prompt in `picture_prompt.py`). Reads no clock, no zone of the machine and no environment variable. |
-| `src/ledger_hand/ledger/` | The plugs for the ledger port: so far the fake ledger (`fake_ledger.py`), an invented book in memory (`invented_book.py`) with its own way of working out cost and profit (`moving_average.py`, `fake_sums.py`). |
+| `src/ledger_hand/ledger/` | The plugs for the ledger port: the fake ledger (`fake_ledger.py`), an invented book in memory (`invented_book.py`) with its own way of working out cost and profit (`moving_average.py`, `fake_sums.py`); and the real ledger's plug (`link_ledger.py`) over its assistant link (`link_client.py`, `link_failures.py`, `link_tools.py`), the program's one link kept by `link_keeper.py`. |
 | `src/ledger_hand/assistant/` | What the assistant's model is handed: the eight tools (`tools.py`) and the system prompt (`prompting.py`, `prompts/`); judging each tool call (`judging.py`); whether a lookup's asset and side are ones the user asked for (`narrowing.py`); what a read tool found and its table (`lookups.py`); whether the model's words may be shown (`explanation.py`); what is handed back for one (`results.py`); how a turn went (`outcome.py`); judging a change or a deletion (`edit_calls.py`), reading its new value and putting it into the trade (`new_values.py`), reading which trade or which amount the user picks (`picking.py`), and the program's words and tables for it (`edit_words.py`). |
 | `src/ledger_hand/asking/` | Wording a follow-up question: the facts, the model's sentence and its checks (`question_text.py`), the program's own sentences (`templates.py`) and the prompt (`prompts/bookkeeper.py`). Imports only `core/` and the ports file; reads no clock. |
 | `src/ledger_hand/flows/` | Recording a passage from start to records (`recording.py`), or from a screenshot and a note (`screenshot.py`), with the checks made on an uploaded screenshot before it is read (`uploading.py`): the state it hands back (`progress.py`), putting a question together (`questions.py`) and putting an answer back (`filling.py`). Saving the records (`saving.py`) with new identifiers (`identifiers.py`), a passage's fingerprint (`fingerprint.py`), the confirmed coins between the book and the coin table (`coin_book.py`), and exporting (`exporting.py`) into a new file that never replaces another (`export_file.py`). One turn of the assistant (`assisting.py`), asking the ledger through its read tools (`asking.py`), changing or deleting one trade (`editing.py`), each thing said to the assistant (`conversation.py`), and where a proposal stands, with the demo ledger's save and reject (`standing.py`). |
 | `src/ledger_hand/wiring.py` | The wiring module: builds the model, with the local plug the vision model and a way to ask the server whether it has it, the book, the coin table, the clock and the machine's zone, the demo ledger and how many steps the assistant may take, from the settings, with the settings page's changes put in, for the interface to hand to the flows. The only part of the package that may import tzlocal. |
-| `src/ledger_hand/ui/` | The interface, three Streamlit pages: the entry (`app.py`), the Record page (`record_page.py`) with the chat (`chat.py`), the table and its buttons (`preview.py`), Export (`export_panel.py`) and the screenshot area under the chat (`screenshot_panel.py`); the Settings page (`settings_page.py`) and its inputs (`settings_form.py`); what happens on a message, an upload or a click (`turns.py`), what the program says (`sayings.py`), the plain sentence for every failure (`failure_words.py`), a setting's value as it is shown (`setting_text.py`), the last word after Export or a change of setting (`notes.py`) and what is kept between reruns (`session.py`); the Assistant page (`assistant_page.py`) with its chat and the tables and buttons under each reply (`assistant_view.py`, `assistant_tables.py`, `assistant_how.py`), its proposal cards (`assistant_cards.py`), what happens on its messages, buttons and uploads (`assistant_turns.py`), how it writes a number (`assistant_numbers.py`), its sentences for failures (`assistant_failure_words.py`) and what it keeps between reruns (`assistant_session.py`). The only part that may import Streamlit. |
+| `src/ledger_hand/ui/` | The interface, three Streamlit pages: the entry (`app.py`), the Record page (`record_page.py`) with the chat (`chat.py`), the table and its buttons (`preview.py`), Export (`export_panel.py`) and the screenshot area under the chat (`screenshot_panel.py`); the Settings page (`settings_page.py`) and its inputs (`settings_form.py`); what happens on a message, an upload or a click (`turns.py`), what the program says (`sayings.py`), the plain sentence for every failure (`failure_words.py`), a setting's value as it is shown (`setting_text.py`), the last word after Export or a change of setting (`notes.py`) and what is kept between reruns (`session.py`); the Assistant page (`assistant_page.py`) with its chat and the tables and buttons under each reply (`assistant_view.py`, `assistant_tables.py`, `assistant_how.py`), its proposal cards (`assistant_cards.py`), what happens on its messages, buttons and uploads (`assistant_turns.py`), how it writes a number (`assistant_numbers.py`), its sentences for failures (`assistant_failure_words.py`), what it keeps between reruns (`assistant_session.py`), which ledger a tab reaches and the one assistant link every tab shares (`assistant_ledger.py`), the block that chooses it and starts the link (`assistant_link_panel.py`) and what it says about the link (`assistant_link_words.py`). The only part that may import Streamlit. |
 | `tests/` | The tests. `tests/core/`, `tests/export/`, `tests/llm/`, `tests/extraction/`, `tests/asking/`, `tests/storage/` and `tests/flows/` have one test module per module, or more; `tests/llm/` also has a fake Ollama server, the pieces of a fake cloud service and a batch of attacks on each plug, and `tests/extraction/` a batch of attacks on extraction. `tests/storage/` runs the same tests of the storage port against the SQLite plug and the in-memory stand-in, and holds the golden book. `tests/flows/` also tests the scripts for recording trades and for trying a screenshot. `tests/ui/` runs the pages headless with Streamlit's own test runner, against fake models and a book in a temporary folder (Export, the settings page, a screenshot uploaded, every failure, the reminders), checks the plain sentence for every failure, and checks the settings file. `tests/evals/` tests the experiment kit and the test sentences. |
 | `tests/conftest.py` | Stops every test that is not marked `live_model` from reaching the network. |
 | `tests/fakes/` | Stand-ins for the outside world: a scripted model that plays back replies and errors in order and records what it was asked, a model that answers each kind of call (judging, extraction, wording a question, reading an answer, reading a screenshot) from its own script, and a book kept in memory that can be made to fail. |

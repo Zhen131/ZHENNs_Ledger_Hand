@@ -108,10 +108,15 @@ the ledger keeps the words as said. Recording goes through steps 1 to 5
 above; a question is answered with a table the
 program lays out from what the ledger returned; a change or a deletion is
 found by the program, never picked by the model. Nothing is written: each
-proposal waits in the ledger to be confirmed there. The ledger behind it
-today is a demo ledger, an invented book in memory
-(`src/ledger_hand/ledger/fake_ledger.py`); connecting the real ledger is
-not done (section 8).
+proposal waits in the ledger to be confirmed there. A new tab reaches a
+demo ledger, an invented book in memory
+(`src/ledger_hand/ledger/fake_ledger.py`), which every measure below uses;
+a block at the top of the page switches it to the person's own ledger
+page, reached through the ledger's assistant link
+(`src/ledger_hand/ledger/link_ledger.py`, `src/ledger_hand/ledger/link_keeper.py`;
+`src/ledger_hand/ui/assistant_link_panel.py`): the person starts the link,
+connects the ledger page with the port and token it shows, and saves each
+proposal on the ledger page itself (section 8).
 
 **Why the model only copies.** The baseline run shows the reason
 (`evals/RESULTS.md`, "2026-10-05: baseline"): asked to copy the time of an
@@ -808,7 +813,7 @@ rough edges are known and listed, each with why it stands.
 | The experiment tools measure local models only | They ask Ollama for the model's fingerprint, so a model on a cloud service cannot be measured with them; with the cloud plug set they refuse to start, before anything is sent, and say why (`docs/known-gaps.md`). |
 | A model failure while reading an answer is said by its kind only | The page says the kind in plain words and asks the question again, but not by status code or wait, so a refused key or a rate limit's wait is said there in the kind's general sentence. The command line still prints the kind's code word, such as `(timed_out)` (`docs/known-gaps.md`). |
 | A model setting refused in the environment cannot be corrected on the Settings page | The page opens and names the setting and its rule; the environment has to be corrected and the program started again (`docs/known-gaps.md`). |
-| The assistant reaches the demo ledger only | The real ledger's tools are not connected yet; the page, the script and the tests use an invented book in memory, and "confirming" a proposal is tried with the demo buttons or `--save` (`docs/known-gaps.md`, "The assistant: what is not there yet"). |
+| The measures use the demo ledger only | The Assistant page can reach the person's own ledger page (walked through once by hand with `qwen2.5:7b`, 2026-11-25), but every measure, the script and the tests use the invented book in memory; what reaching the ledger page leaves out (cash, a rate between two moneys, a day-only trade, looking through the trades after a timeout or a reload) is in `docs/known-gaps.md`, "The assistant page and your ledger page". |
 | Choosing what to do is not measured on new sentences | The line of 95% is to be judged on sentences the owner says in their own way, not written yet; every sentence measured so far was seen while the prompts were written ("The assistant, measured"). |
 | A time said with a zone other than the ledger's is asked about | The program reads no zone said in words, so such a time is left as said, not tidied, and the user is asked for it; tidying it alone would let the time be read in the ledger's zone, hours off (`docs/known-gaps.md`, "The assistant: recording a trade"). |
 | An English question with a time in it often gets no table | The model writes the time in Chinese, which is not the user's words, so nothing is looked up; two of the four questions not right are of this kind (`docs/known-gaps.md`). |

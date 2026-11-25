@@ -142,6 +142,7 @@ src/ledger_hand/
     ledger/               plugs for the ledger port: the fake ledger and the real one (exists)
         link_ledger.py        the real ledger's plug, through its assistant link      (exists)
         link_client.py        starts the ledger's assistant link and talks to it      (exists)
+        link_keeper.py        the program's one link, started and stopped; its state  (exists)
         link_failures.py      how the link can fail; the token, never printed         (exists)
         link_tools.py         the eight tools this program expects of the link        (exists)
         fake_ledger.py        the fake ledger: an invented book in memory; save, reject (exists)
@@ -224,6 +225,9 @@ src/ledger_hand/
         assistant_numbers.py  how the Assistant page writes a number                   (exists)
         assistant_failure_words.py  one plain sentence for every failure on the Assistant page (exists)
         assistant_session.py  what the Assistant page keeps between reruns             (exists)
+        assistant_ledger.py   which ledger a tab reaches; the one link every tab shares (exists)
+        assistant_link_panel.py  the block at the top: the choice, Start, Stop, the token (exists)
+        assistant_link_words.py  what the page says about the link and connecting     (exists)
         assistant_record_words.py  what the pages say about the assistant's record     (exists)
         record_panel.py       the Settings page's part on the assistant's record; clearing it (exists)
 evals/                    prompt experiments: test sentences, scoring, runner, results (exists)
@@ -827,9 +831,22 @@ Two plugs:
   the ledger's README. It reads no environment variable and no clock: the
   model's name and today's date are handed in. `tests/ledger/
   test_link_ledger.py` runs it on the ledger's recorded answers, and
-  `scripts/walk_ledger_plug.py` walks it through a real ledger page. The
-  Assistant page still reaches the fake ledger; choosing the real one on
-  the page is the third part of batch 68.
+  `scripts/walk_ledger_plug.py` walks it through a real ledger page.
+- `ledger/link_keeper.py`: the program's one link. Its port is fixed, so
+  the Assistant page keeps one keeper for the whole process
+  (`ui/assistant_ledger.py`, with Streamlit's `st.cache_resource`, not a
+  global variable, which a reload of the code would lose while the old
+  link still holds the port). It builds a fresh link, so a fresh token, at
+  each Start, says where the link stands from the link's own lines on its
+  standard error (`LinkState`), and gives one plug for each model's name
+  over whichever link runs. `wiring.link_keeper` builds it from the
+  settings, or says why there can be none. The link client lets one call
+  be on its way at a time, so two tabs talking at once each get their own
+  answer. The Assistant page chooses, in each tab, between the demo ledger
+  (the first, unless `LEDGER_HAND_ASSISTANT_LEDGER` says `page`) and the
+  ledger page (`LedgerKind.PAGE`); with the ledger page, a card asks where
+  its proposals stand only when "Check with the ledger" is pressed, and
+  nothing is handed to the flows while the page is not connected.
 
 ## The assistant
 
@@ -1100,9 +1117,10 @@ formatting tool.
   naming an asset goes to the step that picks it from the ledger's list
   (`extraction/asset_picking.py`: a filler word there, or a new prompt
   version in a new file, measured with `evals/name_run.py`).
-- **The real ledger on the page:** the plug is `ledger/link_ledger.py`.
-  Give it a value of its own in `flows/standing.py`'s `LedgerKind`, so the
-  Assistant page shows it by name and draws no demo button for it.
+- **The real ledger on the page:** done (68B3): `LedgerKind.PAGE`, the
+  keeper in `ledger/link_keeper.py` and the block in
+  `ui/assistant_link_panel.py`. A new way of telling the person how the link
+  stands is one more sentence in `ui/assistant_link_words.py`.
 - **Something more on the Assistant page:** a new table is one more
   function in `ui/assistant_tables.py`, laid out from the result's own
   values; a new failure is one more entry in `ui/assistant_failure_words.py`.
