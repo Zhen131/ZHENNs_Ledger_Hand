@@ -9588,3 +9588,33 @@ the try-out script: R1, R3 and R4 sent, every trade priced in USDT; R2 and
 R5 now ask which money (their price names none, and the book prices in
 USDT and USD); R6 sends nothing; R7 asks which money where it asked the
 side before. Nothing was recorded wrong.
+
+## 2026-11-25: what is said tidied first, through the start of recording, `qwen2.5:7b`
+
+What the user says to the assistant is now tidied before the model sees it
+(`src/ledger_hand/core/spoken_text.py`): number words, and a time said in
+Chinese, are written in digits, each change checked first. This is a line
+that nothing got worse, not evidence that tidying helps: few sentences of
+the sets are changed by it (the voice set is typed, with almost no number
+words). Each set ran through `recording.start` with the assistant's
+versions (`screen-2`, `first-3`, held back as the assistant holds back),
+once as written and once tidied (`evals/judged_run.py`, `--tidy`; the voice
+set with `--voice`), on the same day, at commit `520245a`, tree clean.
+Compared only on the sentences tidying changed: those together may have no
+more fields wrong with nothing said, and no fewer trades whole, tidied.
+
+| Set | Sentences tidying changed (kinds of change) | As written: whole right, wrong unsaid | Tidied: whole right, wrong unsaid | Those sentences, as written / tidied |
+| --- | --- | --- | --- | --- |
+| final (20 sentences, 22 trades) | f01 (an hour or a minute, a number) | 22, 0 | 22, 0 | 1 whole, 0 wrong unsaid / 1, 0 |
+| voice (10 sentences, 10 trades) | none | 2, 6 | 2, 6 | none to compare |
+| debug (30 sentences, 34 trades), reported only | d04, d19 (a number each) | 30, 1 (d23) | 30, 1 (d23) | 3 whole, 0 wrong unsaid / 3, 0 |
+
+No sentence tidying left as it was came out differently in the two runs,
+and no gold trade was judged away. The line is met. Results:
+`judged-20261125T135651Z-final-screen-2-first-3-hold.jsonl`,
+`judged-20261125T135851Z-final-screen-2-first-3-hold-tidy.jsonl`,
+`judged-20261125T140045Z-voice-screen-2-first-3-hold.jsonl`,
+`judged-20261125T140153Z-voice-screen-2-first-3-hold-tidy.jsonl`,
+`judged-20261125T140327Z-debug-screen-2-first-3-hold.jsonl`,
+`judged-20261125T140654Z-debug-screen-2-first-3-hold-tidy.jsonl`, all in
+`evals/tool_results/`.
