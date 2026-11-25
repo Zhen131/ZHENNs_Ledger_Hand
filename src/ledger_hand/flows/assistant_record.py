@@ -3,7 +3,8 @@
 Each time the assistant has dealt with one thing said (typed, an answer,
 or a screenshot's text), one entry is added to the end of a plain text
 file in the data folder (``settings.DataPlaces.assistant_record``): what
-was said, which way it went, who wrote the reply (and the question in
+was said, what it was read as once tidied (with each change), which way
+it went, who wrote the reply (and the question in
 it, when one was asked), each tool the model asked for with its
 arguments as given (those dropped among them), a short piece of what was
 handed back, the failures and their codes, the trades proposed, each
@@ -67,8 +68,10 @@ from ledger_hand.ports import LedgerError, ModelError
 # ledger's four version numbers and not the book's. Version 2 (2026-11-25,
 # 68B2): a call to record keeps one line in "sent" for each trade sent, with
 # its number, its own proposal or why the ledger turned it down. Entries of
-# version 1 are still read as they are.
-RECORD_VERSION = 2
+# version 1 are still read as they are. Version 3 (2026-11-25) added
+# "read_as": the words tidied and each change, or null when nothing was
+# changed. Entries of versions 1 and 2 are still read as they are.
+RECORD_VERSION = 3
 
 # One thousand: an entry is a few thousand bytes, so the file stays at a few
 # megabytes and is read whole in a blink each time an entry is added; at
@@ -152,6 +155,7 @@ def entry_for(
         "format_version": RECORD_VERSION,
         "at": at.isoformat(),
         "said": words,
+        "read_as": _read_as(said),
         "from_screenshot": screenshot,
         "route": said.route.name.lower(),
         "words_by": said.words_by.name.lower(),
@@ -167,6 +171,18 @@ def entry_for(
         "models": {"tools": model, "vision": vision_model if screenshot else None},
         "prompts": _prompts(said),
     }
+
+
+def _read_as(said: Said) -> dict[str, Any] | None:
+    """The words tidied and each change, when tidying changed anything; ``None`` otherwise."""
+    tidied = said.read_as
+    if tidied is None or not tidied.changed:
+        return None
+    changes = [
+        {"kind": change.kind.name.lower(), "said": change.said, "written": change.written}
+        for change in tidied.changes
+    ]
+    return {"text": tidied.text, "changes": changes}
 
 
 def _question_by(said: Said) -> str | None:

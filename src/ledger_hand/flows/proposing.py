@@ -12,7 +12,9 @@ Each trade is filled from the flow's record as it stands: its moment,
 side, quantity, price, total and fee, the platform and the note. No figure
 is worked out, rounded or converted here; a platform or note the flow left
 out (``None``) is sent as empty text. The user's words, as they were said,
-go into every trade (``raw_text``).
+go into every trade (``raw_text``): the progress's own ``raw_text`` when
+the passage was tidied from them on the assistant's way, the passage
+itself otherwise.
 
 A trade is left out, and the others still sent, when:
 
@@ -87,7 +89,8 @@ def propose(
     shared = {same.code: same for same in same_codes(listed)}
     left_out = tuple(_same_code(trade, shared) for trade in left_out)
     assets = {asset.code: asset for asset in listed if asset.code not in shared}
-    numbers, trades, not_sent = _sendable(records, assets, shared, progress.passage)
+    said = progress.raw_text if progress.raw_text is not None else progress.passage
+    numbers, trades, not_sent = _sendable(records, assets, shared, said)
     left_out = tuple(sorted((*left_out, *not_sent), key=lambda trade: trade.number))
     if not trades:
         return Recorded(ending=RecordEnding.NOTHING_TO_SEND, progress=progress, left_out=left_out)
@@ -102,7 +105,8 @@ def _sent(
     left_out: tuple[LeftOutTrade, ...],
 ) -> Recorded:
     try:
-        result = ledger.propose_add(trades, progress.passage)
+        said = progress.raw_text if progress.raw_text is not None else progress.passage
+        result = ledger.propose_add(trades, said)
     except LedgerError as error:
         if error.kind is LedgerErrorKind.TIMED_OUT:
             # The ledger's rule 4: it may have taken them; never send them again.

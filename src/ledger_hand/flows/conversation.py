@@ -55,6 +55,16 @@ were saved before, and a coin the user confirms is known for that passage
 only. Its calls to the model are not counted against the step limit; the
 flow's progress keeps them apart.
 
+Whatever is said, typed or as an answer, is first tidied
+(``spoken_text.tidy_spoken``, in the zone handed in): number words and a
+time said in Chinese are written in digits, without changing what they
+are. From then on the words tidied are what was said: the model sees
+them, the flow reads them, and the chat keeps them. The words as they
+were said go to the ledger as each trade's own record of them
+(``Progress.raw_text``), and ``Said.read_as`` holds both, with each change.
+(Decided on 2026-11-25: the program tidies, so the model never reads a
+number or a time it might change.)
+
 A screenshot read is said through ``say_from_reading``: the text read, as
 the person left it, and the note typed beside it are joined into one
 passage (``screenshot.start_from_reading``) and recorded exactly as the
@@ -78,7 +88,7 @@ Names defined here: ``Route``, ``WordsBy``, ``AssistantChat``, ``Said``,
 from __future__ import annotations
 
 import enum
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 
 from ledger_hand.assistant.edit_calls import EDIT_TOOLS
@@ -87,6 +97,7 @@ from ledger_hand.assistant.outcome import Chat, Ending, TakenCall, TurnResult
 from ledger_hand.core.assets import AssetTable
 from ledger_hand.core.ledger_records import Asset
 from ledger_hand.core.ledger_table import table_of
+from ledger_hand.core.spoken_text import Tidied, tidy_spoken
 from ledger_hand.extraction.picture_reading import PictureRead
 from ledger_hand.extraction.prompts.first3 import FIRST_PROMPT_3
 from ledger_hand.extraction.prompts.screen2 import SCREEN_PROMPT_2
@@ -162,7 +173,9 @@ class Said:
     ``turn`` is the model's turn, when the model was asked; ``recorded`` how
     recording ended, when there was any; ``edited`` how a change or a
     deletion ended, when there was one; ``reply`` what the user is told;
-    ``state`` the chat to hand the next time.
+    ``state`` the chat to hand the next time. ``read_as`` is what was said
+    and the words tidied from it, for words typed or answered; ``None`` for
+    a screenshot's text, which is not tidied.
     """
 
     route: Route
@@ -171,6 +184,7 @@ class Said:
     turn: TurnResult | None = None
     recorded: Recorded | None = None
     edited: Edited | None = None
+    read_as: Tidied | None = None
 
     @property
     def edit_sent(self) -> EditSent | None:
@@ -222,13 +236,18 @@ class ScreenshotText:
 
 @dataclass(frozen=True)
 class _Around:
-    """What every part of one thing said is handed: the ports, the moment, the zone."""
+    """What every part of one thing said is handed: the ports, the moment, the zone.
+
+    ``raw_text`` is the words as the user said them, when tidying changed
+    them; a trade recorded from them is sent with these words.
+    """
 
     model: ModelPort
     ledger: LedgerPort
     now: datetime
     zone: str
     tuning: Tuning
+    raw_text: str | None = None
 
 
 def say(
@@ -246,8 +265,17 @@ def say(
 
     ``tuning`` is how the recording flow calls the model to word a question;
     the caller takes it from the settings (``recording.tuning_from``).
+    ``said`` is tidied first, and the words tidied go on in its place.
     """
-    around = _Around(model, ledger, now, zone, tuning)
+    read_as = tidy_spoken(said, zone)
+    around = _Around(model, ledger, now, zone, tuning, said if read_as.changed else None)
+    done = _said(state, read_as.text, around, max_steps)
+    return replace(done, read_as=read_as)
+
+
+def _said(state: AssistantChat, said: str, around: _Around, max_steps: int) -> Said:
+    """What comes of ``said``, the words tidied, after ``state``."""
+    model, ledger, now, zone = around.model, around.ledger, around.now, around.zone
     if state.recording is not None:
         return _answered(state, state.recording, said, around)
     if state.editing is not None:
@@ -338,7 +366,7 @@ def _start(said: str, around: _Around, table: AssetTable, shot: ScreenshotText |
         "hold_other_unit": True,
     }
     if shot is None:
-        return recording.start(
+        progress = recording.start(
             said,
             around.model,
             now=around.now,
@@ -347,6 +375,9 @@ def _start(said: str, around: _Around, table: AssetTable, shot: ScreenshotText |
             tuning=around.tuning,
             **assistant_way,
         )
+        if around.raw_text is None:
+            return progress
+        return replace(progress, raw_text=around.raw_text)
     return start_from_reading(
         shot.reading,
         around.model,

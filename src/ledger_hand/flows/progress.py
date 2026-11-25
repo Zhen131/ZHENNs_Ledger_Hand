@@ -200,6 +200,13 @@ class Progress:
     differs from it only in spacing or the width of its characters, oldest
     first; it is only ever filled when a book was handed in, and it only
     reminds: nothing is held back for it.
+
+    ``raw_text`` is the words as the user said them, when ``passage`` was
+    tidied from them (the assistant's way); ``None`` when the passage is
+    the words themselves (the record page, a screenshot). Each draft's own
+    ``raw_text`` holds the passage, tidied on the assistant's way; the
+    trades sent to the ledger carry this one when it is there. Every step
+    after the start carries it on.
     """
 
     stage: Stage
@@ -216,6 +223,7 @@ class Progress:
     prompts: tuple[tuple[Step, str], ...] = ()
     calls: tuple[Call, ...] = ()
     seen_before: tuple[EarlierSave, ...] = ()
+    raw_text: str | None = None
 
     @property
     def records(self) -> tuple[TradeRecord, ...]:
