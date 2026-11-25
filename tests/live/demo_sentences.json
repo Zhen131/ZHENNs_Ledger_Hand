@@ -91,7 +91,7 @@
         "side": "Side: buys and sells",
         "rows": 2
       },
-      "shows": "A table of every MSFT trade, buys and sells, all time: 2 rows, the buy of 2 October 2026 and the sell of 12 November 2026."
+      "shows": "A table of every MSFT trade, all time, buys and sells: 2 rows, the buy of 2 October 2026 and the sell of 12 November 2026. The header also says it was not narrowed to buys: the model asks for buys, and the program widens it, since the question names no side."
     },
     {
       "id": "ask-assets",
