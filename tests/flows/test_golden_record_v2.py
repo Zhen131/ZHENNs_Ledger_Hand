@@ -22,7 +22,6 @@ import shutil
 from pathlib import Path
 
 from ledger_hand.flows.assistant_record import (
-    RECORD_VERSION,
     RecordRead,
     entry_for,
     read_record,
@@ -81,14 +80,15 @@ def test_two_trades_sent_at_once_keep_a_line_each_the_one_turned_down_with_its_c
     ]
 
 
-def test_an_entry_made_now_has_the_names_of_the_golden_ones() -> None:
+def test_an_entry_of_version_two_keeps_every_name_an_entry_of_version_three_has() -> None:
+    # Version 3 added "read_as" and nothing else; the names of an entry made now
+    # are checked against version 3's golden record, in test_golden_record_v3.py.
     said, _ = typed(SHARES, [SHARES_ROW], FakeLedger())
     made = entry_for(said, words=SHARES, at=INVENTED_NOW, model="invented-model")
     entries = golden().entries
 
-    assert RECORD_VERSION == 2
     for entry in entries:
-        assert list(entry) == list(made)
+        assert list(entry) == [name for name in made if name != "read_as"]
     assert list(entries[1]["trades"][0]) == list(made["trades"][0])
     assert list(entries[1]["sent"][0]) == list(made["sent"][0])
 
