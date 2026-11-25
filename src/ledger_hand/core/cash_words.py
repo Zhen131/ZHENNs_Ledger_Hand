@@ -24,7 +24,7 @@ What a question about cash is (``CashAsk``), one kind each:
   code and name of each asset the ledger lists as cash. No money is
   written in here for good: what the ledger calls cash is handed in.
 - ``DEPOSIT``: money put in: "入金", "入了多少金", "充值", "存入",
-  "deposit", "top up". "买入金额", "收入金额" are not it.
+  "deposit", "top up". "买入金额", "收入金额", "买入了30美金" are not it.
 - ``WITHDRAWAL``: money taken out: "出金", "出了多少金", "提现", "取现",
   "withdraw". "卖出金额", "支出金额" are not it.
 
@@ -89,7 +89,7 @@ _CASH = (
 _BALANCE = r"(?:余额|(?<![a-z])balances?(?![a-z]))"
 _DEPOSIT = (
     r"(?<![收投买录输转加])入金(?!额)",
-    r"入了[^，,。.?？!！]{0,3}?金(?!额)",
+    r"(?<!买)入了[^，,。.?？!！]{0,3}?金(?!额)",
     r"充值",
     r"存入",
     r"(?<![a-z])deposit(?:s|ed|ing)?(?![a-z])",
