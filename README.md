@@ -1130,7 +1130,9 @@ passages, as typed: keep it out of anything shared.
 
 Like the data folder, this is not one of the model settings: it does not
 start with their prefix and is not shown on the settings page. The
-Assistant page reads it when the program starts.
+Assistant page reads it when the program starts; a value it refuses stops
+that page alone, which says why, and the Record and Settings pages work as
+before.
 
 ### Variables the scripts read
 

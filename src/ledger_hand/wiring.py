@@ -107,7 +107,9 @@ class Parts:
     and for parts handed in without them. ``ledger`` is the ledger the
     assistant reaches and ``ledger_kind`` which kind it is, both ``None``
     for parts handed in without one; ``assistant_steps`` is how many times
-    the assistant may ask the model in one turn.
+    the assistant may ask the model in one turn, and ``steps_refused`` why
+    that setting was refused, when it was (the assistant page then sends
+    nothing and says why; the other pages do not use it).
     """
 
     model: ModelPort
@@ -123,6 +125,7 @@ class Parts:
     ledger: LedgerPort | None = None
     ledger_kind: LedgerKind | None = None
     assistant_steps: int = DEFAULT_ASSISTANT_STEPS
+    steps_refused: str | None = None
 
 
 class AssemblyProblem(enum.Enum):
@@ -151,7 +154,6 @@ def assemble(changes: Mapping[Variable, str] | None = None) -> Parts:
     try:
         read = load_model_settings()
         places = load_data_places()
-        steps = load_assistant_steps()
         check_plug(read)
     except SettingsError as error:
         raise AssemblyError(AssemblyProblem.SETTING_REFUSED, str(error)) from error
@@ -164,6 +166,7 @@ def assemble(changes: Mapping[Variable, str] | None = None) -> Parts:
     if zone is None:
         raise AssemblyError(AssemblyProblem.NO_ZONE_NAME)
     local = settings.plug is Plug.LOCAL
+    steps, steps_refused = _steps()
     return Parts(
         model=model,
         tuning=tuning_from(settings),
@@ -178,7 +181,20 @@ def assemble(changes: Mapping[Variable, str] | None = None) -> Parts:
         ledger=FakeLedger(),
         ledger_kind=LedgerKind.DEMO,
         assistant_steps=steps,
+        steps_refused=steps_refused,
     )
+
+
+def _steps() -> tuple[int, str | None]:
+    """How many steps the assistant may take, or why the setting was refused.
+
+    A refused step limit stops only the assistant page, which says why; the
+    Record and Settings pages are built as before.
+    """
+    try:
+        return load_assistant_steps(), None
+    except SettingsError as error:
+        return DEFAULT_ASSISTANT_STEPS, str(error)
 
 
 def _vision_model_check(settings: ModelSettings) -> VisionModelCheck:

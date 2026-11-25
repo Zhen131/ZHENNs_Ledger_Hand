@@ -103,3 +103,23 @@ def test_a_setting_changed_keeps_the_demo_ledger_its_proposal_and_its_saved_trad
     assert page.session_state[PARTS_KEY].ledger is ledger
     assert "Status: saved" in card_text(page, "proposal-1")
     assert len(ledger.list_trades(TradeFilter())) == trades
+
+
+def test_a_refused_step_limit_stops_the_assistant_page_alone(
+    bare_machine: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv(ASSISTANT_STEPS_VARIABLE, "99")
+    model = RoutedModel()
+    page = AppTest.from_file(str(APP_FILE), default_timeout=30)
+    page.session_state[BUILDER_KEY] = ScriptedBuilds(model)
+    page = page.run()
+
+    assert list(page.error) == []
+    assert [box.key for box in page.chat_input] == ["chat_input"]
+
+    page = to_assistant(page)
+    notice = str(page.container(key="assistant_notice").warning[0].value)
+    assert notice.startswith("The assistant cannot start:")
+    assert ASSISTANT_STEPS_VARIABLE in notice
+    assert page.chat_input(key="assistant_chat_input").proto.disabled
+    assert model.tools.calls == []

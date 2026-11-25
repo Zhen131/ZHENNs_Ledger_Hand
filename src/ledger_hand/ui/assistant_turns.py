@@ -21,9 +21,9 @@ decides how a thing said is taken: ``conversation.say`` does.
   read, as the person left it, and the note to
   ``conversation.say_from_reading``.
 
-Nothing is handed to the flows while the parts hold no ledger, or choose
-the cloud plug: the page then shows why and greys the input out, and a
-control used anyway does nothing.
+Nothing is handed to the flows while the parts hold no ledger, choose the
+cloud plug, or carry a refused step limit: the page then shows why and
+greys the input out, and a control used anyway does nothing.
 
 Names defined here: ``usable``, ``take_typed``, ``take_text``,
 ``start_new_chat``, ``save_in_demo``, ``reject_in_demo``,
@@ -54,6 +54,8 @@ def usable(parts: Parts) -> Stop | None:
         return Stop.NO_LEDGER
     if parts.settings.plug is Plug.CLOUD:
         return Stop.CLOUD_PLUG
+    if parts.steps_refused is not None:
+        return Stop.STEPS_REFUSED
     return None
 
 

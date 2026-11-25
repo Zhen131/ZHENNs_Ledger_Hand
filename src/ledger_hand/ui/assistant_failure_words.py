@@ -10,8 +10,9 @@ says each failure that reply rests on, looked up here:
   ``LedgerErrorKind``), with the ledger's own words after it;
 - the ways the page itself stops (``STOPS``, one sentence for each
   ``Stop``): the step limit reached, the program's taking over that still
-  found nothing, no ledger connected, and the cloud plug, which the
-  assistant does not run on;
+  found nothing, no ledger connected, the cloud plug, which the assistant
+  does not run on, and a step limit set in the environment that was
+  refused;
 - a demo save or reject that did nothing (``DEMO_WORDS``, one for each
   ``standing.DemoOutcome`` that is not done);
 - every way a screenshot is not read, as the Record page says them
@@ -54,6 +55,7 @@ class Stop(enum.Enum):
     TAKEOVER_FAILED = "the program took over and still could not do it"
     NO_LEDGER = "no ledger is connected"
     CLOUD_PLUG = "the cloud plug is set, and the assistant runs on the local plug only"
+    STEPS_REFUSED = "the setting of how many steps the assistant may take was refused"
 
 
 # {steps} is how many times the model may be asked in one turn.
@@ -76,6 +78,11 @@ STOPS: Mapping[Stop, str] = MappingProxyType(
             "Cloud models are not supported for the assistant yet: it runs on the local "
             f"plug only. Set {Variable.PLUG.value} to {Plug.LOCAL.value} on the Settings page "
             "to use it. Nothing typed here is sent."
+        ),
+        Stop.STEPS_REFUSED: (
+            "The assistant cannot start: {detail}. Correct "
+            f"{ASSISTANT_STEPS_VARIABLE}, or remove it to use its default, then start the "
+            "program again. Nothing typed here is sent."
         ),
     }
 )
@@ -119,9 +126,10 @@ def ledger_trouble(error: LedgerError) -> str:
     return f"{LEDGER_FAILURES[error.kind]} ({error.message})"
 
 
-def stop_words(stop: Stop, steps: int) -> str:
-    """The sentence for ``stop``; ``steps`` is how many times one turn may ask the model."""
-    return STOPS[stop].format(steps=steps)
+def stop_words(stop: Stop, steps: int, detail: str = "") -> str:
+    """The sentence for ``stop``; ``steps`` is how many times one turn may ask the model,
+    ``detail`` the settings' own words on a refused setting."""
+    return STOPS[stop].format(steps=steps, detail=detail)
 
 
 def failure_lines(said: Said, settings: ModelSettings, steps: int) -> tuple[str, ...]:
