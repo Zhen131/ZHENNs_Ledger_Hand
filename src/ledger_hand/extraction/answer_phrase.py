@@ -24,7 +24,8 @@ The steps:
    passage), a coin or a currency with the asset table, and buy or sell,
    yes or no, "no fee", "the passage did not say it" and which of several
    cells with the word lists. The currency a trade was priced in is read by
-   the rules alone; the model is never asked to copy it. A number, a time
+   the rules alone; the model is never asked to copy it. With an asset table
+   that takes no unseen asset, a coin it does not know is not taken. A number, a time
    or a coin the rules understand but cannot take (a number they are unsure
    of, a time in the future) is not read further: the reason is handed back.
 4. Only when the rules cannot read the whole answer is the model asked to
@@ -70,7 +71,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
 
-from ledger_hand.core.assets import AssetTable, MoneyReading
+from ledger_hand.core.assets import AssetTable, MoneyReading, UnknownAssets
 from ledger_hand.core.coins import spoken_key
 from ledger_hand.core.followup import AskCell, AskWhichCell, Cell, ConfirmCoin
 from ledger_hand.core.ledger_limits import is_symbol
@@ -157,6 +158,7 @@ class AnswerProblem(enum.Enum):
     MODEL_FAILED = "the model could not be asked to read the answer"
     MODEL_REPLY_UNREADABLE = "the model's reply about the answer could not be read"
     MONEY_NAMES_SEVERAL = "the word names more than one currency a trade may be priced in"
+    ASSET_NOT_IN_LEDGER = "that asset is not in the ledger; add it there first"
 
 
 @dataclass(frozen=True)
@@ -364,7 +366,12 @@ def _read_coin(text: str, cell: Cell, setting: AnswerSetting) -> Outcome | None:
         if cell is Cell.COIN:
             return Filled(cell, key)
         return NotRead(AnswerProblem.MONEY_NAMES_SEVERAL)
-    return Filled(cell, key) if is_symbol(key) else None
+    if not is_symbol(key):
+        return None
+    if setting.assets.unknown is UnknownAssets.REFUSE:
+        # Only the table's own assets are taken; the question stays.
+        return NotRead(AnswerProblem.ASSET_NOT_IN_LEDGER)
+    return Filled(cell, key)
 
 
 def _read_quote(text: str, setting: AnswerSetting) -> Outcome | None:
