@@ -6,9 +6,12 @@
 # Tiers:
 #   quick   format, lint, types, layering, hygiene, tests. The default.
 #           Needs no network and no running model.
-#   ledger  sample export files checked by the ledger's own validator
-#           (scripts/ledger_check.py). Needs a checkout of the ledger, named
-#           by LEDGER_HAND_LEDGER_DIR; skipped, and says why, without one.
+#   ledger  the ledger's assistant link started and its tools compared
+#           with the ones this program expects (scripts/ledger_link_check.py,
+#           a few seconds), then sample export files checked by the ledger's
+#           own validator (scripts/ledger_check.py). Needs a checkout of the
+#           ledger, named by LEDGER_HAND_LEDGER_DIR; skipped, and says why,
+#           without one.
 #   live    one real call to the model the settings name (tests/live/), and
 #           the server's version and the model's fingerprint. Needs the model
 #           server running; run by hand only. Fails, saying "unreachable",
@@ -48,18 +51,25 @@ quick() {
     run_step tests "$PYTHON" -m pytest -q
 }
 
-ledger() {
-    printf '\n== %s ==\n' ledger
-    "$PYTHON" scripts/ledger_check.py
+ledger_step() {
+    local name="$1"
+    shift
+    printf '\n== %s ==\n' "$name"
+    "$@"
     local status=$?
     if [ "$status" -eq 3 ]; then
-        printf '\nSKIPPED: ledger\n' >&2
+        printf '\nSKIPPED: %s\n' "$name" >&2
         exit 3
     fi
     if [ "$status" -ne 0 ]; then
-        printf '\nFAILED: ledger\n' >&2
+        printf '\nFAILED: %s\n' "$name" >&2
         exit 1
     fi
+}
+
+ledger() {
+    ledger_step "ledger link" "$PYTHON" scripts/ledger_link_check.py
+    ledger_step ledger "$PYTHON" scripts/ledger_check.py
 }
 
 live() {
