@@ -13,7 +13,9 @@ sent to the model the settings name (by default ``qwen2.5:7b`` on this
 machine's Ollama), with the fake ledger and its invented book behind the
 tools. For each thing said it prints which way it went (the model chose the
 tools, it was taken as the answer to the question waiting, or the program
-took over after two wrong steps); for each step, what the model asked for
+took over after two wrong steps), after a line "read as: ..." when the
+words were tidied first (number words and a time said in Chinese written
+in digits, as the assistant reads them); for each step, what the model asked for
 and with what, and what was handed back, or why the call was a wrong step,
 or that it was not run because its step went to recording. A read tool's
 call is followed by the table the program laid out of what the ledger
@@ -26,7 +28,11 @@ proposal itself, and one line from the program saying what reached the
 ledger ("sent to the ledger: nothing" when nothing did); then who wrote
 the last words ("words by: the model", or the program, and when the
 model's words were withheld, why), the assistant's last words and how it
-ended. ``LEDGER_HAND_ASSISTANT_STEPS``
+ended; just before the ending, when a question waits for its answer, what
+it asks about ("asked about: time", the cell's name; "new-coin" when it
+asks whether a word is a coin; "which-cell" when it asks which value is
+wrong).
+``LEDGER_HAND_ASSISTANT_STEPS``
 says how many times the model may be asked in one turn (six by default).
 When a question waits, the next argument is its answer.
 
@@ -74,11 +80,12 @@ from ledger_hand.assistant.outcome import (
     TurnResult,
 )
 from ledger_hand.assistant.results import not_done_text
+from ledger_hand.core.followup import AskCell, ConfirmCoin
 from ledger_hand.core.ledger_records import TradeFacts, TradeFilter
 from ledger_hand.core.proposals import ProposalStatus
 from ledger_hand.core.zones import is_zone_name
 from ledger_hand.flows.conversation import AssistantChat, Route, Said, say
-from ledger_hand.flows.progress import DEFAULT_TUNING, Tuning
+from ledger_hand.flows.progress import DEFAULT_TUNING, Asked, Tuning
 from ledger_hand.flows.recording import tuning_from
 from ledger_hand.ledger.fake_ledger import FakeLedger
 from ledger_hand.ledger.invented_book import INVENTED_NOW, INVENTED_ZONE
@@ -221,6 +228,8 @@ def _model_name() -> str:
 def show_said(words: str, said: Said, out: TextIO) -> None:
     """Print one thing said: the way it went, each step, the recording, the last words."""
     print(f"\nyou said: {words}", file=out)
+    if said.read_as is not None and said.read_as.changed:
+        print(f"read as: {said.read_as.text}", file=out)
     print(f"route: {said.route.value}", file=out)
     turn = said.turn
     for number, step in enumerate(turn.steps if turn is not None else (), start=1):
@@ -243,6 +252,12 @@ def show_said(words: str, said: Said, out: TextIO) -> None:
     if said.edited is not None and said.edited.failure is not None:
         failure = said.edited.failure
         print(f"failure: {type(failure).__name__}: {failure}", file=out)
+    _show_end(said, out)
+
+
+def _show_end(said: Said, out: TextIO) -> None:
+    """Print what reached the ledger, who wrote the last words, them, the ending, what is asked."""
+    turn, recorded = said.turn, said.recorded
     sent = said.sent
     to_ledger = f"{sent.proposal}, {sent.trades} trade(s)" if sent is not None else "nothing"
     edit_sent = said.edit_sent
@@ -252,7 +267,19 @@ def show_said(words: str, said: Said, out: TextIO) -> None:
     by_the_model = recorded is None and said.edited is None and turn is not None
     print(f"words by: {_words_by(turn) if by_the_model else 'the program'}", file=out)
     print(f"assistant: {said.reply or '-'}", file=out)
+    question = recorded.question if recorded is not None else None
+    if question is not None:
+        print(f"asked about: {asked_about(question.asked)}", file=out)
     print(f"ending: {_ending(said)}", file=out)
+
+
+def asked_about(asked: Asked) -> str:
+    """What a question asks about, in one word: a cell's name, ``new-coin`` or ``which-cell``."""
+    if isinstance(asked, AskCell):
+        return asked.cell.value
+    if isinstance(asked, ConfirmCoin):
+        return "new-coin"
+    return "which-cell"
 
 
 def show_turn(said: str, result: TurnResult, out: TextIO) -> None:
