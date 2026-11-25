@@ -18,7 +18,10 @@ read before going on, or go on at once:
   starts the passage with the model that extracts. The call that read the
   picture comes first among the calls, and ``read-1`` first among the
   prompts, for the step ``Step.READING``. A reading that was not made is the
-  caller's mistake, and is refused.
+  caller's mistake, and is refused. The prompt versions the passage is
+  judged and extracted with, and whether a quantity in another unit is
+  held back, are handed on to ``recording.start`` as they are given; left
+  out, they are that function's own defaults, as the Record page uses.
 - ``start_from_screenshot`` does all of it: it checks the moment and the
   zone, reads the picture and, when it was read, starts from the reading
   with the text as read. When it was not, the passage ends there, failed at
@@ -48,6 +51,9 @@ from ledger_hand.extraction.picture_reading import (
     PictureReading,
     read_picture,
 )
+from ledger_hand.extraction.prompting import PromptVersion
+from ledger_hand.extraction.prompts.first import FIRST_PROMPT
+from ledger_hand.extraction.prompts.screen import SCREEN_PROMPT
 from ledger_hand.flows.progress import (
     DEFAULT_TUNING,
     Call,
@@ -94,19 +100,35 @@ def start_from_reading(
     assets: AssetTable = BUILT_IN_ASSETS,
     tuning: Tuning = DEFAULT_TUNING,
     book: StoragePort | None = None,
+    screen_prompt: PromptVersion = SCREEN_PROMPT,
+    extract_prompt: PromptVersion = FIRST_PROMPT,
+    hold_other_unit: bool = False,
 ) -> Progress:
     """Start the passage joined from ``reading`` (or ``text``) and ``note``, with ``model``.
 
     ``text`` is the text to use, when the person changed what was read.
-    Raises ``ValueError`` for a reading that was not made, and as
-    ``recording.start`` does for the moment and the zone.
+    ``screen_prompt``, ``extract_prompt`` and ``hold_other_unit`` go to
+    ``recording.start`` as they are. Raises ``ValueError`` for a reading
+    that was not made, and as ``recording.start`` does for the moment and
+    the zone.
     """
     if isinstance(reading, PictureNotRead):
         raise ValueError("the picture was not read, so there is no text to start from")
     if not isinstance(reading, PictureRead):
         raise TypeError(f"a reading is a PictureRead, not {type(reading).__name__}")
     passage = joined_passage(reading.text if text is None else text, note)
-    progress = start(passage, model, now=now, zone=zone, assets=assets, tuning=tuning, book=book)
+    progress = start(
+        passage,
+        model,
+        now=now,
+        zone=zone,
+        assets=assets,
+        tuning=tuning,
+        book=book,
+        screen_prompt=screen_prompt,
+        extract_prompt=extract_prompt,
+        hold_other_unit=hold_other_unit,
+    )
     return dataclasses.replace(
         progress,
         calls=(*_reading_calls(reading), *progress.calls),

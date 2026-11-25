@@ -55,9 +55,23 @@ were saved before, and a coin the user confirms is known for that passage
 only. Its calls to the model are not counted against the step limit; the
 flow's progress keeps them apart.
 
+A screenshot read is said through ``say_from_reading``: the text read, as
+the person left it, and the note typed beside it are joined into one
+passage (``screenshot.start_from_reading``) and recorded exactly as the
+words typed are, with the same asset table, the same prompt versions and
+the same holding back, set in one place (``_start``); the model that
+chooses tools is not asked, and no book is handed in. It goes into the
+chat as what the user said, and the program's reply as the assistant's
+(``Route.SCREENSHOT``). It is for when nothing waits for an answer.
+
+``Said.words_by`` says who wrote the words the user is told (``WordsBy``):
+the model, the program's own fixed words, or the recording's question, so
+that a caller shows it as it is rather than work it out.
+
 This module reads no clock, no zone and no settings: all are handed in.
 
-Names defined here: ``Route``, ``AssistantChat``, ``Said``, ``say``,
+Names defined here: ``Route``, ``WordsBy``, ``AssistantChat``, ``Said``,
+``ScreenshotText``, ``say``, ``say_from_reading``,
 ``ASSISTANT_SCREEN_PROMPT`` and ``ASSISTANT_EXTRACT_PROMPT``.
 """
 
@@ -70,8 +84,10 @@ from datetime import datetime
 from ledger_hand.assistant.edit_calls import EDIT_TOOLS
 from ledger_hand.assistant.edit_words import not_done_words
 from ledger_hand.assistant.outcome import Chat, Ending, TakenCall, TurnResult
+from ledger_hand.core.assets import AssetTable
 from ledger_hand.core.ledger_records import Asset
 from ledger_hand.core.ledger_table import table_of
+from ledger_hand.extraction.picture_reading import PictureRead
 from ledger_hand.extraction.prompts.first3 import FIRST_PROMPT_3
 from ledger_hand.extraction.prompts.screen2 import SCREEN_PROMPT_2
 from ledger_hand.flows import editing, recording
@@ -87,6 +103,7 @@ from ledger_hand.flows.recorded import (
     RecordEnding,
     Sent,
 )
+from ledger_hand.flows.screenshot import joined_passage, start_from_reading
 from ledger_hand.ports import LedgerError, LedgerPort, Message, ModelPort, Role, ToolCall
 
 # The prompt versions the assistant judges and extracts what the user said
@@ -110,6 +127,15 @@ class Route(enum.Enum):
     MODEL = "the model chose the tools"
     ANSWER = "taken as the answer to the question waiting"
     TAKEOVER = "the program took over after two wrong steps"
+    SCREENSHOT = "recorded from a screenshot read, the model that chooses tools not asked"
+
+
+class WordsBy(enum.Enum):
+    """Who wrote the words the user is told."""
+
+    MODEL = "the model"
+    PROGRAM = "the program's own words"
+    QUESTION = "the recording's question"
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -157,6 +183,22 @@ class Said:
         return self.recorded.sent if self.recorded is not None else None
 
     @property
+    def words_by(self) -> WordsBy:
+        """Who wrote ``reply``: the model only when it answered and its words were shown.
+
+        A question's own sentence may still be the model's; the question says
+        (``Question.writer``).
+        """
+        if self.recorded is not None and self.recorded.question is not None:
+            return WordsBy.QUESTION
+        turn = self.turn
+        if self.recorded is not None or self.edited is not None or turn is None:
+            return WordsBy.PROGRAM
+        if turn.ending is Ending.ANSWERED and turn.withheld is None:
+            return WordsBy.MODEL
+        return WordsBy.PROGRAM
+
+    @property
     def well_ended(self) -> bool:
         """Whether it was done, or the user was told why not, with nothing failing."""
         if self.edited is not None:
@@ -166,6 +208,16 @@ class Said:
                 return False
             return self.recorded.well_ended
         return self.turn is not None and self.turn.ending in _TOLD
+
+
+@dataclass(frozen=True, kw_only=True)
+class ScreenshotText:
+    """A screenshot read, and the two texts to record from it: the text read, as the
+    person left it, and the note typed beside it."""
+
+    reading: PictureRead
+    text: str
+    note: str = ""
 
 
 @dataclass(frozen=True)
@@ -219,14 +271,49 @@ def say(
     return Said(route=Route.MODEL, reply=turn.reply, state=AssistantChat(chat=turn.chat), turn=turn)
 
 
-def _begun(said: str, around: _Around) -> Recorded:
+def say_from_reading(
+    state: AssistantChat,
+    shot: ScreenshotText,
+    *,
+    model: ModelPort,
+    ledger: LedgerPort,
+    now: datetime,
+    zone: str,
+    tuning: Tuning = DEFAULT_TUNING,
+) -> Said:
+    """What comes of recording ``shot`` after ``state``, as if the passage were typed.
+
+    The model that chooses tools is not asked. Raises ``ValueError`` when
+    something waits for the user's answer: a caller offers no screenshot then.
+    """
+    if state.recording is not None or state.editing is not None:
+        raise ValueError("something waits for the user's answer; answer it first")
+    around = _Around(model, ledger, now, zone, tuning)
+    recorded = _begun("", around, shot)
+    passage = recorded.progress.passage
+    reply = reply_for(recorded)
+    chat = _with_words(state.chat, (Message(Role.USER, passage), Message(Role.ASSISTANT, reply)))
+    chat = _with_proposal(chat, recorded)
+    return Said(
+        route=Route.SCREENSHOT,
+        reply=reply,
+        state=AssistantChat(chat=chat, recording=_waiting(recorded)),
+        recorded=recorded,
+    )
+
+
+def _begun(said: str, around: _Around, shot: ScreenshotText | None = None) -> Recorded:
     """What the user said, word for word, handed to the recording flow; no book is handed in.
 
-    The ledger's list of assets is asked for first, once, and made into the
-    asset table the flow records with; the proposal at the end of this turn
-    uses the same list. When the ledger cannot be asked, or prices trades
-    in no money at all, it ends there, and the model is asked nothing.
+    With ``shot``, the passage is the screenshot's text and note joined, and
+    ``said`` is not used. The ledger's list of assets is asked for first,
+    once, and made into the asset table the flow records with; the proposal
+    at the end of this turn uses the same list. When the ledger cannot be
+    asked, or prices trades in no money at all, it ends there, and the model
+    is asked nothing.
     """
+    if shot is not None:
+        said = joined_passage(shot.text, shot.note)
     try:
         listed = around.ledger.list_assets()
     except LedgerError as error:
@@ -236,18 +323,41 @@ def _begun(said: str, around: _Around) -> Recorded:
     if table is None:
         unbegun = recording.unbegun(said, now=around.now, zone=around.zone, tuning=around.tuning)
         return Recorded(ending=RecordEnding.NO_PRICING_MONEY, progress=unbegun)
-    progress = recording.start(
-        said,
+    return _onward(_start(said, around, table, shot), around.ledger, listed)
+
+
+def _start(said: str, around: _Around, table: AssetTable, shot: ScreenshotText | None) -> Progress:
+    """The recording flow begun the assistant's way, for words typed and a screenshot alike.
+
+    The prompt versions and the holding back are named here once, so the
+    two ways cannot drift apart.
+    """
+    assistant_way = {
+        "screen_prompt": ASSISTANT_SCREEN_PROMPT,
+        "extract_prompt": ASSISTANT_EXTRACT_PROMPT,
+        "hold_other_unit": True,
+    }
+    if shot is None:
+        return recording.start(
+            said,
+            around.model,
+            now=around.now,
+            zone=around.zone,
+            assets=table,
+            tuning=around.tuning,
+            **assistant_way,
+        )
+    return start_from_reading(
+        shot.reading,
         around.model,
         now=around.now,
         zone=around.zone,
+        text=shot.text,
+        note=shot.note,
         assets=table,
         tuning=around.tuning,
-        screen_prompt=ASSISTANT_SCREEN_PROMPT,
-        extract_prompt=ASSISTANT_EXTRACT_PROMPT,
-        hold_other_unit=True,
+        **assistant_way,
     )
-    return _onward(progress, around.ledger, listed)
 
 
 def _onward(

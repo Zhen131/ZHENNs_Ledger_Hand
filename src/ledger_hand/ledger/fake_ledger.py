@@ -14,10 +14,12 @@ then; a change or a deletion fails on that last count too. When one trade
 fails, the proposal is not kept and gets no identifier; when all pass, it
 waits as pending, and the book does not change.
 
-Two things the port does not offer are here for tests and the try-out
-script: ``save`` a pending proposal (only then does the book change, and
-every other pending proposal becomes void, since it was checked against
-the book as it was) and ``reject`` one. The assistant is never handed them.
+Two things the port does not offer are here for tests, the try-out
+script and the assistant page's demo buttons: ``save`` a pending proposal
+(only then does the book change, and every other pending proposal becomes
+void, since it was checked against the book as it was) and ``reject`` one.
+The page reaches them only through ``flows/standing.py``, which does
+nothing with any other ledger; the assistant's model is never handed them.
 
 Cost and profit are worked out the fake ledger's own way
 (``moving_average``), which says nothing about the real ledger's way.

@@ -20,10 +20,12 @@ ones, in time order, and says how many there are in all.
 
 ``trade_row`` and ``conditions_lines`` lay out one trade, and the
 conditions trades were found by, the same way, for the program's words
-when it changes or deletes a trade.
+when it changes or deletes a trade. ``header_lines`` gives the header
+alone, for a screen that lays the rows out as a table of its own.
 
 Names defined here: ``MOST_TRADES_SHOWN``, ``Conditions``, ``Lookup``,
-``latest_trades``, ``lookup_lines``, ``trade_row`` and ``conditions_lines``.
+``latest_trades``, ``lookup_lines``, ``header_lines``, ``trade_row`` and
+``conditions_lines``.
 """
 
 from __future__ import annotations
@@ -179,6 +181,11 @@ def lookup_lines(lookup: Lookup) -> tuple[str, ...]:
     """The header, then one line a row; one fixed line when there is no row."""
     rows = _rows(lookup)
     return (*_header(lookup), *(rows or [_NOTHING]))
+
+
+def header_lines(lookup: Lookup) -> tuple[str, ...]:
+    """The header alone, as ``lookup_lines`` begins: the days, the asset, the side, the counts."""
+    return tuple(_header(lookup))
 
 
 def trade_row(trade: LedgerTrade) -> str:
