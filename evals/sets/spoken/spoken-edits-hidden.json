@@ -1,0 +1,59 @@
+{
+  "about": "Changes and deletions said the owner's way, each said in a chat of its own against the exam book, with gold answers written once before any run, in the shape of edits.json: the trade identifiers are the exam book's. 'pick': more than one trade matches, so the program must ask which; the ruler answers with 'answer'. 'choose': the change leaves quantity times price away from the total, so the program must ask which follows; the ruler answers with that amount's name, and 'amounts' are what the proposal must then hold. 'refuse': the program must change nothing and say why. Odd-numbered sentences are the practice half, even-numbered ones the hidden half, of which only totals are printed. Every sentence is invented.",
+  "book": "exam",
+  "half": "hidden",
+  "now": "2026-11-24T23:55:00+01:00",
+  "zone": "Europe/Budapest",
+  "sentences": [
+    {
+      "id": "E-02",
+      "text": "把我十一月二十号那笔BTC的数量改一下，改成0.00054238。",
+      "gold": {
+        "expect": "send",
+        "kind": "change",
+        "trade": "t-27",
+        "field": "quantity",
+        "value": "0.00054238",
+        "choose": "总额",
+        "amounts": {
+          "quantity": "0.00054238",
+          "price": "84000",
+          "total": "45.55992"
+        }
+      }
+    },
+    {
+      "id": "E-04",
+      "text": "上次那笔可口可乐的时间不对，应该是下午三点半。",
+      "gold": {
+        "expect": "send",
+        "kind": "change",
+        "trade": "t-18",
+        "field": "time",
+        "value": "2026-08-18T15:30:00+02:00"
+      }
+    },
+    {
+      "id": "E-06",
+      "text": "那笔ADA的平台改成币安。",
+      "gold": {
+        "expect": "send",
+        "kind": "change",
+        "trade": "t-15",
+        "field": "platform",
+        "value": "币安",
+        "pick": {
+          "answer": "第一笔",
+          "trade": "t-15"
+        }
+      }
+    },
+    {
+      "id": "E-08",
+      "text": "刚才那笔记错了，不要了。",
+      "gold": {
+        "expect": "refuse"
+      }
+    }
+  ]
+}

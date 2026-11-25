@@ -1,0 +1,63 @@
+{
+  "about": "Changes and deletions said the owner's way, each said in a chat of its own against the exam book, with gold answers written once before any run, in the shape of edits.json: the trade identifiers are the exam book's. 'pick': more than one trade matches, so the program must ask which; the ruler answers with 'answer'. 'choose': the change leaves quantity times price away from the total, so the program must ask which follows; the ruler answers with that amount's name, and 'amounts' are what the proposal must then hold. 'refuse': the program must change nothing and say why. Odd-numbered sentences are the practice half, even-numbered ones the hidden half, of which only totals are printed. Every sentence is invented.",
+  "book": "exam",
+  "half": "practice",
+  "now": "2026-11-24T23:55:00+01:00",
+  "zone": "Europe/Budapest",
+  "sentences": [
+    {
+      "id": "E-01",
+      "text": "我十月九号下午买的那笔ETH，手续费记错了，应该是零点零零零零一一六个ETH。",
+      "gold": {
+        "expect": "send",
+        "kind": "change",
+        "trade": "t-21",
+        "field": "fee",
+        "value": "0.0000116"
+      }
+    },
+    {
+      "id": "E-03",
+      "text": "十一月十二号中午那笔微软我记重了，帮我删掉一笔。",
+      "gold": {
+        "expect": "send",
+        "kind": "delete",
+        "trade": "t-22",
+        "pick": {
+          "answer": "第一笔",
+          "trade": "t-22"
+        }
+      }
+    },
+    {
+      "id": "E-05",
+      "text": "我九月份那笔SOL删掉吧，那笔是我记错了。",
+      "gold": {
+        "expect": "send",
+        "kind": "delete",
+        "trade": "t-24",
+        "pick": {
+          "answer": "第一笔",
+          "trade": "t-24"
+        }
+      }
+    },
+    {
+      "id": "E-07",
+      "text": "把昨天那笔BTC的成交价改成六万四千五百。",
+      "gold": {
+        "expect": "send",
+        "kind": "change",
+        "trade": "t-26",
+        "field": "price",
+        "value": "64500",
+        "choose": "总额",
+        "amounts": {
+          "quantity": "0.001",
+          "price": "64500",
+          "total": "64.5"
+        }
+      }
+    }
+  ]
+}

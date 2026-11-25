@@ -1,0 +1,88 @@
+{
+  "about": "Questions about the ledger said the owner's way, each said in a chat of its own against the exam book, with gold answers written once before any run, in the shape of asks.json: the tool, and for list_trades and get_period_summary the first and last day (null: all time), the asset (null: all assets) and, for list_trades, the side (null: both); 'no_tool': the assistant looks nothing up. A sentence about something the ledger cannot answer yet names what it waits for ('wait_for'), and its gold answer is 'no_tool'. Odd-numbered sentences are the practice half, even-numbered ones the hidden half, of which only totals are printed. Every sentence is invented.",
+  "book": "exam",
+  "half": "hidden",
+  "now": "2026-11-24T23:55:00+01:00",
+  "zone": "Europe/Budapest",
+  "groups": [
+    [
+      {
+        "id": "A-02",
+        "text": "那个，我现在手里面还有哪些东西？然后浮动盈亏是多少？",
+        "gold": [
+          {
+            "tool": "get_positions"
+          }
+        ]
+      }
+    ],
+    [
+      {
+        "id": "A-04",
+        "text": "上个月我卖出去的那些，哪几笔是赚钱的？",
+        "gold": [
+          {
+            "tool": "list_trades",
+            "from": "2026-10-01",
+            "to": "2026-10-31",
+            "asset": null,
+            "side": "sell"
+          }
+        ]
+      }
+    ],
+    [
+      {
+        "id": "A-06",
+        "text": "我现在还剩多少USDT可以用？",
+        "gold": [
+          {
+            "tool": "no_tool"
+          }
+        ],
+        "wait_for": "cash_balance"
+      }
+    ],
+    [
+      {
+        "id": "A-08",
+        "text": "十一月十二号那天我都干了什么交易？",
+        "gold": [
+          {
+            "tool": "list_trades",
+            "from": "2026-11-12",
+            "to": "2026-11-12",
+            "asset": null,
+            "side": null
+          }
+        ]
+      }
+    ],
+    [
+      {
+        "id": "A-10",
+        "text": "最近七天我有没有买卖过东西啊？",
+        "gold": [
+          {
+            "tool": "list_trades",
+            "from": "2026-11-18",
+            "to": "2026-11-24",
+            "asset": null,
+            "side": null
+          }
+        ]
+      }
+    ],
+    [
+      {
+        "id": "A-12",
+        "text": "你觉得我现在该不该把ETH卖掉？",
+        "gold": [
+          {
+            "tool": "no_tool"
+          }
+        ]
+      }
+    ]
+  ]
+}

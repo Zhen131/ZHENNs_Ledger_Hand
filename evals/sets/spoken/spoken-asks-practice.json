@@ -1,0 +1,106 @@
+{
+  "about": "Questions about the ledger said the owner's way, each said in a chat of its own against the exam book, with gold answers written once before any run, in the shape of asks.json: the tool, and for list_trades and get_period_summary the first and last day (null: all time), the asset (null: all assets) and, for list_trades, the side (null: both); 'no_tool': the assistant looks nothing up. A sentence about something the ledger cannot answer yet names what it waits for ('wait_for'), and its gold answer is 'no_tool'. Odd-numbered sentences are the practice half, even-numbered ones the hidden half, of which only totals are printed. Every sentence is invented.",
+  "book": "exam",
+  "half": "practice",
+  "now": "2026-11-24T23:55:00+01:00",
+  "zone": "Europe/Budapest",
+  "groups": [
+    [
+      {
+        "id": "A-01",
+        "text": "我想问一下啊，就是我十月份总共买了多少钱的币啊？",
+        "gold": [
+          {
+            "tool": "get_period_summary",
+            "from": "2026-10-01",
+            "to": "2026-10-31",
+            "asset": null
+          },
+          {
+            "tool": "list_trades",
+            "from": "2026-10-01",
+            "to": "2026-10-31",
+            "asset": null,
+            "side": "buy"
+          }
+        ]
+      }
+    ],
+    [
+      {
+        "id": "A-03",
+        "text": "我的那个BTC啊，我一共买过几笔？都是什么时候买的？",
+        "gold": [
+          {
+            "tool": "list_trades",
+            "from": null,
+            "to": null,
+            "asset": "BTC",
+            "side": "buy"
+          }
+        ]
+      }
+    ],
+    [
+      {
+        "id": "A-05",
+        "text": "我今年在ETH上面一共花了多少U了？",
+        "gold": [
+          {
+            "tool": "get_period_summary",
+            "from": "2026-01-01",
+            "to": "2026-12-31",
+            "asset": "ETH"
+          },
+          {
+            "tool": "list_trades",
+            "from": "2026-01-01",
+            "to": "2026-12-31",
+            "asset": "ETH",
+            "side": "buy"
+          }
+        ]
+      }
+    ],
+    [
+      {
+        "id": "A-07",
+        "text": "英特尔那只股票我是什么时候买的来着？",
+        "gold": [
+          {
+            "tool": "list_trades",
+            "from": null,
+            "to": null,
+            "asset": "INTC",
+            "side": "buy"
+          }
+        ]
+      }
+    ],
+    [
+      {
+        "id": "A-09",
+        "text": "我九月份的手续费总共交了多少？",
+        "gold": [
+          {
+            "tool": "get_period_summary",
+            "from": "2026-09-01",
+            "to": "2026-09-30",
+            "asset": null
+          }
+        ]
+      }
+    ],
+    [
+      {
+        "id": "A-11",
+        "text": "账本里面现在都有哪些资产？",
+        "gold": [
+          {
+            "tool": "list_assets"
+          }
+        ]
+      }
+    ]
+  ]
+}

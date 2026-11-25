@@ -48,7 +48,9 @@ from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
 from pathlib import Path
+from types import MappingProxyType
 
+from evals.ask_set import check_book_and_half
 from ledger_hand.core.ledger_records import TradeFacts
 from ledger_hand.core.trade import Side
 from ledger_hand.ledger.invented_book import INVENTED_TRADES
@@ -86,9 +88,13 @@ class EditSentence:
 
 @dataclass(frozen=True)
 class EditSet:
+    """The sentences, their moment and zone, and the book and half the set names (as ``AskSet``)."""
+
     now: datetime
     zone: str
     sentences: tuple[EditSentence, ...]
+    book: str | None = None
+    half: str | None = None
 
 
 def _gold(data: Mapping[str, object]) -> EditGold:
@@ -136,7 +142,15 @@ def load_edit_set(path: Path = EDIT_SET) -> EditSet:
     ids = [sentence.id for sentence in sentences]
     if len(set(ids)) != len(ids):
         raise ValueError("every sentence has an identifier of its own")
-    return EditSet(now=datetime.fromisoformat(data["now"]), zone=data["zone"], sentences=sentences)
+    edit_set = EditSet(
+        now=datetime.fromisoformat(data["now"]),
+        zone=data["zone"],
+        sentences=sentences,
+        book=data.get("book"),
+        half=data.get("half"),
+    )
+    check_book_and_half(edit_set.book, edit_set.half)
+    return edit_set
 
 
 @dataclass(frozen=True)
@@ -176,12 +190,14 @@ def _value(field: str, text: str) -> object:
 _FACT_NAMES = {"quote_currency": "quote", "fee_currency": "fee_asset", "time": "occurred"}
 
 
-def expected_trade(gold: EditGold) -> TradeFacts | None:
-    """The whole trade the gold change proposes; ``None`` for a deletion or no send."""
+def expected_trade(
+    gold: EditGold, book: Mapping[str, TradeFacts] = MappingProxyType(dict(INVENTED_TRADES))
+) -> TradeFacts | None:
+    """The whole trade the gold change proposes to ``book``; ``None`` for a deletion or no send."""
     if gold.expect != SEND or gold.kind != "change":
         return None
     assert gold.trade is not None and gold.field is not None and gold.value is not None
-    trade = dict(INVENTED_TRADES)[gold.trade]
+    trade = book[gold.trade]
     name = _FACT_NAMES.get(gold.field, gold.field)
     changed = dataclasses.replace(trade, **{name: _value(gold.field, gold.value)})  # type: ignore[arg-type]
     if gold.amounts is not None:
@@ -190,8 +206,12 @@ def expected_trade(gold: EditGold) -> TradeFacts | None:
     return changed
 
 
-def judge_edit(gold: EditGold, outcome: Outcome) -> Verdict:
-    """How one sentence went against its gold answer."""
+def judge_edit(
+    gold: EditGold,
+    outcome: Outcome,
+    book: Mapping[str, TradeFacts] = MappingProxyType(dict(INVENTED_TRADES)),
+) -> Verdict:
+    """How one sentence went against its gold answer, its trades those of ``book``."""
     sent = outcome.sent_kind is not None
     if gold.expect != SEND:
         if sent:
@@ -206,21 +226,28 @@ def judge_edit(gold: EditGold, outcome: Outcome) -> Verdict:
         return Verdict.SILENTLY_WRONG
     if outcome.sent_kind != gold.kind or outcome.sent_trade != gold.trade:
         return Verdict.SILENTLY_WRONG
-    if gold.kind == "change" and outcome.after != expected_trade(gold):
+    if gold.kind == "change" and outcome.after != expected_trade(gold, book):
         return Verdict.SILENTLY_WRONG
     return Verdict.RIGHT
 
 
-def passes(verdicts: Mapping[str, Verdict]) -> dict[str, bool]:
-    """The three pass lines."""
+def passes(verdicts: Mapping[str, Verdict], first: Sequence[str] = FIRST_THREE) -> dict[str, bool]:
+    """The three pass lines.
+
+    ``first`` are the sentences that must all be right; with none (the
+    exam's sets, which hold no E1 to E3), that line is left out.
+    """
     right = sum(verdict is Verdict.RIGHT for verdict in verdicts.values())
-    return {
+    lines = {
         "nothing silently wrong": all(
             verdict is not Verdict.SILENTLY_WRONG for verdict in verdicts.values()
         ),
-        "E1 to E3 right": all(verdicts.get(name) is Verdict.RIGHT for name in FIRST_THREE),
+        "E1 to E3 right": all(verdicts.get(name) is Verdict.RIGHT for name in first),
         "at least 80% right": Decimal(right) >= RIGHT_SHARE * len(verdicts),
     }
+    if not first:
+        del lines["E1 to E3 right"]
+    return lines
 
 
 def _gold_words(gold: EditGold) -> str:
@@ -239,7 +266,9 @@ def _gold_words(gold: EditGold) -> str:
 
 
 def markdown(
-    rows: Sequence[tuple[EditSentence, Outcome, Verdict, str]], head: Mapping[str, object]
+    rows: Sequence[tuple[EditSentence, Outcome, Verdict, str]],
+    head: Mapping[str, object],
+    first: Sequence[str] = FIRST_THREE,
 ) -> str:
     """The result as a Markdown section body: the pass lines, then one row a sentence."""
     verdicts = {sentence.id: verdict for sentence, _, verdict, _ in rows}
@@ -249,7 +278,7 @@ def markdown(
         f"{len(rows)} sentences.",
         "",
     ]
-    for line, passed in passes(verdicts).items():
+    for line, passed in passes(verdicts, first).items():
         lines.append(f"- {line}: {'passed' if passed else 'NOT passed'}")
     lines += ["", "| Sentence | Gold | What came of it | Verdict |", "| --- | --- | --- | --- |"]
     for sentence, _, verdict, came in rows:

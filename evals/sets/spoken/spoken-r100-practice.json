@@ -1,0 +1,724 @@
+{
+  "about": "Sentences said the owner's way, each said once in a chat of its own to the whole assistant against the exam book, at the fixed moment and zone below. Written by imitating how the owner talks; every date, quantity, price and amount is made up and copies no real trade. Odd-numbered sentences are the practice half; even-numbered ones the hidden half, of which only totals are printed. Each gold answer was written once, before any run: 'send' lists the trades that should reach the ledger, in the order said, cell by cell; a cell is a value with the words that give it, a fee said to be none ('zero'), a value with no words of its own, a value the program works out ('computed'), no value at all ('none', a time with only its 'day'), or not judged ('skip'). 'suspect' names the cells that disagree as said; 'inferred' the moneys that should be marked as a guess; 'ask_ok' the cells a question about counts as rightly asked (by default every none and suspect cell). A sentence not enabled waits for something the ledger lacks ('wait_for'), and its gold answer is 'cannot_record' alone. Judged by evals.spoken_run. This file: the owner's way of speaking as it is, the practice half.",
+  "tier": "r100",
+  "half": "practice",
+  "book": "exam",
+  "now": "2026-11-24T23:55:00+01:00",
+  "zone": "Europe/Budapest",
+  "sentences": [
+    {
+      "id": "R100-01",
+      "kind": "three_amounts_fee_in_coin",
+      "language": "zh",
+      "enabled": true,
+      "text": "我在匈牙利时间的二六年的九月零四号的下午的十七点四十七分三十一秒，我花了这个六十 USDT买入了零点零零零八一八零九个BTC。然后成交的均价是在七万三千三百四十一点九USDT。然后委托的价值呢大概是在五十九点九六USDT。然后手续费呢总共是以BTC计价的。有0.000000八二个BTC，就是小数点后有六个零，然后接一个八十二个BTC。",
+      "gold": {
+        "expect": "send",
+        "trades": [
+          {
+            "side": {
+              "value": "buy"
+            },
+            "asset": {
+              "value": "BTC",
+              "said": "BTC"
+            },
+            "quantity": {
+              "value": "0.00081809",
+              "said": "零点零零零八一八零九"
+            },
+            "price": {
+              "value": "73341.9",
+              "said": "七万三千三百四十一点九"
+            },
+            "total": {
+              "value": "60",
+              "said": "六十"
+            },
+            "quote": {
+              "value": "USDT",
+              "said": "USDT"
+            },
+            "fee": {
+              "value": "0.00000082",
+              "said": "0.000000八二"
+            },
+            "fee_asset": {
+              "value": "BTC",
+              "said": "BTC"
+            },
+            "occurred": {
+              "value": "2026-09-04 17:47",
+              "said": "二六年的九月零四号的下午的十七点四十七分"
+            },
+            "platform": {
+              "value": ""
+            },
+            "suspect": [],
+            "inferred": [],
+            "ask_ok": []
+          }
+        ]
+      }
+    },
+    {
+      "id": "R100-03",
+      "kind": "digits_off_amounts_disagree",
+      "language": "zh",
+      "enabled": true,
+      "text": "我在二六年的十月十六号的上午的八点二十五分，我花了这个二百 USDT买入了0.0九四三二六个SOL。然后成交的均价是在二百一十二点零三USDT。手续费呢是零。",
+      "gold": {
+        "expect": "send",
+        "trades": [
+          {
+            "side": {
+              "value": "buy"
+            },
+            "asset": {
+              "value": "SOL",
+              "said": "SOL"
+            },
+            "quantity": {
+              "value": "0.094326",
+              "said": "0.0九四三二六"
+            },
+            "price": {
+              "value": "212.03",
+              "said": "二百一十二点零三"
+            },
+            "total": {
+              "value": "200",
+              "said": "二百"
+            },
+            "quote": {
+              "value": "USDT",
+              "said": "USDT"
+            },
+            "fee": {
+              "value": "0",
+              "said": "零",
+              "zero": true
+            },
+            "fee_asset": {
+              "skip": true
+            },
+            "occurred": {
+              "value": "2026-10-16 08:25",
+              "said": "二六年的十月十六号的上午的八点二十五分"
+            },
+            "platform": {
+              "value": ""
+            },
+            "suspect": [
+              "quantity",
+              "price",
+              "total"
+            ],
+            "inferred": [],
+            "ask_ok": []
+          }
+        ]
+      }
+    },
+    {
+      "id": "R100-05",
+      "kind": "sell_fee_in_usdt",
+      "language": "zh",
+      "enabled": true,
+      "text": "我在二六年的九月十号的上午的八点零七分把零点零四零三七九六个ETH给卖掉了。然后成交均价呢是两千九百七十一点八USDT，成交额大概是一百二十USDT，然后手续费是零点一二个USDT。",
+      "gold": {
+        "expect": "send",
+        "trades": [
+          {
+            "side": {
+              "value": "sell"
+            },
+            "asset": {
+              "value": "ETH",
+              "said": "ETH"
+            },
+            "quantity": {
+              "value": "0.0403796",
+              "said": "零点零四零三七九六"
+            },
+            "price": {
+              "value": "2971.8",
+              "said": "两千九百七十一点八"
+            },
+            "total": {
+              "value": "120",
+              "said": "一百二十"
+            },
+            "quote": {
+              "value": "USDT",
+              "said": "USDT"
+            },
+            "fee": {
+              "value": "0.12",
+              "said": "零点一二"
+            },
+            "fee_asset": {
+              "value": "USDT",
+              "said": "USDT"
+            },
+            "occurred": {
+              "value": "2026-09-10 08:07",
+              "said": "二六年的九月十号的上午的八点零七分"
+            },
+            "platform": {
+              "value": ""
+            },
+            "suspect": [],
+            "inferred": [],
+            "ask_ok": []
+          }
+        ]
+      }
+    },
+    {
+      "id": "R100-07",
+      "kind": "eur_payment_fx_fee",
+      "language": "zh",
+      "enabled": false,
+      "wait_for": "eur_payment",
+      "text": "可口可乐我在2026年的10月6号的晚上20点02分还花了0.46欧买了0.0061629股。当时的股价是落在一股81.13美金。但是我花的是欧元啊，请注意。然后好像有一个 FX fee，这个好像是汇率转换的费用，是0.01欧元。",
+      "gold": {
+        "expect": "cannot_record",
+        "why": [
+          "money_not_in_ledger",
+          "fee_money_not_in_ledger"
+        ]
+      }
+    },
+    {
+      "id": "R100-09",
+      "kind": "change_of_mind",
+      "language": "zh",
+      "enabled": true,
+      "text": "我买了微软，应该是花了100美金买了0.2754311股微软的股票。在2026年的11月5号的下午14点05分，布达佩斯时间。然后一股当时呢是432.05美金。我相当于是买了0.2314547。然后没有手续费。",
+      "gold": {
+        "expect": "send",
+        "trades": [
+          {
+            "side": {
+              "value": "buy"
+            },
+            "asset": {
+              "value": "MSFT",
+              "said": "微软"
+            },
+            "quantity": {
+              "value": "0.2314547",
+              "said": "0.2314547"
+            },
+            "price": {
+              "value": "432.05",
+              "said": "432.05"
+            },
+            "total": {
+              "value": "100",
+              "said": "100"
+            },
+            "quote": {
+              "value": "USD",
+              "said": "美金"
+            },
+            "fee": {
+              "value": "0",
+              "said": "没有手续费",
+              "zero": true
+            },
+            "fee_asset": {
+              "skip": true
+            },
+            "occurred": {
+              "value": "2026-11-05 14:05",
+              "said": "2026年的11月5号的下午14点05分"
+            },
+            "platform": {
+              "value": ""
+            },
+            "suspect": [],
+            "inferred": [
+              "quote"
+            ],
+            "ask_ok": [
+              "quantity",
+              "price",
+              "total"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "R100-11",
+      "kind": "vague_dollar_beside_usdt",
+      "language": "zh",
+      "enabled": true,
+      "text": "我在二六年的九月零五号的晚上的二十点零七分买入了五百美金的ADA。然后手续费呢是0.七五，手续费的ADA。然后成交均价是在零点六六九一 USDT。成交量是七百四十七点二七个ADA。",
+      "gold": {
+        "expect": "send",
+        "trades": [
+          {
+            "side": {
+              "value": "buy"
+            },
+            "asset": {
+              "value": "ADA",
+              "said": "ADA"
+            },
+            "quantity": {
+              "value": "747.27",
+              "said": "七百四十七点二七"
+            },
+            "price": {
+              "value": "0.6691",
+              "said": "零点六六九一"
+            },
+            "total": {
+              "value": "500",
+              "said": "五百"
+            },
+            "quote": {
+              "value": "USDT",
+              "said": "USDT"
+            },
+            "fee": {
+              "value": "0.75",
+              "said": "0.七五"
+            },
+            "fee_asset": {
+              "value": "ADA",
+              "said": "ADA"
+            },
+            "occurred": {
+              "value": "2026-09-05 20:07",
+              "said": "二六年的九月零五号的晚上的二十点零七分"
+            },
+            "platform": {
+              "value": ""
+            },
+            "suspect": [],
+            "inferred": [],
+            "ask_ok": []
+          }
+        ]
+      }
+    },
+    {
+      "id": "R100-13",
+      "kind": "quantity_and_total_trap",
+      "language": "zh",
+      "enabled": true,
+      "text": "我在二六年的十月十五号的下午的十七点零三分，在OKX，零点零一五二六三九一个BTC，花了九百五十U，手续费是零。",
+      "gold": {
+        "expect": "send",
+        "trades": [
+          {
+            "side": {
+              "value": "buy"
+            },
+            "asset": {
+              "value": "BTC",
+              "said": "BTC"
+            },
+            "quantity": {
+              "value": "0.01526391",
+              "said": "零点零一五二六三九一"
+            },
+            "price": {
+              "computed": true
+            },
+            "total": {
+              "value": "950",
+              "said": "九百五十"
+            },
+            "quote": {
+              "value": "USDT",
+              "said": "U"
+            },
+            "fee": {
+              "value": "0",
+              "said": "零",
+              "zero": true
+            },
+            "fee_asset": {
+              "skip": true
+            },
+            "occurred": {
+              "value": "2026-10-15 17:03",
+              "said": "二六年的十月十五号的下午的十七点零三分"
+            },
+            "platform": {
+              "value": "OKX",
+              "said": "OKX"
+            },
+            "suspect": [],
+            "inferred": [],
+            "ask_ok": []
+          }
+        ]
+      }
+    },
+    {
+      "id": "R100-15",
+      "kind": "quantity_and_total_trap",
+      "language": "zh",
+      "enabled": true,
+      "text": "我在二六年的九月二十六号的晚上的二十点五十四分，在币安，0.000五八九五八个BTC，花了五十U，手续费是零。",
+      "gold": {
+        "expect": "send",
+        "trades": [
+          {
+            "side": {
+              "value": "buy"
+            },
+            "asset": {
+              "value": "BTC",
+              "said": "BTC"
+            },
+            "quantity": {
+              "value": "0.00058958",
+              "said": "0.000五八九五八"
+            },
+            "price": {
+              "computed": true
+            },
+            "total": {
+              "value": "50",
+              "said": "五十"
+            },
+            "quote": {
+              "value": "USDT",
+              "said": "U"
+            },
+            "fee": {
+              "value": "0",
+              "said": "零",
+              "zero": true
+            },
+            "fee_asset": {
+              "skip": true
+            },
+            "occurred": {
+              "value": "2026-09-26 20:54",
+              "said": "二六年的九月二十六号的晚上的二十点五十四分"
+            },
+            "platform": {
+              "value": "币安",
+              "said": "币安"
+            },
+            "suspect": [],
+            "inferred": [],
+            "ask_ok": []
+          }
+        ]
+      }
+    },
+    {
+      "id": "R100-17",
+      "kind": "sell_fee_in_usdt",
+      "language": "zh",
+      "enabled": true,
+      "text": "我在二六年的十月二十四号的晚上的二十一点三十九分把零点零零零四七零三九个BTC给卖掉了。然后成交均价呢是六万三千七百七十六点九USDT，成交额大概是三十USDT，然后手续费是零点零三个USDT。",
+      "gold": {
+        "expect": "send",
+        "trades": [
+          {
+            "side": {
+              "value": "sell"
+            },
+            "asset": {
+              "value": "BTC",
+              "said": "BTC"
+            },
+            "quantity": {
+              "value": "0.00047039",
+              "said": "零点零零零四七零三九"
+            },
+            "price": {
+              "value": "63776.9",
+              "said": "六万三千七百七十六点九"
+            },
+            "total": {
+              "value": "30",
+              "said": "三十"
+            },
+            "quote": {
+              "value": "USDT",
+              "said": "USDT"
+            },
+            "fee": {
+              "value": "0.03",
+              "said": "零点零三"
+            },
+            "fee_asset": {
+              "value": "USDT",
+              "said": "USDT"
+            },
+            "occurred": {
+              "value": "2026-10-24 21:39",
+              "said": "二六年的十月二十四号的晚上的二十一点三十九分"
+            },
+            "platform": {
+              "value": ""
+            },
+            "suspect": [],
+            "inferred": [],
+            "ask_ok": []
+          }
+        ]
+      }
+    },
+    {
+      "id": "R100-19",
+      "kind": "vague_dollar_beside_usdt",
+      "language": "zh",
+      "enabled": true,
+      "text": "我在二六年的九月零三号的晚上的二十二点十八分买入了一百美金的ADA。然后手续费呢是零点一五，手续费的ADA。然后成交均价是在零点六六九一 USDT。成交量是一百四十九点四五个ADA。",
+      "gold": {
+        "expect": "send",
+        "trades": [
+          {
+            "side": {
+              "value": "buy"
+            },
+            "asset": {
+              "value": "ADA",
+              "said": "ADA"
+            },
+            "quantity": {
+              "value": "149.45",
+              "said": "一百四十九点四五"
+            },
+            "price": {
+              "value": "0.6691",
+              "said": "零点六六九一"
+            },
+            "total": {
+              "value": "100",
+              "said": "一百"
+            },
+            "quote": {
+              "value": "USDT",
+              "said": "USDT"
+            },
+            "fee": {
+              "value": "0.15",
+              "said": "零点一五"
+            },
+            "fee_asset": {
+              "value": "ADA",
+              "said": "ADA"
+            },
+            "occurred": {
+              "value": "2026-09-03 22:18",
+              "said": "二六年的九月零三号的晚上的二十二点十八分"
+            },
+            "platform": {
+              "value": ""
+            },
+            "suspect": [],
+            "inferred": [],
+            "ask_ok": []
+          }
+        ]
+      }
+    },
+    {
+      "id": "R100-21",
+      "kind": "eur_payment_fx_fee",
+      "language": "zh",
+      "enabled": false,
+      "wait_for": "eur_payment",
+      "text": "可口可乐我在2026年的11月8号的上午9点31分还花了210.6欧买了3.1657591股。当时的股价是落在一股78.97美金。但是我花的是欧元啊，请注意。然后好像有一个 FX fee，这个好像是汇率转换的费用，是0.32欧元。",
+      "gold": {
+        "expect": "cannot_record",
+        "why": [
+          "money_not_in_ledger",
+          "fee_money_not_in_ledger"
+        ]
+      }
+    },
+    {
+      "id": "R100-23",
+      "kind": "sell_fee_in_usdt",
+      "language": "zh",
+      "enabled": true,
+      "text": "我在二六年的九月二十九号的晚上的二十点十四分把零点零零七五五四五个ETH给卖掉了。然后成交均价呢是两千六百四十七点四四USDT，成交额大概是二十USDT，然后手续费是零点零二个USDT。",
+      "gold": {
+        "expect": "send",
+        "trades": [
+          {
+            "side": {
+              "value": "sell"
+            },
+            "asset": {
+              "value": "ETH",
+              "said": "ETH"
+            },
+            "quantity": {
+              "value": "0.0075545",
+              "said": "零点零零七五五四五"
+            },
+            "price": {
+              "value": "2647.44",
+              "said": "两千六百四十七点四四"
+            },
+            "total": {
+              "value": "20",
+              "said": "二十"
+            },
+            "quote": {
+              "value": "USDT",
+              "said": "USDT"
+            },
+            "fee": {
+              "value": "0.02",
+              "said": "零点零二"
+            },
+            "fee_asset": {
+              "value": "USDT",
+              "said": "USDT"
+            },
+            "occurred": {
+              "value": "2026-09-29 20:14",
+              "said": "二六年的九月二十九号的晚上的二十点十四分"
+            },
+            "platform": {
+              "value": ""
+            },
+            "suspect": [],
+            "inferred": [],
+            "ask_ok": []
+          }
+        ]
+      }
+    },
+    {
+      "id": "R100-25",
+      "kind": "no_time_no_fee",
+      "language": "zh",
+      "enabled": true,
+      "text": "我在二六年的十一月零二号买了0.六三零三八个SOL，然后均价是一百九十点三六USDT，花了一百二十USDT，手续费我忘了看了。",
+      "gold": {
+        "expect": "send",
+        "trades": [
+          {
+            "side": {
+              "value": "buy"
+            },
+            "asset": {
+              "value": "SOL",
+              "said": "SOL"
+            },
+            "quantity": {
+              "value": "0.63038",
+              "said": "0.六三零三八"
+            },
+            "price": {
+              "value": "190.36",
+              "said": "一百九十点三六"
+            },
+            "total": {
+              "value": "120",
+              "said": "一百二十"
+            },
+            "quote": {
+              "value": "USDT",
+              "said": "USDT"
+            },
+            "fee": {
+              "none": true
+            },
+            "fee_asset": {
+              "none": true
+            },
+            "occurred": {
+              "none": true,
+              "day": "2026-11-02",
+              "said": "二六年的十一月零二号"
+            },
+            "platform": {
+              "value": ""
+            },
+            "suspect": [],
+            "inferred": [],
+            "ask_ok": []
+          }
+        ]
+      }
+    },
+    {
+      "id": "R100-27",
+      "kind": "eur_payment_fx_fee",
+      "language": "zh",
+      "enabled": false,
+      "wait_for": "eur_payment",
+      "text": "苹果我在2026年的9月1号的晚上21点00分还花了223.67欧买了1.0822979股。当时的股价是落在一股230.99美金。但是我花的是欧元啊，请注意。然后好像有一个 FX fee，这个好像是汇率转换的费用，是0.34欧元。",
+      "gold": {
+        "expect": "cannot_record",
+        "why": [
+          "money_not_in_ledger",
+          "fee_money_not_in_ledger"
+        ]
+      }
+    },
+    {
+      "id": "R100-29",
+      "kind": "quantity_and_total_trap",
+      "language": "zh",
+      "enabled": true,
+      "text": "我在二六年的十一月十一号的上午的八点五十二分，在OKX，0.一四一六八个SOL，花了三十U，手续费是零。",
+      "gold": {
+        "expect": "send",
+        "trades": [
+          {
+            "side": {
+              "value": "buy"
+            },
+            "asset": {
+              "value": "SOL",
+              "said": "SOL"
+            },
+            "quantity": {
+              "value": "0.14168",
+              "said": "0.一四一六八"
+            },
+            "price": {
+              "computed": true
+            },
+            "total": {
+              "value": "30",
+              "said": "三十"
+            },
+            "quote": {
+              "value": "USDT",
+              "said": "U"
+            },
+            "fee": {
+              "value": "0",
+              "said": "零",
+              "zero": true
+            },
+            "fee_asset": {
+              "skip": true
+            },
+            "occurred": {
+              "value": "2026-11-11 08:52",
+              "said": "二六年的十一月十一号的上午的八点五十二分"
+            },
+            "platform": {
+              "value": "OKX",
+              "said": "OKX"
+            },
+            "suspect": [],
+            "inferred": [],
+            "ask_ok": []
+          }
+        ]
+      }
+    }
+  ]
+}

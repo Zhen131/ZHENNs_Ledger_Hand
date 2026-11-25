@@ -1,0 +1,640 @@
+{
+  "about": "Sentences said the owner's way, each said once in a chat of its own to the whole assistant against the exam book, at the fixed moment and zone below. Written by imitating how the owner talks; every date, quantity, price and amount is made up and copies no real trade. Odd-numbered sentences are the practice half; even-numbered ones the hidden half, of which only totals are printed. Each gold answer was written once, before any run: 'send' lists the trades that should reach the ledger, in the order said, cell by cell; a cell is a value with the words that give it, a fee said to be none ('zero'), a value with no words of its own, a value the program works out ('computed'), no value at all ('none', a time with only its 'day'), or not judged ('skip'). 'suspect' names the cells that disagree as said; 'inferred' the moneys that should be marked as a guess; 'ask_ok' the cells a question about counts as rightly asked (by default every none and suspect cell). A sentence not enabled waits for something the ledger lacks ('wait_for'), and its gold answer is 'cannot_record' alone. Judged by evals.spoken_run. This file: the owner's way of speaking, a little tidier, the hidden half.",
+  "tier": "r80",
+  "half": "hidden",
+  "book": "exam",
+  "now": "2026-11-24T23:55:00+01:00",
+  "zone": "Europe/Budapest",
+  "sentences": [
+    {
+      "id": "R80-02",
+      "kind": "three_amounts_fee_in_coin",
+      "language": "zh",
+      "enabled": true,
+      "text": "我在2026年10月22号上午9点42分，花了30 USDT买入了46.84个ADA，成交均价是0.6405 USDT，手续费是0.047个ADA，布达佩斯时间。",
+      "gold": {
+        "expect": "send",
+        "trades": [
+          {
+            "side": {
+              "value": "buy"
+            },
+            "asset": {
+              "value": "ADA",
+              "said": "ADA"
+            },
+            "quantity": {
+              "value": "46.84",
+              "said": "46.84"
+            },
+            "price": {
+              "value": "0.6405",
+              "said": "0.6405"
+            },
+            "total": {
+              "value": "30",
+              "said": "30"
+            },
+            "quote": {
+              "value": "USDT",
+              "said": "USDT"
+            },
+            "fee": {
+              "value": "0.047",
+              "said": "0.047"
+            },
+            "fee_asset": {
+              "value": "ADA",
+              "said": "ADA"
+            },
+            "occurred": {
+              "value": "2026-10-22 09:42",
+              "said": "2026年10月22号上午9点42分"
+            },
+            "platform": {
+              "value": ""
+            },
+            "suspect": [],
+            "inferred": [],
+            "ask_ok": []
+          }
+        ]
+      }
+    },
+    {
+      "id": "R80-04",
+      "kind": "three_amounts_fee_in_coin",
+      "language": "zh",
+      "enabled": true,
+      "text": "我在2026年10月22号下午14点24分，花了80 USDT买入了0.0225013个ETH，成交均价是3555.35 USDT，手续费是0.000023个ETH，布达佩斯时间。",
+      "gold": {
+        "expect": "send",
+        "trades": [
+          {
+            "side": {
+              "value": "buy"
+            },
+            "asset": {
+              "value": "ETH",
+              "said": "ETH"
+            },
+            "quantity": {
+              "value": "0.0225013",
+              "said": "0.0225013"
+            },
+            "price": {
+              "value": "3555.35",
+              "said": "3555.35"
+            },
+            "total": {
+              "value": "80",
+              "said": "80"
+            },
+            "quote": {
+              "value": "USDT",
+              "said": "USDT"
+            },
+            "fee": {
+              "value": "0.000023",
+              "said": "0.000023"
+            },
+            "fee_asset": {
+              "value": "ETH",
+              "said": "ETH"
+            },
+            "occurred": {
+              "value": "2026-10-22 14:24",
+              "said": "2026年10月22号下午14点24分"
+            },
+            "platform": {
+              "value": ""
+            },
+            "suspect": [],
+            "inferred": [],
+            "ask_ok": []
+          }
+        ]
+      }
+    },
+    {
+      "id": "R80-06",
+      "kind": "sell_fee_in_usdt",
+      "language": "zh",
+      "enabled": true,
+      "text": "我在2026年9月15号晚上21点44分卖出了0.1560048个ETH，成交均价3205.03 USDT，成交额500 USDT，手续费0.5 USDT。",
+      "gold": {
+        "expect": "send",
+        "trades": [
+          {
+            "side": {
+              "value": "sell"
+            },
+            "asset": {
+              "value": "ETH",
+              "said": "ETH"
+            },
+            "quantity": {
+              "value": "0.1560048",
+              "said": "0.1560048"
+            },
+            "price": {
+              "value": "3205.03",
+              "said": "3205.03"
+            },
+            "total": {
+              "value": "500",
+              "said": "500"
+            },
+            "quote": {
+              "value": "USDT",
+              "said": "USDT"
+            },
+            "fee": {
+              "value": "0.5",
+              "said": "0.5"
+            },
+            "fee_asset": {
+              "value": "USDT",
+              "said": "USDT"
+            },
+            "occurred": {
+              "value": "2026-09-15 21:44",
+              "said": "2026年9月15号晚上21点44分"
+            },
+            "platform": {
+              "value": ""
+            },
+            "suspect": [],
+            "inferred": [],
+            "ask_ok": []
+          }
+        ]
+      }
+    },
+    {
+      "id": "R80-08",
+      "kind": "three_amounts_fee_in_coin",
+      "language": "zh",
+      "enabled": true,
+      "text": "我在2026年9月2号晚上20点27分，花了80 USDT买入了0.00085977个BTC，成交均价是93048.2 USDT，手续费是0.00000086个BTC，布达佩斯时间。",
+      "gold": {
+        "expect": "send",
+        "trades": [
+          {
+            "side": {
+              "value": "buy"
+            },
+            "asset": {
+              "value": "BTC",
+              "said": "BTC"
+            },
+            "quantity": {
+              "value": "0.00085977",
+              "said": "0.00085977"
+            },
+            "price": {
+              "value": "93048.2",
+              "said": "93048.2"
+            },
+            "total": {
+              "value": "80",
+              "said": "80"
+            },
+            "quote": {
+              "value": "USDT",
+              "said": "USDT"
+            },
+            "fee": {
+              "value": "0.00000086",
+              "said": "0.00000086"
+            },
+            "fee_asset": {
+              "value": "BTC",
+              "said": "BTC"
+            },
+            "occurred": {
+              "value": "2026-09-02 20:27",
+              "said": "2026年9月2号晚上20点27分"
+            },
+            "platform": {
+              "value": ""
+            },
+            "suspect": [],
+            "inferred": [],
+            "ask_ok": []
+          }
+        ]
+      }
+    },
+    {
+      "id": "R80-10",
+      "kind": "stock_chinese_name_fraction",
+      "language": "zh",
+      "enabled": true,
+      "text": "我在2026年11月10号上午8点23分，布达佩斯时间，花了25美金买了0.0962612股苹果的股票，一股是259.71美金，没有手续费。",
+      "gold": {
+        "expect": "send",
+        "trades": [
+          {
+            "side": {
+              "value": "buy"
+            },
+            "asset": {
+              "value": "AAPL",
+              "said": "苹果"
+            },
+            "quantity": {
+              "value": "0.0962612",
+              "said": "0.0962612"
+            },
+            "price": {
+              "value": "259.71",
+              "said": "259.71"
+            },
+            "total": {
+              "value": "25",
+              "said": "25"
+            },
+            "quote": {
+              "value": "USD",
+              "said": "美金"
+            },
+            "fee": {
+              "value": "0",
+              "said": "没有手续费",
+              "zero": true
+            },
+            "fee_asset": {
+              "skip": true
+            },
+            "occurred": {
+              "value": "2026-11-10 08:23",
+              "said": "2026年11月10号上午8点23分"
+            },
+            "platform": {
+              "value": ""
+            },
+            "suspect": [],
+            "inferred": [
+              "quote"
+            ],
+            "ask_ok": []
+          }
+        ]
+      }
+    },
+    {
+      "id": "R80-12",
+      "kind": "eur_payment_fx_fee",
+      "language": "zh",
+      "enabled": false,
+      "wait_for": "eur_payment",
+      "text": "我在2026年9月16号上午11点15分花了46.32欧元买了0.9457159股英特尔，当时股价是一股52.87美金，另外有一笔换汇费0.07欧元。",
+      "gold": {
+        "expect": "cannot_record",
+        "why": [
+          "money_not_in_ledger",
+          "fee_money_not_in_ledger"
+        ]
+      }
+    },
+    {
+      "id": "R80-14",
+      "kind": "change_of_mind",
+      "language": "zh",
+      "enabled": true,
+      "text": "我在2026年9月4号晚上22点59分花了0.5美金买了0.0022797股苹果，一股261美金，哦不对，是买了0.0019157股。没有手续费。",
+      "gold": {
+        "expect": "send",
+        "trades": [
+          {
+            "side": {
+              "value": "buy"
+            },
+            "asset": {
+              "value": "AAPL",
+              "said": "苹果"
+            },
+            "quantity": {
+              "value": "0.0019157",
+              "said": "0.0019157"
+            },
+            "price": {
+              "value": "261",
+              "said": "261"
+            },
+            "total": {
+              "value": "0.5",
+              "said": "0.5"
+            },
+            "quote": {
+              "value": "USD",
+              "said": "美金"
+            },
+            "fee": {
+              "value": "0",
+              "said": "没有手续费",
+              "zero": true
+            },
+            "fee_asset": {
+              "skip": true
+            },
+            "occurred": {
+              "value": "2026-09-04 22:59",
+              "said": "2026年9月4号晚上22点59分"
+            },
+            "platform": {
+              "value": ""
+            },
+            "suspect": [],
+            "inferred": [
+              "quote"
+            ],
+            "ask_ok": [
+              "quantity",
+              "price",
+              "total"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "R80-16",
+      "kind": "stock_chinese_name_fraction",
+      "language": "zh",
+      "enabled": true,
+      "text": "我在2026年11月11号下午17点06分，布达佩斯时间，花了25美金买了0.1592052股英伟达的股票，一股是157.03美金，没有手续费。",
+      "gold": {
+        "expect": "send",
+        "trades": [
+          {
+            "side": {
+              "value": "buy"
+            },
+            "asset": {
+              "value": "NVDA",
+              "said": "英伟达"
+            },
+            "quantity": {
+              "value": "0.1592052",
+              "said": "0.1592052"
+            },
+            "price": {
+              "value": "157.03",
+              "said": "157.03"
+            },
+            "total": {
+              "value": "25",
+              "said": "25"
+            },
+            "quote": {
+              "value": "USD",
+              "said": "美金"
+            },
+            "fee": {
+              "value": "0",
+              "said": "没有手续费",
+              "zero": true
+            },
+            "fee_asset": {
+              "skip": true
+            },
+            "occurred": {
+              "value": "2026-11-11 17:06",
+              "said": "2026年11月11号下午17点06分"
+            },
+            "platform": {
+              "value": ""
+            },
+            "suspect": [],
+            "inferred": [
+              "quote"
+            ],
+            "ask_ok": []
+          }
+        ]
+      }
+    },
+    {
+      "id": "R80-18",
+      "kind": "vague_dollar_beside_usdt",
+      "language": "zh",
+      "enabled": true,
+      "text": "我在2026年9月10号下午17点09分买入了150美金的BTC，成交均价是95152.3 USDT，成交量是0.00157642个BTC，手续费是0.0000016个BTC。",
+      "gold": {
+        "expect": "send",
+        "trades": [
+          {
+            "side": {
+              "value": "buy"
+            },
+            "asset": {
+              "value": "BTC",
+              "said": "BTC"
+            },
+            "quantity": {
+              "value": "0.00157642",
+              "said": "0.00157642"
+            },
+            "price": {
+              "value": "95152.3",
+              "said": "95152.3"
+            },
+            "total": {
+              "value": "150",
+              "said": "150"
+            },
+            "quote": {
+              "value": "USDT",
+              "said": "USDT"
+            },
+            "fee": {
+              "value": "0.0000016",
+              "said": "0.0000016"
+            },
+            "fee_asset": {
+              "value": "BTC",
+              "said": "BTC"
+            },
+            "occurred": {
+              "value": "2026-09-10 17:09",
+              "said": "2026年9月10号下午17点09分"
+            },
+            "platform": {
+              "value": ""
+            },
+            "suspect": [],
+            "inferred": [],
+            "ask_ok": []
+          }
+        ]
+      }
+    },
+    {
+      "id": "R80-20",
+      "kind": "vague_dollar_beside_usdt",
+      "language": "zh",
+      "enabled": true,
+      "text": "我在2026年11月9号晚上21点42分买入了120美金的BTC，成交均价是74760.5 USDT，成交量是0.00160513个BTC，手续费是0.0000016个BTC。",
+      "gold": {
+        "expect": "send",
+        "trades": [
+          {
+            "side": {
+              "value": "buy"
+            },
+            "asset": {
+              "value": "BTC",
+              "said": "BTC"
+            },
+            "quantity": {
+              "value": "0.00160513",
+              "said": "0.00160513"
+            },
+            "price": {
+              "value": "74760.5",
+              "said": "74760.5"
+            },
+            "total": {
+              "value": "120",
+              "said": "120"
+            },
+            "quote": {
+              "value": "USDT",
+              "said": "USDT"
+            },
+            "fee": {
+              "value": "0.0000016",
+              "said": "0.0000016"
+            },
+            "fee_asset": {
+              "value": "BTC",
+              "said": "BTC"
+            },
+            "occurred": {
+              "value": "2026-11-09 21:42",
+              "said": "2026年11月9号晚上21点42分"
+            },
+            "platform": {
+              "value": ""
+            },
+            "suspect": [],
+            "inferred": [],
+            "ask_ok": []
+          }
+        ]
+      }
+    },
+    {
+      "id": "R80-22",
+      "kind": "vague_dollar_beside_usdt",
+      "language": "zh",
+      "enabled": true,
+      "text": "我在2026年10月3号上午8点48分买入了950美金的ETH，成交均价是3563.23 USDT，成交量是0.266612个ETH，手续费是0.00027个ETH。",
+      "gold": {
+        "expect": "send",
+        "trades": [
+          {
+            "side": {
+              "value": "buy"
+            },
+            "asset": {
+              "value": "ETH",
+              "said": "ETH"
+            },
+            "quantity": {
+              "value": "0.266612",
+              "said": "0.266612"
+            },
+            "price": {
+              "value": "3563.23",
+              "said": "3563.23"
+            },
+            "total": {
+              "value": "950",
+              "said": "950"
+            },
+            "quote": {
+              "value": "USDT",
+              "said": "USDT"
+            },
+            "fee": {
+              "value": "0.00027",
+              "said": "0.00027"
+            },
+            "fee_asset": {
+              "value": "ETH",
+              "said": "ETH"
+            },
+            "occurred": {
+              "value": "2026-10-03 08:48",
+              "said": "2026年10月3号上午8点48分"
+            },
+            "platform": {
+              "value": ""
+            },
+            "suspect": [],
+            "inferred": [],
+            "ask_ok": []
+          }
+        ]
+      }
+    },
+    {
+      "id": "R80-24",
+      "kind": "quantity_and_total_trap",
+      "language": "zh",
+      "enabled": true,
+      "text": "2026年9月26号上午11点25分在币安，0.1672006个ETH 花了500U，手续费0。",
+      "gold": {
+        "expect": "send",
+        "trades": [
+          {
+            "side": {
+              "value": "buy"
+            },
+            "asset": {
+              "value": "ETH",
+              "said": "ETH"
+            },
+            "quantity": {
+              "value": "0.1672006",
+              "said": "0.1672006"
+            },
+            "price": {
+              "computed": true
+            },
+            "total": {
+              "value": "500",
+              "said": "500"
+            },
+            "quote": {
+              "value": "USDT",
+              "said": "U"
+            },
+            "fee": {
+              "value": "0",
+              "said": "0",
+              "zero": true
+            },
+            "fee_asset": {
+              "skip": true
+            },
+            "occurred": {
+              "value": "2026-09-26 11:25",
+              "said": "2026年9月26号上午11点25分"
+            },
+            "platform": {
+              "value": "币安",
+              "said": "币安"
+            },
+            "suspect": [],
+            "inferred": [],
+            "ask_ok": []
+          }
+        ]
+      }
+    }
+  ]
+}

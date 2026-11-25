@@ -35,7 +35,8 @@ sentence is ``OFF``; the six sentences Q1 to Q6 are all ``RIGHT``; at least
 
 Names defined here: ``ASK_SET``, ``RIGHT_SHARE``, ``FIRST_SIX``, ``Gold``,
 ``AskSentence``, ``AskGroup``, ``AskSet``, ``load_ask_set``, ``Found``,
-``Verdict``, ``judge_answer``, ``passes`` and ``markdown``.
+``Verdict``, ``judge_answer``, ``passes``, ``totals``, ``markdown``, ``BOOKS``,
+``HALVES`` and ``check_book_and_half``.
 """
 
 from __future__ import annotations
@@ -54,6 +55,9 @@ ASK_SET = Path(__file__).resolve().parent / "sets" / "asks.json"
 # The same share as the whole-trade pass line of the extraction set.
 RIGHT_SHARE = Decimal("0.8")
 FIRST_SIX = ("Q1", "Q2", "Q3", "Q4", "Q5", "Q6")
+# What a set may name as its book and its half; ``None`` names neither.
+BOOKS = frozenset({None, "exam"})
+HALVES = frozenset({None, "practice", "hidden"})
 NO_TOOL = "no_tool"
 NO_SUCH_ASSET = "no_such_asset"
 _NARROWED = frozenset({ToolName.LIST_TRADES.value, ToolName.GET_PERIOD_SUMMARY.value})
@@ -97,11 +101,19 @@ class AskGroup:
 
 @dataclass(frozen=True)
 class AskSet:
-    """The groups, and the moment and zone every sentence is read at."""
+    """The groups, and the moment and zone every sentence is read at.
+
+    ``book`` is the book the ledger holds (``exam`` for the exam book,
+    ``None`` for the fake ledger's invented book); ``half`` is ``hidden``
+    for a hidden half, whose sentences are never printed, ``practice`` for
+    the other half, ``None`` for a set not cut in two.
+    """
 
     now: datetime
     zone: str
     groups: tuple[AskGroup, ...]
+    book: str | None = None
+    half: str | None = None
 
     @property
     def sentences(self) -> tuple[AskSentence, ...]:
@@ -133,6 +145,14 @@ def _gold(entry: Mapping[str, object], where: str) -> Gold:
     return gold
 
 
+def check_book_and_half(book: object, half: object) -> None:
+    """Raises ``ValueError`` unless ``book`` and ``half`` are ones a set may name, or none."""
+    if book not in BOOKS:
+        raise ValueError(f"a set's book is one of {sorted(map(str, BOOKS - {None}))}, or none")
+    if half not in HALVES:
+        raise ValueError(f"a set's half is one of {sorted(map(str, HALVES - {None}))}, or none")
+
+
 def load_ask_set(path: Path = ASK_SET) -> AskSet:
     """The set in ``path``; ``ValueError`` when it is not in the expected shape."""
     data = json.loads(path.read_text(encoding="utf-8"))
@@ -152,7 +172,10 @@ def load_ask_set(path: Path = ASK_SET) -> AskSet:
         )
         for group in data["groups"]
     )
-    ask_set = AskSet(now=now, zone=data["zone"], groups=groups)
+    ask_set = AskSet(
+        now=now, zone=data["zone"], groups=groups, book=data.get("book"), half=data.get("half")
+    )
+    check_book_and_half(ask_set.book, ask_set.half)
     ids = [sentence.id for sentence in ask_set.sentences]
     if len(set(ids)) != len(ids):
         raise ValueError("two sentences share an identifier")
@@ -244,14 +267,21 @@ def judge_answer(sentence: AskSentence, found: Found) -> Verdict:
     return Verdict.OFF
 
 
-def passes(verdicts: Mapping[str, Verdict]) -> dict[str, bool]:
-    """The three pass lines, each passed or not."""
+def passes(verdicts: Mapping[str, Verdict], first: Sequence[str] = FIRST_SIX) -> dict[str, bool]:
+    """The three pass lines, each passed or not.
+
+    ``first`` are the sentences that must all be right; with none (the
+    exam's sets, which hold no Q1 to Q6), that line is left out.
+    """
     right = sum(verdict is Verdict.RIGHT for verdict in verdicts.values())
-    return {
+    lines = {
         "nothing narrower or off": Verdict.OFF not in verdicts.values(),
-        "Q1 to Q6 all right": all(verdicts.get(key) is Verdict.RIGHT for key in FIRST_SIX),
+        "Q1 to Q6 all right": all(verdicts.get(key) is Verdict.RIGHT for key in first),
         "at least 80% right": Decimal(right) >= RIGHT_SHARE * len(verdicts),
     }
+    if not first:
+        del lines["Q1 to Q6 all right"]
+    return lines
 
 
 def _cell(text: str) -> str:
@@ -288,8 +318,15 @@ def _gold_words(gold: Gold) -> str:
     )
 
 
+def totals(verdicts: Mapping[str, Verdict]) -> dict[str, int]:
+    """How many sentences came out each way, by the verdict's name."""
+    return {verdict.name: sum(one is verdict for one in verdicts.values()) for verdict in Verdict}
+
+
 def markdown(
-    rows: Sequence[tuple[AskSentence, Found, Verdict, str]], conditions: Mapping[str, object]
+    rows: Sequence[tuple[AskSentence, Found, Verdict, str]],
+    conditions: Mapping[str, object],
+    first: Sequence[str] = FIRST_SIX,
 ) -> str:
     """The table of a run, one row a sentence, the count, and the three pass lines."""
     verdicts = {sentence.id: verdict for sentence, _, verdict, _ in rows}
@@ -300,7 +337,7 @@ def markdown(
         "",
         *(
             f"- {name}: {'passed' if passed else 'NOT passed'}"
-            for name, passed in passes(verdicts).items()
+            for name, passed in passes(verdicts, first).items()
         ),
         "",
         "| Sentence | Gold | Table given | Verdict | Words by |",
