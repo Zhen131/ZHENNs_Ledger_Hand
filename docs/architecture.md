@@ -216,7 +216,7 @@ src/ledger_hand/
         assistant_record_words.py  what the pages say about the assistant's record     (exists)
         record_panel.py       the Settings page's part on the assistant's record; clearing it (exists)
 evals/                    prompt experiments: test sentences, scoring, runner, results (exists)
-    sets/                 the test sentences with gold answers: debug, final, writings, voice, tools, asks, edits, stocks (exists)
+    sets/                 the test sentences with gold answers: debug, final, writings, voice, tools, asks, asks_times, edits, stocks (exists)
     gold.py               the shapes of a sentence and its gold answer             (exists)
     coverage.py           what the sentences cover                                 (exists)
     writings.py           the writings set: hard ways of writing a number          (exists)
