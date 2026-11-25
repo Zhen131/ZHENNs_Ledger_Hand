@@ -1,0 +1,33 @@
+{
+  "about": "Sentences about cash, and sentences near them that are not. The assistant cannot look up a cash balance, a deposit or a withdrawal: the ledger's eight tools it uses have none. 'named' are questions about cash that the program must catch itself, before the model is asked, and answer with its fixed words. 'must_pass' were written to sit close to them (money said while recording a trade, what was spent or got back, a coin held, 'rebalance') and must never be caught: each must go the way it went before the catch was added. Each is said once, in a chat of its own, to the whole assistant against the fake ledger's invented book, at the set's fixed moment and zone. Written before any run and not changed after.",
+  "now": "2026-11-24T23:55:00+01:00",
+  "zone": "Europe/Budapest",
+  "named": [
+    {"id": "C1", "text": "我还有多少USDT"},
+    {"id": "C2", "text": "我账上还剩多少美元"},
+    {"id": "C3", "text": "我一共入了多少金"},
+    {"id": "C4", "text": "现金余额是多少"},
+    {"id": "C5", "text": "How much USDT do I have left?"},
+    {"id": "C6", "text": "What is my cash balance?"},
+    {"id": "C7", "text": "How much USD did I deposit?"},
+    {"id": "C8", "text": "Do I still have cash to buy more BTC?"}
+  ],
+  "must_pass": [
+    {"id": "P1", "kind": "recording", "text": "今天下午3点在OKX用100 USDT买了0.0015个BTC，手续费0.1 USDT"},
+    {"id": "P2", "kind": "recording", "text": "昨晚9点在币安花了500U买了ETH，均价2400"},
+    {"id": "P3", "kind": "recording", "text": "今天早上10点在IBKR买了2股MSFT，410美元一股，手续费1美元"},
+    {"id": "P4", "kind": "spent", "text": "上个月花了多少USDT"},
+    {"id": "P5", "kind": "got_back", "text": "10月卖币一共收回了多少美元"},
+    {"id": "P6", "kind": "coin_held", "text": "我现在还有多少BTC"},
+    {"id": "P7", "kind": "profit", "text": "今年在ETH上赚了多少钱"},
+    {"id": "P8", "kind": "rebalance", "text": "我想调仓，先看看我现在持有哪些币"},
+    {"id": "P9", "kind": "recording", "text": "Bought 0.01 BTC on Binance today at 10:00 for 950 USDT, fee 1 USDT"},
+    {"id": "P10", "kind": "recording", "text": "Sold 1 MSFT on IBKR this afternoon at 4pm for 420 dollars, fee 1 dollar"},
+    {"id": "P11", "kind": "spent", "text": "How much USDT did I spend on ETH?"},
+    {"id": "P12", "kind": "got_back", "text": "How much did I get back from selling ADA in October?"},
+    {"id": "P13", "kind": "coin_held", "text": "How much ETH do I have left?"},
+    {"id": "P14", "kind": "rebalance", "text": "I want to rebalance my portfolio; what do I hold right now?"},
+    {"id": "P15", "kind": "profit", "text": "What was my realized profit in USD this year?"},
+    {"id": "P16", "kind": "spent", "text": "Which trades did I pay for with USDT in September?"}
+  ]
+}
