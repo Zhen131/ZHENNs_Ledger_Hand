@@ -10,7 +10,7 @@ as now, and what came of it is held to what the file says it must come to:
   the platform;
 - money said where the quantity goes: nothing sent, and the reply says why;
 - a question: the tool of the last table, its header's time, asset and side,
-  and how many rows it has;
+  how many rows it has and which trades or assets they are;
 - a change or a deletion: which trade, and for a change the part and its new
   value.
 
@@ -32,7 +32,7 @@ from typing import Any
 
 import pytest
 
-from ledger_hand.assistant.lookups import header_lines, lookup_lines
+from ledger_hand.assistant.lookups import Lookup, header_lines, lookup_lines
 from ledger_hand.flows.conversation import AssistantChat, Said, say
 from ledger_hand.flows.recording import tuning_from
 from ledger_hand.ledger.fake_ledger import FakeLedger
@@ -99,6 +99,17 @@ def check_asked(said: Said, expect: dict[str, Any]) -> None:
             assert expect[part] in header, f"{expect[part]!r} not in {header}"
     rows = len(lookup_lines(lookup)) - len(header)
     assert rows == expect["rows"], f"{rows} row(s)"
+    if "items" in expect:
+        assert table_items(lookup) == expect["items"]
+
+
+def table_items(lookup: Lookup) -> list[str]:
+    """Which things the table lists: trades by the ledger's number, else assets by code."""
+    if lookup.trades:
+        return [trade.id for trade in lookup.trades]
+    if lookup.positions:
+        return [position.asset for position in lookup.positions]
+    return [asset.code for asset in lookup.assets]
 
 
 def check_edited(said: Said, expect: dict[str, Any]) -> None:

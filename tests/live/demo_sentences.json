@@ -89,7 +89,11 @@
         "time": "Time: all time",
         "asset": "Asset: MSFT",
         "side": "Side: buys and sells",
-        "rows": 2
+        "rows": 2,
+        "items": [
+          "t-04",
+          "t-10"
+        ]
       },
       "shows": "A table of every MSFT trade, all time, buys and sells: 2 rows, the buy of 2 October 2026 and the sell of 12 November 2026. The header also says it was not narrowed to buys: the model asks for buys, and the program widens it, since the question names no side."
     },
@@ -99,7 +103,15 @@
       "said": "Which assets does my ledger have?",
       "expect": {
         "tool": "list_assets",
-        "rows": 6
+        "rows": 6,
+        "items": [
+          "USDT",
+          "USD",
+          "BTC",
+          "ETH",
+          "ADA",
+          "MSFT"
+        ]
       },
       "shows": "A table of the ledger's assets: 6 rows, USDT, USD, BTC, ETH, ADA and MSFT."
     },
@@ -109,7 +121,13 @@
       "said": "Which coins and shares am I holding at the moment?",
       "expect": {
         "tool": "get_positions",
-        "rows": 4
+        "rows": 4,
+        "items": [
+          "ADA",
+          "BTC",
+          "ETH",
+          "MSFT"
+        ]
       },
       "shows": "A table of what is held: 4 rows, ADA, BTC, ETH and MSFT, each with its cost and its profit or loss on paper (not worked out for ADA, which has no market price)."
     },
