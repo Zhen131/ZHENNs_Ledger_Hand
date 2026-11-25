@@ -9451,3 +9451,36 @@ The twenty-seven (`run-20261124T231037Z-asks-assistant-4.jsonl`): right on
 23 of 27 (22 before); nothing narrower or off (none before); Q1 to Q5
 right and Q6 not (the same as before). The four not right are Q6, A13, A15
 and A18, each with no table, as before; A3 is now right.
+
+## 2026-11-25: a period cut out of a longer time is a wrong step, `qwen2.5:7b`
+
+**What changed.** A period the model copies that stands, wherever it is in
+what the user said, cut out of a longer time ("9月" out of "9月13号") is no
+longer taken as the user's words (`assistant/period_cuts.py`). For a read
+tool it is a wrong step, handed back as any period that is not the user's
+words. For a change or a deletion the program looks nothing up and says its
+fixed sentence asking for the date again. Before, "把9月13号那笔BTC的时间改
+成9月13号上午10点15分" with the model's "9月" found the trade of 12 September
+and proposed to change it. The sentences, the gold answers and the rulers
+did not change; the prompt and the tools' words did not change.
+
+Three tries, each committed before it was run, the tree clean:
+
+| Try | Commit | What | Changes and deletions right | Silently wrong | Results |
+| --- | --- | --- | --- | --- | --- |
+| 1 | `44eb2e0` | a cut period a wrong step, for both | 12 of 17 | 0 | `run-20261124T234916Z-edits-assistant-4.jsonl` |
+| 2 | `361fbfc` | the wrong step asks the model to call again at once | 12 of 17 | 0 | `run-20261124T235136Z-edits-assistant-4.jsonl` |
+| 3 | `3f1f776` | a change's cut period says the fixed sentence at once | 13 of 17 | 0 | `run-20261124T235514Z-edits-assistant-4.jsonl` |
+
+**Result, try 3.** Done right on 13 of 17; nothing silently wrong; E1 to
+E3 right; the line of 80% is NOT passed. N4 ("把11月3号那笔ADA的备注改成补
+仓") and N14 now meet the model's "11月" and "9月": before, these cut
+periods happened to find the right trade (N4) or a trade whose new time
+was refused anyway (N14). Now N14 is right (the program says why and
+changes nothing) and N4 is not done (nothing proposed). N8, N9 and N10 are
+not done as before.
+
+The other two measures at `3f1f776`: first step right on 19 of 19
+(`run-20261125T000114Z-tools-assistant-4.jsonl`); the twenty-seven right on
+23 of 27, nothing narrower or off, Q1 to Q5 right and Q6 not
+(`run-20261124T235711Z-asks-assistant-4.jsonl`).
