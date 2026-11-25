@@ -2,9 +2,10 @@
 
 Each time the assistant has dealt with one thing said (typed, an answer,
 or a screenshot's text), one entry is added to the end of a plain text
-file in the data folder (``settings.DataPlaces.assistant_record``): what
-was said, what it was read as once tidied (with each change), which way
-it went, who wrote the reply (and the question in
+file in the data folder (``settings.DataPlaces.assistant_record``): which
+kind of ledger it was said to (the demo ledger or the ledger page; never
+the link's port or token), what was said, what it was read as once
+tidied (with each change), which way it went, who wrote the reply (and the question in
 it, when one was asked), each tool the model asked for with its
 arguments as given (those dropped among them), a short piece of what was
 handed back, the failures and their codes, the trades proposed, each
@@ -65,6 +66,7 @@ from ledger_hand.flows.assisting import DEFAULT_PROMPT
 from ledger_hand.flows.conversation import Route, Said
 from ledger_hand.flows.record_words import spoken_reminders
 from ledger_hand.flows.recorded import RecordEnding
+from ledger_hand.flows.standing import LedgerKind
 from ledger_hand.ports import LedgerError, ModelError
 
 # The record's own version, written in every entry; it is none of the
@@ -77,7 +79,11 @@ from ledger_hand.ports import LedgerError, ModelError
 # Version 4 (2026-11-25) added "asset_picks": each name of an asset handed
 # to the model to pick from the ledger's list when recording began, or an
 # empty list. Entries of versions 1 to 3 are still read as they are.
-RECORD_VERSION = 4
+# Version 5 (2026-11-25, 68B3) added "ledger": which kind of ledger it was
+# said to, "demo" or "page". A new name, so a new version, as version 4's
+# golden sample is committed and never changed (architecture, rule 11).
+# Entries of versions 1 to 4 are still read as they are.
+RECORD_VERSION = 5
 
 # One thousand: an entry is a few thousand bytes, so the file stays at a few
 # megabytes and is read whole in a blink each time an entry is added; at
@@ -146,13 +152,20 @@ class Cleared(enum.Enum):
 
 
 def entry_for(
-    said: Said, *, words: str, at: datetime, model: str, vision_model: str | None = None
+    said: Said,
+    *,
+    words: str,
+    at: datetime,
+    model: str,
+    vision_model: str | None = None,
+    ledger: LedgerKind = LedgerKind.DEMO,
 ) -> dict[str, Any]:
     """The entry for ``words``, said at ``at``, and ``said``, what came of them.
 
     ``words`` are what the person said; for a screenshot, the passage made
     from its text and note. ``model`` and ``vision_model`` name the models;
-    ``vision_model`` is written only for a screenshot's text.
+    ``vision_model`` is written only for a screenshot's text. ``ledger`` is
+    which kind of ledger it was said to.
     """
     if at.utcoffset() is None:
         raise ValueError("the moment of an entry must carry an offset")
@@ -160,6 +173,7 @@ def entry_for(
     return {
         "format_version": RECORD_VERSION,
         "at": at.isoformat(),
+        "ledger": ledger.name.lower(),
         "said": words,
         "read_as": _read_as(said),
         "from_screenshot": screenshot,

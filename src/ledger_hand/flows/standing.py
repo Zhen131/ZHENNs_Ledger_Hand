@@ -4,10 +4,12 @@ The assistant page shows one card for every proposal sent in its chat. It
 does not reach the ledger itself: it hands each card's identifier here and
 draws what comes back.
 
-- ``LedgerKind`` names which kind of ledger the parts hold. There is one
-  so far, the demo ledger (``ledger/fake_ledger.py``: an invented book in
-  memory). The page reads it to know whether the demo buttons may be shown;
-  it never guesses from the ledger itself.
+- ``LedgerKind`` names which kind of ledger the parts hold: the demo
+  ledger (``ledger/fake_ledger.py``: an invented book in memory) or the
+  person's own ledger page, reached through the ledger's assistant link
+  (``ledger/link_ledger.py``). The page reads it to know whether the demo
+  buttons may be shown and how a card asks where it stands; it never
+  guesses from the ledger itself.
 - ``standing`` asks the ledger where one proposal stands
   (``proposal_status``). A ledger that cannot say is said as such
   (``Standing.failure``), never as the last status seen.
@@ -37,6 +39,7 @@ class LedgerKind(enum.Enum):
     """Which kind of ledger the parts hold."""
 
     DEMO = "the demo ledger (an invented book in memory, not your real ledger)"
+    PAGE = "your ledger page (your real ledger, through the ledger's assistant link)"
 
 
 @dataclass(frozen=True, kw_only=True)

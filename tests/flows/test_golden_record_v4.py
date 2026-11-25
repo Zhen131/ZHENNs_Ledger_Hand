@@ -80,9 +80,11 @@ def test_an_entry_made_now_has_the_names_of_the_golden_ones() -> None:
     made = entry_for(said, words=words, at=INVENTED_NOW, model="invented-model")
     entries = _read(GOLDEN).entries
 
-    assert RECORD_VERSION == 4
+    # Version 5 added "ledger" and nothing else; the names of an entry made now
+    # are checked against version 5's golden record, in test_golden_record_v5.py.
+    assert RECORD_VERSION == 5
     for entry in entries:
-        assert list(entry) == list(made)
+        assert list(entry) == [name for name in made if name != "ledger"]
     assert list(entries[0]["asset_picks"][0]) == list(made["asset_picks"][0])
     assert list(entries[0]["trades"][0]) == list(made["trades"][0])
 

@@ -59,10 +59,12 @@ def proposed(ledger: FakeLedger) -> str:
     return proposal
 
 
-def test_the_one_kind_names_the_demo_ledger_as_invented() -> None:
-    assert [kind.name for kind in LedgerKind] == ["DEMO"]
+def test_the_two_kinds_name_the_demo_ledger_as_invented_and_the_page_as_real() -> None:
+    assert [kind.name for kind in LedgerKind] == ["DEMO", "PAGE"]
     assert "demo" in LedgerKind.DEMO.value
     assert "not your real ledger" in LedgerKind.DEMO.value
+    assert "your ledger page" in LedgerKind.PAGE.value
+    assert "your real ledger" in LedgerKind.PAGE.value
 
 
 def test_a_pending_proposal_is_said_pending_then_saved_after_a_demo_save() -> None:

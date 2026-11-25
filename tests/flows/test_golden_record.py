@@ -121,7 +121,9 @@ def test_an_entry_of_version_one_keeps_every_name_an_entry_of_version_two_has() 
     made = entry_for(said, words=SHARES, at=INVENTED_NOW, model="invented-model")
 
     for entry in golden.entries:
-        assert list(entry) == [name for name in made if name not in ("read_as", "asset_picks")]
+        assert list(entry) == [
+            name for name in made if name not in ("read_as", "asset_picks", "ledger")
+        ]
 
 
 def test_adding_to_a_copy_keeps_the_golden_entries_as_they_were(tmp_path: Path) -> None:

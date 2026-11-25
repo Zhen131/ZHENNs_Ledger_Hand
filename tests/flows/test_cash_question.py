@@ -14,7 +14,7 @@ import pytest
 from ledger_hand.assistant.outcome import Ending
 from ledger_hand.core.cash_words import CashAsk
 from ledger_hand.core.ledger_records import Asset, AssetKind, MoneyAmount, Pricing
-from ledger_hand.flows.assistant_record import entry_for
+from ledger_hand.flows.assistant_record import RECORD_VERSION, entry_for
 from ledger_hand.flows.cash_question import CASH_WORDS, caught, withheld_cash
 from ledger_hand.flows.conversation import AssistantChat, Route, WordsBy, say
 from ledger_hand.ledger.fake_ledger import FakeLedger
@@ -200,7 +200,7 @@ def test_the_record_keeps_the_way_a_question_about_cash_went() -> None:
     entry = entry_for(said, words="What is my cash balance?", at=INVENTED_NOW, model="m")
 
     assert entry["route"] == "cash"
-    assert entry["format_version"] == 4
+    assert entry["format_version"] == RECORD_VERSION
     assert entry["asset_picks"] == []
     assert "read_as" in entry
     assert entry["words_by"] == "program"
