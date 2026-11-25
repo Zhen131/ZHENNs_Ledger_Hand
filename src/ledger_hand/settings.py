@@ -36,6 +36,14 @@ model in one turn: ``LEDGER_HAND_ASSISTANT_STEPS``, six when it is not set.
 Like the data folder, it is not a model setting and is not shown on the
 settings page; its default, its bounds and why are kept beside it below.
 
+``load_ledger_link_settings`` reads what is needed to start the ledger's
+assistant link (the small Node.js program in the ledger's own folder that
+passes the assistant's tool calls to the ledger page): the ledger's folder
+(``LEDGER_HAND_LEDGER_DIR``, which the ledger tier of the checks already
+reads), the port the link listens on and the port the ledger page is opened
+on, and the few environment variables the link is started with. Like the
+data folder, none of them is a model setting.
+
 Every default is a named constant below. Tests compare against these
 names, never against the numbers, so a default is tuned here and nowhere
 else. What each variable sets and the reason for its default are kept as
@@ -54,8 +62,10 @@ constants, ``MAX_RETRIES``, ``MAX_SCREENSHOT_MB``, ``Secret``, ``SettingsError``
 ``About``, ``ABOUT``, ``load_model_settings``, ``apply_changes``,
 ``DATA_DIRECTORY_VARIABLE``, ``BOOK_FILE_NAME``, ``EXPORTS_DIRECTORY_NAME``,
 ``ASSISTANT_RECORD_FILE_NAME``, ``DataPlaces``, ``load_data_places``, ``ASSISTANT_STEPS_VARIABLE``,
-``DEFAULT_ASSISTANT_STEPS``, ``FEWEST_ASSISTANT_STEPS``, ``MOST_ASSISTANT_STEPS``
-and ``load_assistant_steps``.
+``DEFAULT_ASSISTANT_STEPS``, ``FEWEST_ASSISTANT_STEPS``, ``MOST_ASSISTANT_STEPS``,
+``load_assistant_steps``, ``LEDGER_DIRECTORY_VARIABLE``, ``LEDGER_LINK_PORT_VARIABLE``,
+``LEDGER_PAGE_PORT_VARIABLE``, ``DEFAULT_LEDGER_LINK_PORT``, ``DEFAULT_LEDGER_PAGE_PORT``,
+``LedgerLinkSettings`` and ``load_ledger_link_settings``.
 """
 
 from __future__ import annotations
@@ -685,3 +695,67 @@ def load_assistant_steps(environ: Mapping[str, str] | None = None) -> int:
             f"to {MOST_ASSISTANT_STEPS}, not {written!r}"
         )
     return int(written)
+
+
+# --- how the ledger's assistant link is started ------------------------------
+
+LEDGER_DIRECTORY_VARIABLE = "LEDGER_HAND_LEDGER_DIR"
+LEDGER_LINK_PORT_VARIABLE = "LEDGER_HAND_LEDGER_LINK_PORT"
+LEDGER_PAGE_PORT_VARIABLE = "LEDGER_HAND_LEDGER_PAGE_PORT"
+# The ledger's own defaults (assistant-link/README.md in the ledger, "Starting
+# the assistant link"), so that with nothing set both sides agree.
+DEFAULT_LEDGER_LINK_PORT = 47651
+DEFAULT_LEDGER_PAGE_PORT = 3000
+# The only variables of this process the link is started with, besides the
+# token: PATH finds Node.js, HOME is where Node.js looks for its own settings.
+_LINK_INHERITED_VARIABLES = ("PATH", "HOME")
+_HIGHEST_PORT = 65535
+
+
+@dataclass(frozen=True)
+class LedgerLinkSettings:
+    """What the ledger's assistant link is started with.
+
+    ``directory`` is the ledger's folder, ``None`` when it is not named.
+    ``environment`` holds only the variables the link is started with; the
+    token is not among them, it is made where the link is built.
+    """
+
+    directory: Path | None
+    link_port: int = DEFAULT_LEDGER_LINK_PORT
+    page_port: int = DEFAULT_LEDGER_PAGE_PORT
+    environment: Mapping[str, str] = MappingProxyType({})
+
+
+def load_ledger_link_settings(environ: Mapping[str, str] | None = None) -> LedgerLinkSettings:
+    """The assistant link's settings, from ``environ`` or the process's environment when ``None``.
+
+    The folder may be left unset (``directory`` is then ``None``); a leading
+    ``~`` is the home folder. A port that is not a whole number from 1 to
+    65535 is a ``SettingsError`` naming the variable. Nothing is checked on
+    disk here and nothing is started.
+    """
+    source = os.environ if environ is None else environ
+    folder = source.get(LEDGER_DIRECTORY_VARIABLE, "").strip()
+    if "\0" in folder:
+        raise SettingsError(
+            f"{LEDGER_DIRECTORY_VARIABLE}: a folder's name cannot hold a NUL character"
+        )
+    return LedgerLinkSettings(
+        directory=Path(folder).expanduser() if folder else None,
+        link_port=_port(source, LEDGER_LINK_PORT_VARIABLE, DEFAULT_LEDGER_LINK_PORT),
+        page_port=_port(source, LEDGER_PAGE_PORT_VARIABLE, DEFAULT_LEDGER_PAGE_PORT),
+        environment=MappingProxyType(
+            {name: source[name] for name in _LINK_INHERITED_VARIABLES if name in source}
+        ),
+    )
+
+
+def _port(source: Mapping[str, str], variable: str, default: int) -> int:
+    """The port ``variable`` names in ``source``, or ``default`` when it is unset or blank."""
+    value = source.get(variable, "").strip()
+    if not value:
+        return default
+    if not re.fullmatch(r"[0-9]{1,5}", value) or not 1 <= int(value) <= _HIGHEST_PORT:
+        raise SettingsError(f"{variable}: a whole number from 1 to {_HIGHEST_PORT}, not {value!r}")
+    return int(value)

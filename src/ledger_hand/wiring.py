@@ -48,23 +48,35 @@ machine without https or a key) are refused the same way: as a setting
 when the environment's settings do not fit, as a change when the changes
 make them not fit.
 
+``ledger_link`` builds, and does not start, the client of the ledger's
+assistant link (``ledger.link_client.LedgerLink``) from the settings
+``settings.load_ledger_link_settings`` reads: the ledger's folder, both
+ports, the variables the link is started with, and this program's version
+for the handshake. The token the link and the ledger page share is made
+here, fresh each time (``make_link_token``: 24 random bytes written as
+base64url, 32 characters), and kept only in memory. Nothing on any page
+uses the link yet; the try-out script does.
+
 This is the only module of the package that may import ``tzlocal``, and only
 the interface may import this one. It does not draw anything or keep
 anything between uses.
 
 Names defined here: ``Parts``, ``AssemblyProblem``, ``AssemblyError``,
-``assemble``, ``read_clock`` and ``machine_zone``.
+``assemble``, ``read_clock``, ``machine_zone``, ``make_link_token`` and
+``ledger_link``.
 """
 
 from __future__ import annotations
 
 import enum
+import secrets
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
 
 import tzlocal
 
+from ledger_hand import __version__
 from ledger_hand.core.assets import BUILT_IN_ASSETS, AssetTable
 from ledger_hand.core.zones import is_zone_name
 from ledger_hand.flows.progress import Tuning
@@ -72,12 +84,15 @@ from ledger_hand.flows.recording import tuning_from
 from ledger_hand.flows.standing import LedgerKind
 from ledger_hand.flows.uploading import VisionModelCheck, VisionModelPresence
 from ledger_hand.ledger.fake_ledger import FakeLedger
+from ledger_hand.ledger.link_client import LedgerLink, LinkSetup
+from ledger_hand.ledger.link_failures import LinkToken
 from ledger_hand.llm.connect import check_plug, connect_model, connect_vision_model
 from ledger_hand.llm.ollama_identity import ask_identity
 from ledger_hand.ports import LedgerPort, ModelError, ModelErrorKind, ModelPort, StoragePort
 from ledger_hand.settings import (
     DEFAULT_ASSISTANT_STEPS,
     DataPlaces,
+    LedgerLinkSettings,
     ModelSettings,
     Plug,
     SettingsError,
@@ -85,6 +100,7 @@ from ledger_hand.settings import (
     apply_changes,
     load_assistant_steps,
     load_data_places,
+    load_ledger_link_settings,
     load_model_settings,
 )
 from ledger_hand.storage.sqlite_store import SqliteStore
@@ -225,3 +241,29 @@ def machine_zone() -> str | None:
     except (LookupError, OSError, ValueError):
         return None
     return name if is_zone_name(name) else None
+
+
+def make_link_token() -> LinkToken:
+    """A fresh token for the assistant link: 24 random bytes as base64url, 32 characters."""
+    return LinkToken(secrets.token_urlsafe(24))
+
+
+def ledger_link(settings: LedgerLinkSettings | None = None) -> LedgerLink | None:
+    """The client of the ledger's assistant link, built and not started; ``None`` without a folder.
+
+    ``settings`` are read from the environment when not handed in. A port
+    that is refused is the ``SettingsError`` the settings module raises.
+    """
+    read = load_ledger_link_settings() if settings is None else settings
+    if read.directory is None:
+        return None
+    return LedgerLink(
+        LinkSetup(
+            ledger_directory=read.directory,
+            token=make_link_token(),
+            hand_version=__version__,
+            port=read.link_port,
+            page_port=read.page_port,
+            environment=read.environment,
+        )
+    )
