@@ -624,6 +624,16 @@ the program's checks work on the words tidied. While a question waits,
 the line `asked about:`, just before the ending, names what it asks about
 (`time`, `fee`, and so on).
 
+Cash cannot be asked about yet: none of the eight tools reads a cash
+balance, a deposit or a withdrawal. A question about cash ("我还有多少USDT",
+"现金余额是多少", "How much USD did I deposit?") is caught by the program
+before the model is asked, and answered with the program's own words: the
+assistant cannot look up cash yet, the ledger's home page shows the cash
+balance, and no figure is worked out from the trades. No table is shown.
+Under a table of holdings or of sums the page says it holds no cash
+balance. What the catch knows and does not know is in
+`docs/known-gaps.md`, "The assistant: cash".
+
 Recording is the program's, not the model's. When the model asks to record
 a trade, what the user said, tidied as above, is handed to the same recording
 flow the Record page uses: it judges the words, extracts the trades and

@@ -11,7 +11,8 @@ the reply:
 - each failure the reply rests on, in one plain sentence
   (``assistant_failure_words``), in an error box;
 - the tables the program lays out (``assistant_tables``): what each read
-  tool found, under its header; the trades sent; a change before and after,
+  tool found, under its header, a table of holdings or of sums with a line
+  that it holds no cash balance (``NO_CASH``); the trades sent; a change before and after,
   or the trade to delete; the trades found when the program asks which;
 - under the latest reply only, while the flows wait for its answer, one
   button for each answer offered: a question's choices, each listed trade's
@@ -38,6 +39,7 @@ from collections.abc import Sequence
 import streamlit as st
 
 from ledger_hand.assistant.lookups import header_lines
+from ledger_hand.assistant.tools import ToolName
 from ledger_hand.flows.assistant_record import NotKept, RecordProblem
 from ledger_hand.flows.conversation import Said
 from ledger_hand.flows.editing import Choosing, Picking
@@ -48,12 +50,16 @@ from ledger_hand.ui.assistant_record_words import not_kept_words
 from ledger_hand.ui.assistant_session import Exchange, NoteTone
 from ledger_hand.ui.assistant_tables import (
     FEES_INSIDE,
+    NO_CASH,
     change_rows,
     listed_rows,
     lookup_rows,
     proposed_rows,
 )
 from ledger_hand.wiring import Parts
+
+# The tables that hold money but never cash: each gets ``NO_CASH`` under it.
+_WITHOUT_CASH = frozenset({ToolName.GET_POSITIONS, ToolName.GET_PERIOD_SUMMARY})
 
 
 def exchange_key(number: int) -> str:
@@ -163,6 +169,8 @@ def _tables(said: Said, number: int) -> None:
             _table(lookup_rows(lookup), table_key(number, "lookup", index), header_lines(lookup))
             if lookup.summary is not None and lookup.summary.by_currency:
                 st.caption(FEES_INSIDE)
+            if lookup.tool in _WITHOUT_CASH:
+                st.caption(NO_CASH)
     recorded = said.recorded
     if recorded is not None and recorded.trades:
         st.caption("The trades in the proposal:")

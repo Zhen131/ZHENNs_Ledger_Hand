@@ -87,6 +87,8 @@ def _step_lines(number: int, step: Step) -> list[str]:
 def how_lines(said: Said, steps: int) -> tuple[str, ...]:
     """How ``said`` was done, one line each; ``steps`` is how many one turn allows."""
     lines = [f"Way: {said.route.value}"]
+    if said.cash is not None:
+        lines.append(f"Caught as a question about cash: {said.cash.value}")
     turn = said.turn
     if turn is not None:
         for number, step in enumerate(turn.steps, start=1):

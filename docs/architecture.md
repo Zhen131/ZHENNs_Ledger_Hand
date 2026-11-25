@@ -48,6 +48,7 @@ src/ledger_hand/
         assets.py             the asset table: what may be traded, the money to price it in (exists)
         ledger_table.py       the asset table and the asset names the ledger's own list makes (exists)
         asset_words.py        share, coin or asset: the word said for a trade's asset (exists)
+        cash_words.py         the words that tell a question about cash; a figure beside a money (exists)
         numbers.py            reads number phrases; writes numbers for the ledger     (exists)
         time_wording.py       which known parts a time phrase is made of              (exists)
         timeparse.py          time phrases to exact moments ("now" is passed in)      (exists)
@@ -196,6 +197,7 @@ src/ledger_hand/
         exporting.py          the trades not exported yet, written as one file, marked (exists)
         export_file.py        a new file, whole, never replacing another              (exists)
         assistant_record.py   the assistant's record: one versioned line per thing said (exists)
+        cash_question.py      a question about cash caught before the model; the fixed words (exists)
     settings.py           the only place that reads settings; why each default, as data (exists)
     wiring.py             builds the parts from the settings, page changes, the clock and the zone (exists)
     ui/                   the user interface; the only place that may use Streamlit   (exists)
@@ -782,7 +784,7 @@ ports file.
 | `list_assets()` | The ledger's assets: name, code, kind, identifier, whether it can price a trade, and the money it is itself priced in. |
 | `list_trades(TradeFilter)` | The trades of a stretch of days (both ends counted, each trade on the day of its own offset), of an asset, on a side, each part optional; oldest first, at most `MOST_TRADES_LISTED` (2000) of the latest, and whether older ones were cut (`TradeList`). Each trade names its money, its fee's asset, its time zone, whether only its day is known, its rate between moneys, and whether it is dated after today; a sell carries its profit or loss and why it is not exact when it is not. |
 | `period_summary(PeriodRequest)` | The sums of a stretch of days: one group for each money, with its count of buys and sells, what they paid and brought in (or why that was not added up), its fees, its profit or loss with the part transfers took apart, and one row an asset. Never added across moneys. |
-| `positions()` | What is held, one holding for each asset, in the asset's own money; none sold out, and no cash. |
+| `positions()` | What is held, one holding for each asset, in the asset's own money; none sold out, and no holding of an asset the ledger lists as cash. |
 | `propose_add`, `propose_update`, `propose_delete` | Propose to record, change or delete trades, with what the user said this time. Each trade is checked on its own: passed, it waits under a proposal identifier of its own; failed, it has a code and the ledger's sentence. A call may be taken in part. Nothing is written: a proposal waits for the person on the ledger's own page. |
 | `proposal_status(id)` | Where a proposal stands (`ProposalState`): pending, saved (with the trade written), rejected or void (with why). |
 
@@ -957,6 +959,24 @@ recording's (`Said.edit_sent`). When the model goes wrong twice and its
 second try is a change, the program goes on from that call alone: a time
 or a new value that is not the user's words is said in a fixed sentence,
 and nothing is looked for.
+
+Cash is the program's alone (`flows/cash_question.py`, 2026-11-25). The
+eight tools read no cash balance, no deposit and no withdrawal, so before
+the model is asked, what the user said is read for a question about cash
+(`core/cash_words.py`): cash or a balance named outright, how much of a
+money is still had (the money one of the nicknames, "钱", "money", or a
+cash asset of the ledger's own list, asked for only when the sentence has
+that shape), money put in or taken out. Such a question is answered with
+the program's fixed words (`CASH_WORDS`): the assistant cannot look up
+cash yet, the ledger's home page shows the balance, and no figure is worked
+out from the trades; the model is not asked, no table is laid out
+(`Route.CASH`). While a question waits, what is said is its answer as
+before. When a question about cash is not caught and the model answers
+without looking anything up, words with a number beside a money ("50
+USDT") give way to the same fixed words. Under a table of holdings or of
+sums, the page says that it holds no cash balance (`NO_CASH`); nothing of
+this is handed to the model. The real ledger's plug leaves out a holding
+of an asset the ledger lists as cash, whatever its holdings come to hold.
 
 ## The asset table
 

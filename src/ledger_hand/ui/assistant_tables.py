@@ -20,7 +20,12 @@ money. No money is assumed.
 - ``listed_rows``: the trades a change or deletion found, numbered from 1
   as the program numbered them when it asked which.
 
-Names defined here: ``CHANGED_MARK``, ``FEES_INSIDE``, ``proposed_rows``, ``lookup_rows``,
+Under a table of holdings or of sums, ``NO_CASH`` says that it holds no cash
+balance: the assistant cannot look up cash yet. It is laid out on the page
+only, never handed to the model.
+
+Names defined here: ``CHANGED_MARK``, ``FEES_INSIDE``, ``NO_CASH``, ``proposed_rows``,
+``lookup_rows``,
 ``change_rows`` and ``listed_rows``.
 """
 
@@ -113,6 +118,9 @@ def _group_realized(totals: CurrencyTotals) -> str:
 # Said under every summary: a fee taken in the group's own money is inside its
 # two sums already (the ledger's assistant-link/README.md, rule 7).
 FEES_INSIDE = "Fees paid in a group's own money are already inside its spent and received."
+
+# Said under every table of holdings or of sums (the product owner, 2026-11-25).
+NO_CASH = "This table holds no cash balance: the assistant cannot look up cash yet."
 
 
 def _summary(summary: PeriodSummary) -> list[Row]:

@@ -507,9 +507,8 @@ through a real ledger page by a script with no model; the Assistant page
 does not reach it yet (the third part of batch 68). What it does not do:
 
 - **A trade with only its day is not sent, though the ledger takes one.**
-  The assistant still asks for the time of day (`LeftOut.DAY_ONLY`), as it
-  did; the ledger itself records a trade with a day alone. Whether to send
-  such trades is for the product owner to decide.
+  See "A trade said with its day only is not sent" under "The assistant:
+  recording a trade": that one entry says it all.
 - **A trade in another money than the asset's own is not sent.** The
   ledger then needs the rate between the two moneys (`costRate`), which
   the assistant does not ask for; the plug says so for that trade
@@ -533,12 +532,55 @@ does not reach it yet (the third part of batch 68). What it does not do:
 - **A change needs the trade listed first in the same session.** The plug
   keeps the trades as last listed to copy back what did not change; the
   change flow always lists first, so this holds for the assistant.
-- **Cash is never handed back.** The ledger has no tool for cash
-  balances, and the plug works none out from trades. Saying so to the
-  user is the third part of batch 68.
+- **Cash is never handed back.** The plug uses no tool for cash balances
+  and works none out from trades; a holding of an asset the ledger lists as
+  cash is left out as well. What the user is told is under "The
+  assistant: cash".
 - **The cost of a holding marked not exact carries a sentence of this
   program's.** The ledger says only that it is not exact; the reason
   shown is taken from the ledger's README (a fee paid in another asset).
+
+## The assistant: cash
+
+The assistant cannot look up a cash balance, a deposit or a withdrawal:
+none of the eight tools it hands the model reads one. The ledger added a
+ninth tool for cash balances on 2026-11-25; connecting it changes the
+tools handed to the model and is left for a batch of its own. Until then:
+
+- **A question about cash is caught from the user's words alone.** Before
+  the model is asked, `core/cash_words.py` looks for four kinds: cash or a
+  balance named ("现金", "余额", "可用资金", "cash", "balance", "buying
+  power"; not "rebalance"); how much of a money is still had ("还有多少",
+  "还剩", "剩下", "有多少" or "how much ... have", "left", "remaining",
+  with a money right beside: a nickname of a money such as "U", "美元",
+  "刀", "$", "钱", "money", or the code or name of an asset the ledger
+  lists as cash); money put in ("入金", "入了多少金", "充值", "存入",
+  "deposit", "top up"; not "买入金额"); money taken out ("出金", "提现",
+  "取现", "withdraw"; not "卖出金额"). Every sentence and passage of the
+  sets in `evals/sets/` and the demo sentences is tried against it with no
+  model, and none may be caught (`tests/evals/test_cash_set.py`).
+- **What it does not catch.** A question about cash that names no money
+  and none of these words ("我还能买多少BTC", "how much do I have left",
+  "我账户里还有多少"), or that says it some other way ("我的U够不够",
+  "what's left in my account"), goes to the model as before. The model
+  may then look up the holdings or the sums and lay them out: their tables
+  say under them that they hold no cash balance. If it answers in its own
+  words with a number beside a money ("50 USDT", "$50", "5U"), the program
+  shows its fixed words instead. A number said without a money beside it
+  ("还有 50") is not caught by that check.
+- **That check can also turn away good words.** Any answer with nothing
+  looked up and a number beside a money gives way to the words about cash,
+  even when it was about something else ("I cannot place an order at 9
+  USD"). It errs on the side of saying nothing made up.
+- **A coin still held is not cash.** "我还有多少BTC" asks for a holding and
+  goes to the model as before.
+- **While a question waits, the words are its answer.** As for every other
+  subject ("Changing the subject while a question waits"), a question about
+  cash said while a recording question waits is read as its answer.
+- **The words for a money are asked of the ledger.** For a sentence shaped
+  like asking what is still had, the ledger's list of assets is asked for,
+  once, to know its cash assets; when it cannot be asked, the nicknames
+  alone are used.
 
 ## The assistant: recording a trade
 
@@ -597,11 +639,14 @@ does not reach it yet (the third part of batch 68). What it does not do:
 - **A trade said with its day only is not sent.** The recording flow keeps a
   trade said with a day and no time of day ("昨天买了 0.5 ETH", "bought
   0.5 ETH yesterday") as known to
-  the day, and asks nothing more; the ledger needs a moment. Rather than
+  the day, and asks nothing more. Rather than
   make up a time of day, the program leaves that trade out and asks the user
-  to say it again with the time it was made; the other trades of the same
-  words are sent. Whether the ledger's tools will take a trade known only
-  to the day is for when the real ledger is connected. Such a trade is
+  to say it again with the time it was made (`LeftOut.DAY_ONLY`); the other
+  trades of the same words are sent. The real ledger, as connected on
+  2026-11-25, does take a trade with its day alone (sample
+  `propose-add-date-only`), so leaving it out is no longer for the
+  ledger's sake; whether to send such trades is for the product owner to
+  decide, and until then they are left out. Such a trade is
   still asked about first like any other: "昨天买了 0.5 ETH，价格 2700"
   ("bought 0.5 ETH yesterday at 2700") asks for the fee, and only once it
   is answered is the user told that the trade lacks its time and is not

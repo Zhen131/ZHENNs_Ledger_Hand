@@ -4,7 +4,7 @@
 it stands (``AssistantChat``: the assistant's ``Chat``, and a passage whose
 question waits for its answer, or a change that waits for the user to say
 which trade or which amount follows, if one does) and gives back what came
-of it (``Said``), with the chat to hand the next time. It takes one of three
+of it (``Said``), with the chat to hand the next time. It takes one of these
 routes (``Route``):
 
 - A question waits: what the user says is its answer. The model that
@@ -13,6 +13,11 @@ routes (``Route``):
   question again when the answer cannot be used. A change that waits is
   answered the same way, read by the program (``editing.answer``). Only one
   thing ever waits: a new question takes the place of the one answered.
+- Otherwise, a question about cash is caught before the model is asked
+  (``cash_question.caught``): the assistant cannot look up cash, so the
+  program says its own fixed words (``cash_question.CASH_WORDS``), lays
+  out no table and says no figure (``Route.CASH``). (Decided on
+  2026-11-25.)
 - Otherwise the model chooses tools (``assisting.take_turn``). When it asks
   to record a trade, what the user said, word for word, is handed to the
   recording flow (``recording.start``), once, however many such calls it
@@ -30,6 +35,11 @@ routes (``Route``):
   is not tried as a trade: the program goes on from that call alone
   (``editing.taken_over``), and when nothing in it can be gone on with,
   the turn's own words stand.
+
+When the model answers in its own words having looked nothing up, and a
+number stands in them beside a money ("50 USDT"), they are not shown: the
+user is told ``cash_question.CASH_WORDS`` instead, and the turn says why
+(``TurnResult.withheld``); the chat keeps the program's words.
 
 When the model asks to change or delete a trade, the program goes on with
 that call (``editing.start``) and says how it ended; the model is not
@@ -104,6 +114,7 @@ from ledger_hand.assistant.edit_calls import EDIT_TOOLS
 from ledger_hand.assistant.edit_words import not_done_words
 from ledger_hand.assistant.outcome import Chat, Ending, TakenCall, TurnResult
 from ledger_hand.core.assets import AssetTable
+from ledger_hand.core.cash_words import CashAsk
 from ledger_hand.core.ledger_records import Asset
 from ledger_hand.core.ledger_table import table_of
 from ledger_hand.core.spoken_text import Tidied, tidy_spoken
@@ -113,6 +124,7 @@ from ledger_hand.extraction.prompts.first3 import FIRST_PROMPT_3
 from ledger_hand.extraction.prompts.screen2 import SCREEN_PROMPT_2
 from ledger_hand.flows import editing, recording
 from ledger_hand.flows.assisting import close_editing, close_recording, first_edit, take_turn
+from ledger_hand.flows.cash_question import CASH_WORDS, caught, withheld_cash
 from ledger_hand.flows.editing import Edited, EditEnding, EditSent, EditWaiting
 from ledger_hand.flows.progress import DEFAULT_TUNING, Progress, Tuning
 from ledger_hand.flows.proposing import propose
@@ -158,6 +170,7 @@ class Route(enum.Enum):
     ANSWER = "taken as the answer to the question waiting"
     TAKEOVER = "the program took over after two wrong steps"
     SCREENSHOT = "recorded from a screenshot read, the model that chooses tools not asked"
+    CASH = "answered by the program itself: a question about cash, which it cannot look up"
 
 
 class WordsBy(enum.Enum):
@@ -191,7 +204,8 @@ class Said:
 
     ``turn`` is the model's turn, when the model was asked; ``recorded`` how
     recording ended, when there was any; ``edited`` how a change or a
-    deletion ended, when there was one; ``reply`` what the user is told;
+    deletion ended, when there was one; ``cash`` which kind of question
+    about cash was caught, when one was; ``reply`` what the user is told;
     ``state`` the chat to hand the next time. ``read_as`` is what was said
     and the words tidied from it, for words typed or answered; ``None`` for
     a screenshot's text, which is not tidied.
@@ -204,6 +218,7 @@ class Said:
     recorded: Recorded | None = None
     edited: Edited | None = None
     read_as: Tidied | None = None
+    cash: CashAsk | None = None
 
     @property
     def edit_sent(self) -> EditSent | None:
@@ -234,6 +249,8 @@ class Said:
     @property
     def well_ended(self) -> bool:
         """Whether it was done, or the user was told why not, with nothing failing."""
+        if self.route is Route.CASH:
+            return True
         if self.edited is not None:
             return self.edited.ending is not EditEnding.LEDGER_FAILED
         if self.recorded is not None:
@@ -299,9 +316,15 @@ def _said(state: AssistantChat, said: str, around: _Around, max_steps: int) -> S
         return _answered(state, state.recording, said, around)
     if state.editing is not None:
         return _edit_answered(state, state.editing, said, around)
+    asked = caught(said, ledger)
+    if asked is not None:
+        words = (Message(Role.USER, said), Message(Role.ASSISTANT, CASH_WORDS))
+        chat = AssistantChat(chat=_with_words(state.chat, words))
+        return Said(route=Route.CASH, reply=CASH_WORDS, state=chat, cash=asked)
     turn = take_turn(
         state.chat, said, model=model, ledger=ledger, now=now, zone=zone, max_steps=max_steps
     )
+    turn = _cash_checked(turn, ledger)
     if turn.ending is Ending.EDITING:
         return _edit_begun(turn, said, around)
     if turn.ending is Ending.RECORDING:
@@ -316,6 +339,22 @@ def _said(state: AssistantChat, said: str, around: _Around, max_steps: int) -> S
             return _edit_taken_over(turn, edit, around)
         return _taken_over(turn, said, around)
     return Said(route=Route.MODEL, reply=turn.reply, state=AssistantChat(chat=turn.chat), turn=turn)
+
+
+def _cash_checked(turn: TurnResult, ledger: LedgerPort) -> TurnResult:
+    """``turn``, its words given way to ``CASH_WORDS`` when they say a figure beside a money.
+
+    Only the model's own words, with nothing looked up, are checked; a
+    turn that looked something up is left as it is.
+    """
+    if turn.ending is not Ending.ANSWERED or turn.withheld is not None or turn.lookups:
+        return turn
+    withheld = withheld_cash(turn.reply, ledger)
+    if withheld is None:
+        return turn
+    items = (*turn.chat.items[:-1], Message(Role.ASSISTANT, CASH_WORDS))
+    chat = Chat(items=items, proposals=turn.chat.proposals)
+    return replace(turn, reply=CASH_WORDS, chat=chat, withheld=withheld)
 
 
 def say_from_reading(
