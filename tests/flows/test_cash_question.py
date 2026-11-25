@@ -200,7 +200,8 @@ def test_the_record_keeps_the_way_a_question_about_cash_went() -> None:
     entry = entry_for(said, words="What is my cash balance?", at=INVENTED_NOW, model="m")
 
     assert entry["route"] == "cash"
-    assert entry["format_version"] == 3
+    assert entry["format_version"] == 4
+    assert entry["asset_picks"] == []
     assert "read_as" in entry
     assert entry["words_by"] == "program"
     assert entry["reply"] == CASH_WORDS
