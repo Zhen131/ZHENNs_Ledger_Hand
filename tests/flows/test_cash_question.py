@@ -200,6 +200,8 @@ def test_the_record_keeps_the_way_a_question_about_cash_went() -> None:
     entry = entry_for(said, words="What is my cash balance?", at=INVENTED_NOW, model="m")
 
     assert entry["route"] == "cash"
+    assert entry["format_version"] == 3
+    assert "read_as" in entry
     assert entry["words_by"] == "program"
     assert entry["reply"] == CASH_WORDS
     assert entry["steps"] == []
@@ -294,3 +296,20 @@ def test_a_cash_figure_the_user_never_said_gives_way_on_the_whole_path(reply: st
 
 def test_a_thousand_written_in_chinese_is_the_users_1000() -> None:
     assert withheld_cash("你是说一千 USDT 吗？", FakeLedger(), ["花了 1000 USDT 买 ETH"]) is None
+
+
+def test_a_cash_question_said_in_number_words_is_caught_in_the_words_tidied() -> None:
+    said = said_once("我还剩多少美元，大概五百？", RoutedModel())
+
+    assert said.route is Route.CASH
+    assert said.read_as is not None
+    entry = entry_for(said, words="我还剩多少美元，大概五百？", at=INVENTED_NOW, model="m")
+    assert entry["said"] == "我还剩多少美元，大概五百？"
+
+
+def test_a_figure_said_in_number_words_counts_as_said_when_asked_back() -> None:
+    model = RoutedModel(tools=[words("手续费是 5 USDT 吗？")])
+
+    said = said_once("手续费五 USDT", model)
+
+    assert said.reply == "手续费是 5 USDT 吗？"

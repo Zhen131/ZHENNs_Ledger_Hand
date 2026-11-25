@@ -623,6 +623,12 @@ tools handed to the model and is left for a batch of its own. Until then:
   asked with a counter about cash ("USDT 余额还有多少个") goes to the model.
 - **A coin still held is not cash.** "我还有多少BTC" and "我的 ETH 余额还有
   多少个" ask for a holding and go to the model as before.
+- **It reads the words tidied.** What the user said is tidied first
+  (number words written in digits); the catch reads the tidied words, the
+  ones the model would read. The check of the model's words counts as
+  said both the tidied words of the chat and the words as said of the
+  sentence just said; earlier sentences are kept only tidied, which keeps
+  their numbers' values.
 - **While a question waits, the words are its answer.** As for every other
   subject ("Changing the subject while a question waits"), a question about
   cash said while a recording question waits is read as its answer.

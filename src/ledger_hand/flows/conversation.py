@@ -14,7 +14,8 @@ routes (``Route``):
   answered the same way, read by the program (``editing.answer``). Only one
   thing ever waits: a new question takes the place of the one answered.
 - Otherwise, a question about cash is caught before the model is asked
-  (``cash_question.caught``): the assistant cannot look up cash, so the
+  (``cash_question.caught``), read in the words tidied, as the model
+  would read them: the assistant cannot look up cash, so the
   program says its own fixed words (``cash_question.CASH_WORDS``), lays
   out no table and says no figure (``Route.CASH``). (Decided on
   2026-11-25.)
@@ -325,7 +326,7 @@ def _said(state: AssistantChat, said: str, around: _Around, max_steps: int) -> S
     turn = take_turn(
         state.chat, said, model=model, ledger=ledger, now=now, zone=zone, max_steps=max_steps
     )
-    turn = _cash_checked(turn, ledger)
+    turn = _cash_checked(turn, ledger, around.raw_text)
     if turn.ending is Ending.EDITING:
         return _edit_begun(turn, said, around)
     if turn.ending is Ending.RECORDING:
@@ -342,15 +343,18 @@ def _said(state: AssistantChat, said: str, around: _Around, max_steps: int) -> S
     return Said(route=Route.MODEL, reply=turn.reply, state=AssistantChat(chat=turn.chat), turn=turn)
 
 
-def _cash_checked(turn: TurnResult, ledger: LedgerPort) -> TurnResult:
-    """``turn``, its words given way to ``CASH_WORDS`` when they say a figure beside a money.
+def _cash_checked(turn: TurnResult, ledger: LedgerPort, raw_text: str | None) -> TurnResult:
+    """``turn``, its words given way to ``CASH_WORDS`` when they say a figure the user never said.
 
     Only the model's own words, with nothing looked up, are checked; a
-    turn that looked something up is left as it is.
+    turn that looked something up is left as it is. What the user said
+    counts both tidied (the chat keeps it so) and, for this sentence, as
+    said (``raw_text``), when tidying changed it.
     """
     if turn.ending is not Ending.ANSWERED or turn.withheld is not None or turn.lookups:
         return turn
-    withheld = withheld_cash(turn.reply, ledger, turn.chat.user_said)
+    user_said = (*turn.chat.user_said, *((raw_text,) if raw_text is not None else ()))
+    withheld = withheld_cash(turn.reply, ledger, user_said)
     if withheld is None:
         return turn
     items = (*turn.chat.items[:-1], Message(Role.ASSISTANT, CASH_WORDS))
