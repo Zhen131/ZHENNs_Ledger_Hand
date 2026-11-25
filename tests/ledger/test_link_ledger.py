@@ -40,6 +40,8 @@ from ledger_hand.ledger.link_failures import LedgerLinkError, LinkFailure
 from ledger_hand.ledger.link_ledger import (
     ALL_TIME_START,
     CALL_FAILURES,
+    MODEL_NAME_MOST,
+    SOURCE_TEXT_MOST,
     TRADE_REFUSALS,
     LinkLedger,
     codes_on_no_table,
@@ -371,7 +373,7 @@ def test_one_trade_whose_money_the_ledger_could_not_work_out_leaves_its_sum_not_
 
 
 def test_holdings_leave_the_sold_out_out_and_are_in_each_assets_own_money() -> None:
-    ledger, _ = plug(("get_positions", sample("positions")))
+    ledger, _ = plug(("get_positions", sample("positions")), ASSETS)
 
     held = {position.asset: position for position in ledger.positions()}
 
@@ -384,6 +386,56 @@ def test_holdings_leave_the_sold_out_out_and_are_in_each_assets_own_money() -> N
     )
     assert nvda.unrealized == NotWorkedOut(reason="没有能用的市场价，算不出市值和浮动盈亏")
     assert nvda.cost_unreliable is None
+
+
+def test_a_holding_of_an_asset_the_ledger_lists_as_cash_is_never_handed_back() -> None:
+    answer = sample("positions")
+    rows = answer.content["positions"]
+    usdt = {**rows[1], "assetId": "asset-usdt", "assetCode": "USDT", "quantity": "250"}
+    held = ToolAnswer(kind=answer.kind, content={**answer.content, "positions": [*rows, usdt]})
+    ledger, link = plug(("get_positions", held), ASSETS)
+
+    codes = {position.asset for position in ledger.positions()}
+
+    assert "USDT" not in codes
+    assert codes == {"BTC", "ETH", "NVDA", "ADA"}
+    assert link.names() == ["get_positions", "list_assets"]
+
+
+def test_words_longer_than_the_ledger_keeps_are_not_sent_nor_cut_short() -> None:
+    ledger, link = plug()
+    said = "买" * (SOURCE_TEXT_MOST + 1)
+
+    added = ledger.propose_add((facts(), facts()), said)
+    deleted = ledger.propose_delete("trade-1", said)
+
+    assert [check.code for check in added.checks] == ["HAND_SAID_TOO_LONG"] * 2
+    assert all(check.outcome is CheckOutcome.FAILED for check in added.checks)
+    assert [check.code for check in deleted.checks] == ["HAND_SAID_TOO_LONG"]
+    assert link.asked == []
+
+
+def test_words_as_long_as_the_ledger_keeps_are_measured_in_its_own_characters() -> None:
+    ledger, link = plug()
+    # One emoji is two of the ledger's characters: 8193 of them are 16386.
+    said = "\U0001f600" * (SOURCE_TEXT_MOST // 2 + 1)
+
+    added = ledger.propose_add((facts(),), said)
+
+    assert [check.code for check in added.checks] == ["HAND_SAID_TOO_LONG"]
+    assert link.asked == []
+
+
+def test_a_model_name_longer_than_the_ledger_takes_sends_nothing() -> None:
+    link = SampleLink()
+    ledger = LinkLedger(link, model_name="m" * (MODEL_NAME_MOST + 1), today=lambda: TODAY)
+
+    added = ledger.propose_add((facts(),), SAID)
+    changed = ledger.propose_update("trade-1", facts(), SAID)
+
+    assert [check.code for check in added.checks] == ["HAND_MODEL_NAME_TOO_LONG"]
+    assert [check.code for check in changed.checks] == ["HAND_MODEL_NAME_TOO_LONG"]
+    assert link.asked == []
 
 
 # --- recording ----------------------------------------------------------------

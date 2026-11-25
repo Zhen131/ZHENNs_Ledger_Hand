@@ -37,7 +37,14 @@ What it turns, and how (68B2, part 13):
   could not work out leaves the sum not worked out, with its reason. Its
   profit or loss is the ledger's own row for that asset.
 - Holdings that are sold out (quantity 0) are left out. No cash balance is
-  ever handed back, and none is worked out from trades.
+  ever handed back, and none is worked out from trades: a holding whose
+  asset the ledger lists as cash ("currency") is left out too, whatever
+  the ledger's holdings come to hold.
+- What the user said and the model's name are measured before anything is
+  sent, as the ledger measures them: words longer than
+  ``SOURCE_TEXT_MOST`` or a name longer than ``MODEL_NAME_MOST`` send
+  nothing; each trade is a failed check of this program's own
+  (``HAND_SAID_TOO_LONG``, ``HAND_MODEL_NAME_TOO_LONG``), never cut short.
 - Words the ledger kept that are not the user's (a trade recorded on the
   ledger's own page holds "Structured ledger entry: ...") are not words of
   the user's: such a trade holds none (``raw_text`` is ``None``).
@@ -53,7 +60,7 @@ language of its page.
 
 Names defined here: ``ToolCaller``, ``LinkLedger``, ``CALL_FAILURES``,
 ``TRADE_REFUSALS``, ``Refusal``, ``codes_on_no_table``, ``MOST_PER_CALL``, ``MOST_RESTARTS``,
-``ALL_TIME_START``, ``WORDS_NOT_THE_USERS``.
+``ALL_TIME_START``, ``WORDS_NOT_THE_USERS``, ``SOURCE_TEXT_MOST``, ``MODEL_NAME_MOST``.
 """
 
 from __future__ import annotations
@@ -67,6 +74,7 @@ from types import MappingProxyType
 from typing import Any, Protocol
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
+from ledger_hand.core.ledger_limits import text_length
 from ledger_hand.core.ledger_records import (
     MOST_TRADES_LISTED,
     Asset,
@@ -106,6 +114,10 @@ MOST_RESTARTS = 3
 # The first day of "all time": the ledger checks only that a day is real,
 # and this one was tried on 2026-11-25 (sample period-summary-all-time).
 ALL_TIME_START = date(1970, 1, 1)
+# The longest words of the user and model name the ledger takes with a
+# proposal, in its own characters (its README, "sourceText" and "modelName").
+SOURCE_TEXT_MOST = 16_384
+MODEL_NAME_MOST = 128
 # The start of the words the ledger keeps for a trade recorded on its own
 # page: its own machine text, never what the user said (68C, note 7).
 WORDS_NOT_THE_USERS = "Structured ledger entry:"
@@ -276,8 +288,11 @@ class LinkLedger:
 
     def positions(self) -> tuple[Position, ...]:
         answer = self._answer("get_positions", {})
+        cash = {str(row.get("assetId")) for row in self._raw_assets() if _is_cash(row)}
         return tuple(
-            _position(row) for row in _list(answer, "positions") if _decimal(row["quantity"])
+            _position(row)
+            for row in _list(answer, "positions")
+            if _decimal(row["quantity"]) and str(row.get("assetId")) not in cash
         )
 
     # --- proposing --------------------------------------------------------------
@@ -285,6 +300,9 @@ class LinkLedger:
     def propose_add(self, trades: tuple[TradeFacts, ...], said: str) -> ProposalResult:
         if not trades:
             raise ValueError("a proposal to record holds at least one trade")
+        too_long = self._too_long(said)
+        if too_long is not None:
+            return ProposalResult(checks=tuple(too_long for _ in trades))
         assets = self._raw_assets()
         checks: list[TradeCheck | None] = []
         sendable: list[tuple[int, dict[str, Any]]] = []
@@ -310,6 +328,9 @@ class LinkLedger:
         return ProposalResult(checks=tuple(check for check in checks if check is not None))
 
     def propose_update(self, trade_id: str, facts: TradeFacts, said: str) -> ProposalResult:
+        too_long = self._too_long(said)
+        if too_long is not None:
+            return ProposalResult(checks=(too_long,))
         row = self._rows.get(trade_id)
         if row is None:
             return ProposalResult(
@@ -327,6 +348,9 @@ class LinkLedger:
         return self._one(self._answer("propose_trade_update", arguments))
 
     def propose_delete(self, trade_id: str, said: str) -> ProposalResult:
+        too_long = self._too_long(said)
+        if too_long is not None:
+            return ProposalResult(checks=(too_long,))
         arguments = {"tradeId": trade_id, **self._who(said)}
         return self._one(self._answer("propose_trade_delete", arguments))
 
@@ -344,6 +368,22 @@ class LinkLedger:
         )
 
     # --- inside -----------------------------------------------------------------
+
+    def _too_long(self, said: str) -> TradeCheck | None:
+        """A failed check when ``said`` or the model's name is longer than the ledger takes."""
+        if text_length(said) > SOURCE_TEXT_MOST:
+            return _refused(
+                "HAND_SAID_TOO_LONG",
+                f"What you said is longer than the {SOURCE_TEXT_MOST} characters the ledger "
+                "keeps with a proposal, so nothing was sent. Please say it in shorter words.",
+            )
+        if text_length(self._model) > MODEL_NAME_MOST:
+            return _refused(
+                "HAND_MODEL_NAME_TOO_LONG",
+                f"The model's name is longer than the {MODEL_NAME_MOST} characters the ledger "
+                "takes, so nothing was sent.",
+            )
+        return None
 
     def _who(self, said: str) -> dict[str, Any]:
         return {"sourceText": said if said.strip() else None, "modelName": self._model}
@@ -444,6 +484,10 @@ def _list(answer: Mapping[str, Any], name: str) -> list[Mapping[str, Any]]:
     if not isinstance(found, list) or not all(isinstance(one, Mapping) for one in found):
         raise LedgerError(_O, "HAND_ANSWER_UNEXPECTED", f"The ledger's answer has no list {name}.")
     return found
+
+
+def _is_cash(row: Mapping[str, Any]) -> bool:
+    return _KINDS.get(str(row.get("assetKind"))) is AssetKind.CASH
 
 
 def _text(value: object) -> str | None:
