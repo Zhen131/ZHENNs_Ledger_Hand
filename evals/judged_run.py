@@ -2,6 +2,7 @@
 
     .venv/bin/python -m evals.judged_run --screen screen-1
     .venv/bin/python -m evals.judged_run --screen screen-2 --final-exam
+    .venv/bin/python -m evals.judged_run --screen screen-2 --extract first-3 --hold-other-unit
 
 Run from the top of the repository. Every sentence of the debug set (or,
 with ``--final-exam``, of the final set) goes through ``recording.start``
@@ -12,6 +13,17 @@ and zone; nothing is asked or answered after that. The drafts the flow
 holds then, and the issues extraction raised, are scored against the gold
 answer exactly as ``evals.run`` scores extraction alone (``scoring``). A
 passage the judging step stops, or finds no trade in, gives no draft.
+
+With ``--hold-other-unit`` the flow is started as the assistant starts
+it: a trade whose quantity carries a unit that is not the trade's asset
+is held back at once (``recording.start``, ``hold_other_unit``). Nothing
+it scores changes, since the drafts are scored as extracted; the line of
+each sentence also says which trades were held. Each line says, for
+every draft, which kinds of reminder it carries (``draft_reminders``)
+and whether it came out right in every field (``draft_whole_right``),
+and which kinds of reminder are about the passage as a whole
+(``passage_reminders``), so that what holding back takes away can be
+counted afterwards.
 
 It is here so that a new prompt version the assistant uses can be held to
 the old sentences: on the same day, each version runs both sets, and the
@@ -27,7 +39,8 @@ first line with the conditions, one line for each sentence, and an
 Exit status: 0 the run finished; 2 it could not start.
 
 Names defined here: ``SCREENS``, ``EXTRACTS``, ``produced_of``,
-``silent_wrong``, ``run`` and ``main``.
+``silent_wrong``, ``reminders_of``, ``whole_right_of``, ``held_of``,
+``run`` and ``main``.
 """
 
 from __future__ import annotations
@@ -54,7 +67,7 @@ from ledger_hand.extraction.prompts.first2 import FIRST_PROMPT_2
 from ledger_hand.extraction.prompts.first3 import FIRST_PROMPT_3
 from ledger_hand.extraction.prompts.screen import SCREEN_PROMPT
 from ledger_hand.extraction.prompts.screen2 import SCREEN_PROMPT_2
-from ledger_hand.flows.progress import Progress, Stage
+from ledger_hand.flows.progress import Progress, Stage, TradeStatus
 from ledger_hand.flows.recording import start
 from ledger_hand.ports import ModelError, ModelPort
 from ledger_hand.settings import SettingsError
@@ -96,7 +109,12 @@ def silent_wrong(score: SentenceScore) -> int:
 
 
 def _one(
-    sentence: Sentence, model: ModelPort, screen: PromptVersion, extract: PromptVersion
+    sentence: Sentence,
+    model: ModelPort,
+    screen: PromptVersion,
+    extract: PromptVersion,
+    *,
+    hold: bool = False,
 ) -> Progress:
     return start(
         sentence.text,
@@ -106,7 +124,36 @@ def _one(
         assets=BUILT_IN_ASSETS,
         screen_prompt=screen,
         extract_prompt=extract,
+        hold_other_unit=hold,
     )
+
+
+def reminders_of(progress: Progress) -> tuple[list[list[str]], list[str]]:
+    """The kinds of reminder about each draft, and those about the passage, by name."""
+    by_draft: list[list[str]] = [[] for _ in progress.trades]
+    passage: list[str] = []
+    for issue in progress.reminders:
+        kinds = passage if issue.draft is None else by_draft[issue.draft]
+        if issue.kind.name not in kinds:
+            kinds.append(issue.kind.name)
+    return [sorted(kinds) for kinds in by_draft], sorted(passage)
+
+
+def whole_right_of(score: SentenceScore, drafts: int) -> list[bool]:
+    """For each draft, whether it was paired with a gold trade and right in every field."""
+    right = [False] * drafts
+    for pair in score.pairs:
+        right[pair.draft_at] = pair.whole
+    return right
+
+
+def held_of(progress: Progress) -> list[int]:
+    """The positions, from 0, of the trades held back at the start, before any question."""
+    return [
+        position
+        for position, trade in enumerate(progress.trades)
+        if trade.status is TradeStatus.CANNOT_RECORD and trade.reason is None
+    ]
 
 
 def run(
@@ -115,6 +162,8 @@ def run(
     path: Path,
     screen: PromptVersion,
     extract: PromptVersion,
+    *,
+    hold: bool = False,
 ) -> dict[str, object]:
     """Every sentence through the start of recording; each line added as it is done."""
     totals = {"sentences": 0, "gold_trades": 0, "whole_right": 0, "silent_wrong": 0}
@@ -122,7 +171,7 @@ def run(
     with path.open("a", encoding="utf-8") as out:
         for sentence in sentences:
             began = time.monotonic()
-            progress = _one(sentence, backend.model, screen, extract)
+            progress = _one(sentence, backend.model, screen, extract, hold=hold)
             score = score_sentence(sentence, produced_of(progress))
             wrong = silent_wrong(score)
             totals["sentences"] += 1
@@ -141,6 +190,11 @@ def run(
                 "silent_wrong": wrong,
                 "seconds": round(time.monotonic() - began, 1),
             }
+            by_draft, passage = reminders_of(progress)
+            line["draft_reminders"] = by_draft
+            line["passage_reminders"] = passage
+            line["draft_whole_right"] = whole_right_of(score, len(progress.trades))
+            line["held"] = held_of(progress)
             out.write(json.dumps(line, ensure_ascii=False) + "\n")
             out.flush()
     return {**totals, "gold_trades_judged_away": judged_no_trade}
@@ -153,6 +207,11 @@ def main(arguments: Sequence[str] = (), *, out: TextIO = sys.stdout) -> int:
     parser.add_argument("--extract", choices=sorted(EXTRACTS), default=FIRST_PROMPT.name)
     parser.add_argument("--final-exam", action="store_true", help="run the final set")
     parser.add_argument("--model", default=None)
+    parser.add_argument(
+        "--hold-other-unit",
+        action="store_true",
+        help="hold back a trade whose quantity carries another unit, as the assistant does",
+    )
     options = parser.parse_args(arguments)
     set_file, split = (FINAL_SET, Split.FINAL) if options.final_exam else (DEBUG_SET, Split.DEBUG)
     screen, extract = SCREENS[options.screen], EXTRACTS[options.extract]
@@ -164,7 +223,10 @@ def main(arguments: Sequence[str] = (), *, out: TextIO = sys.stdout) -> int:
     started = datetime.now(UTC)
     TOOL_RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     stamp = started.strftime("%Y%m%dT%H%M%SZ")
-    path = TOOL_RESULTS_DIR / f"judged-{stamp}-{split.value}-{screen.name}-{extract.name}.jsonl"
+    held = "-hold" if options.hold_other_unit else ""
+    path = (
+        TOOL_RESULTS_DIR / f"judged-{stamp}-{split.value}-{screen.name}-{extract.name}{held}.jsonl"
+    )
     results = TOOL_RESULTS_DIR.relative_to(REPO_ROOT).as_posix()
     head = {
         "record": "run",
@@ -180,9 +242,15 @@ def main(arguments: Sequence[str] = (), *, out: TextIO = sys.stdout) -> int:
         "server_version": backend.server_version,
         "parameters": dict(backend.parameters),
         "started_at": started.isoformat(timespec="seconds"),
+        "hold_other_unit": options.hold_other_unit,
     }
     path.write_text(json.dumps(head, ensure_ascii=False) + "\n", encoding="utf-8")
-    end = {"record": "end", **run(load_set(set_file, split), backend, path, screen, extract)}
+    end = {
+        "record": "end",
+        **run(
+            load_set(set_file, split), backend, path, screen, extract, hold=options.hold_other_unit
+        ),
+    }
     with path.open("a", encoding="utf-8") as tail:
         tail.write(json.dumps(end, ensure_ascii=False) + "\n")
     print(f"results: {path.relative_to(REPO_ROOT).as_posix()}", file=out)
