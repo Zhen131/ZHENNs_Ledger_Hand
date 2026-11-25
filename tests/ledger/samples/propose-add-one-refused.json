@@ -1,0 +1,53 @@
+{
+  "case": "propose-add-one-refused",
+  "what": "a sell beyond holdings, and a buy",
+  "tool": "propose_trade_add",
+  "arguments": {
+    "trades": [
+      {
+        "occurredDate": "2026-11-18",
+        "type": "sell",
+        "assetId": "asset-btc",
+        "quantity": "50",
+        "price": "70000",
+        "totalValue": "3500000",
+        "quoteAssetId": "asset-usdt",
+        "fee": "1",
+        "feeAssetId": "asset-usdt"
+      },
+      {
+        "occurredDate": "2026-11-18",
+        "type": "buy",
+        "assetId": "asset-ada",
+        "quantity": "100",
+        "price": "0.5",
+        "totalValue": "50",
+        "quoteAssetId": "asset-usdt",
+        "fee": "0.1",
+        "feeAssetId": "asset-usdt"
+      }
+    ],
+    "sourceText": "Ledger Hand sample capture: invented trades only",
+    "modelName": "no model (sample capture)"
+  },
+  "answer": {
+    "kind": "result",
+    "content": {
+      "results": [
+        {
+          "ok": false,
+          "error": {
+            "code": "INSUFFICIENT_HOLDINGS",
+            "category": "check-failed",
+            "message": "卖出数量超过该时间点的可用持仓",
+            "field": "quantity"
+          }
+        },
+        {
+          "ok": true,
+          "proposalId": "b43937bc-74c9-4b94-be1f-9a7c4ab2f1ed"
+        }
+      ]
+    }
+  }
+}

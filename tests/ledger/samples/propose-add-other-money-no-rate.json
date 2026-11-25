@@ -1,0 +1,38 @@
+{
+  "case": "propose-add-other-money-no-rate",
+  "what": "BTC (priced in USDT) bought with USD, no costRate",
+  "tool": "propose_trade_add",
+  "arguments": {
+    "trades": [
+      {
+        "occurredDate": "2026-11-18",
+        "type": "buy",
+        "assetId": "asset-btc",
+        "quantity": "0.01",
+        "price": "61000",
+        "totalValue": "610",
+        "quoteAssetId": "asset-usd",
+        "fee": "1",
+        "feeAssetId": "asset-usd"
+      }
+    ],
+    "sourceText": "Ledger Hand sample capture: invented trades only",
+    "modelName": "no model (sample capture)"
+  },
+  "answer": {
+    "kind": "result",
+    "content": {
+      "results": [
+        {
+          "ok": false,
+          "error": {
+            "code": "CURRENCY_MISMATCH",
+            "category": "check-failed",
+            "message": "「用哪种钱」必须是这本账本里的一种现金货币；它和这只资产的计价货币不同时要填折算率，相同时不填；卖出数量超过该时间点的可用持仓",
+            "field": "quoteAssetId"
+          }
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "case": "status-saved",
+  "what": "after Save on the page",
+  "tool": "get_proposal_status",
+  "arguments": {
+    "proposalId": "640e1ab2-9d8b-4b90-a9cc-c41ed08ec678"
+  },
+  "answer": {
+    "kind": "result",
+    "content": {
+      "proposalId": "640e1ab2-9d8b-4b90-a9cc-c41ed08ec678",
+      "status": "saved",
+      "tradeId": "f5b5b78b-9691-40b8-b12d-6d274a9e0ecf"
+    }
+  }
+}

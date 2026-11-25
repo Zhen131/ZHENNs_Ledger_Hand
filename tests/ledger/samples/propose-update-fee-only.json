@@ -1,0 +1,33 @@
+{
+  "case": "propose-update-fee-only",
+  "what": "only the fee, no time field",
+  "tool": "propose_trade_update",
+  "arguments": {
+    "tradeId": "dc36a1d6-6022-4020-acd5-20f08e3786d0",
+    "trade": {
+      "type": "buy",
+      "assetId": "asset-eth",
+      "quantity": "2",
+      "price": "3000",
+      "totalValue": "6000",
+      "quoteAssetId": "asset-usdt",
+      "fee": "1.5",
+      "feeAssetId": "asset-usdt",
+      "platform": null,
+      "note": null
+    },
+    "modelName": "no model (sample capture)",
+    "sourceText": "Ledger Hand sample capture: invented trades only"
+  },
+  "answer": {
+    "kind": "result",
+    "content": {
+      "results": [
+        {
+          "ok": true,
+          "proposalId": "d3289b8e-ac48-4866-aabb-3bb03612bfe2"
+        }
+      ]
+    }
+  }
+}

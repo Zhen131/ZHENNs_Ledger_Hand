@@ -1,0 +1,50 @@
+{
+  "case": "list-trades-on-2026-11-20-after-zoned-save",
+  "what": "which day the New York trade falls on",
+  "tool": "list_trades",
+  "arguments": {
+    "startDate": "2026-11-20",
+    "endDate": "2026-11-20"
+  },
+  "answer": {
+    "kind": "result",
+    "content": {
+      "kind": "trade-list",
+      "trades": [
+        {
+          "tradeId": "239089c1-ffa4-4fd8-958e-75af517b9224",
+          "occurredAt": "2026-11-20T22:30:00-05:00",
+          "occurredTimeZone": "America/New_York",
+          "timePrecision": "minute",
+          "side": "buy",
+          "assetId": "asset-eth",
+          "assetCode": "ETH",
+          "quantity": "0.2",
+          "price": "3100",
+          "tradeAmount": "620",
+          "tradeCurrencyAssetId": "asset-usdt",
+          "tradeCurrencyCode": "USDT",
+          "fee": "0.5",
+          "feeAssetId": "asset-usdt",
+          "feeAssetCode": "USDT",
+          "costRate": null,
+          "platform": null,
+          "note": null,
+          "rawText": "Ledger Hand sample capture: invented trades only",
+          "recordedAt": "2026-11-25T13:01:18.655Z",
+          "lastModifiedAt": "2026-11-25T13:01:18.655Z",
+          "isDatedAfterToday": false,
+          "cashSpentOrReceived": "620.5",
+          "cashSpentOrReceivedMissingReason": null,
+          "realizedProfitAndLoss": null,
+          "realizedProfitAndLossCurrencyAssetId": null,
+          "realizedProfitAndLossCurrencyCode": null,
+          "realizedProfitAndLossIsReliable": null,
+          "realizedProfitAndLossUnreliableReason": null
+        }
+      ],
+      "pageSize": 50,
+      "nextPageToken": null
+    }
+  }
+}

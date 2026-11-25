@@ -1,0 +1,95 @@
+{
+  "case": "list-assets",
+  "what": "every asset",
+  "tool": "list_assets",
+  "arguments": {},
+  "answer": {
+    "kind": "result",
+    "content": {
+      "kind": "asset-list",
+      "assets": [
+        {
+          "assetId": "asset-btc",
+          "assetCode": "BTC",
+          "assetName": "Bitcoin",
+          "assetKind": "crypto",
+          "stockMarket": null,
+          "priceCurrencyAssetId": "asset-usdt",
+          "priceCurrencyCode": "USDT",
+          "canBeTradeCurrency": false
+        },
+        {
+          "assetId": "asset-eth",
+          "assetCode": "ETH",
+          "assetName": "Ethereum",
+          "assetKind": "crypto",
+          "stockMarket": null,
+          "priceCurrencyAssetId": "asset-usdt",
+          "priceCurrencyCode": "USDT",
+          "canBeTradeCurrency": false
+        },
+        {
+          "assetId": "asset-ada",
+          "assetCode": "ADA",
+          "assetName": "Cardano",
+          "assetKind": "crypto",
+          "stockMarket": null,
+          "priceCurrencyAssetId": "asset-usdt",
+          "priceCurrencyCode": "USDT",
+          "canBeTradeCurrency": false
+        },
+        {
+          "assetId": "asset-usdt",
+          "assetCode": "USDT",
+          "assetName": "Tether USD",
+          "assetKind": "currency",
+          "stockMarket": null,
+          "priceCurrencyAssetId": null,
+          "priceCurrencyCode": null,
+          "canBeTradeCurrency": true
+        },
+        {
+          "assetId": "asset-usd",
+          "assetCode": "USD",
+          "assetName": "US Dollar",
+          "assetKind": "currency",
+          "stockMarket": null,
+          "priceCurrencyAssetId": null,
+          "priceCurrencyCode": null,
+          "canBeTradeCurrency": true
+        },
+        {
+          "assetId": "asset-cny",
+          "assetCode": "CNY",
+          "assetName": "Chinese Yuan",
+          "assetKind": "currency",
+          "stockMarket": null,
+          "priceCurrencyAssetId": null,
+          "priceCurrencyCode": null,
+          "canBeTradeCurrency": true
+        },
+        {
+          "assetId": "905ce2f5-a338-497a-a724-8c1763313af5",
+          "assetCode": "NVDA",
+          "assetName": "NVDA",
+          "assetKind": "stock",
+          "stockMarket": "US",
+          "priceCurrencyAssetId": "asset-usd",
+          "priceCurrencyCode": "USD",
+          "canBeTradeCurrency": false
+        },
+        {
+          "assetId": "866276c7-a943-4a38-acc3-069db9178ab3",
+          "assetCode": "AAPL",
+          "assetName": "AAPL",
+          "assetKind": "stock",
+          "stockMarket": "US",
+          "priceCurrencyAssetId": "asset-usd",
+          "priceCurrencyCode": "USD",
+          "canBeTradeCurrency": false
+        }
+      ],
+      "feeAssetNote": "一笔买卖的手续费可以收账本里任何已有的资产，不只是能当钱的那几种"
+    }
+  }
+}

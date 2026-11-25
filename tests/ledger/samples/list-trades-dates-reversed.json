@@ -1,0 +1,18 @@
+{
+  "case": "list-trades-dates-reversed",
+  "what": "end before start",
+  "tool": "list_trades",
+  "arguments": {
+    "startDate": "2026-11-20",
+    "endDate": "2026-11-01"
+  },
+  "answer": {
+    "kind": "error",
+    "content": {
+      "code": "START_DATE_AFTER_END_DATE",
+      "category": "invalid-arguments",
+      "message": "起始日期晚于结束日期，请把两个日期对调或改正",
+      "field": "startDate"
+    }
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "case": "status-rejected",
+  "what": "after Reject on the page",
+  "tool": "get_proposal_status",
+  "arguments": {
+    "proposalId": "feda5c92-c35a-44be-b33c-77d5b599b28c"
+  },
+  "answer": {
+    "kind": "result",
+    "content": {
+      "proposalId": "feda5c92-c35a-44be-b33c-77d5b599b28c",
+      "status": "rejected"
+    }
+  }
+}

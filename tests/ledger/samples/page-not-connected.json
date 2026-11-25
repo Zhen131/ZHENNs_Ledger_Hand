@@ -1,0 +1,14 @@
+{
+  "case": "page-not-connected",
+  "what": "before any page connects",
+  "tool": "list_assets",
+  "arguments": {},
+  "answer": {
+    "kind": "error",
+    "content": {
+      "code": "LEDGER_PAGE_NOT_CONNECTED",
+      "category": "temporarily-unavailable",
+      "message": "The ledger page is not connected. Open the ledger in the browser and connect the assistant there, then try again."
+    }
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "case": "propose-delete-not-found",
+  "what": "no such trade",
+  "tool": "propose_trade_delete",
+  "arguments": {
+    "tradeId": "trade-does-not-exist",
+    "modelName": "no model (sample capture)"
+  },
+  "answer": {
+    "kind": "result",
+    "content": {
+      "results": [
+        {
+          "ok": false,
+          "error": {
+            "code": "PROPOSAL_TARGET_NOT_FOUND",
+            "category": "not-found",
+            "message": "账本里找不到要改或要删的那一笔",
+            "field": "tradeId"
+          }
+        }
+      ]
+    }
+  }
+}

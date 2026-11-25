@@ -1,0 +1,80 @@
+{
+  "case": "list-trades-asset",
+  "what": "trades of one coin",
+  "tool": "list_trades",
+  "arguments": {
+    "assetId": "asset-btc"
+  },
+  "answer": {
+    "kind": "result",
+    "content": {
+      "kind": "trade-list",
+      "trades": [
+        {
+          "tradeId": "9ba95d32-cf47-457a-983d-41f34d4b449e",
+          "occurredAt": "2026-11-16T03:00:00+08:00",
+          "occurredTimeZone": "Asia/Shanghai",
+          "timePrecision": "minute",
+          "side": "sell",
+          "assetId": "asset-btc",
+          "assetCode": "BTC",
+          "quantity": "0.04",
+          "price": "70000",
+          "tradeAmount": "2800",
+          "tradeCurrencyAssetId": "asset-usdt",
+          "tradeCurrencyCode": "USDT",
+          "fee": "3",
+          "feeAssetId": "asset-usdt",
+          "feeAssetCode": "USDT",
+          "costRate": null,
+          "platform": null,
+          "note": null,
+          "rawText": "Structured ledger entry: {\"occurredAt\":\"2026-11-16T03:00:00+08:00\",\"occurredTimeZone\":\"Asia/Shanghai\",\"timePrecision\":\"minute\",\"type\":\"sell\",\"assetId\":\"asset-btc\",\"quantity\":\"0.04\",\"price\":\"70000\",\"totalValue\":\"2800\",\"quoteAssetId\":\"asset-usdt\",\"fee\":\"3\",\"feeAssetId\":\"asset-usdt\"}",
+          "recordedAt": "2026-11-25T13:00:42.875Z",
+          "lastModifiedAt": "2026-11-25T13:00:42.875Z",
+          "isDatedAfterToday": false,
+          "cashSpentOrReceived": "2797",
+          "cashSpentOrReceivedMissingReason": null,
+          "realizedProfitAndLoss": "195",
+          "realizedProfitAndLossCurrencyAssetId": "asset-usdt",
+          "realizedProfitAndLossCurrencyCode": "USDT",
+          "realizedProfitAndLossIsReliable": true,
+          "realizedProfitAndLossUnreliableReason": null
+        },
+        {
+          "tradeId": "56dc1992-792c-491d-b1ee-1ec50a7b10eb",
+          "occurredAt": "2026-11-10T09:30:00+01:00",
+          "occurredTimeZone": "Europe/Budapest",
+          "timePrecision": "minute",
+          "side": "buy",
+          "assetId": "asset-btc",
+          "assetCode": "BTC",
+          "quantity": "0.1",
+          "price": "65000",
+          "tradeAmount": "6500",
+          "tradeCurrencyAssetId": "asset-usdt",
+          "tradeCurrencyCode": "USDT",
+          "fee": "5",
+          "feeAssetId": "asset-usdt",
+          "feeAssetCode": "USDT",
+          "costRate": null,
+          "platform": "Binance",
+          "note": "invented: first BTC buy",
+          "rawText": "Structured ledger entry: {\"occurredAt\":\"2026-11-10T09:30:00+01:00\",\"occurredTimeZone\":\"Europe/Budapest\",\"timePrecision\":\"minute\",\"type\":\"buy\",\"assetId\":\"asset-btc\",\"quantity\":\"0.1\",\"price\":\"65000\",\"totalValue\":\"6500\",\"quoteAssetId\":\"asset-usdt\",\"fee\":\"5\",\"feeAssetId\":\"asset-usdt\",\"platform\":\"Binance\",\"note\":\"invented: first BTC buy\"}",
+          "recordedAt": "2026-11-25T13:00:35.008Z",
+          "lastModifiedAt": "2026-11-25T13:00:35.008Z",
+          "isDatedAfterToday": false,
+          "cashSpentOrReceived": "6505",
+          "cashSpentOrReceivedMissingReason": null,
+          "realizedProfitAndLoss": null,
+          "realizedProfitAndLossCurrencyAssetId": null,
+          "realizedProfitAndLossCurrencyCode": null,
+          "realizedProfitAndLossIsReliable": null,
+          "realizedProfitAndLossUnreliableReason": null
+        }
+      ],
+      "pageSize": 50,
+      "nextPageToken": null
+    }
+  }
+}

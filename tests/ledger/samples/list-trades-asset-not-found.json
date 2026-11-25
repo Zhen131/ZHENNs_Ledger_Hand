@@ -1,0 +1,17 @@
+{
+  "case": "list-trades-asset-not-found",
+  "what": "no such asset",
+  "tool": "list_trades",
+  "arguments": {
+    "assetId": "asset-does-not-exist"
+  },
+  "answer": {
+    "kind": "error",
+    "content": {
+      "code": "ASSET_NOT_FOUND",
+      "category": "not-found",
+      "message": "账本里没有这个资产编号，请先查资产清单",
+      "field": "assetId"
+    }
+  }
+}

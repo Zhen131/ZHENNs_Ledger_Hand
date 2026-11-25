@@ -1,0 +1,16 @@
+{
+  "case": "status-saved-time-with-zone",
+  "what": "the 22:30 New York one, saved",
+  "tool": "get_proposal_status",
+  "arguments": {
+    "proposalId": "968a2b6e-1bb9-4f30-bc2a-2b72e0ddd80c"
+  },
+  "answer": {
+    "kind": "result",
+    "content": {
+      "proposalId": "968a2b6e-1bb9-4f30-bc2a-2b72e0ddd80c",
+      "status": "saved",
+      "tradeId": "239089c1-ffa4-4fd8-958e-75af517b9224"
+    }
+  }
+}

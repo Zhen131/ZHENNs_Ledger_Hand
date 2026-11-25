@@ -1,0 +1,17 @@
+{
+  "case": "status-void",
+  "what": "pending when the page disconnected",
+  "tool": "get_proposal_status",
+  "arguments": {
+    "proposalId": "b43937bc-74c9-4b94-be1f-9a7c4ab2f1ed"
+  },
+  "answer": {
+    "kind": "result",
+    "content": {
+      "proposalId": "b43937bc-74c9-4b94-be1f-9a7c4ab2f1ed",
+      "status": "void",
+      "reason": "ASSISTANT_DISCONNECTED",
+      "message": "和助手的连接断开了，这一轮的提议都作废了"
+    }
+  }
+}

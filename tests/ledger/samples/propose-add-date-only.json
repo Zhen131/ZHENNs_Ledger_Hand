@@ -1,0 +1,33 @@
+{
+  "case": "propose-add-date-only",
+  "what": "a day, no time",
+  "tool": "propose_trade_add",
+  "arguments": {
+    "trades": [
+      {
+        "occurredDate": "2026-11-19",
+        "type": "buy",
+        "assetId": "asset-ada",
+        "quantity": "10",
+        "price": "0.5",
+        "totalValue": "5",
+        "quoteAssetId": "asset-usdt",
+        "fee": "0",
+        "feeAssetId": "asset-usdt"
+      }
+    ],
+    "sourceText": "Ledger Hand sample capture: invented trades only",
+    "modelName": "no model (sample capture)"
+  },
+  "answer": {
+    "kind": "result",
+    "content": {
+      "results": [
+        {
+          "ok": true,
+          "proposalId": "d09f7da5-c6da-4e7c-823d-a60254c5bf1f"
+        }
+      ]
+    }
+  }
+}

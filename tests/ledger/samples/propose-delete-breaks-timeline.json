@@ -1,0 +1,25 @@
+{
+  "case": "propose-delete-breaks-timeline",
+  "what": "the first BTC buy, which a later sell needs",
+  "tool": "propose_trade_delete",
+  "arguments": {
+    "tradeId": "56dc1992-792c-491d-b1ee-1ec50a7b10eb",
+    "sourceText": "Ledger Hand sample capture: invented trades only",
+    "modelName": "no model (sample capture)"
+  },
+  "answer": {
+    "kind": "result",
+    "content": {
+      "results": [
+        {
+          "ok": false,
+          "error": {
+            "code": "TRADE_REMOVAL_BREAKS_LEDGER_TIMELINE",
+            "category": "check-failed",
+            "message": "删掉这一笔以后，后面的卖出或转出就不够了"
+          }
+        }
+      ]
+    }
+  }
+}

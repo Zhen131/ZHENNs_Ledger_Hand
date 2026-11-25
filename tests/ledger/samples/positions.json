@@ -1,0 +1,134 @@
+{
+  "case": "positions",
+  "what": "every position",
+  "tool": "get_positions",
+  "arguments": {},
+  "answer": {
+    "kind": "result",
+    "content": {
+      "kind": "positions",
+      "positions": [
+        {
+          "assetId": "866276c7-a943-4a38-acc3-069db9178ab3",
+          "assetCode": "AAPL",
+          "valueCurrencyAssetId": "asset-usd",
+          "valueCurrencyCode": "USD",
+          "quantity": "0",
+          "quantityByLocation": {
+            "exchange": "0",
+            "cold-wallet": "0",
+            "cold-wallet-earn": "0",
+            "broker": "0"
+          },
+          "remainingCost": "0",
+          "averageCost": "0",
+          "realizedProfitAndLoss": "48",
+          "costIsReliable": true,
+          "giftIncome": "0",
+          "marketPrice": null,
+          "marketValue": null,
+          "unrealizedProfitAndLoss": null,
+          "unrealizedProfitAndLossMissingReasons": [
+            "没有能用的市场价，算不出市值和浮动盈亏"
+          ]
+        },
+        {
+          "assetId": "asset-btc",
+          "assetCode": "BTC",
+          "valueCurrencyAssetId": "asset-usdt",
+          "valueCurrencyCode": "USDT",
+          "quantity": "0.06",
+          "quantityByLocation": {
+            "exchange": "0.06",
+            "cold-wallet": "0",
+            "cold-wallet-earn": "0",
+            "broker": "0"
+          },
+          "remainingCost": "3903",
+          "averageCost": "65050",
+          "realizedProfitAndLoss": "195",
+          "costIsReliable": true,
+          "giftIncome": "0",
+          "marketPrice": null,
+          "marketValue": null,
+          "unrealizedProfitAndLoss": null,
+          "unrealizedProfitAndLossMissingReasons": [
+            "没有能用的市场价，算不出市值和浮动盈亏"
+          ]
+        },
+        {
+          "assetId": "asset-eth",
+          "assetCode": "ETH",
+          "valueCurrencyAssetId": "asset-usdt",
+          "valueCurrencyCode": "USDT",
+          "quantity": "2",
+          "quantityByLocation": {
+            "exchange": "2",
+            "cold-wallet": "0",
+            "cold-wallet-earn": "0",
+            "broker": "0"
+          },
+          "remainingCost": "6002",
+          "averageCost": "3001",
+          "realizedProfitAndLoss": "0",
+          "costIsReliable": true,
+          "giftIncome": "0",
+          "marketPrice": null,
+          "marketValue": null,
+          "unrealizedProfitAndLoss": null,
+          "unrealizedProfitAndLossMissingReasons": [
+            "没有能用的市场价，算不出市值和浮动盈亏"
+          ]
+        },
+        {
+          "assetId": "905ce2f5-a338-497a-a724-8c1763313af5",
+          "assetCode": "NVDA",
+          "valueCurrencyAssetId": "asset-usd",
+          "valueCurrencyCode": "USD",
+          "quantity": "10",
+          "quantityByLocation": {
+            "exchange": "0",
+            "cold-wallet": "0",
+            "cold-wallet-earn": "0",
+            "broker": "10"
+          },
+          "remainingCost": "1801",
+          "averageCost": "180.1",
+          "realizedProfitAndLoss": "0",
+          "costIsReliable": true,
+          "giftIncome": "0",
+          "marketPrice": null,
+          "marketValue": null,
+          "unrealizedProfitAndLoss": null,
+          "unrealizedProfitAndLossMissingReasons": [
+            "没有能用的市场价，算不出市值和浮动盈亏"
+          ]
+        },
+        {
+          "assetId": "asset-ada",
+          "assetCode": "ADA",
+          "valueCurrencyAssetId": "asset-usdt",
+          "valueCurrencyCode": "USDT",
+          "quantity": "1000",
+          "quantityByLocation": {
+            "exchange": "1000",
+            "cold-wallet": "0",
+            "cold-wallet-earn": "0",
+            "broker": "0"
+          },
+          "remainingCost": "500.5",
+          "averageCost": "0.5005",
+          "realizedProfitAndLoss": "0",
+          "costIsReliable": true,
+          "giftIncome": "0",
+          "marketPrice": null,
+          "marketValue": null,
+          "unrealizedProfitAndLoss": null,
+          "unrealizedProfitAndLossMissingReasons": [
+            "没有能用的市场价，算不出市值和浮动盈亏"
+          ]
+        }
+      ]
+    }
+  }
+}

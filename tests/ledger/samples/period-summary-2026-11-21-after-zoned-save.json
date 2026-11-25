@@ -1,0 +1,19 @@
+{
+  "case": "period-summary-2026-11-21-after-zoned-save",
+  "what": "2026-11-21",
+  "tool": "get_period_summary",
+  "arguments": {
+    "startDate": "2026-11-21",
+    "endDate": "2026-11-21"
+  },
+  "answer": {
+    "kind": "result",
+    "content": {
+      "kind": "period-summary",
+      "startDate": "2026-11-21",
+      "endDate": "2026-11-21",
+      "todayDate": "2026-11-25",
+      "currencyGroups": []
+    }
+  }
+}

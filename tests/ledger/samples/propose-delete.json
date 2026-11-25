@@ -1,0 +1,21 @@
+{
+  "case": "propose-delete",
+  "what": "one trade",
+  "tool": "propose_trade_delete",
+  "arguments": {
+    "tradeId": "81b447ee-3e71-4ee6-a375-e1ff0c2ac612",
+    "sourceText": "Ledger Hand sample capture: invented trades only",
+    "modelName": "no model (sample capture)"
+  },
+  "answer": {
+    "kind": "result",
+    "content": {
+      "results": [
+        {
+          "ok": true,
+          "proposalId": "729a3b6b-09df-4754-ae17-c82218808b6e"
+        }
+      ]
+    }
+  }
+}

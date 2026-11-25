@@ -1,0 +1,92 @@
+{
+  "case": "period-summary-all-time",
+  "what": "1970-01-01 to today",
+  "tool": "get_period_summary",
+  "arguments": {
+    "startDate": "1970-01-01",
+    "endDate": "2026-11-25"
+  },
+  "answer": {
+    "kind": "result",
+    "content": {
+      "kind": "period-summary",
+      "startDate": "1970-01-01",
+      "endDate": "2026-11-25",
+      "todayDate": "2026-11-25",
+      "currencyGroups": [
+        {
+          "currencyAssetId": "asset-usd",
+          "currencyCode": "USD",
+          "buyCount": 2,
+          "buyTotalSpent": "2952",
+          "buyTotalSpentMissingReasons": [],
+          "sellCount": 1,
+          "sellTotalReceived": "1199",
+          "sellTotalReceivedMissingReasons": [],
+          "feesPaid": [
+            {
+              "feeAssetId": "asset-usd",
+              "feeAssetCode": "USD",
+              "amount": "3"
+            }
+          ],
+          "realizedProfitAndLoss": "48",
+          "realizedProfitAndLossFromSells": "48",
+          "realizedProfitAndLossFromAssetTransfers": "0",
+          "realizedProfitAndLossMissingReasons": [],
+          "partialBuyTotalSpent": null,
+          "partialBuyTotalSpentLeftOutTradeCount": 0,
+          "partialSellTotalReceived": null,
+          "partialSellTotalReceivedLeftOutTradeCount": 0,
+          "partialRealizedProfitAndLoss": null,
+          "partialRealizedProfitAndLossLeftOutAssets": [],
+          "realizedProfitAndLossByAsset": [
+            {
+              "assetId": "866276c7-a943-4a38-acc3-069db9178ab3",
+              "assetCode": "AAPL",
+              "realizedProfitAndLoss": "48",
+              "isReliable": true,
+              "unreliableReason": null
+            }
+          ]
+        },
+        {
+          "currencyAssetId": "asset-usdt",
+          "currencyCode": "USDT",
+          "buyCount": 3,
+          "buyTotalSpent": "13007.5",
+          "buyTotalSpentMissingReasons": [],
+          "sellCount": 1,
+          "sellTotalReceived": "2797",
+          "sellTotalReceivedMissingReasons": [],
+          "feesPaid": [
+            {
+              "feeAssetId": "asset-usdt",
+              "feeAssetCode": "USDT",
+              "amount": "10.5"
+            }
+          ],
+          "realizedProfitAndLoss": "195",
+          "realizedProfitAndLossFromSells": "195",
+          "realizedProfitAndLossFromAssetTransfers": "0",
+          "realizedProfitAndLossMissingReasons": [],
+          "partialBuyTotalSpent": null,
+          "partialBuyTotalSpentLeftOutTradeCount": 0,
+          "partialSellTotalReceived": null,
+          "partialSellTotalReceivedLeftOutTradeCount": 0,
+          "partialRealizedProfitAndLoss": null,
+          "partialRealizedProfitAndLossLeftOutAssets": [],
+          "realizedProfitAndLossByAsset": [
+            {
+              "assetId": "asset-btc",
+              "assetCode": "BTC",
+              "realizedProfitAndLoss": "195",
+              "isReliable": true,
+              "unreliableReason": null
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

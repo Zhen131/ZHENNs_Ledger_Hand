@@ -1,0 +1,38 @@
+{
+  "case": "propose-update-not-found",
+  "what": "no such trade",
+  "tool": "propose_trade_update",
+  "arguments": {
+    "tradeId": "trade-does-not-exist",
+    "trade": {
+      "type": "buy",
+      "assetId": "asset-eth",
+      "quantity": "2",
+      "price": "3000",
+      "totalValue": "6000",
+      "quoteAssetId": "asset-usdt",
+      "fee": "1.5",
+      "feeAssetId": "asset-usdt",
+      "platform": null,
+      "note": null
+    },
+    "modelName": "no model (sample capture)",
+    "sourceText": "Ledger Hand sample capture: invented trades only"
+  },
+  "answer": {
+    "kind": "result",
+    "content": {
+      "results": [
+        {
+          "ok": false,
+          "error": {
+            "code": "PROPOSAL_TARGET_NOT_FOUND",
+            "category": "not-found",
+            "message": "账本里找不到要改或要删的那一笔",
+            "field": "tradeId"
+          }
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "case": "status-not-found-after-reload",
+  "what": "a saved one, after a reload",
+  "tool": "get_proposal_status",
+  "arguments": {
+    "proposalId": "640e1ab2-9d8b-4b90-a9cc-c41ed08ec678"
+  },
+  "answer": {
+    "kind": "error",
+    "content": {
+      "code": "PROPOSAL_NOT_FOUND",
+      "category": "not-found",
+      "message": "没有这个编号的提议",
+      "field": "proposalId"
+    }
+  }
+}

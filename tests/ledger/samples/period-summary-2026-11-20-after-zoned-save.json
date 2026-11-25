@@ -1,0 +1,48 @@
+{
+  "case": "period-summary-2026-11-20-after-zoned-save",
+  "what": "2026-11-20",
+  "tool": "get_period_summary",
+  "arguments": {
+    "startDate": "2026-11-20",
+    "endDate": "2026-11-20"
+  },
+  "answer": {
+    "kind": "result",
+    "content": {
+      "kind": "period-summary",
+      "startDate": "2026-11-20",
+      "endDate": "2026-11-20",
+      "todayDate": "2026-11-25",
+      "currencyGroups": [
+        {
+          "currencyAssetId": "asset-usdt",
+          "currencyCode": "USDT",
+          "buyCount": 1,
+          "buyTotalSpent": "620.5",
+          "buyTotalSpentMissingReasons": [],
+          "sellCount": 0,
+          "sellTotalReceived": "0",
+          "sellTotalReceivedMissingReasons": [],
+          "feesPaid": [
+            {
+              "feeAssetId": "asset-usdt",
+              "feeAssetCode": "USDT",
+              "amount": "0.5"
+            }
+          ],
+          "realizedProfitAndLoss": "0",
+          "realizedProfitAndLossFromSells": "0",
+          "realizedProfitAndLossFromAssetTransfers": "0",
+          "realizedProfitAndLossMissingReasons": [],
+          "partialBuyTotalSpent": null,
+          "partialBuyTotalSpentLeftOutTradeCount": 0,
+          "partialSellTotalReceived": null,
+          "partialSellTotalReceivedLeftOutTradeCount": 0,
+          "partialRealizedProfitAndLoss": null,
+          "partialRealizedProfitAndLossLeftOutAssets": [],
+          "realizedProfitAndLossByAsset": []
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "case": "propose-add-list-full",
+  "what": "a 21st proposal while 20 wait",
+  "tool": "propose_trade_add",
+  "arguments": {
+    "trades": [
+      {
+        "occurredDate": "2026-10-30",
+        "type": "buy",
+        "assetId": "asset-ada",
+        "quantity": "1",
+        "price": "0.4",
+        "totalValue": "0.4",
+        "quoteAssetId": "asset-usdt",
+        "fee": "0",
+        "feeAssetId": "asset-usdt"
+      }
+    ],
+    "modelName": "no model (sample capture)"
+  },
+  "answer": {
+    "kind": "result",
+    "content": {
+      "results": [
+        {
+          "ok": false,
+          "error": {
+            "code": "PROPOSAL_LIST_FULL",
+            "category": "temporarily-unavailable",
+            "message": "待确认清单里等你确认的已经到了上限，这条没有收；先在账本里保存或拒绝几条"
+          }
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "case": "list-trades-asset-is-currency-page-in-english",
+  "what": "page in English",
+  "tool": "list_trades",
+  "arguments": {
+    "assetId": "asset-usdt"
+  },
+  "answer": {
+    "kind": "error",
+    "content": {
+      "code": "ASSET_IS_CURRENCY",
+      "category": "invalid-arguments",
+      "message": "This id is a cash currency, not a coin or a stock; filtering trades by asset takes only coin and stock ids",
+      "field": "assetId"
+    }
+  }
+}

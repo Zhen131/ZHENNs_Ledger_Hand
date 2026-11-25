@@ -1,0 +1,37 @@
+{
+  "case": "propose-add-refused-page-in-english",
+  "what": "page in English",
+  "tool": "propose_trade_add",
+  "arguments": {
+    "trades": [
+      {
+        "occurredDate": "2026-11-18",
+        "type": "sell",
+        "assetId": "asset-btc",
+        "quantity": "50",
+        "price": "70000",
+        "totalValue": "3500000",
+        "quoteAssetId": "asset-usdt",
+        "fee": "1",
+        "feeAssetId": "asset-usdt"
+      }
+    ],
+    "modelName": "no model (sample capture)"
+  },
+  "answer": {
+    "kind": "result",
+    "content": {
+      "results": [
+        {
+          "ok": false,
+          "error": {
+            "code": "INSUFFICIENT_HOLDINGS",
+            "category": "check-failed",
+            "message": "The quantity sold exceeds the holdings available at that point in time",
+            "field": "quantity"
+          }
+        }
+      ]
+    }
+  }
+}

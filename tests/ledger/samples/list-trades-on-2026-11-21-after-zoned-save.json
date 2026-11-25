@@ -1,0 +1,18 @@
+{
+  "case": "list-trades-on-2026-11-21-after-zoned-save",
+  "what": "which day the New York trade falls on",
+  "tool": "list_trades",
+  "arguments": {
+    "startDate": "2026-11-21",
+    "endDate": "2026-11-21"
+  },
+  "answer": {
+    "kind": "result",
+    "content": {
+      "kind": "trade-list",
+      "trades": [],
+      "pageSize": 50,
+      "nextPageToken": null
+    }
+  }
+}

@@ -1,0 +1,48 @@
+{
+  "case": "propose-add-two-taken",
+  "what": "two, both taken",
+  "tool": "propose_trade_add",
+  "arguments": {
+    "trades": [
+      {
+        "occurredDate": "2026-11-18",
+        "type": "buy",
+        "assetId": "asset-btc",
+        "quantity": "0.01",
+        "price": "60000",
+        "totalValue": "600",
+        "quoteAssetId": "asset-usdt",
+        "fee": "0.6",
+        "feeAssetId": "asset-usdt"
+      },
+      {
+        "occurredDate": "2026-11-18",
+        "type": "buy",
+        "assetId": "asset-eth",
+        "quantity": "0.5",
+        "price": "3000",
+        "totalValue": "1500",
+        "quoteAssetId": "asset-usdt",
+        "fee": "1",
+        "feeAssetId": "asset-usdt"
+      }
+    ],
+    "sourceText": "Ledger Hand sample capture: invented trades only",
+    "modelName": "no model (sample capture)"
+  },
+  "answer": {
+    "kind": "result",
+    "content": {
+      "results": [
+        {
+          "ok": true,
+          "proposalId": "640e1ab2-9d8b-4b90-a9cc-c41ed08ec678"
+        },
+        {
+          "ok": true,
+          "proposalId": "feda5c92-c35a-44be-b33c-77d5b599b28c"
+        }
+      ]
+    }
+  }
+}

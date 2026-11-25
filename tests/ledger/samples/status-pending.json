@@ -1,0 +1,15 @@
+{
+  "case": "status-pending",
+  "what": "waiting for the person",
+  "tool": "get_proposal_status",
+  "arguments": {
+    "proposalId": "640e1ab2-9d8b-4b90-a9cc-c41ed08ec678"
+  },
+  "answer": {
+    "kind": "result",
+    "content": {
+      "proposalId": "640e1ab2-9d8b-4b90-a9cc-c41ed08ec678",
+      "status": "pending"
+    }
+  }
+}

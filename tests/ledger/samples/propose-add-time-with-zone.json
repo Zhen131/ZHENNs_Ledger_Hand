@@ -1,0 +1,35 @@
+{
+  "case": "propose-add-time-with-zone",
+  "what": "22:30 New York",
+  "tool": "propose_trade_add",
+  "arguments": {
+    "trades": [
+      {
+        "occurredDate": "2026-11-20",
+        "type": "buy",
+        "assetId": "asset-eth",
+        "quantity": "0.2",
+        "price": "3100",
+        "totalValue": "620",
+        "quoteAssetId": "asset-usdt",
+        "fee": "0.5",
+        "feeAssetId": "asset-usdt",
+        "occurredTime": "22:30",
+        "occurredTimeZone": "America/New_York"
+      }
+    ],
+    "sourceText": "Ledger Hand sample capture: invented trades only",
+    "modelName": "no model (sample capture)"
+  },
+  "answer": {
+    "kind": "result",
+    "content": {
+      "results": [
+        {
+          "ok": true,
+          "proposalId": "968a2b6e-1bb9-4f30-bc2a-2b72e0ddd80c"
+        }
+      ]
+    }
+  }
+}

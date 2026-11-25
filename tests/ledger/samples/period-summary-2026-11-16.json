@@ -1,0 +1,56 @@
+{
+  "case": "period-summary-2026-11-16",
+  "what": "the day 2026-11-16",
+  "tool": "get_period_summary",
+  "arguments": {
+    "startDate": "2026-11-16",
+    "endDate": "2026-11-16"
+  },
+  "answer": {
+    "kind": "result",
+    "content": {
+      "kind": "period-summary",
+      "startDate": "2026-11-16",
+      "endDate": "2026-11-16",
+      "todayDate": "2026-11-25",
+      "currencyGroups": [
+        {
+          "currencyAssetId": "asset-usdt",
+          "currencyCode": "USDT",
+          "buyCount": 0,
+          "buyTotalSpent": "0",
+          "buyTotalSpentMissingReasons": [],
+          "sellCount": 1,
+          "sellTotalReceived": "2797",
+          "sellTotalReceivedMissingReasons": [],
+          "feesPaid": [
+            {
+              "feeAssetId": "asset-usdt",
+              "feeAssetCode": "USDT",
+              "amount": "3"
+            }
+          ],
+          "realizedProfitAndLoss": "195",
+          "realizedProfitAndLossFromSells": "195",
+          "realizedProfitAndLossFromAssetTransfers": "0",
+          "realizedProfitAndLossMissingReasons": [],
+          "partialBuyTotalSpent": null,
+          "partialBuyTotalSpentLeftOutTradeCount": 0,
+          "partialSellTotalReceived": null,
+          "partialSellTotalReceivedLeftOutTradeCount": 0,
+          "partialRealizedProfitAndLoss": null,
+          "partialRealizedProfitAndLossLeftOutAssets": [],
+          "realizedProfitAndLossByAsset": [
+            {
+              "assetId": "asset-btc",
+              "assetCode": "BTC",
+              "realizedProfitAndLoss": "195",
+              "isReliable": true,
+              "unreliableReason": null
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

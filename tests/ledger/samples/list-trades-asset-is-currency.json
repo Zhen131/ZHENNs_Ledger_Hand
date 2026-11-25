@@ -1,0 +1,17 @@
+{
+  "case": "list-trades-asset-is-currency",
+  "what": "filtered by money",
+  "tool": "list_trades",
+  "arguments": {
+    "assetId": "asset-usdt"
+  },
+  "answer": {
+    "kind": "error",
+    "content": {
+      "code": "ASSET_IS_CURRENCY",
+      "category": "invalid-arguments",
+      "message": "这个编号是现金货币，不是币或股票；按资产筛买卖只收币和股票的编号",
+      "field": "assetId"
+    }
+  }
+}
