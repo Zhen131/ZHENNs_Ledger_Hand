@@ -81,17 +81,17 @@
       "shows": "Nothing sent: the money was said where the quantity goes, and the reply says so and asks for the trade again with the money as the total. No reminder line."
     },
     {
-      "id": "ask-day",
+      "id": "ask-share",
       "kind": "ask",
-      "said": "Which trades did I make on 6 October 2026?",
+      "said": "Show me my MSFT trades.",
       "expect": {
         "tool": "list_trades",
-        "time": "Time: 2026-10-06",
-        "asset": "Asset: all assets",
+        "time": "Time: all time",
+        "asset": "Asset: MSFT",
         "side": "Side: buys and sells",
         "rows": 2
       },
-      "shows": "A table of the trades of 6 October 2026, all assets, buys and sells: 2 rows, a BTC buy and an ETH buy."
+      "shows": "A table of every MSFT trade, buys and sells, all time: 2 rows, the buy of 2 October 2026 and the sell of 12 November 2026."
     },
     {
       "id": "ask-assets",
