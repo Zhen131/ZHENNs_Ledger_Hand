@@ -53,7 +53,8 @@ flow's progress keeps them apart.
 
 This module reads no clock, no zone and no settings: all are handed in.
 
-Names defined here: ``Route``, ``AssistantChat``, ``Said`` and ``say``.
+Names defined here: ``Route``, ``AssistantChat``, ``Said``, ``say``,
+``ASSISTANT_SCREEN_PROMPT`` and ``ASSISTANT_EXTRACT_PROMPT``.
 """
 
 from __future__ import annotations
@@ -67,6 +68,8 @@ from ledger_hand.assistant.edit_words import not_done_words
 from ledger_hand.assistant.outcome import Chat, Ending, TakenCall, TurnResult
 from ledger_hand.core.ledger_records import Asset
 from ledger_hand.core.ledger_table import table_of
+from ledger_hand.extraction.prompts.first import FIRST_PROMPT
+from ledger_hand.extraction.prompts.screen2 import SCREEN_PROMPT_2
 from ledger_hand.flows import editing, recording
 from ledger_hand.flows.assisting import close_editing, close_recording, first_edit, take_turn
 from ledger_hand.flows.editing import Edited, EditEnding, EditSent, EditWaiting
@@ -81,6 +84,13 @@ from ledger_hand.flows.recorded import (
     Sent,
 )
 from ledger_hand.ports import LedgerError, LedgerPort, Message, ModelPort, Role, ToolCall
+
+# The prompt versions the assistant judges and extracts what the user said
+# with. The record page keeps the first ones. The first judging version read
+# some sentences about a share bought with dollars as no trade at all, so
+# the assistant judges with the second (measured on 2026-11-25).
+ASSISTANT_SCREEN_PROMPT = SCREEN_PROMPT_2
+ASSISTANT_EXTRACT_PROMPT = FIRST_PROMPT
 
 # After a takeover, only this ending means it could not be done at all.
 _NOT_A_TRADE = frozenset({RecordEnding.NO_TRADE})
@@ -227,6 +237,8 @@ def _begun(said: str, around: _Around) -> Recorded:
         zone=around.zone,
         assets=table,
         tuning=around.tuning,
+        screen_prompt=ASSISTANT_SCREEN_PROMPT,
+        extract_prompt=ASSISTANT_EXTRACT_PROMPT,
     )
     return _onward(progress, around.ledger, listed)
 

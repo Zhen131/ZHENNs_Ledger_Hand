@@ -78,6 +78,7 @@ from ledger_hand.extraction.answer_phrase import (
     read_review_answer,
 )
 from ledger_hand.extraction.extractor import Extracted, PassageRefused, extract
+from ledger_hand.extraction.prompting import PromptVersion
 from ledger_hand.extraction.prompts.answer import ANSWER_PROMPT
 from ledger_hand.extraction.prompts.first import FIRST_PROMPT
 from ledger_hand.extraction.prompts.screen import SCREEN_PROMPT
@@ -136,6 +137,8 @@ def start(
     assets: AssetTable = BUILT_IN_ASSETS,
     tuning: Tuning = DEFAULT_TUNING,
     book: StoragePort | None = None,
+    screen_prompt: PromptVersion = SCREEN_PROMPT,
+    extract_prompt: PromptVersion = FIRST_PROMPT,
 ) -> Progress:
     """Judge ``passage``, extract its trades, check them, and ask the first question.
 
@@ -144,6 +147,10 @@ def start(
     passage are looked up and, when the table lets an unseen asset be
     confirmed, the coins confirmed before join it; a failure of the book
     raises its ``StorageError`` before the model is asked anything.
+
+    ``screen_prompt`` and ``extract_prompt`` are the prompt versions the
+    passage is judged and extracted with; left out, they are the versions
+    every caller used before, and the progress names the ones used.
     """
     if not isinstance(now, datetime) or now.utcoffset() is None:
         raise ValueError("the current moment must be a datetime that carries an offset")
@@ -159,8 +166,8 @@ def start(
     progress = Progress(
         Stage.REFUSED, passage, Setting(now, zone, assets, tuning), seen_before=seen_before
     )
-    screening = screen(passage, model, asks_again=tuning.asks_again)
-    progress = _with_calls(progress, Step.SCREENING, _calls_of(screening))
+    screening = screen(passage, model, prompt=screen_prompt, asks_again=tuning.asks_again)
+    progress = _with_calls(progress, Step.SCREENING, _calls_of(screening), screen_prompt.name)
     if isinstance(screening, PassageRefused):
         return dataclasses.replace(progress, refused=screening.problem)
     if not isinstance(screening, Screened):
@@ -170,10 +177,10 @@ def start(
     if screening.decision is Decision.NO_TRADE:
         return dataclasses.replace(progress, stage=Stage.NO_TRADE)
     progress = dataclasses.replace(progress, set_aside=screening.set_aside)
-    return _extracted(progress, model)
+    return _extracted(progress, model, extract_prompt)
 
 
-def _extracted(progress: Progress, model: ModelPort) -> Progress:
+def _extracted(progress: Progress, model: ModelPort, prompt: PromptVersion) -> Progress:
     setting = progress.setting
     extraction = extract(
         progress.passage,
@@ -181,9 +188,10 @@ def _extracted(progress: Progress, model: ModelPort) -> Progress:
         now=setting.now,
         zone=setting.zone,
         assets=setting.assets,
+        prompt=prompt,
         asks_again=setting.tuning.asks_again,
     )
-    progress = _with_calls(progress, Step.EXTRACTION, _calls_of(extraction))
+    progress = _with_calls(progress, Step.EXTRACTION, _calls_of(extraction), prompt.name)
     if isinstance(extraction, PassageRefused):
         return dataclasses.replace(progress, stage=Stage.REFUSED, refused=extraction.problem)
     if not isinstance(extraction, Extracted):
@@ -207,14 +215,20 @@ def _calls_of(result: object) -> tuple[ReplyRecord, ...]:
     return calls
 
 
-def _with_calls(progress: Progress, step: Step, records: tuple[ReplyRecord, ...]) -> Progress:
-    """``progress`` with the calls made for ``step``, and the step's prompt when it called."""
+def _with_calls(
+    progress: Progress, step: Step, records: tuple[ReplyRecord, ...], prompt: str | None = None
+) -> Progress:
+    """``progress`` with the calls made for ``step``, and the step's prompt when it called.
+
+    ``prompt`` names the version used, when the caller chose it; otherwise
+    the step's one version is named.
+    """
     if not records:
         return progress
     calls = (*progress.calls, *(Call(step, record) for record in records))
     prompts = progress.prompts
     if all(used != step for used, _ in prompts):
-        prompts = (*prompts, (step, _PROMPT_OF[step]))
+        prompts = (*prompts, (step, prompt if prompt is not None else _PROMPT_OF[step]))
     return dataclasses.replace(progress, calls=calls, prompts=prompts)
 
 

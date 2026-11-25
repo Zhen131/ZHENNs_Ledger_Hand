@@ -8,8 +8,8 @@ its own, to the whole assistant (``flows.conversation.say``): the real
 model, the system prompt a turn uses by default, a fresh fake ledger with
 its invented book (or the same book with USD a money no trade is priced in,
 where the sentence says ``usdt_only``), and the set's fixed moment and zone.
-The recording flow judges and extracts with the prompts it uses by
-default. Nothing is answered: a question asked is what came of it. What came
+The recording flow judges and extracts with the prompt versions the
+assistant uses. Nothing is answered: a question asked is what came of it. What came
 of it is judged against the gold answer (``stock_set``), every field by the
 ledger's code. The model is the one the settings name unless ``--model``
 names another, with the settings' parameters and question tuning; the steps
@@ -51,10 +51,14 @@ from evals.stock_set import (
 from evals.tool_run import REPO_ROOT, TOOL_RESULTS_DIR, _git
 from ledger_hand.core.followup import AskCell, AskWhichCell, ConfirmCoin
 from ledger_hand.core.ledger_records import Pricing
-from ledger_hand.extraction.prompts.first import FIRST_PROMPT
-from ledger_hand.extraction.prompts.screen import SCREEN_PROMPT
 from ledger_hand.flows import assisting
-from ledger_hand.flows.conversation import AssistantChat, Said, say
+from ledger_hand.flows.conversation import (
+    ASSISTANT_EXTRACT_PROMPT,
+    ASSISTANT_SCREEN_PROMPT,
+    AssistantChat,
+    Said,
+    say,
+)
 from ledger_hand.flows.progress import Tuning
 from ledger_hand.flows.recorded import Recorded, RecordEnding
 from ledger_hand.flows.recording import tuning_from
@@ -172,8 +176,8 @@ def _conditions(
         "set_sha256": _sha256(set_file.read_bytes()),
         "prompt": prompt.name,
         "prompt_words_sha256": _sha256(prompt.words.encode("utf-8")),
-        "screen_prompt": SCREEN_PROMPT.name,
-        "extraction_prompt": FIRST_PROMPT.name,
+        "screen_prompt": ASSISTANT_SCREEN_PROMPT.name,
+        "extraction_prompt": ASSISTANT_EXTRACT_PROMPT.name,
         "commit": _git("rev-parse", "HEAD"),
         "worktree_clean": not _git("status", "--porcelain", "--", ".", f":(exclude){results}"),
         "model": backend.name,
