@@ -68,7 +68,7 @@ from ledger_hand.assistant.edit_words import not_done_words
 from ledger_hand.assistant.outcome import Chat, Ending, TakenCall, TurnResult
 from ledger_hand.core.ledger_records import Asset
 from ledger_hand.core.ledger_table import table_of
-from ledger_hand.extraction.prompts.first2 import FIRST_PROMPT_2
+from ledger_hand.extraction.prompts.first3 import FIRST_PROMPT_3
 from ledger_hand.extraction.prompts.screen2 import SCREEN_PROMPT_2
 from ledger_hand.flows import editing, recording
 from ledger_hand.flows.assisting import close_editing, close_recording, first_edit, take_turn
@@ -89,9 +89,10 @@ from ledger_hand.ports import LedgerError, LedgerPort, Message, ModelPort, Role,
 # with. The record page keeps the first ones. Measured on 2026-11-25 on
 # sentences about a share bought with dollars, the first judging version
 # read some as no trade at all, and the first extraction version put gaps
-# into phrases; the assistant uses the second version of each.
+# into phrases; the assistant judges with the second judging version and
+# extracts with the third extraction version, the one measured best.
 ASSISTANT_SCREEN_PROMPT = SCREEN_PROMPT_2
-ASSISTANT_EXTRACT_PROMPT = FIRST_PROMPT_2
+ASSISTANT_EXTRACT_PROMPT = FIRST_PROMPT_3
 
 # After a takeover, only this ending means it could not be done at all.
 _NOT_A_TRADE = frozenset({RecordEnding.NO_TRADE})

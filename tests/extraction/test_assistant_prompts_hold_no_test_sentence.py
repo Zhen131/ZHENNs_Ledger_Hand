@@ -25,6 +25,8 @@ from ledger_hand.extraction.prompting import PromptVersion, example_reply
 from ledger_hand.extraction.prompts.first import FIRST_PROMPT
 from ledger_hand.extraction.prompts.first2 import FIRST_PROMPT_2
 from ledger_hand.extraction.prompts.first2_examples import SHARE_EXAMPLES
+from ledger_hand.extraction.prompts.first3 import FIRST_PROMPT_3
+from ledger_hand.extraction.prompts.first3_examples import SHARE_EXAMPLES_3
 from ledger_hand.extraction.prompts.screen import SCREEN_PROMPT
 from ledger_hand.extraction.prompts.screen2 import SCREEN_PROMPT_2
 from ledger_hand.extraction.reply_table import Field
@@ -48,6 +50,7 @@ def whole(prompt: PromptVersion) -> str:
 PROMPTS = {
     SCREEN_PROMPT_2.name: (whole(SCREEN_PROMPT_2), whole(SCREEN_PROMPT)),
     FIRST_PROMPT_2.name: (whole(FIRST_PROMPT_2), whole(FIRST_PROMPT)),
+    FIRST_PROMPT_3.name: (whole(FIRST_PROMPT_3), whole(FIRST_PROMPT)),
 }
 SHARE_SENTENCES = [sentence.text for sentence in load_stock_set().sentences]
 
@@ -83,9 +86,12 @@ def test_the_new_versions_are_named_apart_and_keep_the_first_one_s_examples() ->
     assert (SCREEN_PROMPT_2.name, FIRST_PROMPT_2.name) == ("screen-2", "first-2")
     assert FIRST_PROMPT_2.examples[: len(FIRST_PROMPT.examples)] == FIRST_PROMPT.examples
     assert FIRST_PROMPT_2.examples[len(FIRST_PROMPT.examples) :] == SHARE_EXAMPLES
+    assert FIRST_PROMPT_3.name == "first-3"
+    assert FIRST_PROMPT_3.examples[: len(FIRST_PROMPT.examples)] == FIRST_PROMPT.examples
+    assert FIRST_PROMPT_3.examples[len(FIRST_PROMPT.examples) :] == SHARE_EXAMPLES_3
 
 
-@pytest.mark.parametrize("example", SHARE_EXAMPLES)
+@pytest.mark.parametrize("example", (*SHARE_EXAMPLES, *SHARE_EXAMPLES_3))
 def test_every_share_example_is_copied_from_its_passage_and_read_by_the_core(example) -> None:  # type: ignore[no-untyped-def]
     passage = Passage(example.passage)
     for row in example.rows:

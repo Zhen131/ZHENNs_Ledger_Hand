@@ -51,6 +51,7 @@ from ledger_hand.core.assets import BUILT_IN_ASSETS
 from ledger_hand.extraction.prompting import PromptVersion
 from ledger_hand.extraction.prompts.first import FIRST_PROMPT
 from ledger_hand.extraction.prompts.first2 import FIRST_PROMPT_2
+from ledger_hand.extraction.prompts.first3 import FIRST_PROMPT_3
 from ledger_hand.extraction.prompts.screen import SCREEN_PROMPT
 from ledger_hand.extraction.prompts.screen2 import SCREEN_PROMPT_2
 from ledger_hand.flows.progress import Progress, Stage
@@ -65,6 +66,7 @@ SCREENS: dict[str, PromptVersion] = {
 EXTRACTS: dict[str, PromptVersion] = {
     FIRST_PROMPT.name: FIRST_PROMPT,
     FIRST_PROMPT_2.name: FIRST_PROMPT_2,
+    FIRST_PROMPT_3.name: FIRST_PROMPT_3,
 }
 
 
