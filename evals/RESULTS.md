@@ -9769,3 +9769,20 @@ to C8 and P1 to P16 did not change. Same model, server and parameters.
   (`--compare` with `run-20261125T165944Z`); B1 to B8 all went to the
   holdings, none caught.
 - First step right on 19 of 19 (`run-20261125T180454Z-tools-assistant-4.jsonl`).
+
+### The second rework: a balance judged by what the sentence names, every unsaid number checked
+
+At `08c1104`, a sentence with a balance is cash when it asks whether the
+money is enough to buy; else not cash when it names an asset held or a
+word that counts one ("股", "个", "shares"); else cash. The check of the
+model's own words with no lookup now turns away words that name a money
+and hold any number the user never said, compared by value. The set
+gained eight sentences that must be caught (D1 to D8) and twelve that
+must pass (E1 to E12), from the second independent check; nothing before
+them changed.
+
+- `run-20261125T184719Z-cash-assistant-4.jsonl`: all 19 to be caught were
+  caught; P1 to P16 went the same way as before the catch (`--compare`
+  with `run-20261125T165944Z`); B1 to B8 and E1 to E12 all went to the
+  holdings, none caught.
+- First step right on 19 of 19 (`run-20261125T185433Z-tools-assistant-4.jsonl`).
