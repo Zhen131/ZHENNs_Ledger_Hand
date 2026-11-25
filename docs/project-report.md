@@ -99,7 +99,12 @@ holdings, propose to record, change or delete trades, and where a
 proposal stands) and picks one; every argument is a choice from a list or
 the user's own words copied, and the program judges each call before it
 runs it (`src/ledger_hand/flows/assisting.py`,
-`src/ledger_hand/assistant/judging.py`). Recording goes through steps 1 to 5
+`src/ledger_hand/assistant/judging.py`). Before anything else, the program
+tidies what is said: number words and a time said in Chinese are written
+in digits, each change checked by its own readers of numbers and times,
+and what cannot be checked is left as said
+(`src/ledger_hand/core/spoken_text.py`); the model sees the words tidied,
+the ledger keeps the words as said. Recording goes through steps 1 to 5
 above; a question is answered with a table the
 program lays out from what the ledger returned; a change or a deletion is
 found by the program, never picked by the model. Nothing is written: each
@@ -804,6 +809,7 @@ rough edges are known and listed, each with why it stands.
 | A model setting refused in the environment cannot be corrected on the Settings page | The page opens and names the setting and its rule; the environment has to be corrected and the program started again (`docs/known-gaps.md`). |
 | The assistant reaches the demo ledger only | The real ledger's tools are not connected yet; the page, the script and the tests use an invented book in memory, and "confirming" a proposal is tried with the demo buttons or `--save` (`docs/known-gaps.md`, "The assistant: what is not there yet"). |
 | Choosing what to do is not measured on new sentences | The line of 95% is to be judged on sentences the owner says in their own way, not written yet; every sentence measured so far was seen while the prompts were written ("The assistant, measured"). |
+| A time said with a zone other than the ledger's is asked about | The program reads no zone said in words, so such a time is left as said, not tidied, and the user is asked for it; tidying it alone would let the time be read in the ledger's zone, hours off (`docs/known-gaps.md`, "The assistant: recording a trade"). |
 | An English question with a time in it often gets no table | The model writes the time in Chinese, which is not the user's words, so nothing is looked up; two of the four questions not right are of this kind (`docs/known-gaps.md`). |
 | About one change or deletion in four is not done the first time | 13 of 17, none sent wrong; the rest ask back or ask for the date again ("The assistant, measured"; `docs/known-gaps.md`). |
 | Figures copied into the wrong field can be sent with no warning | When the copied figures still agree with each other the program has nothing to say (an amount paid in all copied as the price); the proposal waits to be confirmed, showing quantity, price and total (`docs/known-gaps.md`). |

@@ -680,6 +680,46 @@ does not reach it yet (the third part of batch 68). What it does not do:
   So every thing said carries the program's own word on what reached the
   ledger, which the script prints as one line each time ("sent to the
   ledger: nothing"), and which an interface is to show the same way.
+- **A time said with another zone is not tidied, and is asked about.**
+  What is said is tidied before the model sees it (`core/spoken_text.py`),
+  and a zone said with a time is dropped only when it is the zone trades
+  are recorded in. A time said with any other zone, one in `SPOKEN_ZONES`
+  ("北京时间", Beijing time, when the ledger's zone is Budapest) or one not
+  in it ("美东时间", US Eastern time; "东八区", the zone eight hours east;
+  "UTC"), is left exactly as said, its numbers too. The program does not
+  read a zone said in words, so tidying the year alone would let the model
+  copy the clock time without the zone, and the time would be read in the
+  ledger's zone, hours off. Left as said, the time is not read and the user
+  is asked for it, as before. To take it, the reading of times has to learn
+  zones.
+- **Some numbers are not tidied, and stay as said.** These are left as
+  they were said, and read as before or asked about:
+  a number ending in 一 that may be the start of the next word ("三十万一个",
+  three hundred thousand, or three hundred thousand and ten thousand, each;
+  "零点零一五一个BTC", 0.0151 BTC or 0.015 BTC each; even "二十一个BTC",
+  21 BTC, which was read already); a number with a unit and then more of
+  the amount ("二十块五", twenty and a half; "十二个半", twelve and a half;
+  "410美元一股", 410 dollars a share, since a number word follows the
+  unit); a decimal with exactly three digits after the point ("一点二三四",
+  1.234, which may be a thousands mark); a point that may be a clock or a
+  decimal ("八点二五", 8:25 or 8.25); a minute of one word without 分
+  ("三点五", 3:05 or 3:50); a rough amount ("大概五十", about fifty) and a
+  share ("百分之三十", thirty percent). The first two kinds are the ones
+  that most often reach the ledger's flow as said; a later step is to mark
+  them.
+- **Seconds are dropped from what is said in Chinese, not from English.**
+  A time said in Chinese reaches the ledger to the minute: "十二分三十一秒"
+  (twelve minutes thirty-one seconds) is tidied to "12分", and "14:12:31"
+  to "14:12", when said among Chinese words. Words with no Chinese
+  character are not tidied at all, so "9:40:15" in an English sentence
+  still reaches the ledger with its seconds.
+- **A screenshot's text is not tidied.** The text read off a screenshot and
+  the note typed beside it are recorded as they are; only words typed or
+  answered to the assistant are tidied.
+- **A note or a platform copied from the words tidied keeps the digits.**
+  The model copies from the words tidied, so a note said as "第二十一次加仓"
+  (the twenty-first addition to the position) reaches the ledger as
+  "第21次加仓". The words as said, kept with each trade, are not touched.
 
 ## The assistant: changing and deleting
 

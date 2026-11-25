@@ -51,6 +51,7 @@ src/ledger_hand/
         time_wording.py       which known parts a time phrase is made of              (exists)
         timeparse.py          time phrases to exact moments ("now" is passed in)      (exists)
         time_range.py         a stretch of time named in words to two exact moments   (exists)
+        spoken_text.py        words said tidied: number words and a time in digits, each change checked (exists)
         validation.py         validation; which fields are still missing              (exists)
         zones.py              which time zone names are taken                         (exists)
         stored.py             a saved trade: record, identifier, two moments          (exists)
@@ -177,7 +178,7 @@ src/ledger_hand/
         filling.py            putting an answer back into a trade                     (exists)
         assisting.py          one turn of the assistant: ask the model, judge, run, again (exists)
         asking.py             the four read tools: the period read, asset and side checked, the ledger asked (exists)
-        conversation.py       one thing said to the assistant: answer, model, recording, a change, a screenshot (exists)
+        conversation.py       one thing said to the assistant, tidied first: answer, model, recording, a change, a screenshot (exists)
         standing.py           where a proposal stands; the demo ledger's save and reject (exists)
         editing.py            one trade changed or deleted: found, picked, read, proposed (exists)
         proposing.py          a settled passage's trades sent to the ledger as one proposal (exists)
@@ -249,7 +250,7 @@ evals/                    prompt experiments: test sentences, scoring, runner, r
     edit_run.py           the runner of that measure, answering the program's question with the gold's words (exists)
     stock_set.py          the sentences recording a share bought with dollars; judged by code (exists)
     stock_run.py          the runner of that measure, each sentence said once     (exists)
-    judged_run.py         the extraction sets through the start of recording, judging and all (exists)
+    judged_run.py         the extraction sets (and the voice set) through the start of recording, judging and all; tidied first on request (exists)
     tool_results/         one results file per run of those measures, and the recording runs (exists)
     RESULTS.md            the results record                                       (exists)
 tests/                    mirrors src; also holds the guardrails, fakes and golden samples  (exists)
@@ -740,7 +741,9 @@ bytes committed.
 number, apart from the book: `assistant-record.jsonl` in the data folder,
 one line of JSON for each thing said to the assistant
 (`flows/assistant_record.py`). Every entry carries `format_version`, a
-named constant (`RECORD_VERSION`, now 1), which is none of the ledger's
+named constant (`RECORD_VERSION`, now 3; version 2 gave each trade sent a
+line of its own in `sent`, and version 3 added `read_as`, the words tidied
+and each change), which is none of the ledger's
 four version numbers and not the book's. A file holding an entry of a
 newer version, or a line that cannot be read, is never written, cut or
 deleted by the program: nothing is added and the pages say why. Only a
@@ -748,12 +751,16 @@ last line cut off half-way, with no line end, is passed over and cut off
 before the next entry. The file keeps the most recent `KEPT_AT_MOST`
 entries; dropping older ones writes a new file beside it that then takes
 its name (`os.replace`). The file is plain text with the person's words in
-it; it is never in Git. Its golden sample,
-`tests/flows/golden/assistant-record-v1.jsonl`, four invented entries made
-by the code itself, is checked by its digest, copied to a temporary folder
-before it is read, and never edited; a test sees that an entry made now has
-the same names as the golden ones, so a change to what an entry holds
-comes with a new version and a new sample.
+it; it is never in Git. Its golden samples,
+`tests/flows/golden/assistant-record-v1.jsonl` (four invented entries),
+`tests/flows/golden/assistant-record-v2.jsonl` (three) and
+`tests/flows/golden/assistant-record-v3.jsonl` (three), each made by the
+code itself at its version, are checked by their digests, copied to a
+temporary folder before they are read, and never edited; a test sees that
+an entry made now has the same names as the newest golden ones (and those
+of the older versions without `read_as`), so a change to what an entry
+holds comes with a new version and a new sample. Entries of all three
+versions in one file are read alike.
 
 `tests/fakes/memory_store.py` is the port's stand-in for tests: it keeps
 everything in memory, does what the port promises the way the SQLite plug
@@ -861,7 +868,13 @@ lookup, a figure that looks like an amount, and the program's fixed words
 are shown instead, the chat keeping those.
 
 Recording a trade is the program's (`flows/conversation.py`, `say`, the
-entry for each thing the user says). When the model asks to record a trade,
+entry for each thing the user says). What the user says is tidied first
+(`core/spoken_text.py`): number words, and a time said in Chinese, are
+written in digits, each change checked by the readers of numbers and of
+times, and what cannot be checked is left as said. The words tidied are
+what the model sees and what the program checks its copies against; the
+words as said go to the ledger with each trade (`Progress.raw_text`). When
+the model asks to record a trade,
 its turn ends there (`Ending.RECORDING`), and what the user said, word for
 word, is handed once to the recording flow that the Record page uses
 (`flows/recording.py`), with no book: the flow judges it, extracts the
@@ -1020,6 +1033,11 @@ formatting tool.
   words in `assistant/edit_words.py`; a new part to change is one more
   field in `assistant/tools.py` and a case in `assistant/new_values.py`; a
   new way of saying which trade is one more rule in `assistant/picking.py`.
+- **Tidying what is said:** in place (`core/spoken_text.py`). A new way of
+  saying a number, a time or a zone goes in the tidying module, with a row
+  in its table of examples (`tests/core/test_spoken_text_examples.py`); a
+  new spoken zone is one more row of `SPOKEN_ZONES`. Every change keeps its
+  check: what cannot be checked is left as it was said.
 - **Recording through the assistant:** in place. A new way it can end is
   one more `RecordEnding`, and a new reason a trade is not sent one more
   `LeftOut` (`flows/recorded.py`), each with its sentence in

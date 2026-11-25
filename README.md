@@ -337,6 +337,12 @@ the ledger. It answers with the model `LEDGER_HAND_MODEL_NAME` names
 page for the browser tab, or in the environment before the program
 starts; it runs on the local plug only.
 
+What you typed is shown as you typed it. When the program tidied it first
+(number words and a time said in Chinese written in digits; see "Trying
+the assistant by hand"), a small line under your words, in the same
+bubble, says what it read them as: "Read as: 2026年11月20号下午14点12分买了
+0.005个BTC". Nothing is shown when nothing was changed.
+
 Under each reply the page shows who wrote it (the model, the program's own
 words, or the recording's question), any failure in one plain sentence, the
 tables the program lays out (what the ledger found, under the days, the
@@ -382,12 +388,16 @@ kept"). Started from the top of the repository, as this README does, that
 is the repository's own `data/` folder, which Git ignores. Each line is
 one entry of JSON, with its own version number, holding: when, what you
 said (for a screenshot, the text and note you continued with; the picture
-itself is never kept), which way it went, who wrote the reply, each tool
+itself is never kept), what the program read it as once tidied, with each
+change ("read_as", empty when nothing was changed), which way it went, who wrote the reply, each tool
 the model asked for with its arguments, a short piece of what the ledger
 handed back and any failure codes, the trades proposed with their amounts
 and money, each trade not sent and why, the kinds of reminder said, the
 proposals sent and how they stood, and the model and prompt versions
 used. The most recent 1,000 entries are kept; older ones are dropped.
+The record is now at version 3: version 3 added "read_as". Entries of
+versions 1 and 2, written before, are still read as they are, and a file
+may hold all three.
 
 **The file is plain text, not encrypted: it holds what you said to the
 assistant, word for word, with its numbers.** It stays on this computer;
@@ -594,8 +604,27 @@ the four answers, such as how much the holdings grew between two days, what
 a price will do or whether to sell, are answered with what the assistant
 can do; an answer with no table may hold no figure like an amount.
 
+A sentence said in Chinese number words is first tidied, before the model
+sees it: number words become digits, a time said in Chinese is written
+the way the program reads it, seconds are dropped, and the zone trades
+are recorded in is dropped when it is said ("匈牙利时间"). Only how a
+number or a time is written changes, never its value, and anything the
+program cannot check is left as it was said. The line `read as:` shows
+what the program read, just before the route. For example, with invented
+figures:
+
+```text
+you said: 二六年十一月二十号下午十四点十二分三十一秒在币安买了零点零零五个BTC
+read as: 2026年11月20号下午14点12分在币安买了0.005个BTC
+```
+
+The words as said still go to the ledger with each trade; the model and
+the program's checks work on the words tidied. While a question waits,
+the line `asked about:`, just before the ending, names what it asks about
+(`time`, `fee`, and so on).
+
 Recording is the program's, not the model's. When the model asks to record
-a trade, what the user said is handed, word for word, to the same recording
+a trade, what the user said, tidied as above, is handed to the same recording
 flow the Record page uses: it judges the words, extracts the trades and
 asks for what is missing, such as the fee, one question at a time. The next
 thing said is the answer ("skip" and "cancel" work as on the Record page).
