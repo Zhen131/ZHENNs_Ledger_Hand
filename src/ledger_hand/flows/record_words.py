@@ -32,9 +32,15 @@ code, the ledger's name for it, and that the model matched it. It is said
 in the reply that begins the recording (``begun``) and in the one that
 ends it, once when they are the same reply; not in the replies between.
 
+Each trade sent whose money the program guessed from the ledger's last
+trade of its asset (``TradeRecord.inferred``) gets one line right after
+the ending's sentence (``GUESSED_WORDS``): which money, from which asset's
+last trade, and that it is a guess to check. The words are fixed here,
+never the model's. (Decided on 2026-11-25.)
+
 Names defined here: ``ENDING_WORDS``, ``LEFT_OUT_WORDS``,
-``SPOKEN_REMINDERS``, ``PICKED_WORDS``, ``reply_for`` and
-``spoken_reminders``.
+``SPOKEN_REMINDERS``, ``PICKED_WORDS``, ``GUESSED_WORDS``, ``reply_for``
+and ``spoken_reminders``.
 """
 
 from __future__ import annotations
@@ -43,6 +49,7 @@ from collections.abc import Mapping
 from types import MappingProxyType
 
 from ledger_hand.core.proposals import CheckOutcome
+from ledger_hand.core.trade import Inferred
 from ledger_hand.extraction.issues import Issue, IssueKind
 from ledger_hand.flows.progress import REMINDER_KINDS
 from ledger_hand.flows.recorded import LeftOut, LeftOutTrade, Recorded, RecordEnding
@@ -111,6 +118,15 @@ LEFT_OUT_WORDS: Mapping[LeftOut, str] = MappingProxyType(
         LeftOut.QUOTE_CANNOT_PRICE: (
             "Trade {number} was not sent: the ledger does not price trades in {code}."
         ),
+        LeftOut.MONEY_NOT_IN_LEDGER: (
+            "Trade {number} was not sent: the ledger has no currency {code} yet, so this "
+            "trade cannot be recorded. Please add it in the ledger first."
+        ),
+        LeftOut.FEE_MONEY_NOT_IN_LEDGER: (
+            "Trade {number} was not sent: its fee was taken in {code}, and the ledger has no "
+            "currency {code} yet, so this trade cannot be recorded. Please add it in the "
+            "ledger first."
+        ),
         LeftOut.SAME_CODE: "Trade {number} was not sent: {reason}",
         LeftOut.QUANTITY_IN_OTHER_UNIT: (
             "Trade {number} was not sent: its quantity was said as {quantity} {unit}, and "
@@ -127,6 +143,32 @@ PICKED_WORDS = (
     'Took "{said}" as {code} ({name}) from the ledger\'s list of assets. '
     "The model matched it, not the program, so please check it before you confirm."
 )
+
+# The line for a trade sent whose money was guessed from the ledger's last
+# trade of its asset: one for the pricing money alone, one for it and the
+# fee's, one for the fee's alone. "This is a guess" is in each.
+GUESSED_WORDS: Mapping[frozenset[Inferred], str] = MappingProxyType(
+    {
+        frozenset({Inferred.QUOTE}): (
+            "Trade {number}: no currency was said, so it is priced in {money}, the currency "
+            "of the last {asset} trade in the ledger. This is a guess; check it before you "
+            "confirm."
+        ),
+        frozenset({Inferred.QUOTE, Inferred.FEE_COIN}): (
+            "Trade {number}: no currency was said, so it is priced in {money} and its fee is "
+            "taken in {money}, the currency of the last {asset} trade in the ledger. This is a "
+            "guess; check it before you confirm."
+        ),
+        frozenset({Inferred.FEE_COIN}): (
+            "Trade {number}: no currency was said for the fee, so it is taken in {money}, the "
+            "currency of the last {asset} trade in the ledger. This is a guess; check it "
+            "before you confirm."
+        ),
+    }
+)
+
+# The endings after which a guessed money is said: a trade waits, or may.
+_SAYS_GUESSES = frozenset({RecordEnding.SENT, RecordEnding.PARTLY_SENT, RecordEnding.MAYBE_SENT})
 
 # The kinds of reminder the assistant says once recording ends: every kind
 # the Record page says, for now. Take a kind off this list to stop saying
@@ -155,7 +197,7 @@ def reply_for(recorded: Recorded, *, begun: bool = False) -> str:
     first = ENDING_WORDS[recorded.ending].format(
         question=_question(recorded), code=recorded.missing_money or "", reason=_reason(recorded)
     )
-    lines = [first]
+    lines = [first, *_guessed(recorded)]
     if begun or recorded.ending is not RecordEnding.ASKING:
         lines.extend(_picked(recorded))
     lines.extend(_left_out(trade) for trade in recorded.left_out)
@@ -163,6 +205,30 @@ def reply_for(recorded: Recorded, *, begun: bool = False) -> str:
     lines.extend(_turned_down(recorded))
     lines.extend(_reminders(recorded))
     return "\n".join(lines)
+
+
+def _guessed(recorded: Recorded) -> list[str]:
+    """One line for each trade sent whose money was guessed; none for a trade turned down."""
+    if recorded.ending not in _SAYS_GUESSES:
+        return []
+    passed = (
+        [check.outcome is CheckOutcome.PASSED for check in recorded.checks]
+        if recorded.checks
+        else [True] * len(recorded.numbers)
+    )
+    trades = recorded.progress.trades
+    lines: list[str] = []
+    for number, waits in zip(recorded.numbers, passed, strict=True):
+        record = trades[number - 1].record
+        if not waits or record is None or record.inferred_from is None:
+            continue
+        source = record.inferred_from
+        lines.append(
+            GUESSED_WORDS[record.inferred].format(
+                number=number, money=source.money, asset=source.asset
+            )
+        )
+    return lines
 
 
 def _picked(recorded: Recorded) -> list[str]:

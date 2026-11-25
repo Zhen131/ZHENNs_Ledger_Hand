@@ -24,6 +24,9 @@ A trade is left out, and the others still sent, when:
   number as read, before any other reason it may also have;
 - only its day was said: the ledger needs a moment, and no time of day is
   made up for it;
+- the money it is priced in, or its fee was taken in, is a money the
+  ledger does not have at all ("欧元" with no euro): it is told so, by
+  that money's code, never as an asset the ledger lacks;
 - the asset, the asset its fee was taken in, or the money it is priced in
   is not in the ledger, by its code, or that money is one the ledger
   prices no trade in: the user adds it there first; the assistant never
@@ -191,6 +194,9 @@ def _ledger_reason(
     coin = draft.coin
     if coin is not None and assets.money(coin).reading is not MoneyReading.NOT_MONEY:
         return LeftOutTrade(number=number, why=LeftOut.MONEY_TRADED, code=coin)
+    lacked = _money_lacked(draft, reason, assets)
+    if lacked is not None:
+        return LeftOutTrade(number=number, why=lacked[0], code=lacked[1])
     if reason is Violation.ASSET_NOT_IN_LEDGER and coin is not None:
         return LeftOutTrade(number=number, why=LeftOut.NOT_IN_LEDGER, code=coin)
     if reason is Violation.FEE_ASSET_NOT_IN_LEDGER and draft.fee_coin is not None:
@@ -198,6 +204,25 @@ def _ledger_reason(
     if reason is Violation.QUOTE_CANNOT_PRICE and draft.quote is not None:
         code = assets.money(draft.quote).code or draft.quote
         return LeftOutTrade(number=number, why=LeftOut.QUOTE_CANNOT_PRICE, code=code)
+    return None
+
+
+def _money_lacked(
+    draft: TradeDraft, reason: object, assets: AssetTable
+) -> tuple[LeftOut, str] | None:
+    """Why, and in which money, a trade priced or charged in money the ledger lacks is left out.
+
+    Example: "价格2200欧元" with no euro in the ledger is told as the
+    ledger having no currency EUR yet, never as an asset it lacks.
+    """
+    if reason is Violation.QUOTE_CANNOT_PRICE and draft.quote is not None:
+        code = assets.missing_money(draft.quote)
+        if code is not None:
+            return LeftOut.MONEY_NOT_IN_LEDGER, code
+    if reason is Violation.FEE_ASSET_NOT_IN_LEDGER and draft.fee_coin is not None:
+        code = assets.missing_money(draft.fee_coin)
+        if code is not None:
+            return LeftOut.FEE_MONEY_NOT_IN_LEDGER, code
     return None
 
 

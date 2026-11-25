@@ -29,7 +29,12 @@ apart from the steps), then, when recording began, one line for each name
 of an asset handed to the model to pick from the ledger's list ("asset
 picked: ..." with the code taken, or "asset not picked: ..." with why),
 the table of the trades sent, laid out from the
-proposal itself, and one line from the program saying what reached the
+proposal itself, each trade followed by where its two moneys came from
+("money: price said, fee said"; "said" when the user said it, "inferred
+from <trade> on <day>" when the program guessed it from the ledger's last
+trade of the asset, "only money" when no word for money was said and the
+ledger prices in one money; a fee of zero is in the price's money and
+says the same), and one line from the program saying what reached the
 ledger ("sent to the ledger: nothing" when nothing did); then who wrote
 the last words ("words by: the model", or the program, and when the
 model's words were withheld, why), the assistant's last words and how it
@@ -88,10 +93,11 @@ from ledger_hand.assistant.results import not_done_text
 from ledger_hand.core.followup import AskCell, ConfirmCoin
 from ledger_hand.core.ledger_records import TradeFacts, TradeFilter
 from ledger_hand.core.proposals import ProposalStatus
+from ledger_hand.core.trade import Inferred, TradeRecord
 from ledger_hand.core.zones import is_zone_name
 from ledger_hand.extraction.asset_picking import AssetPick
 from ledger_hand.flows.conversation import AssistantChat, Route, Said, say
-from ledger_hand.flows.progress import DEFAULT_TUNING, Asked, Tuning
+from ledger_hand.flows.progress import DEFAULT_TUNING, Asked, TradeState, Tuning
 from ledger_hand.flows.recording import tuning_from
 from ledger_hand.ledger.demo_book import demo_ledger
 from ledger_hand.ledger.fake_ledger import FakeLedger
@@ -254,6 +260,7 @@ def show_said(words: str, said: Said, out: TextIO) -> None:
                 print(f"  {pick_line(found)}", file=out)
         for number, trade in zip(recorded.numbers, recorded.trades, strict=True):
             print(f"  trade {number}: {trade_line(trade)}", file=out)
+            print(f"    {money_line(recorded.progress.trades[number - 1])}", file=out)
     failure = turn.failure if turn is not None else None
     if recorded is not None and recorded.failure is not None:
         failure = recorded.failure
@@ -372,6 +379,27 @@ def trade_line(trade: TradeFacts) -> str:
         f"fee {fee} {trade.fee_asset}, platform {trade.platform or '-'}, "
         f"note {trade.note or '-'}"
     )
+
+
+def money_line(trade: TradeState) -> str:
+    """Where a trade's two moneys came from: said, guessed from the ledger, or the only one."""
+    record = trade.record
+    if record is None:
+        return "money: -"
+    price = _money_source(record, Inferred.QUOTE)
+    if price is None:
+        price = "only money" if trade.draft.quote is None else "said"
+    fee = _money_source(record, Inferred.FEE_COIN)
+    if fee is None:
+        fee = price if record.fee.is_zero() else "said"
+    return f"money: price {price}, fee {fee}"
+
+
+def _money_source(record: TradeRecord, mark: Inferred) -> str | None:
+    source = record.inferred_from
+    if mark not in record.inferred or source is None:
+        return None
+    return f"inferred from {source.trade_id} on {source.occurred.date().isoformat()}"
 
 
 def _then(afterwards: Afterwards, chat: Chat, ledger: FakeLedger, out: TextIO) -> None:
