@@ -476,10 +476,12 @@ changed.
   records which were dropped; the call is not a wrong step, and no figure
   the model wrote reaches the ledger. See the last section of
   `evals/RESULTS.md`.
-- **Another name for an asset is taken only when asking the ledger.** For
-  `list_trades` and `get_period_summary` the program checks the asset
+- **Another name for an asset is taken by the program, never the model.**
+  For `list_trades` and `get_period_summary` the program checks the asset
   against what the user said, so "比特币" and "BTC" are the same, and so
-  for changing and deleting. A time is never taken in another language:
+  for changing, deleting and recording; the names come from one place
+  (`core/ledger_table.py`), and the coin table's other names count only
+  for a code the ledger has. A time is never taken in another language:
   the user writes "this year" and the model fills "今年", which is a wrong
   step.
 
@@ -490,10 +492,11 @@ changed.
   book, since what it records goes to the ledger, not to the book. So the
   reminder the Record page gives ("these words were saved before") is not
   there.
-- **A coin the user confirms is known for that one passage only.** Each
-  passage starts from the built-in table of coins; a coin confirmed while
-  answering a question is forgotten when the next passage starts, and is
-  asked about again.
+- **An asset the ledger lacks is never added from the assistant.** The
+  assistant records only the ledger's own assets: a coin or a share it
+  lacks ("AAPL", "狗狗币") is not sent, with the word the user said, and the
+  user adds it in the ledger first. No coin is confirmed on the spot, as
+  the Record page lets one be.
 - **Changing the subject while a question waits.** While the recording
   flow's question waits, whatever the user says next is read as its
   answer. A question about the holdings at that moment is taken as an
@@ -506,12 +509,46 @@ changed.
   to say it again with the time it was made; the other trades of the same
   words are sent. Whether the ledger's tools will take a trade known only
   to the day is for when the real ledger is connected.
-- **The money a trade is priced in is USDT, for now.** The recording flow's
-  records carry no money they are priced in, since extraction knows only
-  USDT; a proposal takes the ledger's asset whose code is USDT, and sends
-  nothing when the ledger has none. A stock bought with dollars cannot be
-  recorded through the assistant until the money comes from the ledger's
-  own assets.
+- **One more question when the ledger prices in two moneys.** The money a
+  trade is priced in is the ledger's: with USDT and USD both pricing
+  trades, a price said with no money ("价格94900") is asked about ("Which
+  currency was this trade priced in?") before anything is sent, and so is a
+  price in "刀" or "美刀", which may mean either, and a price and a total in
+  two different moneys ("90000U", "900美元"). With one money to price in,
+  nothing more is asked. Which words name which money is a small table in
+  `core/ledger_table.py` (`MONEY_NICKNAMES`), settled for now until the
+  owner agrees: "U", "Tether" and "泰达币" are USDT; "$", "dollar", "美元"
+  and "美金" are USD; "刀" and "美刀" are either. Changing and deleting a
+  trade do not use that table: there "U" and "刀" are not read as a money.
+- **A share whose code has a point in it cannot be recorded.** A code such
+  as "BRK.B" cannot be written as a symbol by the rules this program keeps,
+  so the asset is left out of the table, and a trade of it is not sent.
+  The same holds for an asset whose code or name is also a word for money,
+  such as a share whose code is "U": it is left out, and the rest kept.
+- **Money written after a number is read for USDT and USD only.** The
+  number reader knows the words for those two ("410美元", "100U"). Another
+  money the ledger has, written right after a number ("60000欧元"), is not
+  read: the price is left empty and asked for, never taken as USDT or USD.
+  With one money to price in, the question names that money ("in USDT"),
+  so the user is told which money the answer is taken in.
+- **A fee may be taken in money the ledger does not price trades in.** A fee
+  in such money (a fee of "1 EUR" with the euro in the ledger) is recorded
+  in it; the ledger checks the proposal.
+- **The Record page still prices every trade in USDT.** Only the assistant
+  takes its assets and its money from the ledger's list; the Record page,
+  the book and the export keep the built-in coins and USDT.
+- **Two sentences about shares are not done.** The assistant judges and
+  extracts what the user said with its own prompt versions (`screen-2`,
+  `first-3`), written so that a share bought with dollars is read as a
+  trade; the Record page keeps the first ones. On the share set
+  (`evals/sets/stocks.json`) 16 of 18 sentences are done right and none is
+  recorded wrong; the two not done are the open orders below. See the
+  share set's section of `evals/RESULTS.md`.
+- **The model may answer an open order itself.** Told an order that is not
+  filled yet ("在IBKR挂了个MSFT限价单"), the model answered in its own words
+  both times on the share set instead of asking
+  to record it, so the program's own sentence ("reports only things the
+  ledger does not record") is not said; nothing is sent either way.
 - **The program cannot stop the model from saying it recorded something.**
   When the model asks to record a trade, the program takes over and the
   model says nothing more in that turn. But a model that does not ask, and

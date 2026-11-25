@@ -9504,3 +9504,87 @@ not a pass line.
   on 23 of 27; nothing narrower or off; Q1 to Q5 right, Q6 not.
 - First step (`run-20261125T003833Z-tools-assistant-4.jsonl`): right on 19
   of 19.
+
+## 2026-11-25: recording a share bought with dollars, with the ledger's own assets, `qwen2.5:7b`
+
+**What changed.** The assistant records with the asset table the ledger's
+own list of assets makes (`core/ledger_table.py`), not the built-in coins
+and USDT: the invented book's MSFT can be recorded, priced in USD, and a
+price with no money is asked about while the book prices in USDT and USD.
+The share set (`evals/sets/stocks.json`, eighteen sentences in Chinese and
+English, eleven kinds) and its gold answers were written and committed
+(`8db6fdb`) before any run, and not changed after; its ruler
+(`evals/stock_run.py`) says each sentence once to the whole assistant and
+judges every field of what was sent by the ledger's codes, so USD and USDT
+are never the same. Pass lines: nothing silently wrong; at least 80% right
+(the share earlier measures took, not measured).
+
+Three tries of prompt versions, each committed before it was run:
+
+| Try | Commit | Judging, extraction | Right | Silently wrong | Results |
+| --- | --- | --- | --- | --- | --- |
+| 0 | `39863aa` | `screen-1`, `first` (as the product uses them) | 12 of 18 | 0 | `run-20261125T022755Z-stocks-assistant-4.jsonl` |
+| 1 | `2c7f639` | `screen-2`, `first` | 14 of 18 | 0 | `run-20261125T023309Z-stocks-assistant-4.jsonl` |
+| 2 | `c4ba940` | `screen-2`, `first-2` | 13 of 18 | 0 | `run-20261125T023943Z-stocks-assistant-4.jsonl` |
+| 3 | `d405ba1` | `screen-2`, `first-3` | 16 of 18 | 0 | `run-20261125T025648Z-stocks-assistant-4.jsonl` |
+
+With `screen-1`, K2, K7 and K9 (English) were judged to hold no trade.
+With `first`, the model wrote "today at 14:05" as "今天 14:05" (K2) and put
+gaps into "410美元一股" (K11). With `first-2`, it copied "2 shares" out of
+"2 MSFT shares" (K5, K7) and left the coin empty when USDT was bought
+(K17). The tree held uncommitted changes to the docs only for try 3.
+
+**Result, try 3.** Done right on 16 of 18; nothing silently wrong; both
+pass lines passed. The assistant now judges with `screen-2` and extracts
+with `first-3`; the Record page keeps `screen-1` and `first`. The two not
+done are the open orders: the model answered them in its own words and
+did not ask to record, so nothing was sent but the program did not say why.
+
+| K1 | told_in_full | send buy 2 MSFT at 410 USD, fee 1 USD | sent: buy 2 MSFT at 410 USD, fee 1 USD, 15:30, IBKR | right |
+| K2 | told_in_full | send buy 3 MSFT at 405 USD, fee 1.5 USD | sent: buy 3 MSFT at 405 USD, fee 1.5 USD, 14:05, IBKR | right |
+| K3 | told_in_full | send sell 1 MSFT at 420 USD, fee 1 USD | sent: sell 1 MSFT at 420 USD, fee 1 USD, 16:00, IBKR | right |
+| K4 | no_fee | ask the fee | asked the fee | right |
+| K5 | no_fee | ask the fee | asked the fee | right |
+| K6 | no_time_of_day | send nothing: day_only | nothing sent: day_only | right |
+| K7 | no_time_of_day | send nothing: day_only | nothing sent: day_only | right |
+| K8 | no_money_said | ask the pricing currency | asked the pricing currency | right |
+| K9 | no_money_said | ask the pricing currency | asked the pricing currency | right |
+| K10 | dao | ask the pricing currency | asked the pricing currency | right |
+| K11 | coin_and_share | send buy 0.01 BTC at 95000 USDT, fee 0 USDT; buy 2 MSFT at 410 USD, fee 1 USD | sent: buy 0.01 BTC at 95000 USDT, fee 0 USDT, 10:00, 币安; buy 2 MSFT at 410 USD, fee 1 USD, 15:00, IBKR | right |
+| K12 | share_not_in_ledger | send nothing: not_in_ledger | nothing sent: not_in_ledger | right |
+| K13 | share_not_in_ledger | send nothing: not_in_ledger | nothing sent: not_in_ledger | right |
+| K14 | open_order | send nothing: stopped | nothing sent: not recorded (answered) | not done |
+| K15 | open_order | send nothing: stopped | nothing sent: not recorded (answered) | not done |
+| K16 | price_in_u_total_in_dollars | ask the pricing currency | asked the pricing currency | right |
+| K17 | money_traded | send nothing: money_traded or stopped | nothing sent: money_traded | right |
+| K18 | money_cannot_price | send nothing: quote_cannot_price | nothing sent: quote_cannot_price | right |
+
+**The old sentences, through the start of recording.** The new versions
+must not make the extraction sets worse: each set run through
+`recording.start`, judging step and all, with the built-in table (coins and
+USDT), old and new versions on the same day (`evals/judged_run.py`); the
+count is the fields wrong with nothing said.
+
+| Set | `screen-1`, `first` | `screen-2`, `first-2` | `screen-2`, `first-3` |
+| --- | --- | --- | --- |
+| final (20 sentences, 22 trades) | 22 whole right, 0 wrong unsaid | 22, 0 | 22, 0 |
+| debug (30 sentences, 34 trades) | 31 whole right, 2 wrong unsaid (d05, d23) | 33, 0 | 30, 1 (d23) |
+
+No gold trade was judged away by any version. The line (no more wrong
+unsaid than the old versions, none on the final set) is met by
+`first-3`. Results: `judged-20261125T024206Z-final-screen-1-first.jsonl`,
+`judged-20261125T024652Z-debug-screen-1-first.jsonl`,
+`judged-20261125T024407Z-final-screen-2-first-2.jsonl`,
+`judged-20261125T025025Z-debug-screen-2-first-2.jsonl`,
+`judged-20261125T025935Z-final-screen-2-first-3.jsonl`,
+`judged-20261125T030146Z-debug-screen-2-first-3.jsonl`.
+
+**The measures before, again, at `d405ba1`** (results not kept): first step
+right on 19 of 19; the twenty-seven questions right on 23 of 27, nothing
+narrower or off, Q1 to Q5 right and Q6 not; changes and deletions right on
+13 of 17, nothing silently wrong, E1 to E3 right (N4, N8, N9, N10 not done,
+as before). The seven recording sentences of the first step's set, through
+the try-out script: R1, R3 and R4 sent, every trade priced in USDT; R2 and
+R5 now ask which money (their price names none, and the book prices in
+USDT and USD); R6 sends nothing; R7 asks which money where it asked the
+side before. Nothing was recorded wrong.

@@ -1,0 +1,32 @@
+{"record": "run", "set_file": "evals/sets/debug.json", "set_sha256": "4529d98323ad1df4d38f5a5b73cdf1082b6a1cd08a0604a454ecf7986104f4d8", "screen_prompt": "screen-1", "extraction_prompt": "first", "asset_table": "built-in: the coin table's coins, priced in USDT", "commit": "c4ba9401d7aa2e755e9810fd174157f2251d0398", "worktree_clean": false, "model": "qwen2.5:7b", "model_fingerprint": "845dbda0ea48ed749caafd9e6037047aa19acfcfd82e704d7ca97d631a0b697e", "server_version": "0.34.3", "parameters": {"temperature": 0.0, "top_p": 1.0, "max_reply_tokens": 1024, "context_tokens": 16384, "timeout_seconds": 120.0, "retries": 2, "retry_wait_seconds": 1.0, "asks_again": 1}, "started_at": "2026-11-25T02:46:52+00:00"}
+{"record": "sentence", "id": "d01", "stage": "every trade is settled; a trade may be removed, or the passage dropped", "drafts": 1, "gold_trades": 1, "whole_right": 1, "silent_wrong": 0, "seconds": 9.3}
+{"record": "sentence", "id": "d02", "stage": "every trade is settled; a trade may be removed, or the passage dropped", "drafts": 1, "gold_trades": 1, "whole_right": 1, "silent_wrong": 0, "seconds": 8.4}
+{"record": "sentence", "id": "d03", "stage": "every trade is settled; a trade may be removed, or the passage dropped", "drafts": 1, "gold_trades": 1, "whole_right": 1, "silent_wrong": 0, "seconds": 7.4}
+{"record": "sentence", "id": "d04", "stage": "a question is waiting for its answer", "drafts": 1, "gold_trades": 1, "whole_right": 1, "silent_wrong": 0, "seconds": 8.6}
+{"record": "sentence", "id": "d05", "stage": "a question is waiting for its answer", "drafts": 1, "gold_trades": 1, "whole_right": 0, "silent_wrong": 1, "seconds": 9.4}
+{"record": "sentence", "id": "d06", "stage": "every trade is settled; a trade may be removed, or the passage dropped", "drafts": 1, "gold_trades": 1, "whole_right": 1, "silent_wrong": 0, "seconds": 9.3}
+{"record": "sentence", "id": "d07", "stage": "a question is waiting for its answer", "drafts": 1, "gold_trades": 1, "whole_right": 1, "silent_wrong": 0, "seconds": 6.8}
+{"record": "sentence", "id": "d08", "stage": "a question is waiting for its answer", "drafts": 1, "gold_trades": 1, "whole_right": 1, "silent_wrong": 0, "seconds": 7.3}
+{"record": "sentence", "id": "d09", "stage": "every trade is settled; a trade may be removed, or the passage dropped", "drafts": 1, "gold_trades": 1, "whole_right": 1, "silent_wrong": 0, "seconds": 6.3}
+{"record": "sentence", "id": "d10", "stage": "a question is waiting for its answer", "drafts": 1, "gold_trades": 1, "whole_right": 1, "silent_wrong": 0, "seconds": 7.3}
+{"record": "sentence", "id": "d11", "stage": "every trade is settled; a trade may be removed, or the passage dropped", "drafts": 1, "gold_trades": 1, "whole_right": 1, "silent_wrong": 0, "seconds": 6.3}
+{"record": "sentence", "id": "d12", "stage": "a question is waiting for its answer", "drafts": 1, "gold_trades": 1, "whole_right": 1, "silent_wrong": 0, "seconds": 6.4}
+{"record": "sentence", "id": "d13", "stage": "a question is waiting for its answer", "drafts": 1, "gold_trades": 1, "whole_right": 0, "silent_wrong": 0, "seconds": 6.4}
+{"record": "sentence", "id": "d14", "stage": "a question is waiting for its answer", "drafts": 1, "gold_trades": 1, "whole_right": 1, "silent_wrong": 0, "seconds": 6.0}
+{"record": "sentence", "id": "d15", "stage": "every trade is settled; a trade may be removed, or the passage dropped", "drafts": 1, "gold_trades": 1, "whole_right": 1, "silent_wrong": 0, "seconds": 5.9}
+{"record": "sentence", "id": "d16", "stage": "every trade is settled; a trade may be removed, or the passage dropped", "drafts": 2, "gold_trades": 2, "whole_right": 2, "silent_wrong": 0, "seconds": 10.0}
+{"record": "sentence", "id": "d17", "stage": "every trade is settled; a trade may be removed, or the passage dropped", "drafts": 2, "gold_trades": 2, "whole_right": 2, "silent_wrong": 0, "seconds": 8.8}
+{"record": "sentence", "id": "d18", "stage": "every trade is settled; a trade may be removed, or the passage dropped", "drafts": 2, "gold_trades": 2, "whole_right": 2, "silent_wrong": 0, "seconds": 11.1}
+{"record": "sentence", "id": "d19", "stage": "a question is waiting for its answer", "drafts": 2, "gold_trades": 2, "whole_right": 2, "silent_wrong": 0, "seconds": 10.8}
+{"record": "sentence", "id": "d20", "stage": "a question is waiting for its answer", "drafts": 2, "gold_trades": 2, "whole_right": 2, "silent_wrong": 0, "seconds": 9.4}
+{"record": "sentence", "id": "d21", "stage": "every trade is settled; a trade may be removed, or the passage dropped", "drafts": 3, "gold_trades": 3, "whole_right": 3, "silent_wrong": 0, "seconds": 12.6}
+{"record": "sentence", "id": "d22", "stage": "every trade is settled; a trade may be removed, or the passage dropped", "drafts": 3, "gold_trades": 3, "whole_right": 3, "silent_wrong": 0, "seconds": 13.8}
+{"record": "sentence", "id": "d23", "stage": "a question is waiting for its answer", "drafts": 3, "gold_trades": 3, "whole_right": 2, "silent_wrong": 1, "seconds": 14.0}
+{"record": "sentence", "id": "d24", "stage": "no trade was found in the passage", "drafts": 0, "gold_trades": 0, "whole_right": 0, "silent_wrong": 0, "seconds": 0.5}
+{"record": "sentence", "id": "d25", "stage": "the passage reports only things the ledger does not record", "drafts": 0, "gold_trades": 0, "whole_right": 0, "silent_wrong": 0, "seconds": 1.1}
+{"record": "sentence", "id": "d26", "stage": "no trade was found in the passage", "drafts": 0, "gold_trades": 0, "whole_right": 0, "silent_wrong": 0, "seconds": 0.5}
+{"record": "sentence", "id": "d27", "stage": "the passage reports only things the ledger does not record", "drafts": 0, "gold_trades": 0, "whole_right": 0, "silent_wrong": 0, "seconds": 2.4}
+{"record": "sentence", "id": "d28", "stage": "the passage reports only things the ledger does not record", "drafts": 0, "gold_trades": 0, "whole_right": 0, "silent_wrong": 0, "seconds": 1.9}
+{"record": "sentence", "id": "d29", "stage": "the passage reports only things the ledger does not record", "drafts": 0, "gold_trades": 0, "whole_right": 0, "silent_wrong": 0, "seconds": 1.9}
+{"record": "sentence", "id": "d30", "stage": "the passage reports only things the ledger does not record", "drafts": 0, "gold_trades": 0, "whole_right": 0, "silent_wrong": 0, "seconds": 2.7}
+{"record": "end", "sentences": 30, "gold_trades": 34, "whole_right": 31, "silent_wrong": 2, "gold_trades_judged_away": 0}

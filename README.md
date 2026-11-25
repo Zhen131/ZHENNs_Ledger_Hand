@@ -473,6 +473,20 @@ nothing is confirmed in the assistant. Every figure is the recording flow's,
 and the user's words go with each trade. A trade said only with its day, or
 naming an asset the ledger does not have, is left out, with a sentence
 saying why; an open order, or words with no trade in them, send nothing.
+
+What can be recorded, and the money it is priced in, come from the
+ledger's own list of assets, asked for once when recording begins: with a
+share and US dollars in the ledger,
+"今天15:30在IBKR买了2股MSFT，410美元一股，手续费1美元" sends one trade of
+MSFT priced in USD, its fee taken in USD.
+When the ledger prices trades in more than one money, a price said with no
+money ("价格94900"), or in "刀", is asked about first ("Which currency was
+this trade priced in?"), and one money is never taken for another: "U" is
+USDT, "美元" is the US dollar. An asset the ledger lacks ("AAPL", or
+"狗狗币" with no DOGE in it) is not sent, and the user is asked to add it in
+the ledger first; money bought with money ("用美元买了500 USDT") is an
+exchange, which the assistant leaves to the ledger. The Record page keeps
+the built-in coins and USDT.
 If the model goes wrong two steps in a row, the program hands the words
 once to the recording flow and says what it found, an open order among
 them; only words with no trade in them end with "please say it another
@@ -547,8 +561,14 @@ of `evals/sets/asks.json` to the end and judges the table it came to;
 `.venv/bin/python -m evals.edit_run` runs each sentence of
 `evals/sets/edits.json` that changes or deletes a trade to the end,
 answering the program's question with the gold answer's words, and judges
-the proposal sent; all three write into `evals/tool_results/`; see the last
-sections of `evals/RESULTS.md`.
+the proposal sent; `.venv/bin/python -m evals.stock_run` says each sentence
+of `evals/sets/stocks.json`, recording a share bought with dollars, once,
+and judges every field of what was sent, or the question asked, by the
+ledger's codes; `.venv/bin/python -m evals.judged_run --screen screen-2
+--extract first-3` runs the debug set (or, with `--final-exam`, the final
+set) through the start of recording, judging step and all, to hold a
+prompt version the assistant uses to the old sentences; all of them write
+into `evals/tool_results/`; see the last sections of `evals/RESULTS.md`.
 
 ### Recording trades by hand
 

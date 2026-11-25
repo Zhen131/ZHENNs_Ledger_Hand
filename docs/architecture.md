@@ -46,6 +46,7 @@ src/ledger_hand/
         trade.py              what one trade looks like; drafts may have blanks       (exists)
         coins.py              a small table of common coins                           (exists)
         assets.py             the asset table: what may be traded, the money to price it in (exists)
+        ledger_table.py       the asset table and the asset names the ledger's own list makes (exists)
         numbers.py            reads number phrases; writes numbers for the ledger     (exists)
         time_wording.py       which known parts a time phrase is made of              (exists)
         timeparse.py          time phrases to exact moments ("now" is passed in)      (exists)
@@ -85,6 +86,11 @@ src/ledger_hand/
             fourth_examples.py    the ten examples of `first` and the seven `fourth` adds (exists)
             split.py              splitting a passage, few-shot, for experiments      (exists)
             screen.py             judging a passage, zero-shot                        (exists)
+            screen2.py            judging, `screen`'s words for shares as well: the assistant's (exists)
+            first2.py             extraction: `first` for shares as well, one rule more, for experiments (exists)
+            first2_examples.py    the ten examples of `first` and the three with shares `first2` adds (exists)
+            first3.py             extraction: `first2`, the quantity copied whole: the assistant's (exists)
+            first3_examples.py    the ten examples of `first` and the three with shares `first3` adds (exists)
             answer.py             reading an answer, zero-shot                        (exists)
             read.py               reading a screenshot out as text, zero-shot         (exists)
         passage_check.py      a passage that must not be sent: empty, too long, not text (exists)
@@ -196,7 +202,7 @@ src/ledger_hand/
         notes.py              the last word after Export or on the settings page, shown (exists)
         session.py            what lasts between reruns: parts, progress, chat, a reading (exists)
 evals/                    prompt experiments: test sentences, scoring, runner, results (exists)
-    sets/                 the test sentences with gold answers: debug, final, writings, voice, tools, asks (exists)
+    sets/                 the test sentences with gold answers: debug, final, writings, voice, tools, asks, edits, stocks (exists)
     gold.py               the shapes of a sentence and its gold answer             (exists)
     coverage.py           what the sentences cover                                 (exists)
     writings.py           the writings set: hard ways of writing a number          (exists)
@@ -221,6 +227,9 @@ evals/                    prompt experiments: test sentences, scoring, runner, r
     tool_run.py           the runner of that measure                               (exists)
     ask_set.py            the questions about the ledger; one answer judged against the gold (exists)
     ask_run.py            the runner of that measure, each question to the end    (exists)
+    stock_set.py          the sentences recording a share bought with dollars; judged by code (exists)
+    stock_run.py          the runner of that measure, each sentence said once     (exists)
+    judged_run.py         the extraction sets through the start of recording, judging and all (exists)
     tool_results/         one results file per run of those measures, and the recording runs (exists)
     RESULTS.md            the results record                                       (exists)
 tests/                    mirrors src; also holds the guardrails, fakes and golden samples  (exists)
@@ -837,7 +846,8 @@ an enumeration rather than a switch. The extra unit words go to the number
 reader only, never to the reading of a currency, so "2 股" is not taken for
 a money.
 
-Every caller today hands in the built-in table, `BUILT_IN_ASSETS`: the
+Two tables are handed in today. The Record page, the scripts and the
+experiment tools hand in the built-in table, `BUILT_IN_ASSETS`: the
 built-in coins, USDT the one money, every word for USDT (USD, "$", "刀",
 "美元" among them) naming it, unseen coins confirmed on the spot, no extra
 unit words. With it every output is the one the fixed USDT rules gave: the
@@ -845,10 +855,38 @@ same questions and reasons in the same words, the same export files and the
 same words sent to every model. The reasons added for other tables
 (`COIN_IS_PRICING_MONEY`, `QUOTE_CANNOT_PRICE`, `ASSET_NOT_IN_LEDGER`,
 `FEE_ASSET_NOT_IN_LEDGER`) and the question which money never come up with
-it; a test walks the built-in table through many drafts to hold that. The
-tests make one other table, with two moneys and a share, and walk passages
-through the recording flow with it; no page or script is handed that
-table.
+it; a test walks the built-in table through many drafts to hold that.
+
+The assistant hands in the table the ledger's own list of assets makes
+(`core/ledger_table.py`, `table_of`), asked for once when recording begins
+(`flows/conversation.py`); the proposal at the end of that turn uses the
+same list. Its money is every asset of the kind "cash" and every asset the
+ledger prices trades in, each going by its code, its name and the
+nicknames of `MONEY_NICKNAMES` that point to its code ("刀" to both USDT
+and USD); its assets are the ledger's others, each by its code and name and
+the built-in coin table's other names for that code; an asset the ledger
+lacks is refused; with a share in the ledger, "股" and "shares" are read
+after a number. Such a table never speaks the older words that name USDT
+(`from_ledger`), and it holds the built-in names of the coins the ledger
+lacks apart (`shields`): they are never an asset, so "狗狗币" is said to be
+missing from the ledger, not asked about. With it, a price or a total is
+asked in the trade's own money (the money is asked first when it is not
+clear), a price and a total said in two moneys are not settled for the
+user, and money traded as an asset is said to be an exchange, which the
+assistant does not record. A ledger that prices trades in no money ends it
+before the model is asked anything. Asking the ledger and changing a trade
+find assets by the same names (`names_of`), at the time they always did,
+and do not use the money's nicknames. The assistant also judges and
+extracts with prompt versions of its own (`screen-2`, `first-3`, named in
+`flows/conversation.py`), handed to `recording.start`; a caller that names
+none gets the first versions, as before.
+
+The proposal (`flows/proposing.py`) prices each trade in the money its
+record names, and checks each trade again against the ledger's list before
+sending: the asset, the fee's asset and the money must be the ledger's, and
+the money one it prices trades in. A trade the flow found cannot be
+recorded for one of the ledger's reasons is told with the word the user
+said.
 
 The book and the export still keep USDT alone: the book has no column for
 the money and gives USDT to a trade read back, and the export writes USDT
