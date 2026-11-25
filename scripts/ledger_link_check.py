@@ -5,9 +5,11 @@
 It starts the ledger's own assistant link (``assistant-link/main.ts``) with
 the program's link client, on a free port of 127.0.0.1, asks it for its
 tools, and compares them with the table this program was built against
-(``ledger_hand.ledger.link_tools.EXPECTED_TOOLS``): exactly the eight names,
-in the ledger's order, and for each tool the fields it requires, at the top
-and inside the one trade. No ledger page is needed and none is connected;
+(``ledger_hand.ledger.link_tools.EXPECTED_TOOLS``): each of the eight names
+this program uses is there, and for each the fields it requires, at the top
+and inside the one trade. A tool the ledger has and this program does not
+use is no failure; it is listed ("the ledger has, this program does not
+use: ..."). No ledger page is needed and none is connected;
 nothing is proposed or read from any ledger. It also reads the error table
 of the ledger's ``assistant-link/README.md`` and checks that every code is on
 one of the real ledger plug's two tables
@@ -41,7 +43,7 @@ from pathlib import Path
 from ledger_hand.ledger.link_client import LedgerLink
 from ledger_hand.ledger.link_failures import LedgerLinkError
 from ledger_hand.ledger.link_ledger import codes_on_no_table
-from ledger_hand.ledger.link_tools import EXPECTED_TOOLS, differences, required_fields
+from ledger_hand.ledger.link_tools import EXPECTED_TOOLS, differences, required_fields, unused
 from ledger_hand.settings import LEDGER_DIRECTORY_VARIABLE, load_ledger_link_settings
 from ledger_hand.wiring import ledger_link
 
@@ -121,12 +123,15 @@ def check(ledger: Path, environ: Mapping[str, str]) -> Outcome:
     except LedgerLinkError as error:
         print(f"the assistant link could not be asked: {error}")
         return Outcome.FAILED
-    print(f"the assistant link lists {len(tools)} tools (expected {len(EXPECTED_TOOLS)}):")
+    print(f"the assistant link lists {len(tools)} tools (this program uses {len(EXPECTED_TOOLS)}):")
     found = report(tools)
     for difference in found:
         print(f"  DIFFERENT: {difference}")
     if not found:
-        print("the names, their order and every required field are as expected")
+        print("each tool this program uses is there, every required field as expected")
+    extra = unused(tools)
+    if extra:
+        print(f"the ledger has, this program does not use: {', '.join(extra)}")
     unsorted = codes_on_no_table(
         (ledger / "assistant-link" / "README.md").read_text(encoding="utf-8")
     )

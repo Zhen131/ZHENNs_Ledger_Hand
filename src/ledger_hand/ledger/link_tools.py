@@ -1,8 +1,8 @@
-"""Link tools: the ledger's eight tools as this program expects them, and how to compare.
+"""Link tools: the ledger's eight tools this program uses, and how to compare.
 
-The ledger's assistant link lists eight tools (``tools/list``), each with a
+The ledger's assistant link lists its tools (``tools/list``), each with a
 JSON schema of its arguments. ``EXPECTED_TOOLS`` writes down, once, what
-this program was built against: the eight names in the ledger's order, and
+this program was built against: the eight names it uses, and
 for each the fields it requires, at the top and inside the one trade
 (``trades[]`` for ``propose_trade_add``, ``trade`` for
 ``propose_trade_update``). The source is the ledger's
@@ -10,14 +10,18 @@ for each the fields it requires, at the top and inside the one trade
 
 ``required_fields`` reads the same thing out of a tool's schema as the link
 lists it, and ``differences`` says, one sentence each, where a list of
-tools differs from what is expected. The ledger tier of the checks
+tools differs from what is expected: one of the eight missing, or a
+required field that is not as expected. A tool the ledger lists and this
+program does not use is no difference (the ledger added a ninth,
+``get_cash_balances``, on 2026-11-25); ``unused`` names such tools, so that
+they are said. The ledger tier of the checks
 (``scripts/ledger_link_check.py``) runs them against the real link, so a
 change to the ledger's tools turns that tier red.
 
 This module only compares data handed to it. It starts and reads nothing.
 
-Names defined here: ``EXPECTED_TOOLS``, ``TOP``, ``required_fields`` and
-``differences``.
+Names defined here: ``EXPECTED_TOOLS``, ``TOP``, ``required_fields``,
+``differences`` and ``unused``.
 """
 
 from __future__ import annotations
@@ -72,11 +76,14 @@ def required_fields(schema: Mapping[str, Any]) -> dict[str, frozenset[str]]:
 def differences(tools: Sequence[Mapping[str, Any]]) -> list[str]:
     """Where ``tools``, as the link lists them, differ from ``EXPECTED_TOOLS``; empty if nowhere."""
     names = [str(tool.get("name")) for tool in tools]
-    if names != list(EXPECTED_TOOLS):
-        return [f"the tools are {names}, not {list(EXPECTED_TOOLS)}"]
+    missing = [name for name in EXPECTED_TOOLS if name not in names]
+    if missing:
+        return [f"the tools {missing} are not among the ledger's {names}"]
     found: list[str] = []
     for tool in tools:
         name = str(tool["name"])
+        if name not in EXPECTED_TOOLS:
+            continue
         listed = required_fields(tool.get("inputSchema") or {})
         expected = dict(EXPECTED_TOOLS[name])
         for where in sorted(set(listed) | set(expected)):
@@ -85,3 +92,8 @@ def differences(tools: Sequence[Mapping[str, Any]]) -> list[str]:
                 place = f"{name}.{where}" if where else name
                 found.append(f"{place} requires {sorted(have)}, expected {sorted(want)}")
     return found
+
+
+def unused(tools: Sequence[Mapping[str, Any]]) -> list[str]:
+    """The names of the tools the link lists that this program does not use, in its order."""
+    return [str(tool.get("name")) for tool in tools if tool.get("name") not in EXPECTED_TOOLS]
