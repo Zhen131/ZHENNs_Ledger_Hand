@@ -98,9 +98,11 @@ def proposed_rows(
     ]
     if len(checks) != len(rows) or all(c.outcome is CheckOutcome.PASSED for c in checks):
         return rows
-    for row, check in zip(rows, checks, strict=True):
-        row[IN_THE_LEDGER] = _in_the_ledger(check)
-    return rows
+    # Beside the number, so it is seen without scrolling a wide table sideways.
+    return [
+        {"#": row["#"], IN_THE_LEDGER: _in_the_ledger(check), **row}
+        for row, check in zip(rows, checks, strict=True)
+    ]
 
 
 def _in_the_ledger(check: TradeCheck) -> str:

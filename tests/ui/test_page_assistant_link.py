@@ -572,6 +572,7 @@ def test_the_table_marks_which_trade_waits_and_which_was_not_taken() -> None:
     page = say_on_page(open_page(model, Fixture(), first=AssistantLedger.DEMO), PARTLY)
 
     first, second = rows_of(page, table_key(1, "proposed"))
+    assert list(first)[:2] == ["#", IN_THE_LEDGER]
     assert first[IN_THE_LEDGER] == "waiting for you to confirm (proposal-1)"
     assert second[IN_THE_LEDGER].startswith("not taken: With this, a sell")
 
