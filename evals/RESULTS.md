@@ -9618,3 +9618,70 @@ and no gold trade was judged away. The line is met. Results:
 `judged-20261125T140327Z-debug-screen-2-first-3-hold.jsonl`,
 `judged-20261125T140654Z-debug-screen-2-first-3-hold-tidy.jsonl`, all in
 `evals/tool_results/`.
+
+## 2026-11-25: picking an asset named the way people say it from the ledger's list, `qwen2.5:7b`
+
+A name of an asset the ledger's table does not find, and that cannot be
+written as a code ("微软的股票"), can be handed to the model with the list
+of the assets that can be traded, to pick one or none; the program takes a
+pick only when its code is on the list, the words picked out were said,
+and nothing but filler words is left around them
+(`src/ledger_hand/extraction/asset_picking.py`). Measured on the names set
+(`evals/sets/stock_names.json`, written and split before any run, commit
+`15b969f`): 22 names on the demo book's list, 22 off it, each group split
+by number into a practice half and a locked half. `evals/name_run.py`
+measures directly (`--direct`: the words alone, through the same test of
+whether to hand them over) and through the whole assistant against the
+demo book. Prompts were tuned and chosen on the practice half only; the
+locked half was measured once, after the choice. The pass lines, on the
+locked half: no asset picked, named or sent wrong, in either way or group;
+on the list, measured directly, nine in ten of the names handed over
+right.
+
+The practice half (11 on the list, 11 off it):
+
+| Version | Way | On the list: right / not matched / wrong | Off the list: right / wrong | Wrong |
+| --- | --- | --- | --- | --- |
+| `asset-pick-1` | direct | 11 / 0 / 0 (11 handed over) | 10 / 1 | X01 "雪碧" as PEP |
+| `asset-pick-1` | whole | 9 / 2 / 0 | 9 / 2 | X01 "雪碧" sent as PEP; X13 "2股微软和英特尔" sent as two trades, MSFT and INTC |
+| `asset-pick-2` | direct | 11 / 0 / 0 | 10 / 1 | X01 "雪碧" as PEP |
+| `asset-pick-2` | whole | 9 / 2 / 0 | 9 / 2 | X01 as PEP; X13 as MSFT and INTC |
+| `asset-pick-3` | direct | 11 / 0 / 0 | 10 / 1 | X01 "雪碧" as KO |
+| `asset-pick-3` | whole | 9 / 2 / 0 | 9 / 2 | X01 as KO; X13 as MSFT and INTC |
+
+Not matched through the whole assistant (N09 "英伟达", N19 "英伟达公司"):
+extraction left the asset empty, so nothing was handed over and the asset
+was asked about. X13 is not the pick's doing: extraction split the words
+into two trades, "微软" and "英特尔", each of which is a right pick on its
+own. X21 "狗狗币" was not handed over (a coin the built-in table knows), and
+said to be missing from the ledger. No version passed the practice half,
+so none could be chosen by the rule; the three tie on every count, and the
+first was kept.
+
+The locked half, measured once with `asset-pick-1`, at commit `bd649a2`,
+tree clean, 2026-11-25 18:43 UTC (11 on the list, 11 off it):
+
+| Way | On the list: right / not matched / wrong | Off the list: right / wrong | Wrong |
+| --- | --- | --- | --- |
+| direct | 11 / 0 / 0 (10 handed over, all right; N20 "波卡" found as DOT, not handed over) | 6 / 5 | X02 "雪碧的股票" as PEP; X12 "可口可乐装瓶公司" as KO; X16 "谷歌" as AAPL; X18 "亚马逊" as AAPL; X22 "柚子币" as SOL |
+| whole | 9 / 2 / 0 | 6 / 5 | the same five, each sent |
+
+Not matched through the whole assistant: N10 "英伟达的股票", N22
+"英伟达股票", extraction leaving the asset empty, as on the practice half.
+
+The line of no wrong pick is not met (5 directly, 5 through the whole
+assistant); nine in ten right on the list is (10 of 10). So the assistant
+does not turn the step on (`ASSISTANT_PICKS_ASSETS` in
+`src/ledger_hand/flows/conversation.py` is false): a Chinese name is asked
+about as before, in the words for an asset, and the user answers with the
+code. The checks of the words left over catch a name picked out of a
+longer one, but not a whole name the model maps to a listed company it is
+not ("谷歌" as Apple). Results, in `evals/tool_results/`:
+`run-20261125T182221Z-stock_names-asset-pick-1-direct-practice.jsonl`,
+`run-20261125T182256Z-stock_names-asset-pick-1-whole-practice.jsonl`,
+`run-20261125T183157Z-stock_names-asset-pick-2-direct-practice.jsonl`,
+`run-20261125T183251Z-stock_names-asset-pick-2-whole-practice.jsonl`,
+`run-20261125T183735Z-stock_names-asset-pick-3-direct-practice.jsonl`,
+`run-20261125T183806Z-stock_names-asset-pick-3-whole-practice.jsonl`,
+`run-20261125T184313Z-stock_names-asset-pick-1-direct-locked.jsonl`,
+`run-20261125T184335Z-stock_names-asset-pick-1-whole-locked.jsonl`.

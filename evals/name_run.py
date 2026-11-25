@@ -380,7 +380,9 @@ def main(arguments: Sequence[str] = (), *, out: TextIO = sys.stdout) -> int:
     except (SettingsError, ValueError) as error:
         print(f"cannot start: {error}", file=out)
         return 2
+    # The step measured is off on the assistant; the whole measure turns it on.
     conversation.ASSISTANT_PICK_PROMPT = prompt
+    conversation.ASSISTANT_PICKS_ASSETS = True
     measure = _measure_for(
         direct=options.direct, backend=backend, prompt=prompt, steps=steps, tuning=tuning
     )

@@ -552,13 +552,18 @@ does not reach it yet (the third part of batch 68). What it does not do:
   lacks ("TSLA", "狗狗币") is not sent, with the word the user said, and the
   user adds it in the ledger first. No coin is confirmed on the spot, as
   the Record page lets one be.
-- **A share's Chinese name is matched by the model, and said only in the
-  reply.** A name of an asset the ledger's list does not hold as it is
-  ("微软的股票") is handed to the model with the list, and the program
-  takes the code it picks only after its checks (see
-  `extraction/asset_picking.py`). The reply says what was taken and that
-  the model matched it; the proposal in the ledger carries no mark of it,
-  so look at the asset before confirming.
+- **A share's Chinese name is not matched; the user answers with the
+  code.** A name of an asset the ledger's list does not hold as it is
+  ("微软的股票", "英特尔") is asked about ("which asset was it?"), and the
+  user answers "MSFT". The step that hands such a name to the model to
+  pick from the list (`extraction/asset_picking.py`) is off
+  (`ASSISTANT_PICKS_ASSETS`): measured on the names set on 2026-11-25,
+  each of three prompt versions picked a listed asset for names the
+  ledger lacks ("雪碧" as PepsiCo or Coca-Cola, "谷歌" and "亚马逊" as
+  Apple, "柚子币" as SOL, "可口可乐装瓶公司" as Coca-Cola), and the whole
+  assistant sent two shares for "2股微软和英特尔"; the checks of the words
+  left over cannot catch a name picked whole. Turned on, a pick is said
+  only in the reply; the proposal carries no mark of it.
 - **Answering "which asset" with a Chinese name is not understood.** Once
   the program asks which asset a trade was, the answer is read as before:
   answer with the asset's code as the ledger lists it ("MSFT"); "微软" is

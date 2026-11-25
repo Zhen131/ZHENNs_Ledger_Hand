@@ -11,11 +11,20 @@ from __future__ import annotations
 import io
 import json
 
+import pytest
+
+from ledger_hand.flows import conversation
 from scripts import try_assistant
 from tests.fakes.routed_model import RoutedModel
 from tests.fakes.scripted_model import Step
 from tests.flows.scripted_flow import copied, screened, table
 from tests.flows.test_conversation_asset_pick import RECORD, row_of, said_as
+
+
+@pytest.fixture(autouse=True)
+def _picking_on(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The step is off on the assistant; these tests turn it on to try it."""
+    monkeypatch.setattr(conversation, "ASSISTANT_PICKS_ASSETS", True)
 
 
 def run(words: list[str], coin: str, picks: list[Step], answers: list[Step] = ()) -> str:  # type: ignore[assignment]

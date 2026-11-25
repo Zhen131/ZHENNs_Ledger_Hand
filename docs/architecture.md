@@ -899,7 +899,7 @@ starts (`recording.start`, `hold_other_unit`, which only the assistant
 turns on), asked nothing about and left out, its reply saying the number
 read and the unit; the Record page keeps the number and only reminds.
 The name of an asset that the ledger's table does not find, and that
-cannot be written as a code ("微软的股票"), is handed to the model before
+cannot be written as a code ("微软的股票"), can be handed to the model before
 any question, with the list of the assets that can be traded, to pick one
 or none (`recording.start`, `pick_assets`, which only the assistant turns
 on; `extraction/asset_picking.py`, prompt named in `flows/conversation.py`,
@@ -909,6 +909,9 @@ words picked out were said, and nothing but filler words ("的", "股票",
 "公司" ...) is left around them; otherwise the trade is asked about as
 before. What was taken is said in the reply that begins the recording and
 in the one that ends it, as the model's match (`record_words.PICKED_WORDS`).
+The assistant keeps this step off (`ASSISTANT_PICKS_ASSETS`), since on the
+names set every prompt version picked listed assets for names the ledger
+lacks (`evals/RESULTS.md`); such a name is asked about instead.
 When a proposal was sent, turned down, or nothing was sent, the reply
 also says each reminder of extraction whose kind is on
 `record_words.SPOKEN_REMINDERS`, in the Record page's own words
@@ -1012,9 +1015,9 @@ never "币". The labels, the facts handed to the model that words the
 question, the program's own sentences, the reasons a trade is not sent and
 the reminders all follow it, and a sentence of the model's that calls a
 share a coin is not used. With the built-in table every word stays as it
-was. Recording through the assistant also hands a name the table does not
-find to the model, to pick from the ledger's list (see "The assistant");
-asking, changing and deleting do not. The assistant also judges and
+was. Recording through the assistant can also hand a name the table does
+not find to the model, to pick from the ledger's list (see "The
+assistant"; off for now); asking, changing and deleting do not. The assistant also judges and
 extracts with prompt versions of its own (`screen-2`, `first-3`, named in
 `flows/conversation.py`), handed to `recording.start`; a caller that names
 none gets the first versions, as before.

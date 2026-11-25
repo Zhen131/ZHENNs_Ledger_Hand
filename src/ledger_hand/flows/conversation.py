@@ -50,10 +50,12 @@ prices trades in. A trade whose quantity was said in a unit that is not
 the asset traded ("25U" of ETH) is held back at the start, asked nothing
 about and not sent; the reply says why (``recording.held_other_unit``).
 The name of an asset the table does not find, and that cannot be written
-as a code ("微软"), is first handed to the model to pick from the
-ledger's list (``recording.start``, ``pick_assets``); an asset taken is
-said in the reply that begins the recording and in the one that ends it,
-with that the model matched it (``record_words``).
+as a code ("微软"), can be handed to the model to pick from the ledger's
+list (``recording.start``, ``pick_assets``); an asset taken is said in the
+reply that begins the recording and in the one that ends it, with that the
+model matched it (``record_words``). It is off (``ASSISTANT_PICKS_ASSETS``):
+measured, it picked listed assets for names the ledger lacks. Such a name
+is asked about, and the question says to add the asset first.
 The recording flow is handed no book of its own: what the assistant
 records goes to the ledger. So there is no reminder that the same words
 were saved before, and a coin the user confirms is known for that passage
@@ -88,8 +90,8 @@ This module reads no clock, no zone and no settings: all are handed in.
 
 Names defined here: ``Route``, ``WordsBy``, ``AssistantChat``, ``Said``,
 ``ScreenshotText``, ``say``, ``say_from_reading``,
-``ASSISTANT_SCREEN_PROMPT``, ``ASSISTANT_EXTRACT_PROMPT`` and
-``ASSISTANT_PICK_PROMPT``.
+``ASSISTANT_SCREEN_PROMPT``, ``ASSISTANT_EXTRACT_PROMPT``,
+``ASSISTANT_PICK_PROMPT`` and ``ASSISTANT_PICKS_ASSETS``.
 """
 
 from __future__ import annotations
@@ -134,8 +136,14 @@ from ledger_hand.ports import LedgerError, LedgerPort, Message, ModelPort, Role,
 ASSISTANT_SCREEN_PROMPT = SCREEN_PROMPT_2
 ASSISTANT_EXTRACT_PROMPT = FIRST_PROMPT_3
 # The prompt version that picks, from the ledger's list, the asset a name not
-# found names; the one measured best on the practice half of the names set.
+# found names. The three versions measured on the practice half of the names
+# set tied, so the first is kept.
 ASSISTANT_PICK_PROMPT = ASSET_PICK_PROMPT
+# Whether the assistant hands such a name to the model at all: off. Measured
+# on 2026-11-25, every version picked a listed asset for some name the
+# ledger lacks ("谷歌" as AAPL, "柚子币" as SOL), so a wrong asset would be
+# sent; the step stays in the code, off, until a way passes the names set.
+ASSISTANT_PICKS_ASSETS = False
 
 # After a takeover, only this ending means it could not be done at all.
 _NOT_A_TRADE = frozenset({RecordEnding.NO_TRADE})
@@ -376,7 +384,7 @@ def _start(said: str, around: _Around, table: AssetTable, shot: ScreenshotText |
         "screen_prompt": ASSISTANT_SCREEN_PROMPT,
         "extract_prompt": ASSISTANT_EXTRACT_PROMPT,
         "hold_other_unit": True,
-        "pick_assets": True,
+        "pick_assets": ASSISTANT_PICKS_ASSETS,
         "pick_prompt": ASSISTANT_PICK_PROMPT,
     }
     if shot is None:

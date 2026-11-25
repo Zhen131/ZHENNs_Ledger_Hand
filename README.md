@@ -651,20 +651,25 @@ exchange, which the assistant leaves to the ledger. The Record page keeps
 the built-in coins and USDT.
 
 A share or a coin said by a name the ledger's list does not hold as it is
-("微软", "微软的股票", "Coca Cola") is handed to the model, with the
-ledger's list of the assets that can be traded (each its code, name and
-kind), to pick one or none; the model sees only those words and the list.
+("微软", "微软的股票", "Coca Cola") is asked about today: "The ledger lists
+no asset by that name; which asset was it?", with a note to answer with
+the code ("MSFT") or to add the asset in the ledger first. A step that
+hands such a name to the model to pick from the ledger's list is in the
+code but off (`ASSISTANT_PICKS_ASSETS` in `flows/conversation.py`): on the
+names set, every prompt version tried picked a listed asset for some name
+the ledger lacks ("谷歌" as AAPL, "柚子币" as SOL), which would send a wrong
+asset; see `evals/RESULTS.md`. Turned on, it works as follows. The model
+is handed only the words and the ledger's list of the assets that can be
+traded (each its code, name and kind), to pick one or none.
 The program takes the code only when it is on the list, the words the
 model picked out were said, and nothing is left around them but words
 such as "的", "股票" or "公司": "以太坊经典" read as "以太坊" is not taken.
-The reply then says, when recording begins and once it ends, what was
-taken and that the model matched it, for example `Took "微软" as MSFT
+The reply would then say, when recording begins and once it ends, what
+was taken and that the model matched it, for example `Took "微软" as MSFT
 (Microsoft) from the ledger's list of assets. The model matched it, not
 the program, so please check it before you confirm.` A name the model
-does not pick, or whose pick the program does not take, is asked about
-("The ledger lists no asset by that name; which asset was it?"): answer
-with the code, or add the asset in the ledger first. With the ledger's
-own list, a question calls a share a share, a coin a coin, and an asset
+does not pick, or whose pick the program does not take, is asked about as
+above. With the ledger's own list, a question calls a share a share, a coin a coin, and an asset
 not yet known an asset. A name that can be written as a code ("TSLA") is
 never handed over, nor a coin the built-in table knows that the ledger
 lacks ("狗狗币").
@@ -717,7 +722,8 @@ because its step went to recording. After a read tool it prints the
 table, header first, as the program laid it out. When a trade was recorded, it prints
 the recording's calls to the model and each trade sent, as the proposal
 holds it. When recording begins it also prints one line for each name of
-an asset handed to the model to pick from the ledger's list: `asset
+an asset handed to the model to pick from the ledger's list (none while
+the step is off): `asset
 picked: "微软的股票" -> MSFT (the model picked out "微软")`, or `asset not
 picked: "特斯拉" (the model said the list does not hold it)`. A change or
 a deletion prints its list, question or table in the program's words. Then one line, from the program, on what reached the ledger

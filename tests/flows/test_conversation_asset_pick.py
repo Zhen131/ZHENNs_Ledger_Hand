@@ -22,7 +22,7 @@ from ledger_hand.core.ledger_records import Asset, AssetKind, Pricing
 from ledger_hand.core.ledger_table import table_of
 from ledger_hand.extraction.asset_picking import MOST_LISTED, PickMiss
 from ledger_hand.extraction.picture_reading import PictureRead
-from ledger_hand.flows import recording
+from ledger_hand.flows import conversation, recording
 from ledger_hand.flows.conversation import (
     AssistantChat,
     Said,
@@ -46,6 +46,12 @@ from tests.flows.scripted_flow import copied, row, screened, table
 RECORD = ToolReply(
     text="", calls=(ToolCall(name="propose_trade_add", arguments={}),), record=scripted_record()
 )
+
+
+@pytest.fixture(autouse=True)
+def _picking_on(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The step is off on the assistant; these tests turn it on to try it."""
+    monkeypatch.setattr(conversation, "ASSISTANT_PICKS_ASSETS", True)
 
 
 def said_as(coin: str) -> str:

@@ -19,6 +19,9 @@ import hashlib
 import shutil
 from pathlib import Path
 
+import pytest
+
+from ledger_hand.flows import conversation
 from ledger_hand.flows.assistant_record import (
     RECORD_VERSION,
     RecordRead,
@@ -35,6 +38,12 @@ EARLIER = [
 ]
 # The digest of the file as committed. A golden sample is never changed.
 GOLDEN_SHA256 = "06065e7727572dd7adc8a129b73d30df522783748dd8f429777170661ab8f438"
+
+
+@pytest.fixture(autouse=True)
+def _picking_on(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The step is off on the assistant; these tests turn it on to try it."""
+    monkeypatch.setattr(conversation, "ASSISTANT_PICKS_ASSETS", True)
 
 
 def _read(place: Path) -> RecordRead:
