@@ -9753,3 +9753,19 @@ The other two measures at `1a03c3f`: first step right on 19 of 19
 on 23 of 27, nothing narrower or off, Q6, A13, A15 and A18 not right, as
 at `4b56c48` (`run-20261125T171041Z-asks-assistant-4.jsonl`). No sentence
 of either went another way in its verdict.
+
+### The first rework: a coin's balance, and a figure the user said
+
+At `15e001c`, a balance attached to an asset that is not cash ("我的 ETH
+余额还有多少个", "What's my BTC balance?") is a holding again, not cash, and
+the check of the model's own words lets through a figure beside a money
+that the user said in the chat. `evals/sets/cash.json` gained three
+sentences that must be caught (A1 to A3, a balance asked whether it is
+enough to buy) and eight that must pass (B1 to B8, a coin's balance); C1
+to C8 and P1 to P16 did not change. Same model, server and parameters.
+
+- `run-20261125T180022Z-cash-assistant-4.jsonl`: C1 to C8 and A1 to A3
+  caught; P1 to P16 each went the same way as before the catch
+  (`--compare` with `run-20261125T165944Z`); B1 to B8 all went to the
+  holdings, none caught.
+- First step right on 19 of 19 (`run-20261125T180454Z-tools-assistant-4.jsonl`).
