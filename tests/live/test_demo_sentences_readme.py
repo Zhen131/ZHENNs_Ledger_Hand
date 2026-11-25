@@ -7,7 +7,9 @@ says what it gets. ``tests/live/demo_sentences.json`` holds the same
 sentences, with what the live check holds each to and the words the README
 writes under it. The test reads the section and checks that it lists
 exactly the file's sentences, in the file's order, each with the file's
-words under it, so the two cannot part ways.
+words under it, and that no other sentence stands anywhere in the section,
+as a numbered line, a list item, a code span or inside a command, so the
+two cannot part ways.
 """
 
 from __future__ import annotations
@@ -65,6 +67,34 @@ def test_under_each_sentence_the_readme_says_what_the_file_says_it_gets() -> Non
 def test_the_items_are_numbered_from_one_without_a_gap() -> None:
     numbers = [int(match[1]) for line in section() if (match := ITEM.match(line))]
     assert numbers == list(range(1, len(in_the_file()) + 1))
+
+
+def test_every_numbered_line_of_the_section_is_a_sentence_in_its_code_span() -> None:
+    numbered = [line for line in section() if re.match(r"^\s*\d+[.)]", line)]
+    assert all(ITEM.match(line) for line in numbered), numbered
+    assert len(numbered) == len(in_the_file())
+
+
+def test_the_section_has_no_other_list() -> None:
+    assert not [line for line in section() if re.match(r"^\s*[-*+] ", line)]
+
+
+def test_every_sentence_in_a_code_span_or_a_command_is_one_of_the_files() -> None:
+    """A code span with a space in it is a sentence, unless it is a command.
+
+    The sentences must be the file's, each once, in its order; a sentence
+    quoted inside a command must be one of the file's too. So a sentence
+    added anywhere in the section, in any form, is caught.
+    """
+    text = "\n".join(section())
+    spans = re.findall(r"`([^`]+)`", text)
+    commands = [span for span in spans if span.startswith((".venv/", "scripts/"))]
+    sentences = [span for span in spans if " " in span and span not in commands]
+    said = [said for said, _ in in_the_file()]
+    assert sentences == said
+    for command in commands:
+        for quoted in re.findall(r'"([^"]+)"', command):
+            assert quoted in said, quoted
 
 
 def test_the_file_holds_between_eight_and_ten_sentences_of_every_kind() -> None:
