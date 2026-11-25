@@ -25,7 +25,10 @@ found: the header first (the days, the asset and the side it was looked up
 with, and anything the model asked for that was not used), then one line a
 row, every figure as the ledger gave it. When a trade is
 recorded, it prints how many times the recording asked the model (counted
-apart from the steps), the table of the trades sent, laid out from the
+apart from the steps), then, when recording began, one line for each name
+of an asset handed to the model to pick from the ledger's list ("asset
+picked: ..." with the code taken, or "asset not picked: ..." with why),
+the table of the trades sent, laid out from the
 proposal itself, and one line from the program saying what reached the
 ledger ("sent to the ledger: nothing" when nothing did); then who wrote
 the last words ("words by: the model", or the program, and when the
@@ -86,6 +89,7 @@ from ledger_hand.core.followup import AskCell, ConfirmCoin
 from ledger_hand.core.ledger_records import TradeFacts, TradeFilter
 from ledger_hand.core.proposals import ProposalStatus
 from ledger_hand.core.zones import is_zone_name
+from ledger_hand.extraction.asset_picking import AssetPick
 from ledger_hand.flows.conversation import AssistantChat, Route, Said, say
 from ledger_hand.flows.progress import DEFAULT_TUNING, Asked, Tuning
 from ledger_hand.flows.recording import tuning_from
@@ -245,6 +249,9 @@ def show_said(words: str, said: Said, out: TextIO) -> None:
             "apart from the steps",
             file=out,
         )
+        if said.route is not Route.ANSWER:
+            for found in recorded.progress.picks:
+                print(f"  {pick_line(found)}", file=out)
         for number, trade in zip(recorded.numbers, recorded.trades, strict=True):
             print(f"  trade {number}: {trade_line(trade)}", file=out)
     failure = turn.failure if turn is not None else None
@@ -256,6 +263,13 @@ def show_said(words: str, said: Said, out: TextIO) -> None:
         failure = said.edited.failure
         print(f"failure: {type(failure).__name__}: {failure}", file=out)
     _show_end(said, out)
+
+
+def pick_line(found: AssetPick) -> str:
+    """One name handed to the model to pick an asset: what was taken, or why nothing was."""
+    if found.code is not None:
+        return f'asset picked: "{found.word}" -> {found.code} (the model picked out "{found.said}")'
+    return f'asset not picked: "{found.word}" ({found.miss.value if found.miss else "no reason"})'
 
 
 def _show_end(said: Said, out: TextIO) -> None:
