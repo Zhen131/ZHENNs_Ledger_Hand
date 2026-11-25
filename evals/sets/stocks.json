@@ -132,8 +132,21 @@
       "kind": "dao",
       "text": "今天15:30在IBKR买了2股MSFT，每股410刀，手续费1刀",
       "gold": {
-        "expect": "ask",
-        "ask": "pricing currency"
+        "expect": "send",
+        "trades": [
+          {
+            "side": "buy",
+            "asset": "MSFT",
+            "quantity": "2",
+            "price": "410",
+            "total": "820",
+            "quote": "USD",
+            "fee": "1",
+            "fee_asset": "USD",
+            "occurred": "2026-11-24T15:30:00+01:00",
+            "platform": "IBKR"
+          }
+        ]
       }
     },
     {
