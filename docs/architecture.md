@@ -38,7 +38,7 @@ scripts/                  scripts outside the package                           
     try_extraction.py     try extraction by hand with the real model                  (exists)
     try_screenshot.py     try a screenshot by hand: the text read, then the drafts    (exists)
     try_assistant.py      try the assistant by hand: every step, with the fake ledger (exists)
-data/                     run-time output: the book and the export files; never in Git
+data/                     run-time output: the book, the export files and the assistant's record; never in Git
 src/ledger_hand/
     core/                 core rules: no network, database or user interface          (exists)
         ledger_limits.py      the ledger's limits, and its way of measuring them      (exists)
@@ -241,6 +241,8 @@ evals/                    prompt experiments: test sentences, scoring, runner, r
     tool_run.py           the runner of that measure                               (exists)
     ask_set.py            the questions about the ledger; one answer judged against the gold (exists)
     ask_run.py            the runner of that measure, each question to the end    (exists)
+    edit_set.py           the sentences that change or delete a trade; one judged against the gold (exists)
+    edit_run.py           the runner of that measure, answering the program's question with the gold's words (exists)
     stock_set.py          the sentences recording a share bought with dollars; judged by code (exists)
     stock_run.py          the runner of that measure, each sentence said once     (exists)
     judged_run.py         the extraction sets through the start of recording, judging and all (exists)
@@ -257,7 +259,7 @@ tests/                    mirrors src; also holds the guardrails, fakes and gold
     ledger/               tests of the ledger port against every plug                 (exists)
     assistant/            tests of the tools, the judging, the prompt and the results (exists)
     storage/              tests of the storage port against every plug; the golden book (exists)
-    live/                 the live check against a real model, run by hand only       (exists)
+    live/                 the live check against a real model, run by hand only; the sentences for a demo (exists)
     extraction/           tests of extraction against the scripted model              (exists)
     asking/               tests of wording a question                                 (exists)
     flows/                tests of recording a passage, of the assistant, and of their scripts; the golden record (exists)
