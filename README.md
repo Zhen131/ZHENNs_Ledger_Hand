@@ -15,8 +15,15 @@ pictures reads the order on it out as text, which you check and can change,
 add a note to if you like, and send on the way a typed passage goes. The
 language model runs on this machine by default, so nothing typed leaves it;
 a cloud service can be chosen instead (see "Switching to a cloud model").
-Ledger Hand never writes into the ledger application itself; it only hands
-over a file.
+The Record page never writes into the ledger application itself; it only
+hands over a file. A third page, Assistant, is a chat that records, asks
+about, changes and deletes trades through the ledger's tools (see "The
+assistant page"). It only proposes: a proposal waits in the ledger until
+it is confirmed there, and once the real ledger is connected that is done
+on the ledger's own page. The real ledger is not connected yet: today the
+assistant reaches a demo ledger, an invented book in memory, and
+confirming is tried with `scripts/try_assistant.py --save` or with the
+demo buttons on the Assistant page, which work on the demo ledger alone.
 
 **Do not import an export file into the ledger yet.** The ledger's present
 import replaces the whole ledger with what the file holds, which would leave
@@ -97,8 +104,26 @@ does not do yet:
   `qwen3-vl:8b` gave an empty reply on every sentence of the debug and the
   voice set (`evals/RESULTS.md`, "2026-10-19: the thinking switch,
   `qwen3-vl:8b`").
+- **The assistant.** The Assistant page and `scripts/try_assistant.py`
+  hand the model eight tools: it picks one, and the program judges the
+  call, asks the ledger, lays out the tables, records through the same
+  recording flow and finds the trade to change. It records a trade
+  (shares priced in US dollars among them), answers four kinds of
+  question, changes or deletes one trade, and records a screenshot's text;
+  every proposal waits in the ledger to be confirmed. Behind it is the
+  demo ledger, never the real one. Measured with `qwen2.5:7b` at the latest
+  runs: the first step right on 19 of 19 sentences, 23 of 27 questions
+  looked up right, 13 of 17 changes and deletions done right with none
+  done wrong, and 16 of 18 sentences recording a share done right with
+  none recorded wrong (see "Sentences for a demo" and
+  `docs/project-report.md`, section 6).
 - **Not done yet.** Measuring how well real screenshots are read: none has
-  been read yet. Known limits are in `docs/known-gaps.md`.
+  been read yet. Connecting the assistant to the real ledger's tools: it
+  reaches the demo ledger only. Tuning the assistant on sentences the
+  owner says in their own way, and judging on them whether it picks the
+  right kind of work for 95% of new sentences: those sentences have not
+  been written, so that line is not measured. Known limits are in
+  `docs/known-gaps.md`.
 
 How each part works is described in "How it works, part by part" below.
 
@@ -224,6 +249,12 @@ it, the chat says why in one sentence (see "What the page says when
 something fails"), nothing of it is kept, and the same file can be uploaded
 again.
 
+With the longest reply at its default, 1,024 tokens, the vision model read
+nothing off a clear, invented picture of an order; at 4,096 it read it.
+Before recording from a screenshot, on this page or on the Assistant page,
+set `LEDGER_HAND_MODEL_MAX_REPLY_TOKENS` to 4096 on the Settings page (see
+`docs/known-gaps.md`, "A screenshot may need a longer reply to be read").
+
 The browser offers every kind of file, and the upload box shows
 Streamlit's own limit of 200 MB per file; the program's checks, of what the
 file holds and of its own limit, are the ones that answer. The picture is
@@ -285,6 +316,24 @@ sentence in the box under the chat: ask about your trades ("我现在持有什�
 "10月6号我买了什么"), record one ("今天15:30在IBKR买了2股MSFT，410美元一股，
 手续费1美元") or change or delete one ("把10月6号那笔的手续费改成0.000009").
 
+It does four kinds of thing, in Chinese or English; an English sentence
+for each, from "Sentences for a demo" below:
+
+- record a trade: "Bought 2 MSFT at 410 USD each on IBKR on 18 November
+  2026 at 15:30, fee 1 USD.";
+- ask about the ledger: "Which coins and shares am I holding at the
+  moment?";
+- change or delete one trade: "Delete the MSFT sell on 12 November 2026.";
+- record from a screenshot of an order, uploaded under the chat (below).
+
+It does not place orders, give advice on buying or selling, or forecast a
+price; asked to, the model answers in words and nothing is sent. It records no
+exchange of one money for another ("用美元买了500 USDT"): that is left to
+the ledger. It answers with the model `LEDGER_HAND_MODEL_NAME` names
+(`qwen2.5:7b` by default), changed in the model field of the Settings
+page for the browser tab, or in the environment before the program
+starts; it runs on the local plug only.
+
 Under each reply the page shows who wrote it (the model, the program's own
 words, or the recording's question), any failure in one plain sentence, the
 tables the program lays out (what the ledger found, under the days, the
@@ -301,8 +350,9 @@ answer, as if typed.
 
 On the right, one card for each proposal sent in this chat says where it
 stands, asked of the ledger each time the page is drawn; Refresh asks
-again. A proposal is confirmed on the ledger's own page. With the demo
-ledger, and only then, each waiting card also has "Save in the demo
+again. Once the real ledger is connected, a proposal is confirmed on the
+ledger's own page; the demo ledger has none. With the demo ledger, and
+only then, each waiting card also has "Save in the demo
 ledger" and "Reject in the demo ledger", which do there what you would do
 on the ledger's page, so the whole path can be tried. New chat forgets the
 chat and its cards; a question left unanswered is dropped. The chat lasts
@@ -715,6 +765,56 @@ written (nothing was marked); `4` the book failed (the message gives its
 kind), or the export file was written but its trades could not be marked,
 so that the next export writes them again.
 
+## Sentences for a demo
+
+These sentences show the assistant at work, one of each kind, on the
+Assistant page or with `scripts/try_assistant.py`. Each is said on its own,
+in a new chat, to the demo ledger as it starts; under each is what it gets.
+Every figure, platform and date is invented. None names a time relative to
+now ("yesterday", "this month"): the try-out script takes the invented
+book's moment, 24 November 2026, 23:55 in Budapest, as now, and the page
+the machine's clock, so only dates and clock times written in full give
+the same result in both. A question asked in English with a time in it is
+often not looked up today (the model writes the time in Chinese; see
+`docs/known-gaps.md`), so in a demo, say the questions as they are listed
+here.
+
+They were run at temperature 0, five runs on one machine, with
+`qwen2.5:7b`, and each got what is written under it every time. That shows
+the same sentence comes out the same again; it does not show that other
+words for the same thing would. The live tier says each of them once more
+(`tests/live/test_live_demo_sentences.py`, against
+`tests/live/demo_sentences.json`), and a quick test keeps this list and
+that file the same, word for word.
+
+1. `Bought 0.004 BTC at 63250 USDT on OKX on 20 November 2026 at 14:20, fee 0.25 USDT.`
+   Gets: One trade sent to the ledger, waiting there: a buy of 0.004 BTC at 63250 USDT, total 253 USDT, fee 0.25 USDT, on 20 November 2026 at 14:20, OKX. No reminder line.
+2. `Bought 2 MSFT at 410 USD each on IBKR on 18 November 2026 at 15:30, fee 1 USD.`
+   Gets: One trade sent to the ledger, waiting there: a buy of 2 MSFT at 410 USD, total 820 USD, fee 1 USD, on 18 November 2026 at 15:30, IBKR. No reminder line.
+3. `Sold 0.1 ETH at 2690 USDT on Binance on 22 November 2026 at 17:05, fee 0.27 USDT.`
+   Gets: One trade sent to the ledger, waiting there: a sell of 0.1 ETH at 2690 USDT, total 269 USDT, fee 0.27 USDT, on 22 November 2026 at 17:05, Binance. No reminder line.
+4. `Bought 30 USDT of ADA at 0.31 on OKX on 21 November 2026 at 16:40, fee 0.`
+   Gets: Nothing sent: the money was said where the quantity goes, and the reply says so and asks for the trade again with the money as the total. No reminder line.
+5. `Show me my MSFT trades.`
+   Gets: A table of every MSFT trade, all time, buys and sells: 2 rows, the buy of 2 October 2026 and the sell of 12 November 2026. The header also says it was not narrowed to buys: the model asks for buys, and the program widens it, since the question names no side.
+6. `Which assets does my ledger have?`
+   Gets: A table of the ledger's assets: 6 rows, USDT, USD, BTC, ETH, ADA and MSFT.
+7. `Which coins and shares am I holding at the moment?`
+   Gets: A table of what is held: 4 rows, ADA, BTC, ETH and MSFT, each with its cost and its profit or loss on paper (not worked out for ADA, which has no market price).
+8. `Change the platform of the ADA buy on 25 September 2026 to Binance.`
+   Gets: A change sent to the ledger, waiting there: the ADA buy of 25 September 2026, its platform from OKX to Binance, shown before and after.
+9. `Delete the MSFT sell on 12 November 2026.`
+   Gets: A deletion sent to the ledger, waiting there: the sell of 1 MSFT on 12 November 2026.
+
+With the try-out script, `--save` before a sentence saves what it sent in
+the demo ledger, as confirming would on the ledger's page:
+`.venv/bin/python scripts/try_assistant.py --save "Delete the MSFT sell on 12 November 2026."`.
+On the page, "Save in the demo ledger" on the proposal's card does the same.
+
+No screenshot is among them: the repository holds no picture of an order.
+To show recording from a screenshot, first set the longest reply to 4096
+on the Settings page (see "Recording from a screenshot").
+
 ## Running the checks
 
 ```sh
@@ -872,6 +972,12 @@ the live tier: every other live check talks to the address they name. When the s
 message that starts with `unreachable`.
 The first call after the model has been idle includes loading it into
 memory, which takes several seconds more than the calls after it.
+
+The assistant is checked there too, with the demo ledger and the invented
+book's moment: what is held now, one trade told in full, one day's trades,
+and each of the sentences for a demo (`tests/live/test_live_demo_sentences.py`,
+see "Sentences for a demo"), each held to what `tests/live/demo_sentences.json`
+says it must come to. The sentences take about a minute in all.
 
 To see what happens when no model server is running, do not stop the one you
 have: point the address at a port nothing listens on instead, for example
@@ -1630,11 +1736,11 @@ check and the hygiene scan).
 | `tests/` | The tests. `tests/core/`, `tests/export/`, `tests/llm/`, `tests/extraction/`, `tests/asking/`, `tests/storage/` and `tests/flows/` have one test module per module, or more; `tests/llm/` also has a fake Ollama server, the pieces of a fake cloud service and a batch of attacks on each plug, and `tests/extraction/` a batch of attacks on extraction. `tests/storage/` runs the same tests of the storage port against the SQLite plug and the in-memory stand-in, and holds the golden book. `tests/flows/` also tests the scripts for recording trades and for trying a screenshot. `tests/ui/` runs the pages headless with Streamlit's own test runner, against fake models and a book in a temporary folder (Export, the settings page, a screenshot uploaded, every failure, the reminders), checks the plain sentence for every failure, and checks the settings file. `tests/evals/` tests the experiment kit and the test sentences. |
 | `tests/conftest.py` | Stops every test that is not marked `live_model` from reaching the network. |
 | `tests/fakes/` | Stand-ins for the outside world: a scripted model that plays back replies and errors in order and records what it was asked, a model that answers each kind of call (judging, extraction, wording a question, reading an answer, reading a screenshot) from its own script, and a book kept in memory that can be made to fail. |
-| `tests/live/` | The live check, which talks to a real model, the small schema check it uses, the smoke test of extraction, the check of judging the debug set, the smoke test of the page, the check of the settings page against an address nobody listens on, one call of the cloud plug to the local Ollama's OpenAI-style endpoint, a model the server does not have asked for through both plugs, a run that names a model the server does not have, a plain picture read by the vision model, and thinking off taken by the server. |
+| `tests/live/` | The live check, which talks to a real model, the small schema check it uses, the smoke test of extraction, the check of judging the debug set, the smoke test of the page, the check of the settings page against an address nobody listens on, one call of the cloud plug to the local Ollama's OpenAI-style endpoint, a model the server does not have asked for through both plugs, a run that names a model the server does not have, a plain picture read by the vision model, and thinking off taken by the server; the assistant's checks (`test_live_assistant.py`, `test_live_conversation.py`) and the sentences for a demo (`test_live_demo_sentences.py`, with `demo_sentences.json`); and one test that needs no model, run by the quick tier, which keeps the README's sentences for a demo and that file the same (`test_demo_sentences_readme.py`). |
 | `tests/export/samples.py`, `tests/export/attack.py`, `tests/export/golden/` | Invented trades to export, batches of edge cases made to find where this program and the ledger part ways, both shared with the ledger tier, and the golden sample. A golden sample is never edited once committed; a new format version gets one of its own. |
 | `tests/guardrails/` | The layering check and the hygiene scan, the tests that prove they catch what they should, and the two gate tests that apply them to this repository. |
 | `scripts/check.sh` | One command that runs all checks. |
-| `evals/` | The experiment kit, outside the package: the test sentences and their gold answers (`sets/debug.json`, `sets/final.json`, read by `gold.py`), what they cover (`coverage.py`), the small set of hard ways of writing a number (`sets/writings.json`, described by `writings.py`), the ten passages in the owner's own voice (`sets/voice.json`, described by `voice.py`), judging one field (`cells.py`), pairing drafts with gold trades (`matching.py`), the scores (`scoring.py`), the results file (`records.py`), the summary and its tables (`tables.py`), the runner (`run.py`), the summary worked out again (`summarize.py`), three more counts beside the summary (`extra_counts.py`), prompt versions side by side with the rule that picks one (`compare.py`), prompt versions side by side on each set with the rule that picks a candidate over `first` (`compare_sets.py`), two runs compared sentence by sentence (`same_replies.py`), the two ways of reading a passage (`methods.py`) side by side with the rule that picks one (`compare_methods.py`), two models side by side on one set (`compare_models.py`), and the record of every reply read for a passage (`reads.py`), and the assistant's measures: its first step (`tool_set.py`, `tool_run.py`), asking the ledger (`ask_set.py`, `ask_run.py`) and changing or deleting a trade (`sets/edits.json`, `edit_set.py`, `edit_run.py`). |
+| `evals/` | The experiment kit, outside the package: the test sentences and their gold answers (`sets/debug.json`, `sets/final.json`, read by `gold.py`), what they cover (`coverage.py`), the small set of hard ways of writing a number (`sets/writings.json`, described by `writings.py`), the ten passages in the owner's own voice (`sets/voice.json`, described by `voice.py`), judging one field (`cells.py`), pairing drafts with gold trades (`matching.py`), the scores (`scoring.py`), the results file (`records.py`), the summary and its tables (`tables.py`), the runner (`run.py`), the summary worked out again (`summarize.py`), three more counts beside the summary (`extra_counts.py`), prompt versions side by side with the rule that picks one (`compare.py`), prompt versions side by side on each set with the rule that picks a candidate over `first` (`compare_sets.py`), two runs compared sentence by sentence (`same_replies.py`), the two ways of reading a passage (`methods.py`) side by side with the rule that picks one (`compare_methods.py`), two models side by side on one set (`compare_models.py`), and the record of every reply read for a passage (`reads.py`), and the assistant's measures: its first step (`tool_set.py`, `tool_run.py`), asking the ledger (`ask_set.py`, `ask_run.py`), changing or deleting a trade (`sets/edits.json`, `edit_set.py`, `edit_run.py`), recording a share bought with dollars (`sets/stocks.json`, `stock_set.py`, `stock_run.py`), and the extraction sets run through the start of recording, judging and all (`judged_run.py`). |
 | `evals/results/` | One results file per run (`*.jsonl`) and its summary (`*.summary.json`). In Git: all of it is invented data. |
 | `evals/tool_set.py`, `evals/tool_run.py`, `evals/sets/tools.json`, `evals/tool_results/` | The assistant's nineteen sentences, the measure of the model's first step on each, its runner and its results. |
 | `evals/ask_set.py`, `evals/ask_run.py`, `evals/sets/asks.json` | The questions about the ledger with their gold answers, how one answer is judged, and the runner that runs each to the end; its results go to `evals/tool_results/` too. |
