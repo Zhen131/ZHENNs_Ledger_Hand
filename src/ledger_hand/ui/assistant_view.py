@@ -174,7 +174,8 @@ def _tables(said: Said, number: int) -> None:
     recorded = said.recorded
     if recorded is not None and recorded.trades:
         st.caption("The trades in the proposal:")
-        _table(proposed_rows(recorded.numbers, recorded.trades), table_key(number, "proposed"))
+        rows = proposed_rows(recorded.numbers, recorded.trades, recorded.checks)
+        _table(rows, table_key(number, "proposed"))
     edited = said.edited
     if edited is not None and edited.before is not None and edited.sent is not None:
         caption = "Before and after:" if edited.after is not None else "The trade to delete:"

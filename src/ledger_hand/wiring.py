@@ -57,8 +57,19 @@ for the handshake. The token the link and the ledger page share is made
 here, fresh each time (``make_link_token``: 24 random bytes written as
 base64url, 32 characters), and kept only in memory. ``link_ledger`` builds
 the real ledger's plug (``ledger.link_ledger.LinkLedger``) over a started
-link, with the model's name and the machine's date for "today". Nothing on
-any page uses the link yet; the try-out and walk-through scripts do.
+link, with the model's name and the machine's date for "today".
+``link_keeper`` builds the one ``ledger.link_keeper.LinkKeeper`` the
+assistant page shares between its browser tabs: each start builds a fresh
+link with ``ledger_link`` (so a fresh token), and each plug is a
+``link_ledger``. It is stopped when this program leaves (``atexit``); the
+link would leave by itself anyway once its input closes. Without the
+ledger's folder, or with a port that is refused, it is a ``LinkNotSet``
+that says which.
+
+The parts also say which ledger a new tab of the assistant page reaches
+first (``first_ledger``, from ``settings.load_assistant_ledger``); a value
+that is refused leaves the demo ledger first and says why
+(``first_ledger_refused``).
 
 This is the only module of the package that may import ``tzlocal``, and only
 the interface may import this one. It does not draw anything or keep
@@ -66,11 +77,12 @@ anything between uses.
 
 Names defined here: ``Parts``, ``AssemblyProblem``, ``AssemblyError``,
 ``assemble``, ``read_clock``, ``machine_zone``, ``make_link_token``,
-``ledger_link`` and ``link_ledger``.
+``ledger_link``, ``link_ledger``, ``LinkNotSet``, ``NoLink`` and ``link_keeper``.
 """
 
 from __future__ import annotations
 
+import atexit
 import enum
 import secrets
 from collections.abc import Callable, Mapping
@@ -89,12 +101,15 @@ from ledger_hand.flows.uploading import VisionModelCheck, VisionModelPresence
 from ledger_hand.ledger.demo_book import demo_ledger
 from ledger_hand.ledger.link_client import LedgerLink, LinkSetup
 from ledger_hand.ledger.link_failures import LinkToken
-from ledger_hand.ledger.link_ledger import LinkLedger
+from ledger_hand.ledger.link_keeper import LinkKeeper
+from ledger_hand.ledger.link_ledger import LinkLedger, ToolCaller
 from ledger_hand.llm.connect import check_plug, connect_model, connect_vision_model
 from ledger_hand.llm.ollama_identity import ask_identity
 from ledger_hand.ports import LedgerPort, ModelError, ModelErrorKind, ModelPort, StoragePort
 from ledger_hand.settings import (
     DEFAULT_ASSISTANT_STEPS,
+    LEDGER_DIRECTORY_VARIABLE,
+    AssistantLedger,
     DataPlaces,
     LedgerLinkSettings,
     ModelSettings,
@@ -102,6 +117,7 @@ from ledger_hand.settings import (
     SettingsError,
     Variable,
     apply_changes,
+    load_assistant_ledger,
     load_assistant_steps,
     load_data_places,
     load_ledger_link_settings,
@@ -129,7 +145,9 @@ class Parts:
     for parts handed in without one; ``assistant_steps`` is how many times
     the assistant may ask the model in one turn, and ``steps_refused`` why
     that setting was refused, when it was (the assistant page then sends
-    nothing and says why; the other pages do not use it).
+    nothing and says why; the other pages do not use it). ``first_ledger``
+    is which ledger a new tab of the assistant page reaches first, and
+    ``first_ledger_refused`` why the setting was refused, when it was.
     """
 
     model: ModelPort
@@ -146,6 +164,8 @@ class Parts:
     ledger_kind: LedgerKind | None = None
     assistant_steps: int = DEFAULT_ASSISTANT_STEPS
     steps_refused: str | None = None
+    first_ledger: AssistantLedger = AssistantLedger.DEMO
+    first_ledger_refused: str | None = None
 
 
 class AssemblyProblem(enum.Enum):
@@ -187,6 +207,7 @@ def assemble(changes: Mapping[Variable, str] | None = None) -> Parts:
         raise AssemblyError(AssemblyProblem.NO_ZONE_NAME)
     local = settings.plug is Plug.LOCAL
     steps, steps_refused = _steps()
+    first, first_refused = _first_ledger()
     return Parts(
         model=model,
         tuning=tuning_from(settings),
@@ -202,7 +223,17 @@ def assemble(changes: Mapping[Variable, str] | None = None) -> Parts:
         ledger_kind=LedgerKind.DEMO,
         assistant_steps=steps,
         steps_refused=steps_refused,
+        first_ledger=first,
+        first_ledger_refused=first_refused,
     )
+
+
+def _first_ledger() -> tuple[AssistantLedger, str | None]:
+    """Which ledger a new tab reaches first, or the demo ledger and why the setting was refused."""
+    try:
+        return load_assistant_ledger(), None
+    except SettingsError as error:
+        return AssistantLedger.DEMO, str(error)
 
 
 def _steps() -> tuple[int, str | None]:
@@ -280,3 +311,43 @@ def ledger_link(settings: LedgerLinkSettings | None = None) -> LedgerLink | None
             environment=read.environment,
         )
     )
+
+
+class LinkNotSet(enum.Enum):
+    """Why there is no assistant link to start."""
+
+    NO_FOLDER = f"{LEDGER_DIRECTORY_VARIABLE} is not set"
+    SETTING_REFUSED = "a setting of the assistant link was refused"
+
+
+@dataclass(frozen=True)
+class NoLink:
+    """Why there is no assistant link to start, and the settings' own words when one was refused."""
+
+    reason: LinkNotSet
+    detail: str = ""
+
+
+def link_keeper() -> LinkKeeper | NoLink:
+    """The keeper of this program's one assistant link, or why there can be none.
+
+    Build it once for the whole program: its port is fixed.
+    """
+    try:
+        settings = load_ledger_link_settings()
+    except SettingsError as error:
+        return NoLink(LinkNotSet.SETTING_REFUSED, str(error))
+    if settings.directory is None:
+        return NoLink(LinkNotSet.NO_FOLDER)
+
+    def make_link() -> LedgerLink:
+        built = ledger_link(settings)
+        assert built is not None  # the folder was checked just above
+        return built
+
+    def make_plug(caller: ToolCaller, model_name: str) -> LedgerPort:
+        return LinkLedger(caller, model_name=model_name, today=lambda: datetime.now().date())
+
+    keeper = LinkKeeper(make_link, make_plug)
+    atexit.register(keeper.stop)
+    return keeper

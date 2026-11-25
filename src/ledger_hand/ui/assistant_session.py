@@ -13,15 +13,27 @@ open and never on disk (the assistant's record is written apart, by
   record on this machine (``flows.assistant_record``), or a note the page
   said by itself, such as a screenshot read or not read;
 - one card for every proposal sent in this chat (``Card``): its identifier,
-  which exchange sent it and what it holds. Where it stands is not kept:
-  the page asks the ledger each time it is drawn.
+  which exchange sent it and what it holds. With the demo ledger, where it
+  stands is not kept: the page asks the ledger each time it is drawn. With
+  the ledger page, the page asks only when the person presses "Check with
+  the ledger", and keeps what came back (``checked``), since a ledger page
+  left in the background can take most of a minute to answer;
+- which ledger this tab reaches (``ledger_choice``), kept apart from the
+  choice's own control, which Streamlit forgets while another page is
+  shown;
+- whether the token of the assistant link is shown now (``token_shown``),
+  never the token itself, and the last start of the link that failed in
+  this tab (``start_failure``).
 
-``new_chat`` forgets all three. The assistant page's screenshot is kept by
-``session``, at ``session.ASSISTANT_SPOT``.
+``new_chat`` forgets the chat, its exchanges, its cards and what was
+checked. The assistant page's screenshot is kept by ``session``, at
+``session.ASSISTANT_SPOT``.
 
 Names defined here: ``NoteTone``, ``Exchange``, ``Card``, ``chat``,
-``keep_chat``, ``exchanges``, ``add_exchange``, ``cards``, ``add_card`` and
-``new_chat``.
+``keep_chat``, ``exchanges``, ``add_exchange``, ``cards``, ``add_card``,
+``checked``, ``keep_checked``, ``ledger_choice``, ``keep_ledger_choice``,
+``token_shown``, ``show_token``, ``hide_token``, ``start_failure``, ``keep_start_failure``,
+``value``, ``offer_value`` and ``new_chat``.
 """
 
 from __future__ import annotations
@@ -33,10 +45,17 @@ import streamlit as st
 
 from ledger_hand.flows.assistant_record import Kept, NotKept
 from ledger_hand.flows.conversation import AssistantChat, Said
+from ledger_hand.flows.standing import Standing
+from ledger_hand.ledger.link_failures import LedgerLinkError
+from ledger_hand.settings import AssistantLedger
 
 _CHAT_KEY = "ledger_hand.assistant.chat"
 _EXCHANGES_KEY = "ledger_hand.assistant.exchanges"
 _CARDS_KEY = "ledger_hand.assistant.cards"
+_CHECKED_KEY = "ledger_hand.assistant.checked"
+_CHOICE_KEY = "ledger_hand.assistant.ledger_choice"
+_TOKEN_SHOWN_KEY = "ledger_hand.assistant.token_shown"
+_START_FAILURE_KEY = "ledger_hand.assistant.start_failure"
 
 
 class NoteTone(enum.Enum):
@@ -115,8 +134,68 @@ def add_card(card: Card) -> None:
     st.session_state[_CARDS_KEY] = (*cards(), card)
 
 
+def checked() -> dict[str, Standing]:
+    """Where each proposal stood when last checked with the ledger page, by its identifier."""
+    kept = st.session_state.get(_CHECKED_KEY)
+    return dict(kept) if isinstance(kept, dict) else {}
+
+
+def keep_checked(now: Standing) -> None:
+    """Keep ``now`` as where its proposal stood when last checked."""
+    st.session_state[_CHECKED_KEY] = {**checked(), now.proposal: now}
+
+
+def ledger_choice(first: AssistantLedger) -> AssistantLedger:
+    """Which ledger this tab reaches; ``first`` until the person chooses."""
+    kept = st.session_state.get(_CHOICE_KEY)
+    return kept if isinstance(kept, AssistantLedger) else first
+
+
+def keep_ledger_choice(choice: AssistantLedger) -> None:
+    """Keep ``choice`` as the ledger this tab reaches."""
+    st.session_state[_CHOICE_KEY] = choice
+
+
+def token_shown() -> bool:
+    """Whether the link's token is shown now in this tab."""
+    return st.session_state.get(_TOKEN_SHOWN_KEY) is True
+
+
+def show_token() -> None:
+    """Show the link's token in this tab from now on; only that it is shown is kept."""
+    st.session_state[_TOKEN_SHOWN_KEY] = True
+
+
+def hide_token() -> None:
+    """Stop showing the link's token in this tab."""
+    st.session_state[_TOKEN_SHOWN_KEY] = False
+
+
+def start_failure() -> LedgerLinkError | None:
+    """The last start of the link that failed in this tab, or ``None``."""
+    kept = st.session_state.get(_START_FAILURE_KEY)
+    return kept if isinstance(kept, LedgerLinkError) else None
+
+
+def keep_start_failure(failure: LedgerLinkError | None) -> None:
+    """Keep ``failure`` as the last failed start in this tab; ``None`` forgets it."""
+    st.session_state[_START_FAILURE_KEY] = failure
+
+
+def value(key: str) -> object:
+    """What is kept under ``key``: a control's value, or what a test put there; ``None`` if none."""
+    return st.session_state.get(key)
+
+
+def offer_value(key: str, given: object) -> None:
+    """Give the control under ``key`` the value ``given``, unless it holds one already."""
+    if key not in st.session_state:
+        st.session_state[key] = given
+
+
 def new_chat() -> None:
-    """Forget the chat, its exchanges and its cards; what waited for an answer is dropped."""
+    """Forget the chat, its exchanges, its cards and what was checked."""
     st.session_state[_CHAT_KEY] = AssistantChat()
     st.session_state[_EXCHANGES_KEY] = ()
     st.session_state[_CARDS_KEY] = ()
+    st.session_state[_CHECKED_KEY] = {}

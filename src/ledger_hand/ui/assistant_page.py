@@ -7,14 +7,22 @@ what was sent has been handed to the flows just before
 (``assistant_session``).
 
 At the top, one line always says which ledger the assistant reaches, read
-from the parts (``Parts.ledger_kind``); today that is the demo ledger, an
-invented book in memory. When no ledger is connected, or the settings
-choose the cloud plug (the assistant runs on the local plug only), the
-page says so in one fixed sentence and greys the input out; nothing is
-sent. Under the chat is the screenshot area, the Record page's own, with
-keys and a screenshot of this page's (``screenshot_panel.draw_panel``):
-greyed out while a question waits for its answer, and with a refused step
-limit, as the chat input is, so that no screenshot is read for nothing.
+from the parts this tab reaches (``assistant_ledger.parts_now``): the demo
+ledger, an invented book in memory, as a plain line; or the person's own
+ledger page, as a coloured box that cannot be mistaken for the demo's.
+Under it, the block that chooses between them and starts the assistant
+link (``assistant_link_panel``). When no ledger is connected, or the
+settings choose the cloud plug (the assistant runs on the local plug
+only), the page says so in one fixed sentence and greys the input out;
+nothing is sent. With the ledger page chosen but not connected, the input
+stays open, and what is typed is answered by the page itself: not
+connected, and how to connect, without asking the model
+(``assistant_turns``). Under the chat is the screenshot area, the Record
+page's own, with keys and a screenshot of this page's
+(``screenshot_panel.draw_panel``): greyed out while a question waits for
+its answer, with a refused step limit, as the chat input is, and while
+the ledger page is not connected, so that no screenshot is read for
+nothing.
 
 New chat forgets this chat; a question left unanswered is dropped with it.
 The chat lasts as long as the browser tab; only the assistant's record on
@@ -31,8 +39,11 @@ from __future__ import annotations
 
 import streamlit as st
 
+from ledger_hand.flows.standing import LedgerKind
 from ledger_hand.ui import (
     assistant_cards,
+    assistant_ledger,
+    assistant_link_panel,
     assistant_session,
     assistant_turns,
     assistant_view,
@@ -76,15 +87,24 @@ def _ledger_line(parts: Parts) -> str:
     return f"Ledger: {parts.ledger_kind.value}"
 
 
+def _draw_ledger_line(parts: Parts) -> None:
+    with st.container(key=LEDGER_LINE_KEY):
+        if parts.ledger_kind is LedgerKind.PAGE and parts.ledger is not None:
+            st.info(_ledger_line(parts))
+        else:
+            st.caption(_ledger_line(parts))
+
+
 def main() -> None:
     """Draw the page."""
     try:
-        parts = session.parts()
+        kept = session.parts()
     except AssemblyError as error:
         st.error(sayings.assembly_failed(error))
         return
-    with st.container(key=LEDGER_LINE_KEY):
-        st.caption(_ledger_line(parts))
+    parts = assistant_ledger.parts_now(kept)
+    _draw_ledger_line(parts)
+    assistant_link_panel.draw(kept)
     stop = assistant_turns.usable(parts)
     if stop is not None:
         with st.container(key=NOTICE_KEY):
@@ -105,7 +125,12 @@ def main() -> None:
             args=(INPUT_KEY,),
             disabled=stop is not None,
         )
-        busy = waiting or parts.ledger is None or parts.steps_refused is not None
+        busy = (
+            waiting
+            or parts.ledger is None
+            or parts.steps_refused is not None
+            or not assistant_ledger.page_connected(parts)
+        )
         screenshot_panel.draw_panel(parts, PANEL, busy=busy)
     with side:
         st.button(

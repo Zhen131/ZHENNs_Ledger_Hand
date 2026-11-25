@@ -11,6 +11,10 @@ decides how a thing said is taken: ``conversation.say`` does.
   the model, the step limit and the tuning are the parts'; "now" is the
   parts' clock. Proposals sent are kept as cards.
 - ``start_new_chat``: forgets the chat (``assistant_session.new_chat``).
+- ``check_with_ledger``: asks the ledger page where each proposal of one
+  card stands (``standing.standing``) and keeps what came back
+  (``assistant_session.keep_checked``); with the ledger page, a card is
+  asked only then, never each time the page is drawn.
 - ``save_in_demo`` and ``reject_in_demo``: hand a card's proposal to
   ``standing.demo_save`` or ``standing.demo_reject``; when nothing was
   done, the reason is said in the chat.
@@ -29,13 +33,18 @@ to say. A record that cannot be added to never stops what was said from
 being done. Parts without a data folder keep no record, and the page says
 so.
 
-Nothing is handed to the flows while the parts hold no ledger, choose the
-cloud plug, or carry a refused step limit: the page then shows why and
-greys the input out, and a control used anyway does nothing. With a
-refused step limit no screenshot is read either.
+Every control hands the flows the parts with the ledger this tab reaches
+(``assistant_ledger.parts_now``). Nothing is handed to the flows while the
+parts hold no ledger, choose the cloud plug, or carry a refused step
+limit: the page then shows why and greys the input out, and a control used
+anyway does nothing. With a refused step limit no screenshot is read
+either. While the ledger page is chosen but not connected, what is typed
+is not handed to the flows and the model is not asked: the page says so,
+and how to connect (``assistant_link_words.not_connected``). Each entry of
+the record says which kind of ledger it was said to.
 
 Names defined here: ``SentCard``, ``usable``, ``take_typed``, ``take_text``,
-``start_new_chat``, ``save_in_demo``, ``reject_in_demo``,
+``start_new_chat``, ``check_with_ledger``, ``save_in_demo``, ``reject_in_demo``,
 ``take_screenshot``, ``keep_box``, ``continue_screenshot`` and
 ``drop_screenshot``.
 """
@@ -47,15 +56,24 @@ from datetime import datetime
 
 from ledger_hand.flows.assistant_record import Kept, NotKept, entry_for, keep
 from ledger_hand.flows.conversation import Route, Said, ScreenshotText, say, say_from_reading
-from ledger_hand.flows.standing import DemoDone, DemoOutcome, demo_reject, demo_save
+from ledger_hand.flows.standing import (
+    DemoDone,
+    DemoOutcome,
+    LedgerKind,
+    demo_reject,
+    demo_save,
+    standing,
+)
 from ledger_hand.flows.uploading import UploadNotRead, read_upload
+from ledger_hand.ledger.link_keeper import LinkKeeper
 from ledger_hand.settings import Plug
-from ledger_hand.ui import assistant_session, sayings, session
+from ledger_hand.ui import assistant_ledger, assistant_session, sayings, session
 from ledger_hand.ui.assistant_failure_words import (
     Stop,
     demo_words,
     screenshot_not_read,
 )
+from ledger_hand.ui.assistant_link_words import not_connected
 from ledger_hand.ui.assistant_session import Card, NoteTone
 from ledger_hand.ui.session import ASSISTANT_SPOT, Box
 from ledger_hand.wiring import Parts
@@ -94,8 +112,11 @@ def take_typed(key: str) -> None:
 
 def take_text(text: str) -> None:
     """Hand ``text`` to the assistant, and keep what came of it."""
-    parts = session.parts()
+    parts = assistant_ledger.parts_now()
     if usable(parts) is not None or parts.ledger is None:
+        return
+    if not assistant_ledger.page_connected(parts):
+        assistant_session.add_exchange(words=text, note=_not_connected(), tone=NoteTone.FAILED)
         return
     if session.reading(ASSISTANT_SPOT) is not None:
         assistant_session.add_exchange(words=text, note=sayings.screenshot_waiting())
@@ -114,15 +135,24 @@ def take_text(text: str) -> None:
     _kept(text, said, now)
 
 
+def _not_connected() -> str:
+    """What is said when the ledger page is chosen but not connected."""
+    found = assistant_ledger.keeper()
+    if not isinstance(found, LinkKeeper):
+        return not_connected(None, None, None)
+    return not_connected(found.state(), found.port, found.page_port)
+
+
 def _recorded(words: str, said: Said, now: datetime) -> Kept | NotKept:
     """Add what came of ``words`` to the assistant's record, where the parts keep it."""
-    parts = session.parts()
+    parts = assistant_ledger.parts_now()
     entry = entry_for(
         said,
         words=words,
         at=now,
         model=parts.settings.model,
         vision_model=parts.settings.vision_model if said.route is Route.SCREENSHOT else None,
+        ledger=parts.ledger_kind or LedgerKind.DEMO,
     )
     return keep(parts.places.assistant_record if parts.places is not None else None, entry)
 
@@ -155,6 +185,15 @@ def _kept(words: str, said: Said, now: datetime) -> None:
 def start_new_chat() -> None:
     """Forget the chat; a question left unanswered is dropped with it."""
     assistant_session.new_chat()
+
+
+def check_with_ledger(proposals: tuple[str, ...]) -> None:
+    """Ask the ledger where each of ``proposals`` stands now, and keep what it said."""
+    ledger = assistant_ledger.parts_now().ledger
+    if ledger is None:
+        return
+    for proposal in proposals:
+        assistant_session.keep_checked(standing(ledger, proposal))
 
 
 def save_in_demo(proposal: str) -> None:
@@ -210,10 +249,12 @@ def keep_box(box: Box, key: str) -> None:
 def continue_screenshot(read_key: str, note_key: str) -> None:
     """Record the text read, as it stands, and the note, as if the person had typed them."""
     reading = session.reading(ASSISTANT_SPOT)
-    parts = session.parts()
+    parts = assistant_ledger.parts_now()
     state = assistant_session.chat()
     waiting = state.recording is not None or state.editing is not None
     if reading is None or waiting or usable(parts) is not None or parts.ledger is None:
+        return
+    if not assistant_ledger.page_connected(parts):
         return
     keep_box(Box.READ, read_key)
     keep_box(Box.NOTE, note_key)

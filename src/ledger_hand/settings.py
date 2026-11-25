@@ -44,6 +44,12 @@ reads), the port the link listens on and the port the ledger page is opened
 on, and the few environment variables the link is started with. Like the
 data folder, none of them is a model setting.
 
+``load_assistant_ledger`` reads which ledger the assistant page reaches
+first in a new browser tab: ``LEDGER_HAND_ASSISTANT_LEDGER``, ``demo`` (the
+invented book in memory) when it is not set, or ``page`` (the person's own
+ledger page, through the assistant link). The page can switch either way
+at once; this only sets where a new tab starts.
+
 Every default is a named constant below. Tests compare against these
 names, never against the numbers, so a default is tuned here and nowhere
 else. What each variable sets and the reason for its default are kept as
@@ -65,7 +71,8 @@ constants, ``MAX_RETRIES``, ``MAX_SCREENSHOT_MB``, ``Secret``, ``SettingsError``
 ``DEFAULT_ASSISTANT_STEPS``, ``FEWEST_ASSISTANT_STEPS``, ``MOST_ASSISTANT_STEPS``,
 ``load_assistant_steps``, ``LEDGER_DIRECTORY_VARIABLE``, ``LEDGER_LINK_PORT_VARIABLE``,
 ``LEDGER_PAGE_PORT_VARIABLE``, ``DEFAULT_LEDGER_LINK_PORT``, ``DEFAULT_LEDGER_PAGE_PORT``,
-``LedgerLinkSettings`` and ``load_ledger_link_settings``.
+``LedgerLinkSettings``, ``load_ledger_link_settings``, ``ASSISTANT_LEDGER_VARIABLE``,
+``AssistantLedger`` and ``load_assistant_ledger``.
 """
 
 from __future__ import annotations
@@ -759,3 +766,36 @@ def _port(source: Mapping[str, str], variable: str, default: int) -> int:
     if not re.fullmatch(r"[0-9]{1,5}", value) or not 1 <= int(value) <= _HIGHEST_PORT:
         raise SettingsError(f"{variable}: a whole number from 1 to {_HIGHEST_PORT}, not {value!r}")
     return int(value)
+
+
+# --- which ledger the assistant page reaches first ---------------------------
+
+ASSISTANT_LEDGER_VARIABLE = "LEDGER_HAND_ASSISTANT_LEDGER"
+
+
+class AssistantLedger(enum.Enum):
+    """Which ledger the assistant page reaches; the value is what the variable is set to."""
+
+    # The default (68B3, part two, 1, 2026-11-25): the checks, the measured
+    # results and the nine sentences for a demo all run against it, and a
+    # machine without the ledger's folder still has it.
+    DEMO = "demo"
+    PAGE = "page"
+
+
+def load_assistant_ledger(environ: Mapping[str, str] | None = None) -> AssistantLedger:
+    """Which ledger a new tab of the assistant page reaches first, from ``environ``.
+
+    The process's environment when ``None``. Not set, or blank: the demo
+    ledger. Any value other than ``demo`` or ``page`` is a ``SettingsError``
+    naming the variable.
+    """
+    source = os.environ if environ is None else environ
+    value = source.get(ASSISTANT_LEDGER_VARIABLE, "").strip()
+    if not value:
+        return AssistantLedger.DEMO
+    for choice in AssistantLedger:
+        if value == choice.value:
+            return choice
+    allowed = " or ".join(choice.value for choice in AssistantLedger)
+    raise SettingsError(f"{ASSISTANT_LEDGER_VARIABLE}: {allowed}, not {value!r}")

@@ -7,7 +7,10 @@ The money a price, a total or a sum is in is always written beside it, as
 the result names it: a trade's own money, a fee's own asset, a sum's own
 money. No money is assumed.
 
-- ``proposed_rows``: the trades sent as one proposal, numbered as said.
+- ``proposed_rows``: the trades sent as one proposal, numbered as said;
+  when the ledger turned some down, each row also says, under
+  ``IN_THE_LEDGER``, whether it waits in the ledger or was not taken and
+  why.
 - ``lookup_rows``: what a read tool found: trades, the sums of a stretch of
   time, holdings or assets. Its header (the days, the asset, the side, the
   counts) is the program's (``lookups.header_lines``). The sums are one row
@@ -24,7 +27,8 @@ Under a table of holdings or of sums, ``NO_CASH`` says that it holds no cash
 balance: the assistant cannot look up cash yet. It is laid out on the page
 only, never handed to the model.
 
-Names defined here: ``CHANGED_MARK``, ``FEES_INSIDE``, ``NO_CASH``, ``proposed_rows``,
+Names defined here: ``CHANGED_MARK``, ``IN_THE_LEDGER``, ``FEES_INSIDE``, ``NO_CASH``,
+``proposed_rows``,
 ``lookup_rows``,
 ``change_rows`` and ``listed_rows``.
 """
@@ -45,11 +49,13 @@ from ledger_hand.core.ledger_records import (
     Position,
     TradeFacts,
 )
+from ledger_hand.core.proposals import CheckOutcome, TradeCheck
 from ledger_hand.ui.assistant_numbers import shown
 
 type Row = dict[str, str]
 
 CHANGED_MARK = "changed"
+IN_THE_LEDGER = "In the ledger"
 
 
 def _when(facts: TradeFacts) -> str:
@@ -77,12 +83,30 @@ def _trade_cells(facts: TradeFacts) -> Row:
     }
 
 
-def proposed_rows(numbers: Sequence[int], trades: Sequence[TradeFacts]) -> list[Row]:
-    """One row for each trade sent, with its number in what was said and its note."""
-    return [
+def proposed_rows(
+    numbers: Sequence[int], trades: Sequence[TradeFacts], checks: Sequence[TradeCheck] = ()
+) -> list[Row]:
+    """One row for each trade sent, with its number in what was said and its note.
+
+    When the ledger turned any of them down (``checks``, one for each trade),
+    each row also says whether it waits in the ledger or was not taken, and
+    why (68B3, addition 1); when it took them all, the rows are as before.
+    """
+    rows = [
         {"#": str(number), **_trade_cells(facts), "Note": facts.note or "-"}
         for number, facts in zip(numbers, trades, strict=True)
     ]
+    if len(checks) != len(rows) or all(c.outcome is CheckOutcome.PASSED for c in checks):
+        return rows
+    for row, check in zip(rows, checks, strict=True):
+        row[IN_THE_LEDGER] = _in_the_ledger(check)
+    return rows
+
+
+def _in_the_ledger(check: TradeCheck) -> str:
+    if check.outcome is CheckOutcome.PASSED:
+        return f"waiting for you to confirm ({check.proposal_id})"
+    return f"not taken: {check.message or check.code or 'no reason given'}"
 
 
 def _realized(trade: LedgerTrade) -> str:
