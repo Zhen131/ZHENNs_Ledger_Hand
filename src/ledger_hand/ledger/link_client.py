@@ -67,8 +67,6 @@ _ERROR_PREFIX = _LINE_PREFIX + "ERROR: "
 _PORT_TAKEN = "already in use"
 # JSON-RPC's code for "invalid params"; the link answers it to a refused name.
 _INVALID_PARAMS = -32602
-# How long closing waits for the link to leave before it is stopped.
-_CLOSE_SECONDS = 5.0
 _END = object()
 
 
@@ -110,6 +108,8 @@ class LinkSetup:
     # Above the 45 seconds the link waits for the page, so the link's own
     # LEDGER_PAGE_TIMEOUT comes back before this program gives up.
     answer_seconds: float = 60.0
+    # How long a link that is leaving is waited for before it is stopped.
+    close_seconds: float = 5.0
 
 
 class LedgerLink:
@@ -156,7 +156,13 @@ class LedgerLink:
         self._check_node()
         self._process = self._spawn()
         self._wait_until_listening()
-        reply = self._request("initialize", self._hello())
+        try:
+            reply = self._request("initialize", self._hello())
+        except LedgerLinkError:
+            # A link left running would hold its port, and the next try would
+            # find it taken (68D, finding 1).
+            self.close()
+            raise
         if "error" in reply:
             self.close()
             failure = (
@@ -202,7 +208,7 @@ class LedgerLink:
         except OSError:
             pass
         try:
-            process.wait(timeout=_CLOSE_SECONDS)
+            process.wait(timeout=self._setup.close_seconds)
         except subprocess.TimeoutExpired:
             process.kill()
             process.wait()
@@ -282,7 +288,14 @@ class LedgerLink:
 
     def _exit_error(self) -> LedgerLinkError:
         process, self._process = self._process, None
-        status = process.wait(timeout=_CLOSE_SECONDS) if process is not None else None
+        try:
+            status = process.wait(timeout=self._setup.close_seconds) if process else None
+        except subprocess.TimeoutExpired:
+            # A link that said why it stops but does not leave is stopped (68D, finding 2).
+            assert process is not None
+            process.kill()
+            process.wait()
+            return self._error(LinkFailure.TIMED_OUT, "waiting for the link to leave")
         with self._lock:
             said = self._last_error
         if status == _EXIT_CANNOT_START and _PORT_TAKEN in said:

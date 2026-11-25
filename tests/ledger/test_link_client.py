@@ -12,11 +12,13 @@ from __future__ import annotations
 
 import logging
 import stat
+import subprocess
 import sys
 import time
 from collections.abc import Iterator
 from dataclasses import replace
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -237,6 +239,53 @@ def test_an_answer_without_the_ledgers_content(ledger_folder: Path, node: str) -
     error = failure_of(LedgerLink(setup(ledger_folder, node, "no_structured")), act="call")
 
     assert error.failure is LinkFailure.REPLY_UNEXPECTED
+
+
+def spawned(monkeypatch: pytest.MonkeyPatch) -> list[subprocess.Popen[str]]:
+    """Every child process the client starts, kept so a test can see it has left."""
+    made: list[subprocess.Popen[str]] = []
+    real = subprocess.Popen
+
+    def keeping(*args: Any, **kwargs: Any) -> subprocess.Popen[str]:
+        process = real(*args, **kwargs)
+        made.append(process)
+        return process
+
+    monkeypatch.setattr(subprocess, "Popen", keeping)
+    return made
+
+
+def test_a_handshake_never_answered_times_out_and_the_link_is_closed(
+    ledger_folder: Path, node: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    made = spawned(monkeypatch)
+    link = LedgerLink(setup(ledger_folder, node, "silent_hello"))
+
+    error = failure_of(link)
+
+    assert error.failure is LinkFailure.TIMED_OUT
+    *_, process = made  # the version check runs first
+    # Closed, so its port is free for the next try (68D, finding 1).
+    assert process.poll() is not None
+    assert "running=False" in repr(link)
+
+
+def test_a_link_slow_to_leave_after_it_refused_is_stopped_and_said_in_words(
+    ledger_folder: Path, node: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    made = spawned(monkeypatch)
+    the_setup = replace(
+        setup(ledger_folder, node, "linger", FAKE_LINK_LINGER="30"), close_seconds=0.5
+    )
+    started_at = time.monotonic()
+
+    error = failure_of(LedgerLink(the_setup))
+
+    assert error.failure is LinkFailure.TIMED_OUT
+    assert str(error) == f"{LinkFailure.TIMED_OUT.value} waiting for the link to leave"
+    assert time.monotonic() - started_at < 10
+    *_, process = made  # the version check runs first
+    assert process.poll() is not None
 
 
 def test_a_call_the_link_refuses(started: LedgerLink) -> None:

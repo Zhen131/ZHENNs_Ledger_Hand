@@ -20,6 +20,12 @@ link does, and follows the script ``FAKE_LINK_SCENARIO`` names:
 - ``never_listens``: never says it listens.
 - ``no_structured``: answers a tool call without ``structuredContent``.
 - ``wrong_port``: says it listens on another port.
+- ``silent_hello``: says it listens, then never answers the handshake.
+- ``linger``: says the port is taken, closes its output, and stays a while
+  before it leaves (a link slow to go).
+- ``samples``: answers every tool call with the next answer of the file
+  ``FAKE_LINK_SAMPLES`` names (a JSON list of the ledger's answers, as the
+  samples in ``samples/`` keep them: ``kind`` and ``content``).
 
 It leaves with status 0 when its standard input closes. It writes no file.
 Invented data only.
@@ -30,6 +36,7 @@ from __future__ import annotations
 import json
 import os
 import sys
+import time
 
 TOOLS = [
     {"name": "list_assets", "inputSchema": {"type": "object", "properties": {}}},
@@ -76,7 +83,27 @@ def tool_answer(name: str) -> dict[str, object]:
     return {"content": [], "structuredContent": NOT_CONNECTED, "isError": True}
 
 
+def from_samples(asked: object) -> None:
+    """The next of the ledger's answers kept in the file the scenario names."""
+    path = os.environ["FAKE_LINK_SAMPLES"]
+    with open(path, encoding="utf-8") as file:
+        answers = json.load(file)
+    used = int(os.environ.get("FAKE_LINK_USED", "0"))
+    os.environ["FAKE_LINK_USED"] = str(used + 1)
+    kept = answers[used]
+    result: dict[str, object] = {
+        "content": [{"type": "text", "text": json.dumps(kept["content"])}],
+        "structuredContent": kept["content"],
+    }
+    if kept["kind"] == "error":
+        result["isError"] = True
+    say({"jsonrpc": "2.0", "id": asked, "result": result})
+
+
 def answer_call(scenario: str, asked: object, name: str) -> None:
+    if scenario == "samples":
+        from_samples(asked)
+        return
     if scenario == "silent":
         return
     if scenario == "die":
@@ -98,6 +125,8 @@ def answer_call(scenario: str, asked: object, name: str) -> None:
 def answer(scenario: str, message: dict[str, object]) -> None:
     method, asked = message.get("method"), message.get("id")
     if method == "initialize":
+        if scenario == "silent_hello":
+            return
         if scenario == "refuse_handshake":
             error = {"code": -32602, "message": "The assistant link refuses this client."}
             say({"jsonrpc": "2.0", "id": asked, "error": error})
@@ -121,6 +150,14 @@ def main() -> None:
     port = next(a.split("=", 1)[1] for a in sys.argv if a.startswith("--port="))
     if scenario == "port_in_use":
         note(f"assistant-link: ERROR: Port 127.0.0.1:{port} is already in use ({token}).")
+        sys.exit(2)
+    if scenario == "linger":
+        note(f"assistant-link: ERROR: Port 127.0.0.1:{port} is already in use.")
+        sys.stdout.close()
+        sys.stderr.close()
+        os.close(1)
+        os.close(2)
+        time.sleep(float(os.environ.get("FAKE_LINK_LINGER", "3")))
         sys.exit(2)
     if scenario == "bad_option":
         note("assistant-link: ERROR: --page-port must be a whole number from 1 to 65535.")

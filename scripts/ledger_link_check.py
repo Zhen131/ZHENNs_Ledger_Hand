@@ -8,8 +8,11 @@ tools, and compares them with the table this program was built against
 (``ledger_hand.ledger.link_tools.EXPECTED_TOOLS``): exactly the eight names,
 in the ledger's order, and for each tool the fields it requires, at the top
 and inside the one trade. No ledger page is needed and none is connected;
-nothing is proposed or read from any ledger. When the ledger's tools change,
-this step fails and says where.
+nothing is proposed or read from any ledger. It also reads the error table
+of the ledger's ``assistant-link/README.md`` and checks that every code is on
+one of the real ledger plug's two tables
+(``ledger_hand.ledger.link_ledger.codes_on_no_table``). When the ledger's
+tools or codes change, this step fails and says where.
 
 Where the ledger is comes from ``--ledger PATH`` or else from the environment
 variable ``LEDGER_HAND_LEDGER_DIR``, as for the first step of the tier. The
@@ -37,6 +40,7 @@ from pathlib import Path
 
 from ledger_hand.ledger.link_client import LedgerLink
 from ledger_hand.ledger.link_failures import LedgerLinkError
+from ledger_hand.ledger.link_ledger import codes_on_no_table
 from ledger_hand.ledger.link_tools import EXPECTED_TOOLS, differences, required_fields
 from ledger_hand.settings import LEDGER_DIRECTORY_VARIABLE, load_ledger_link_settings
 from ledger_hand.wiring import ledger_link
@@ -123,8 +127,15 @@ def check(ledger: Path, environ: Mapping[str, str]) -> Outcome:
         print(f"  DIFFERENT: {difference}")
     if not found:
         print("the names, their order and every required field are as expected")
+    unsorted = codes_on_no_table(
+        (ledger / "assistant-link" / "README.md").read_text(encoding="utf-8")
+    )
+    for code in unsorted:
+        print(f"  NOT SORTED: the ledger's error code {code} is on neither of the plug's tables")
+    if not unsorted:
+        print("every error code of the ledger's README is on one of the plug's two tables")
     clean_after = clean(ledger, "after")
-    passed = clean_before and clean_after and not found
+    passed = clean_before and clean_after and not found and not unsorted
     return Outcome.PASSED if passed else Outcome.FAILED
 
 
