@@ -165,7 +165,7 @@ def test_a_share_from_a_screenshot_is_sent_priced_in_dollars() -> None:
         Message(Role.USER, SHARES),
         Message(Role.ASSISTANT, said.reply),
     )
-    assert said.state.chat.proposals == (said.sent.proposal,)
+    assert said.state.chat.proposals == (said.sent.proposals,)
     assert said.words_by is WordsBy.PROGRAM
 
 

@@ -109,9 +109,10 @@ class NumberValue:
 
 @dataclass(frozen=True)
 class TimeValue:
-    """A moment read, with its offset."""
+    """A moment read, with its offset, and the name of the zone it was read in."""
 
     moment: datetime
+    zone: str | None = None
 
 
 @dataclass(frozen=True)
@@ -225,7 +226,7 @@ def _time(words: str, now: datetime, zone: str) -> TimeValue | NotTaken:
         )
     moment = reading.time.value
     assert isinstance(moment, datetime)
-    return TimeValue(moment)
+    return TimeValue(moment, reading.time.time_zone)
 
 
 def _asset(field: str, words: str, assets: Sequence[Asset]) -> AssetValue | NotTaken:
@@ -268,7 +269,10 @@ def changed_trade(
     if isinstance(value, NumberValue):
         return _with_number(field, value, trade, assets)
     if isinstance(value, TimeValue):
-        changed = dataclasses.replace(trade, occurred=value.moment)
+        # A time of day said now replaces a trade known only to its day.
+        changed = dataclasses.replace(
+            trade, occurred=value.moment, zone=value.zone or trade.zone, date_only=False
+        )
     elif isinstance(value, SideValue):
         changed = dataclasses.replace(trade, side=value.side)
     elif isinstance(value, AssetValue):

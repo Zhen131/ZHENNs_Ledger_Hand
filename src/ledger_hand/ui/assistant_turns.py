@@ -34,7 +34,7 @@ cloud plug, or carry a refused step limit: the page then shows why and
 greys the input out, and a control used anyway does nothing. With a
 refused step limit no screenshot is read either.
 
-Names defined here: ``usable``, ``take_typed``, ``take_text``,
+Names defined here: ``SentCard``, ``usable``, ``take_typed``, ``take_text``,
 ``start_new_chat``, ``save_in_demo``, ``reject_in_demo``,
 ``take_screenshot``, ``keep_box``, ``continue_screenshot`` and
 ``drop_screenshot``.
@@ -42,6 +42,7 @@ Names defined here: ``usable``, ``take_typed``, ``take_text``,
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import datetime
 
 from ledger_hand.flows.assistant_record import Kept, NotKept, entry_for, keep
@@ -58,6 +59,19 @@ from ledger_hand.ui.assistant_failure_words import (
 from ledger_hand.ui.assistant_session import Card, NoteTone
 from ledger_hand.ui.session import ASSISTANT_SPOT, Box
 from ledger_hand.wiring import Parts
+
+
+@dataclass(frozen=True, kw_only=True)
+class SentCard(Card):
+    """One thing sent to record trades: a card that holds every proposal it left waiting.
+
+    The ledger keeps each trade it takes as a proposal of its own; the card
+    is still one, its ``proposal`` the first, and ``proposals`` all of them
+    in the order said. (The session's ``Card`` is left as it is: 68B2 lets
+    this batch change only six page files.)
+    """
+
+    proposals: tuple[str, ...] = ()
 
 
 def usable(parts: Parts) -> Stop | None:
@@ -121,8 +135,14 @@ def _kept(words: str, said: Said, now: datetime) -> None:
     if said.sent is not None:
         trades = said.sent.trades
         holds = f"{trades} trade{'s' if trades != 1 else ''} to record"
+        proposals = said.sent.proposals
         assistant_session.add_card(
-            Card(proposal=said.sent.proposal, exchange=exchange.number, holds=holds)
+            SentCard(
+                proposal=proposals[0],
+                exchange=exchange.number,
+                holds=holds,
+                proposals=proposals,
+            )
         )
     edit_sent = said.edit_sent
     if edit_sent is not None:

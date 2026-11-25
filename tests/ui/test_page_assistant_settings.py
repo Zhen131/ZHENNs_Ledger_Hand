@@ -91,7 +91,7 @@ def test_a_setting_changed_keeps_the_demo_ledger_its_proposal_and_its_saved_trad
     ledger = builds.built[0].ledger
     assert isinstance(ledger, FakeLedger)
     page = page.button(key=save_key("proposal-1")).click().run()
-    trades = len(ledger.list_trades(TradeFilter()))
+    trades = len(ledger.list_trades(TradeFilter()).trades)
 
     page = to_settings(page)
     page = set_setting(page, Variable.TIMEOUT_SECONDS, "45")
@@ -102,7 +102,7 @@ def test_a_setting_changed_keeps_the_demo_ledger_its_proposal_and_its_saved_trad
     assert builds.built[1].ledger is not ledger
     assert page.session_state[PARTS_KEY].ledger is ledger
     assert "Status: saved" in card_text(page, "proposal-1")
-    assert len(ledger.list_trades(TradeFilter())) == trades
+    assert len(ledger.list_trades(TradeFilter()).trades) == trades
 
 
 def test_a_refused_step_limit_stops_the_assistant_page_alone(

@@ -10,9 +10,10 @@ profit of its own and a sell does.
 from __future__ import annotations
 
 import dataclasses
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from decimal import Decimal
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import pytest
 
@@ -63,6 +64,9 @@ def a_trade(**changed: object) -> TradeFacts:
         "platform": "OKX",
         "note": "",
         "raw_text": "10月6号11:48在OKX买了0.0082 BTC，均价61940",
+        "zone": "Europe/Budapest",
+        "date_only": False,
+        "cost_rate": None,
     }
     fields.update(changed)
     return TradeFacts(**fields)  # type: ignore[arg-type]
@@ -120,40 +124,124 @@ def test_a_trade_refuses_what_it_cannot_be(changed: dict[str, object]) -> None:
 def test_a_buy_has_no_profit_and_a_sell_has_one_or_a_reason() -> None:
     with pytest.raises(ValueError):
         LedgerTrade(
-            id="t", facts=a_trade(), realized=MoneyAmount(currency="USDT", amount=Decimal(1))
+            id="t",
+            facts=a_trade(),
+            realized=MoneyAmount(currency="USDT", amount=Decimal(1)),
+            realized_unreliable=None,
+            dated_after_today=False,
         )
     with pytest.raises(ValueError):
-        LedgerTrade(id="t", facts=a_trade(side=Side.SELL), realized=None)
+        LedgerTrade(
+            id="t",
+            facts=a_trade(side=Side.SELL),
+            realized=None,
+            realized_unreliable=None,
+            dated_after_today=False,
+        )
 
-    assert LedgerTrade(id="t", facts=a_trade(side=Side.SELL), realized=NotWorkedOut(reason="why"))
+    assert LedgerTrade(
+        id="t",
+        facts=a_trade(side=Side.SELL),
+        realized=NotWorkedOut(reason="why"),
+        realized_unreliable=None,
+        dated_after_today=False,
+    )
+
+
+def usdt_group(**changed: object) -> CurrencyTotals:
+    zero = MoneyAmount(currency="USDT", amount=Decimal(0))
+    fields: dict[str, object] = {
+        "currency": "USDT",
+        "buy_count": 3,
+        "sell_count": 1,
+        "spent": MoneyAmount(currency="USDT", amount=Decimal("13007.5")),
+        "received": MoneyAmount(currency="USDT", amount=Decimal("2797")),
+        "fees": (MoneyAmount(currency="USDT", amount=Decimal("10.5")),),
+        "realized": MoneyAmount(currency="USDT", amount=Decimal("195")),
+        "realized_from_sells": MoneyAmount(currency="USDT", amount=Decimal("195")),
+        "realized_from_transfers": zero,
+        "by_asset": (),
+    }
+    fields.update(changed)
+    return CurrencyTotals(**fields)  # type: ignore[arg-type]
 
 
 def test_one_money_is_summed_once() -> None:
-    usdt = CurrencyTotals(
-        currency="USDT",
-        spent=Decimal(1),
-        received=Decimal(0),
-        realized=MoneyAmount(currency="USDT", amount=Decimal(0)),
-    )
+    usdt = usdt_group()
 
     with pytest.raises(ValueError):
-        PeriodSummary(request=PeriodRequest(), trade_count=1, by_currency=(usdt, usdt), fees=())
+        PeriodSummary(request=PeriodRequest(), by_currency=(usdt, usdt))
+
+
+def test_the_count_of_a_summary_is_every_groups_buys_and_sells_and_fees_add_by_asset() -> None:
+    # Invented, as the ledger's all-time sample has it: 3 + 1 trades in USDT,
+    # 2 + 1 in USD; 10.5 USDT of fees in the one group and 0.2 USDT in the other.
+    usd = usdt_group(
+        currency="USD",
+        buy_count=2,
+        sell_count=1,
+        spent=MoneyAmount(currency="USD", amount=Decimal("2952")),
+        received=MoneyAmount(currency="USD", amount=Decimal("1199")),
+        fees=(
+            MoneyAmount(currency="USD", amount=Decimal("3")),
+            MoneyAmount(currency="USDT", amount=Decimal("0.2")),
+        ),
+        realized=MoneyAmount(currency="USD", amount=Decimal("48")),
+        realized_from_sells=MoneyAmount(currency="USD", amount=Decimal("48")),
+        realized_from_transfers=MoneyAmount(currency="USD", amount=Decimal(0)),
+    )
+    summary = PeriodSummary(request=PeriodRequest(), by_currency=(usd, usdt_group()))
+
+    assert summary.trade_count == 7
+    assert summary.fees == (
+        MoneyAmount(currency="USD", amount=Decimal("3")),
+        MoneyAmount(currency="USDT", amount=Decimal("10.7")),
+    )
+
+
+def test_a_sum_that_was_not_worked_out_is_its_reason_and_a_spent_sum_is_never_below_zero() -> None:
+    assert usdt_group(spent=NotWorkedOut(reason="a buy's money could not be added")).spent
+    with pytest.raises(ValueError):
+        usdt_group(spent=MoneyAmount(currency="USDT", amount=Decimal("-1")))
 
 
 def test_a_holding_is_costed_in_the_money_it_was_bought_with() -> None:
     with pytest.raises(ValueError):
         Position(
             asset="MSFT",
-            quote="USD",
+            currency="USD",
             quantity=Decimal(2),
             cost=MoneyAmount(currency="USDT", amount=Decimal(800)),
             unrealized=NotWorkedOut(reason="no market price"),
+            cost_unreliable=None,
         )
 
 
-def test_a_filter_ends_after_it_starts() -> None:
+def test_a_filter_ends_after_it_starts_and_counts_both_its_days() -> None:
     with pytest.raises(ValueError):
-        TradeFilter(start=WHEN, end=WHEN)
+        TradeFilter(first_day=date(2026, 11, 2), last_day=date(2026, 11, 1))
+    with pytest.raises(TypeError):
+        TradeFilter(first_day=WHEN)  # type: ignore[arg-type]
+
+    one_day = TradeFilter(first_day=WHEN.date(), last_day=WHEN.date())
+    # 23:30 on 6 October in New York is 7 October in UTC; the trade's own day counts.
+    late = a_trade(occurred=datetime(2026, 10, 6, 23, 30, tzinfo=ZoneInfo("America/New_York")))
+    assert one_day.holds(a_trade()) and one_day.holds(late)
+    assert not TradeFilter(first_day=date(2026, 10, 7)).holds(late)
+
+
+def test_a_trade_known_only_to_its_day_holds_the_start_of_it() -> None:
+    day_only = a_trade(occurred=datetime(2026, 11, 14, tzinfo=timezone.utc), date_only=True)
+
+    assert day_only.day == date(2026, 11, 14)
+    with pytest.raises(ValueError):
+        a_trade(date_only=True)
+
+
+def test_a_trade_with_no_words_of_the_user_holds_none_never_made_up_words() -> None:
+    assert a_trade(raw_text=None).raw_text is None
+    with pytest.raises(ValueError):
+        a_trade(raw_text="  ")
 
 
 def test_a_failed_check_has_a_code_and_a_sentence_and_a_passed_one_has_neither() -> None:
@@ -162,12 +250,18 @@ def test_a_failed_check_has_a_code_and_a_sentence_and_a_passed_one_has_neither()
     with pytest.raises(ValueError):
         TradeCheck(outcome=CheckOutcome.PASSED, code="unknown_asset", message="No.")
 
+    with pytest.raises(ValueError):
+        TradeCheck(outcome=CheckOutcome.PASSED)
+    with pytest.raises(ValueError):
+        TradeCheck(outcome=CheckOutcome.FAILED, proposal_id="p-1", code="x", message="No.")
+
     result = ProposalResult(
         checks=(
-            TradeCheck(outcome=CheckOutcome.PASSED),
+            TradeCheck(outcome=CheckOutcome.PASSED, proposal_id="p-1"),
             TradeCheck(outcome=CheckOutcome.FAILED, code="unknown_asset", message="No DOGE."),
+            TradeCheck(outcome=CheckOutcome.PASSED, proposal_id="p-2"),
         ),
-        proposal_id=None,
     )
-    assert not result.all_passed
+    assert not result.all_passed and not result.none_passed
+    assert result.proposal_ids == ("p-1", "p-2")
     assert proposals.ProposalStatus.VOID.value == "void"

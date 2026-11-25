@@ -36,6 +36,12 @@ kept: a code that cannot be written as a ledger symbol (such as "BRK.B"),
 and an asset one of whose names is also a word for money (a stock whose code
 is "U"). Such an asset cannot be recorded by the assistant.
 
+The ledger lets a coin and a stock share one code. Neither of two such
+assets goes into the table, so that none is picked for the user; which
+two they are is kept (``same_codes``, ``SameCode``), and whatever said
+names that code is neither recorded nor looked up: the program names both
+and asks nothing of the ledger. (68B2, part 10, 2026-11-25.)
+
 ``table_of`` gives ``None`` when the ledger prices trades in no money at
 all: nothing could be recorded then.
 
@@ -43,7 +49,8 @@ This module reads no clock and asks nothing of the ledger: the list is
 handed in.
 
 Names defined here: ``MONEY_NICKNAMES``, ``SHARE_UNITS``, ``AssetNames``,
-``names_of`` and ``table_of``.
+``SameCode``, ``same_codes``, ``same_code_words``, ``names_of`` and
+``table_of``.
 """
 
 from __future__ import annotations
@@ -130,6 +137,36 @@ def names_of(assets: Sequence[Asset]) -> AssetNames:
     return AssetNames(built_in, ledger, frozenset(asset.code for asset in assets))
 
 
+@dataclass(frozen=True)
+class SameCode:
+    """Two or more assets of the ledger that share one code, in the ledger's order."""
+
+    code: str
+    assets: tuple[Asset, ...]
+
+
+def same_codes(assets: Sequence[Asset]) -> tuple[SameCode, ...]:
+    """Every code more than one of ``assets`` goes by, with those assets; in code order."""
+    by_code: dict[str, list[Asset]] = {}
+    for asset in assets:
+        by_code.setdefault(asset.code, []).append(asset)
+    return tuple(
+        SameCode(code=code, assets=tuple(found))
+        for code, found in sorted(by_code.items())
+        if len(found) > 1
+    )
+
+
+def same_code_words(same: SameCode) -> str:
+    """The program's words for a code two assets share: both named, and nothing picked."""
+    named = " and ".join(f"{asset.name} ({asset.kind.value})" for asset in same.assets)
+    return (
+        f"The ledger has more than one asset with the code {same.code}: {named}. "
+        "I cannot tell which one you mean, so I did nothing with it. Please tell them "
+        "apart in the ledger itself."
+    )
+
+
 def table_of(assets: Sequence[Asset]) -> AssetTable | None:
     """The asset table the ledger's ``assets`` make; ``None`` when none of them prices trades."""
     names = names_of(assets)
@@ -137,9 +174,10 @@ def table_of(assets: Sequence[Asset]) -> AssetTable | None:
     if not any(money.use is MoneyUse.CAN_PRICE for money in moneys):
         return None
     taken = {key for money in moneys for key in money.spoken_keys()} | set(USDT_WORDS)
+    shared = {same.code for same in same_codes(assets)}
     coins: list[Coin] = []
     for asset in assets:
-        if _is_money(asset):
+        if _is_money(asset) or asset.code in shared:
             continue
         coin = _coin(asset, names)
         if coin is None or coin.spoken_keys() & taken:

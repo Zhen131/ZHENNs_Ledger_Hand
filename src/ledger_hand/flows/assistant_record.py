@@ -7,11 +7,12 @@ was said, which way it went, who wrote the reply (and the question in
 it, when one was asked), each tool the model asked for with its
 arguments as given (those dropped among them), a short piece of what was
 handed back, the failures and their codes, the trades proposed, each
-trade not sent and why, the kinds of reminder said, the proposals sent
-and how they stood when sent, how it ended, and the model and prompt
-versions used. Amounts are written as text, each beside the money the
-result names. A screenshot's picture is never written: only that it came
-from a screenshot, and the passage made from it.
+trade not sent and why, the kinds of reminder said, each trade sent with
+its proposal and how it stood when sent (or why the ledger turned it
+down), how it ended, and the model and prompt versions used. Amounts are
+written as text, each beside the money the result names. A screenshot's
+picture is never written: only that it came from a screenshot, and the
+passage made from it.
 
 The file is not the book and not in Git. It is plain text and holds what
 the person said, word for word, with its numbers; the settings page says
@@ -55,15 +56,19 @@ from typing import Any
 
 from ledger_hand.assistant.outcome import NotRunCall, RefusedCall, TakenCall
 from ledger_hand.core.ledger_records import TradeFacts
-from ledger_hand.core.proposals import ProposalStatus
+from ledger_hand.core.proposals import CheckOutcome, ProposalStatus
 from ledger_hand.flows.assisting import DEFAULT_PROMPT
 from ledger_hand.flows.conversation import Route, Said
 from ledger_hand.flows.record_words import spoken_reminders
+from ledger_hand.flows.recorded import RecordEnding
 from ledger_hand.ports import LedgerError, ModelError
 
 # The record's own version, written in every entry; it is none of the
-# ledger's four version numbers and not the book's.
-RECORD_VERSION = 1
+# ledger's four version numbers and not the book's. Version 2 (2026-11-25,
+# 68B2): a call to record keeps one line in "sent" for each trade sent, with
+# its number, its own proposal or why the ledger turned it down. Entries of
+# version 1 are still read as they are.
+RECORD_VERSION = 2
 
 # One thousand: an entry is a few thousand bytes, so the file stays at a few
 # megabytes and is read whole in a blink each time an entry is added; at
@@ -300,17 +305,33 @@ def _reminders(said: Said) -> list[str]:
     return [issue.kind.name.lower() for issue in spoken_reminders(said.recorded)]
 
 
-def _sent(said: Said) -> list[dict[str, str]]:
+def _sent(said: Said) -> list[dict[str, Any]]:
     # A proposal sent this time waits in the ledger to be confirmed: that is
-    # how it stood when it was sent, which is what is kept.
+    # how it stood when it was sent, which is what is kept. A trade the
+    # ledger turned down keeps its code; one the ledger may have taken
+    # without answering in time is kept as "maybe_sent", with no proposal.
     waiting = ProposalStatus.PENDING.value
-    sent: list[dict[str, str]] = []
-    if said.sent is not None:
-        sent.append({"proposal": said.sent.proposal, "what": "record", "status": waiting})
+    sent: list[dict[str, Any]] = []
+    recorded = said.recorded
+    if recorded is not None and recorded.ending is RecordEnding.MAYBE_SENT:
+        sent.extend(
+            {"number": number, "what": "record", "proposal": None, "status": "maybe_sent"}
+            for number in recorded.numbers
+        )
+    elif recorded is not None and recorded.checks:
+        for number, check in zip(recorded.numbers, recorded.checks, strict=True):
+            line: dict[str, Any] = {"number": number, "what": "record"}
+            if check.outcome is CheckOutcome.PASSED:
+                line.update(proposal=check.proposal_id, status=waiting)
+            else:
+                line.update(proposal=None, status="refused", code=check.code)
+            sent.append(line)
     edit_sent = said.edit_sent
     if edit_sent is not None:
         what = edit_sent.kind.value
-        sent.append({"proposal": edit_sent.proposal, "what": what, "status": waiting})
+        sent.append(
+            {"number": None, "what": what, "proposal": edit_sent.proposal, "status": waiting}
+        )
     return sent
 
 

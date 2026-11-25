@@ -325,8 +325,8 @@ def test_a_summary_in_two_moneys_has_two_rows_never_added_together() -> None:
     assert lookup.summary is not None
     by_currency = {totals.currency: totals for totals in lookup.summary.by_currency}
     assert set(by_currency) == {"USD", "USDT"}
-    assert by_currency["USDT"].spent == Decimal("874.808")
-    assert by_currency["USD"].spent == Decimal("1237.11")
+    assert by_currency["USDT"].spent == MoneyAmount(currency="USDT", amount=Decimal("874.808"))
+    assert by_currency["USD"].spent == MoneyAmount(currency="USD", amount=Decimal("1237.11"))
     rows = [line for line in lookup_lines(lookup) if "spent on buys" in line]
     assert rows == [
         "USD | spent on buys 1237.11 | received from sells 0 | realized 0 USD",
@@ -344,8 +344,10 @@ def test_every_figure_of_a_summary_is_the_ledgers_own_value() -> None:
     assert lookup.summary == FakeLedger().period_summary(PeriodRequest())
     lines = "\n".join(lookup_lines(lookup))
     for totals in lookup.summary.by_currency:
-        assert format(totals.spent, "f") in lines
-        assert format(totals.received, "f") in lines
+        assert isinstance(totals.spent, MoneyAmount)
+        assert isinstance(totals.received, MoneyAmount)
+        assert format(totals.spent.amount, "f") in lines
+        assert format(totals.received.amount, "f") in lines
         assert isinstance(totals.realized, MoneyAmount)
         assert format(totals.realized.amount, "f") in lines
     for fee in lookup.summary.fees:
@@ -360,7 +362,7 @@ def test_every_figure_of_the_holdings_is_the_ledgers_own_value() -> None:
     lines = lookup_lines(lookup)
     for position, line in zip(lookup.positions, lines, strict=True):
         assert line.startswith(f"{position.asset} | {format(position.quantity, 'f')} | ")
-        assert f"cost {format(position.cost.amount, 'f')} {position.quote}" in line
+        assert f"cost {format(position.cost.amount, 'f')} {position.currency}" in line
         if isinstance(position.unrealized, NotWorkedOut):
             assert position.unrealized.reason in line
         else:
@@ -396,6 +398,9 @@ def test_a_long_list_shows_the_latest_trades_and_says_how_many_there_are() -> No
                 platform="OKX",
                 note="",
                 raw_text=f"invented trade {number}",
+                zone=None,
+                date_only=False,
+                cost_rate=None,
             ),
         )
         for number in range(MOST_TRADES_SHOWN + 5)
@@ -407,7 +412,7 @@ def test_a_long_list_shows_the_latest_trades_and_says_how_many_there_are() -> No
     lookup = only_lookup(result)
     assert lookup.trade_count == MOST_TRADES_SHOWN + 5
     assert len(lookup.trades) == MOST_TRADES_SHOWN
-    everything = ledger.list_trades(TradeFilter())
+    everything = ledger.list_trades(TradeFilter()).trades
     assert lookup.trades == everything[-MOST_TRADES_SHOWN:]
     assert f"Trades: {MOST_TRADES_SHOWN + 5}; shown: the latest {MOST_TRADES_SHOWN}" in (
         lookup_lines(lookup)

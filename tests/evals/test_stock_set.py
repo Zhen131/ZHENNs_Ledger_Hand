@@ -68,6 +68,9 @@ def facts(**changed: object) -> TradeFacts:
         "platform": "IBKR",
         "note": "",
         "raw_text": "invented",
+        "zone": "Europe/Budapest",
+        "date_only": False,
+        "cost_rate": None,
     }
     fields.update(changed)
     return TradeFacts(**fields)  # type: ignore[arg-type]

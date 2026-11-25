@@ -32,9 +32,15 @@ such a trade cannot be recorded; it is told here in the words above, with
 the word the user said for the asset, and money traded as an asset is said
 to be an exchange of currencies, which the assistant does not record.
 
-Each trade is priced in the money its record names. A ledger that turns
-the proposal down keeps nothing; a ledger that cannot be asked ends it with
-its failure.
+A trade that names a code two assets of the ledger share (a coin and a
+stock) is not sent either: both are named, and none is picked.
+
+Each trade is priced in the money its record names. The ledger checks each
+trade on its own: those it takes wait there, each as a proposal of its
+own, and those it turns down are told with its reason; it may take all,
+some or none. A ledger that cannot be asked ends it with its failure; one
+that does not answer in time may have taken them, and they are never sent
+again. The user's words go with the call (``said``), as said.
 
 Names defined here: ``propose``.
 """
@@ -46,13 +52,14 @@ from datetime import datetime
 
 from ledger_hand.core.assets import AssetTable, MoneyReading
 from ledger_hand.core.ledger_records import Asset, Pricing, TradeFacts
+from ledger_hand.core.ledger_table import SameCode, same_code_words, same_codes
 from ledger_hand.core.trade import TimePrecision, TradeDraft, TradeRecord
 from ledger_hand.core.validation import Violation
 from ledger_hand.extraction.issues import Issue
 from ledger_hand.flows.progress import Progress, Stage, TradeState, TradeStatus
 from ledger_hand.flows.recorded import LeftOut, LeftOutTrade, Recorded, RecordEnding, Sent
 from ledger_hand.flows.recording import finish, held_other_unit
-from ledger_hand.ports import LedgerError, LedgerPort
+from ledger_hand.ports import LedgerError, LedgerErrorKind, LedgerPort
 
 type _Numbered = tuple[int, TradeRecord]
 
@@ -76,8 +83,10 @@ def propose(
         listed = ledger.list_assets() if listed is None else listed
     except LedgerError as error:
         return Recorded(ending=RecordEnding.LEDGER_FAILED, progress=progress, failure=error)
-    assets = {asset.code: asset for asset in listed}
-    numbers, trades, not_sent = _sendable(records, assets, progress.passage)
+    shared = {same.code: same for same in same_codes(listed)}
+    left_out = tuple(_same_code(trade, shared) for trade in left_out)
+    assets = {asset.code: asset for asset in listed if asset.code not in shared}
+    numbers, trades, not_sent = _sendable(records, assets, shared, progress.passage)
     left_out = tuple(sorted((*left_out, *not_sent), key=lambda trade: trade.number))
     if not trades:
         return Recorded(ending=RecordEnding.NOTHING_TO_SEND, progress=progress, left_out=left_out)
@@ -92,25 +101,33 @@ def _sent(
     left_out: tuple[LeftOutTrade, ...],
 ) -> Recorded:
     try:
-        result = ledger.propose_add(trades)
+        result = ledger.propose_add(trades, progress.passage)
     except LedgerError as error:
+        if error.kind is LedgerErrorKind.TIMED_OUT:
+            # The ledger's rule 4: it may have taken them; never send them again.
+            return Recorded(
+                ending=RecordEnding.MAYBE_SENT,
+                progress=progress,
+                trades=trades,
+                numbers=numbers,
+                left_out=left_out,
+                failure=error,
+            )
         return Recorded(ending=RecordEnding.LEDGER_FAILED, progress=progress, failure=error)
-    if result.proposal_id is None:
-        return Recorded(
-            ending=RecordEnding.LEDGER_REFUSED,
-            progress=progress,
-            trades=trades,
-            numbers=numbers,
-            left_out=left_out,
-            checks=result.checks,
-        )
+    if len(result.checks) != len(trades):
+        raise ValueError("the ledger answered a number of checks that is not the trades sent")
+    if result.none_passed:
+        ending = RecordEnding.LEDGER_REFUSED
+    else:
+        ending = RecordEnding.SENT if result.all_passed else RecordEnding.PARTLY_SENT
     return Recorded(
-        ending=RecordEnding.SENT,
+        ending=ending,
         progress=progress,
         trades=trades,
         numbers=numbers,
         left_out=left_out,
-        sent=Sent(proposal=result.proposal_id, trades=len(trades)),
+        checks=result.checks,
+        sent=Sent(proposals=result.proposal_ids) if result.proposal_ids else None,
     )
 
 
@@ -176,14 +193,33 @@ def _ledger_reason(
     return None
 
 
+def _same_code(trade: LeftOutTrade, shared: Mapping[str, SameCode]) -> LeftOutTrade:
+    """A trade left out for an asset the ledger lacks, told instead by the two assets that
+    share its code, when that is why the table did not have it."""
+    if trade.why is not LeftOut.NOT_IN_LEDGER or trade.code is None or trade.code not in shared:
+        return trade
+    words = same_code_words(shared[trade.code])
+    return LeftOutTrade(number=trade.number, why=LeftOut.SAME_CODE, code=trade.code, reason=words)
+
+
 def _sendable(
-    records: Sequence[_Numbered], assets: Mapping[str, Asset], said: str
+    records: Sequence[_Numbered],
+    assets: Mapping[str, Asset],
+    shared: Mapping[str, SameCode],
+    said: str,
 ) -> tuple[tuple[int, ...], tuple[TradeFacts, ...], tuple[LeftOutTrade, ...]]:
     """The records that can be sent, as trades, with their numbers; the rest, with why."""
     numbers: list[int] = []
     trades: list[TradeFacts] = []
     not_sent: list[LeftOutTrade] = []
     for number, record in records:
+        named = next((code for code in _codes(record) if code in shared), None)
+        if named is not None:
+            words = same_code_words(shared[named])
+            not_sent.append(
+                LeftOutTrade(number=number, why=LeftOut.SAME_CODE, code=named, reason=words)
+            )
+            continue
         why = _why_not(number, record, assets)
         if why is not None:
             not_sent.append(why)
@@ -191,6 +227,10 @@ def _sendable(
         numbers.append(number)
         trades.append(_facts(record, assets, said))
     return tuple(numbers), tuple(trades), tuple(not_sent)
+
+
+def _codes(record: TradeRecord) -> tuple[str, ...]:
+    return tuple(code for code in (record.coin, record.fee_coin, record.quote) if code)
 
 
 def _why_not(number: int, record: TradeRecord, assets: Mapping[str, Asset]) -> LeftOutTrade | None:
@@ -224,4 +264,7 @@ def _facts(record: TradeRecord, assets: Mapping[str, Asset], said: str) -> Trade
         platform=record.platform if record.platform is not None else "",
         note=record.note if record.note is not None else "",
         raw_text=said,
+        zone=record.occurred.time_zone,
+        date_only=False,
+        cost_rate=None,
     )

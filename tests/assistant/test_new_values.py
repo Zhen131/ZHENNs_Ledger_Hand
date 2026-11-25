@@ -63,7 +63,7 @@ def test_values_read(field: str, words: str, value: object) -> None:
 
 def test_a_time_with_the_clock_is_a_moment() -> None:
     assert read("time", "10月5号14:30") == TimeValue(
-        datetime(2026, 10, 5, 14, 30, tzinfo=ZoneInfo(INVENTED_ZONE))
+        datetime(2026, 10, 5, 14, 30, tzinfo=ZoneInfo(INVENTED_ZONE)), INVENTED_ZONE
     )
 
 

@@ -74,6 +74,9 @@ def test_every_figure_of_the_proposal_table_reads_back_to_the_trade() -> None:
         platform="IBKR",
         note="",
         raw_text="invented",
+        zone=None,
+        date_only=False,
+        cost_rate=None,
     )
 
     (cells,) = proposed_rows((1,), (facts,))

@@ -23,9 +23,12 @@ conditions trades were found by, the same way, for the program's words
 when it changes or deletes a trade. ``header_lines`` gives the header
 alone, for a screen that lays the rows out as a table of its own.
 
-Names defined here: ``MOST_TRADES_SHOWN``, ``Conditions``, ``Lookup``,
-``latest_trades``, ``lookup_lines``, ``header_lines``, ``trade_row`` and
-``conditions_lines``.
+A trade known only to its day is shown with its day alone, never as
+midnight (``when_text``).
+
+Names defined here: ``MOST_TRADES_SHOWN``, ``CUT_WORDS``, ``Conditions``,
+``Lookup``, ``latest_trades``, ``when_text``, ``lookup_lines``,
+``header_lines``, ``trade_row`` and ``conditions_lines``.
 """
 
 from __future__ import annotations
@@ -36,12 +39,14 @@ from decimal import Decimal
 
 from ledger_hand.assistant.tools import ToolName
 from ledger_hand.core.ledger_records import (
+    MOST_TRADES_LISTED,
     Asset,
     Figure,
     LedgerTrade,
     MoneyAmount,
     PeriodSummary,
     Position,
+    TradeFacts,
 )
 from ledger_hand.core.time_range import Period
 from ledger_hand.core.trade import Side
@@ -71,13 +76,16 @@ class Lookup:
     """What one read tool found.
 
     ``trades`` are the trades shown, at most ``MOST_TRADES_SHOWN``;
-    ``trade_count`` is how many the ledger listed or summed in all.
+    ``trade_count`` is how many the ledger listed or summed in all. ``cut``
+    says the ledger listed only its latest ``MOST_TRADES_LISTED`` trades,
+    and older ones matched too.
     """
 
     tool: ToolName
     conditions: Conditions | None = None
     trades: tuple[LedgerTrade, ...] = ()
     trade_count: int | None = None
+    cut: bool = False
     summary: PeriodSummary | None = None
     positions: tuple[Position, ...] = ()
     assets: tuple[Asset, ...] = ()
@@ -126,37 +134,74 @@ def _header(lookup: Lookup) -> list[str]:
             f"Trades: {lookup.trade_count}"
             + (f"; shown: the latest {shown}" if shown != lookup.trade_count else "")
         )
+        if lookup.cut:
+            lines.append(CUT_WORDS)
     return lines
+
+
+def when_text(facts: TradeFacts) -> str:
+    """When a trade happened: its day and time, or its day alone when only that is known."""
+    if facts.date_only:
+        return facts.day.isoformat()
+    return facts.occurred.strftime("%Y-%m-%d %H:%M")
 
 
 def _trade_row(trade: LedgerTrade) -> str:
     facts = trade.facts
     row = (
-        f"{facts.occurred.strftime('%Y-%m-%d %H:%M')} | {facts.side.value} | {facts.asset} | "
+        f"{when_text(facts)} | {facts.side.value} | {facts.asset} | "
         f"{_n(facts.quantity)} | price {_n(facts.price)} {facts.quote} | "
         f"total {_n(facts.total)} {facts.quote} | fee {_n(facts.fee)} {facts.fee_asset} | "
         f"{facts.platform or '-'}"
     )
     if trade.realized is not None:
         row += f" | realized {_money(trade.realized)}"
+        if trade.realized_unreliable is not None:
+            row += f" (not reliable: {trade.realized_unreliable})"
+    if trade.dated_after_today:
+        row += " | dated after today, in no sum"
     return row
 
 
+def _sum_text(figure: Figure) -> str:
+    if isinstance(figure, MoneyAmount):
+        return _n(figure.amount)
+    return f"not worked out: {figure.reason}"
+
+
 def _summary_rows(summary: PeriodSummary) -> list[str]:
-    rows = [
-        f"{totals.currency} | spent on buys {_n(totals.spent)} | "
-        f"received from sells {_n(totals.received)} | realized {_money(totals.realized)}"
-        for totals in summary.by_currency
-    ]
+    rows = []
+    for totals in summary.by_currency:
+        rows.append(
+            f"{totals.currency} | spent on buys {_sum_text(totals.spent)} | "
+            f"received from sells {_sum_text(totals.received)} | "
+            f"realized {_money(totals.realized)}"
+        )
+        transfers = totals.realized_from_transfers
+        if not (isinstance(transfers, MoneyAmount) and transfers.amount == 0):
+            rows.append(
+                f"{totals.currency} | of the realized: from sells "
+                f"{_money(totals.realized_from_sells)}; cost taken out by transfers "
+                f"{_money(transfers)} (not a losing sale)"
+            )
+        rows.extend(
+            f"{totals.currency} | {row.asset} realized {_money(row.realized)}, "
+            f"not reliable: {row.unreliable}"
+            for row in totals.by_asset
+            if row.unreliable is not None
+        )
     rows.extend(f"fees taken in {fee.currency}: {_n(fee.amount)}" for fee in summary.fees)
     return rows
 
 
 def _position_row(position: Position) -> str:
-    return (
+    row = (
         f"{position.asset} | {_n(position.quantity)} | cost {_money(position.cost)} | "
         f"unrealized {_money(position.unrealized)}"
     )
+    if position.cost_unreliable is not None:
+        row += f" | cost not reliable: {position.cost_unreliable}"
+    return row
 
 
 def _asset_row(asset: Asset) -> str:
@@ -175,6 +220,11 @@ def _rows(lookup: Lookup) -> list[str]:
 
 
 _NOTHING = "Nothing in the ledger matches."
+
+# Said when the ledger listed only its latest trades (68B2, part 9).
+CUT_WORDS = (
+    f"Only the latest {MOST_TRADES_LISTED} trades were taken; older ones are not counted here."
+)
 
 
 def lookup_lines(lookup: Lookup) -> tuple[str, ...]:

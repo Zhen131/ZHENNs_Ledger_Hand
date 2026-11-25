@@ -34,7 +34,7 @@ def test_holdings_name_their_money_and_give_a_reason_where_there_is_no_figure() 
 
 def test_a_sell_carries_its_profit_and_every_amount_is_text() -> None:
     (sell,) = json.loads(
-        trades_text(FakeLedger().list_trades(TradeFilter(asset="ETH", side=Side.SELL)))
+        trades_text(FakeLedger().list_trades(TradeFilter(asset="ETH", side=Side.SELL)).trades)
     )["trades"]
 
     assert sell["realized_profit"] == {"amount": "56.84221053", "currency": "USDT"}

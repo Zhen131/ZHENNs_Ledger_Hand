@@ -21,8 +21,11 @@ and the side), which part (a choice) and the new value (the user's words);
    follows (``Choosing``).
 4. Propose. A change sends the whole trade, every other part as the ledger
    holds it and the words it was recorded from untouched; a deletion sends
-   its identifier. The ledger checks it: passed, it waits there to be
-   confirmed; turned down, the program gives the ledger's reason.
+   its identifier. Both carry the sentence that asked for them, word for
+   word. The ledger checks it: passed, it waits there to be confirmed;
+   turned down, the program gives the ledger's reason; a trade the ledger
+   no longer has is said to be gone. A proposal the ledger did not answer
+   in time is never sent again: the user is asked to look at the ledger.
 
 While the program waits for an answer (``EditWaiting``), the user's next
 words are read by the program (``answer``), not the model: a number, or
@@ -82,7 +85,7 @@ from ledger_hand.assistant.picking import (
 )
 from ledger_hand.assistant.tools import ToolName
 from ledger_hand.core.ledger_records import LedgerTrade, TradeFacts, TradeFilter
-from ledger_hand.core.proposals import CheckOutcome, TradeCheck
+from ledger_hand.core.proposals import TARGET_NOT_FOUND, CheckOutcome, TradeCheck
 from ledger_hand.core.trade import Amount
 from ledger_hand.flows.asking import ProgramWords, find_conditions
 from ledger_hand.ports import LedgerError, LedgerErrorKind, LedgerPort, ToolCall
@@ -117,13 +120,22 @@ class EditEnding(enum.Enum):
     """The user dropped it."""
     LEDGER_FAILED = "ledger_failed"
     """The ledger could not be asked."""
+    MAYBE_SENT = "maybe_sent"
+    """The ledger did not answer the proposal in time: it may have reached it. It is not
+    sent again; the user is asked to look at the ledger's pending list."""
 
 
 @dataclass(frozen=True, kw_only=True)
 class EditRequest:
-    """What is to be done: delete, or change ``field`` to ``value``, read from ``words``."""
+    """What is to be done: delete, or change ``field`` to ``value``, read from ``words``.
+
+    ``said`` is the user's sentence that asked for it, word for word: the
+    proposal carries it to the ledger, even when a later answer (a number,
+    which amount follows) settles which trade.
+    """
 
     kind: EditKind
+    said: str
     field: str | None = None
     words: str | None = None
     value: NewValue | None = None
@@ -213,7 +225,7 @@ def _started(call: EditCall, around: _Around, user_said: Sequence[str]) -> Edite
         return Edited(ending=EditEnding.TOLD, reply=conditions.words)
     if conditions.period is None and conditions.asset is None and conditions.side is None:
         return Edited(ending=EditEnding.NO_CONDITIONS, reply=edit_words.NO_CONDITIONS)
-    request = EditRequest(kind=EditKind.DELETE)
+    request = EditRequest(kind=EditKind.DELETE, said=user_said[-1])
     if call.tool is ToolName.PROPOSE_TRADE_UPDATE:
         assert call.field is not None and call.new_value is not None
         value = read_new_value(
@@ -226,9 +238,18 @@ def _started(call: EditCall, around: _Around, user_said: Sequence[str]) -> Edite
         if isinstance(value, NotTaken):
             return Edited(ending=EditEnding.TOLD, reply=value.words)
         request = EditRequest(
-            kind=EditKind.CHANGE, field=call.field, words=call.new_value, value=value
+            kind=EditKind.CHANGE,
+            said=user_said[-1],
+            field=call.field,
+            words=call.new_value,
+            value=value,
         )
-    trades = _found(conditions, around.ledger)
+    try:
+        trades = _found(conditions, around.ledger)
+    except LedgerError as error:
+        if error.kind is LedgerErrorKind.ASSET_IS_CURRENCY:
+            return Edited(ending=EditEnding.TOLD, reply=error.message)
+        raise
     if not trades:
         return Edited(ending=EditEnding.NOT_FOUND, reply=edit_words.not_found_words(conditions))
     if len(trades) > MOST_LISTED:
@@ -244,12 +265,12 @@ def _found(conditions: Conditions, ledger: LedgerPort) -> tuple[LedgerTrade, ...
     period = conditions.period
     return ledger.list_trades(
         TradeFilter(
-            start=period.start if period is not None else None,
-            end=period.end if period is not None else None,
+            first_day=period.first_day if period is not None else None,
+            last_day=period.last_day if period is not None else None,
             asset=conditions.asset,
             side=conditions.side,
         )
-    )
+    ).trades
 
 
 def _picking(
@@ -271,7 +292,7 @@ def _onto(
 ) -> Edited:
     """The change or the deletion of the one trade found, proposed, or why not."""
     if request.kind is EditKind.DELETE:
-        return _proposed(trade, None, conditions, around.ledger)
+        return _proposed(trade, None, request, conditions, around.ledger)
     assert request.field is not None and request.value is not None
     changed = changed_trade(request.field, request.value, trade.facts, around.ledger.list_assets())
     if isinstance(changed, NotTaken):
@@ -280,7 +301,7 @@ def _onto(
         return Edited(ending=EditEnding.TOLD, reply=edit_words.NOTHING_TO_CHANGE, before=trade)
     if isinstance(changed, Fixes):
         return _choosing(trade, changed, request, conditions)
-    return _proposed(trade, changed, conditions, around.ledger)
+    return _proposed(trade, changed, request, conditions, around.ledger)
 
 
 def _choosing(
@@ -301,20 +322,39 @@ def _choosing(
 
 
 def _proposed(
-    trade: LedgerTrade, after: TradeFacts | None, conditions: Conditions, ledger: LedgerPort
+    trade: LedgerTrade,
+    after: TradeFacts | None,
+    request: EditRequest,
+    conditions: Conditions,
+    ledger: LedgerPort,
 ) -> Edited:
-    """Send the change (``after``) or the deletion (no ``after``) of ``trade`` to the ledger."""
+    """Send the change (``after``) or the deletion (no ``after``) of ``trade`` to the ledger.
+
+    A trade the ledger no longer has, by its failure or by its check's code,
+    is said to be gone. A proposal the ledger did not answer in time is not
+    sent again (``MAYBE_SENT``).
+    """
     try:
         if after is None:
-            result = ledger.propose_delete(trade.id)
+            result = ledger.propose_delete(trade.id, request.said)
         else:
-            result = ledger.propose_update(trade.id, after)
+            result = ledger.propose_update(trade.id, after, request.said)
     except LedgerError as error:
         if error.kind is LedgerErrorKind.NOT_FOUND:
             return Edited(ending=EditEnding.TOLD, reply=edit_words.GONE, before=trade)
+        if error.kind is LedgerErrorKind.TIMED_OUT:
+            return Edited(
+                ending=EditEnding.MAYBE_SENT,
+                reply=edit_words.MAYBE_SENT,
+                before=trade,
+                after=after,
+                failure=error,
+            )
         raise
-    if not result.all_passed or result.proposal_id is None:
-        failed = [check for check in result.checks if check.outcome is CheckOutcome.FAILED]
+    failed = [check for check in result.checks if check.outcome is CheckOutcome.FAILED]
+    if any(check.code == TARGET_NOT_FOUND for check in failed):
+        return Edited(ending=EditEnding.TOLD, reply=edit_words.GONE, before=trade)
+    if failed or not result.proposal_ids:
         message = failed[0].message if failed else "it was not kept."
         return Edited(
             ending=EditEnding.LEDGER_REFUSED,
@@ -324,10 +364,11 @@ def _proposed(
             checks=result.checks,
         )
     kind = EditKind.DELETE if after is None else EditKind.CHANGE
+    proposal = result.proposal_ids[0]
     return Edited(
         ending=EditEnding.SENT,
-        reply=edit_words.sent_words(result.proposal_id, conditions, trade, after),
-        sent=EditSent(proposal=result.proposal_id, kind=kind, trade=trade.id),
+        reply=edit_words.sent_words(proposal, conditions, trade, after),
+        sent=EditSent(proposal=proposal, kind=kind, trade=trade.id),
         before=trade,
         after=after,
     )
@@ -382,7 +423,7 @@ def _chosen(waiting: Choosing, said: str, around: _Around) -> Edited:
     if follows is None or fix is None:
         why = f"I could not tell which you mean from {said.strip()!r}."
         return _choosing(trade, changed, request, waiting.conditions, why)
-    return _proposed(trade, with_fix(trade.facts, fix), waiting.conditions, around.ledger)
+    return _proposed(trade, with_fix(trade.facts, fix), request, waiting.conditions, around.ledger)
 
 
 def _failed(error: LedgerError) -> Edited:

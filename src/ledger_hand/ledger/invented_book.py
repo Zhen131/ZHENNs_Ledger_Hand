@@ -100,6 +100,9 @@ def _trade(
         platform=platform,
         note=note,
         raw_text=raw_text,
+        zone=INVENTED_ZONE,
+        date_only=False,
+        cost_rate=None,
     )
 
 

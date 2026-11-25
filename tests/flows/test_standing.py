@@ -12,7 +12,7 @@ from decimal import Decimal
 from zoneinfo import ZoneInfo
 
 from ledger_hand.core.ledger_records import TradeFacts, TradeFilter
-from ledger_hand.core.proposals import ProposalStatus
+from ledger_hand.core.proposals import ProposalState, ProposalStatus
 from ledger_hand.core.trade import Side
 from ledger_hand.flows.standing import (
     DemoOutcome,
@@ -37,6 +37,9 @@ BUY = TradeFacts(
     platform="Binance",
     note="",
     raw_text="invented",
+    zone=None,
+    date_only=False,
+    cost_rate=None,
 )
 
 
@@ -46,14 +49,13 @@ class NotTheDemo:
     def __init__(self) -> None:
         self.calls: list[str] = []
 
-    def proposal_status(self, proposal_id: str) -> ProposalStatus:
+    def proposal_status(self, proposal_id: str) -> ProposalState:
         self.calls.append(proposal_id)
-        return ProposalStatus.PENDING
+        return ProposalState(proposal_id=proposal_id, status=ProposalStatus.PENDING)
 
 
 def proposed(ledger: FakeLedger) -> str:
-    proposal = ledger.propose_add((BUY,)).proposal_id
-    assert proposal is not None
+    (proposal,) = ledger.propose_add((BUY,), "invented").proposal_ids
     return proposal
 
 
@@ -66,24 +68,24 @@ def test_the_one_kind_names_the_demo_ledger_as_invented() -> None:
 def test_a_pending_proposal_is_said_pending_then_saved_after_a_demo_save() -> None:
     ledger = FakeLedger()
     proposal = proposed(ledger)
-    before = len(ledger.list_trades(TradeFilter()))
+    before = len(ledger.list_trades(TradeFilter()).trades)
 
     assert standing(ledger, proposal).status is ProposalStatus.PENDING
     done = demo_save(ledger, proposal)
 
     assert done.outcome is DemoOutcome.DONE
     assert standing(ledger, proposal).status is ProposalStatus.SAVED
-    assert len(ledger.list_trades(TradeFilter())) == before + 1
+    assert len(ledger.list_trades(TradeFilter()).trades) == before + 1
 
 
 def test_a_demo_reject_leaves_the_book_as_it_was() -> None:
     ledger = FakeLedger()
     proposal = proposed(ledger)
-    before = ledger.list_trades(TradeFilter())
+    before = ledger.list_trades(TradeFilter()).trades
 
     assert demo_reject(ledger, proposal).outcome is DemoOutcome.DONE
     assert standing(ledger, proposal).status is ProposalStatus.REJECTED
-    assert ledger.list_trades(TradeFilter()) == before
+    assert ledger.list_trades(TradeFilter()).trades == before
 
 
 def test_an_unknown_proposal_is_said_as_the_ledgers_failure_not_as_a_status() -> None:

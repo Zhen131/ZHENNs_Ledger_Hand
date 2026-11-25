@@ -77,7 +77,7 @@ def test_a_question_then_its_answer_sends_one_trade_and_save_adds_it() -> None:
     assert "proposal-1: pending -> saved" in lines
     assert "trades in the fake ledger: 11 before, 12 after" in lines
     assert any(line.startswith("  added t-12: 2026-11-24T09:40:00+01:00 buy") for line in lines)
-    assert len(ledger.list_trades(TradeFilter())) == 12
+    assert len(ledger.list_trades(TradeFilter()).trades) == 12
 
 
 def test_reject_leaves_the_book_as_it_was() -> None:
@@ -149,6 +149,9 @@ def test_a_small_figure_is_written_out_in_full() -> None:
         platform="OKX",
         note="",
         raw_text="今早8点05分OKX买入0.00040811BTC",
+        zone=None,
+        date_only=False,
+        cost_rate=None,
     )
 
     line = try_assistant.trade_line(trade)

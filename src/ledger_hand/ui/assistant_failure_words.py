@@ -99,6 +99,18 @@ LEDGER_FAILURES: Mapping[LedgerErrorKind, str] = MappingProxyType(
         LedgerErrorKind.NOT_FOUND: (
             "The ledger has no such trade or proposal, so nothing was done with it."
         ),
+        LedgerErrorKind.ASSET_IS_CURRENCY: (
+            "The ledger lists no trades by a currency, so nothing was looked up."
+        ),
+        LedgerErrorKind.TIMED_OUT: (
+            "The ledger did not answer in time. Anything sent may already be waiting "
+            "there, so nothing was sent again: please look at the ledger's pending list."
+        ),
+        LedgerErrorKind.RESULT_UNKNOWN: (
+            "The ledger page may have been reloaded, so the result of this one can no "
+            "longer be looked up. That does not mean it was not saved: please look at "
+            "the ledger."
+        ),
         LedgerErrorKind.OTHER: "The ledger reported a failure of its own; nothing was done.",
     }
 )

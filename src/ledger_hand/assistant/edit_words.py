@@ -18,7 +18,7 @@ a table under it, one line each.
 - the fixed sentences for the rest.
 
 Names defined here: ``NO_CONDITIONS``, ``CANCELLED``, ``NOTHING_TO_CHANGE``,
-``GONE``, ``PERIOD_AGAIN``, ``VALUE_AGAIN``, ``picking_words``,
+``GONE``, ``MAYBE_SENT``, ``PERIOD_AGAIN``, ``VALUE_AGAIN``, ``picking_words``,
 ``too_many_words``, ``choosing_words``, ``sent_words``, ``not_found_words``,
 ``refused_words``, ``failed_words`` and ``not_done_words``.
 """
@@ -28,7 +28,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from decimal import Decimal
 
-from ledger_hand.assistant.lookups import Conditions, conditions_lines, trade_row
+from ledger_hand.assistant.lookups import Conditions, conditions_lines, trade_row, when_text
 from ledger_hand.assistant.new_values import FIELD_WORDS, Fixes
 from ledger_hand.core.ledger_records import LedgerTrade, TradeFacts
 from ledger_hand.core.trade import Amount
@@ -42,6 +42,12 @@ NOTHING_TO_CHANGE = "The trade already has that value, so there is nothing to ch
 GONE = (
     "That trade is no longer in the ledger as it was listed, so nothing was proposed. "
     "Please say again which trade you mean."
+)
+# The ledger's own rule 4 (assistant-link/README.md): a proposal it did not
+# answer in time may still have reached it, so it is never sent again.
+MAYBE_SENT = (
+    "The ledger did not answer in time, so this may already be waiting there. Nothing "
+    "was sent again. Please look at the ledger's pending list first."
 )
 PERIOD_AGAIN = (
     "I could not tell which day's trade you mean, so nothing was proposed. "
@@ -119,7 +125,7 @@ def choosing_words(trade: LedgerTrade, fixes: Fixes, why: str = "") -> str:
 
 def _parts(facts: TradeFacts) -> list[tuple[str, str]]:
     return [
-        ("time", facts.occurred.strftime("%Y-%m-%d %H:%M")),
+        ("time", when_text(facts)),
         ("side", facts.side.value),
         ("asset", facts.asset),
         ("quantity", _n(facts.quantity)),

@@ -260,7 +260,7 @@ def say(
     if turn.ending is Ending.RECORDING:
         recorded = _begun(said, around)
         reply = reply_for(recorded)
-        closed = close_recording(turn, recorded.ending.value, reply, _proposal(recorded))
+        closed = close_recording(turn, recorded.ending.value, reply, _proposals(recorded))
         state = AssistantChat(chat=closed.chat, recording=_waiting(recorded))
         return Said(route=Route.MODEL, reply=reply, state=state, turn=closed, recorded=recorded)
     if turn.ending is Ending.TWO_MISSTEPS:
@@ -412,8 +412,8 @@ def _waiting(recorded: Recorded) -> Progress | None:
     return recorded.progress if recorded.ending is RecordEnding.ASKING else None
 
 
-def _proposal(recorded: Recorded) -> str | None:
-    return recorded.sent.proposal if recorded.sent is not None else None
+def _proposals(recorded: Recorded) -> tuple[str, ...]:
+    return recorded.sent.proposals if recorded.sent is not None else ()
 
 
 def _with_words(chat: Chat, said: tuple[Message, ...]) -> Chat:
@@ -421,10 +421,10 @@ def _with_words(chat: Chat, said: tuple[Message, ...]) -> Chat:
 
 
 def _with_proposal(chat: Chat, recorded: Recorded) -> Chat:
-    proposal = _proposal(recorded)
-    if proposal is None:
+    proposals = _proposals(recorded)
+    if not proposals:
         return chat
-    return Chat(items=chat.items, proposals=(*chat.proposals, proposal))
+    return Chat(items=chat.items, proposals=(*chat.proposals, proposals))
 
 
 def _edit_begun(turn: TurnResult, said: str, around: _Around) -> Said:
@@ -443,8 +443,8 @@ def _edit_begun(turn: TurnResult, said: str, around: _Around) -> Said:
         if one.call.name in EDIT_TOOLS and one.call is not taken.call
     ]
     reply = edited.reply if not left else f"{edited.reply}\n{not_done_words(left)}"
-    proposal = edited.sent.proposal if edited.sent is not None else None
-    closed = close_editing(turn, edited.ending.value, reply, proposal)
+    proposals = (edited.sent.proposal,) if edited.sent is not None else ()
+    closed = close_editing(turn, edited.ending.value, reply, proposals)
     state = AssistantChat(chat=closed.chat, editing=edited.waiting)
     return Said(route=Route.MODEL, reply=reply, state=state, turn=closed, edited=edited)
 
@@ -459,7 +459,7 @@ def _edit_answered(state: AssistantChat, waiting: EditWaiting, said: str, around
         state.chat, (Message(Role.USER, said), Message(Role.ASSISTANT, edited.reply))
     )
     if edited.sent is not None:
-        chat = Chat(items=chat.items, proposals=(*chat.proposals, edited.sent.proposal))
+        chat = Chat(items=chat.items, proposals=(*chat.proposals, (edited.sent.proposal,)))
     return Said(
         route=Route.ANSWER,
         reply=edited.reply,
@@ -480,7 +480,7 @@ def _edit_taken_over(turn: TurnResult, call: ToolCall, around: _Around) -> Said:
     kept = Chat(items=turn.chat.items[:-1], proposals=turn.chat.proposals)
     chat = _with_words(kept, (Message(Role.ASSISTANT, edited.reply),))
     if edited.sent is not None:
-        chat = Chat(items=chat.items, proposals=(*chat.proposals, edited.sent.proposal))
+        chat = Chat(items=chat.items, proposals=(*chat.proposals, (edited.sent.proposal,)))
     return Said(
         route=Route.TAKEOVER,
         reply=edited.reply,

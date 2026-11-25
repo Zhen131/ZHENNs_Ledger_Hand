@@ -6,38 +6,49 @@ file, reaches no network and never reads the clock. It is the stand-in the
 assistant is built against first, and it stays for the tests and for a
 demonstration that must not depend on the real ledger.
 
-A proposal is checked as it comes in, trade by trade. A trade fails when an
-asset it names (the asset, the money it is priced in, the fee's asset) is
-not in the book, when the money it is priced in cannot price a trade, or
-when, put in the book, it would make some sell take out more than was held
-then; a change or a deletion fails on that last count too. When one trade
-fails, the proposal is not kept and gets no identifier; when all pass, it
-waits as pending, and the book does not change.
+It answers the way the real ledger's assistant link does (68B2, 2026-11-25):
+
+- A call to record checks its trades one by one, each against the book as
+  the trades before it that passed would leave it. Each trade that passes
+  waits as a proposal of its own, with an identifier of its own; one that
+  fails gets none, and the others still wait. A trade fails when an asset
+  it names (the asset, the money it is priced in, the fee's asset) is not
+  in the book, when that money cannot price a trade, or when, put in the
+  book, it would make some sell take out more than was held then.
+- A change or a deletion is one proposal; a trade not in the book fails
+  its check with ``TARGET_NOT_FOUND``, as the real ledger answers.
+- Trades are listed and summed by the day each falls on, on the clock of
+  its own offset, both ends of a stretch counted; at most ``most_listed``
+  of the latest are listed.
 
 Two things the port does not offer are here for tests, the try-out
 script and the assistant page's demo buttons: ``save`` a pending proposal
-(only then does the book change, and every other pending proposal becomes
-void, since it was checked against the book as it was) and ``reject`` one.
-The page reaches them only through ``flows/standing.py``, which does
-nothing with any other ledger; the assistant's model is never handed them.
+(only then does the book change) and ``reject`` one. Saving writes the
+proposal's trade into the book as it stands then; every other pending
+proposal that would no longer pass, or that changes or deletes the same
+trade, becomes void, since it was checked against the book as it was. The
+page reaches them only through ``flows/standing.py``, which does nothing
+with any other ledger; the assistant's model is never handed them.
 
 Cost and profit are worked out the fake ledger's own way
 (``moving_average``), which says nothing about the real ledger's way.
 
 ``failure``, when given, is raised by every call of the port, so that a test
 can see what becomes of a ledger that fails. ``calls`` names every call of
-the port made, in order.
+the port made, in order; ``said`` keeps the words each proposal came with.
 
 Names defined here: ``FakeLedger``.
 """
 
 from __future__ import annotations
 
+import enum
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from decimal import Decimal
 
 from ledger_hand.core.ledger_records import (
+    MOST_TRADES_LISTED,
     Asset,
     LedgerTrade,
     PeriodRequest,
@@ -46,8 +57,16 @@ from ledger_hand.core.ledger_records import (
     Pricing,
     TradeFacts,
     TradeFilter,
+    TradeList,
 )
-from ledger_hand.core.proposals import CheckOutcome, ProposalResult, ProposalStatus, TradeCheck
+from ledger_hand.core.proposals import (
+    TARGET_NOT_FOUND,
+    CheckOutcome,
+    ProposalResult,
+    ProposalState,
+    ProposalStatus,
+    TradeCheck,
+)
 from ledger_hand.ledger.fake_sums import period_summary, positions
 from ledger_hand.ledger.invented_book import (
     INVENTED_ASSETS,
@@ -59,18 +78,24 @@ from ledger_hand.ports import LedgerError, LedgerErrorKind
 
 type Book = tuple[tuple[str, TradeFacts], ...]
 
-_PASSED = TradeCheck(outcome=CheckOutcome.PASSED)
-_OVERSOLD = TradeCheck(
-    outcome=CheckOutcome.FAILED,
-    code="sells_more_than_held",
-    message="With this, a sell would take out more than was held at the time.",
-)
+_OVERSOLD_CODE = "sells_more_than_held"
+_OVERSOLD_WORDS = "With this, a sell would take out more than was held at the time."
+_VOID_CODE = "TARGET_CHANGED"
+_VOID_WORDS = "The ledger changed after this was sent, so it can no longer be saved."
+
+
+class _Kind(enum.Enum):
+    ADD = "add"
+    UPDATE = "update"
+    DELETE = "delete"
 
 
 @dataclass
 class _Proposal:
-    status: ProposalStatus
-    after: Book
+    kind: _Kind
+    target: str | None
+    facts: TradeFacts | None
+    state: ProposalState
 
 
 class FakeLedger:
@@ -83,14 +108,17 @@ class FakeLedger:
         trades: Sequence[tuple[str, TradeFacts]] = INVENTED_TRADES,
         prices: Mapping[tuple[str, str], Decimal] = INVENTED_MARKET_PRICES,
         failure: LedgerError | None = None,
+        most_listed: int = MOST_TRADES_LISTED,
     ) -> None:
         self._assets = tuple(assets)
         self._trades: Book = tuple(trades)
         self._prices = dict(prices)
         self._failure = failure
+        self._most_listed = most_listed
         self._proposals: dict[str, _Proposal] = {}
         self._next_trade = len(self._trades) + 1
         self.calls: list[str] = []
+        self.said: list[str] = []
 
     # --- the port -------------------------------------------------------------
 
@@ -98,16 +126,24 @@ class FakeLedger:
         self._called("list_assets")
         return self._assets
 
-    def list_trades(self, trade_filter: TradeFilter) -> tuple[LedgerTrade, ...]:
+    def list_trades(self, trade_filter: TradeFilter) -> TradeList:
         self._called("list_trades")
         if trade_filter.asset is not None:
             self._known_asset(trade_filter.asset)
         realized = replay(self._trades).realized
-        return tuple(
-            LedgerTrade(id=key, facts=facts, realized=realized.get(key))
+        found = tuple(
+            LedgerTrade(
+                id=key,
+                facts=facts,
+                realized=realized.get(key),
+                realized_unreliable=None,
+                dated_after_today=False,
+            )
             for key, facts in sorted(self._trades, key=lambda pair: pair[1].occurred)
-            if _matches(facts, trade_filter)
+            if trade_filter.holds(facts)
         )
+        cut = len(found) > self._most_listed
+        return TradeList(trades=found[-self._most_listed :] if cut else found, cut=cut)
 
     def period_summary(self, request: PeriodRequest) -> PeriodSummary:
         self._called("period_summary")
@@ -119,70 +155,92 @@ class FakeLedger:
         self._called("positions")
         return positions(replay(self._trades), self._prices)
 
-    def propose_add(self, trades: tuple[TradeFacts, ...]) -> ProposalResult:
-        self._called("propose_add")
+    def propose_add(self, trades: tuple[TradeFacts, ...], said: str) -> ProposalResult:
+        self._called("propose_add", said)
         if not trades:
             raise ValueError("a proposal to record holds at least one trade")
         checks: list[TradeCheck] = []
         book = self._trades
-        for facts in trades:
-            added = (*book, (f"t-{self._next_trade + len(book) - len(self._trades):02d}", facts))
-            check = self._checked(facts, added)
-            checks.append(check)
-            if check is _PASSED:
-                book = added
-        return self._kept(tuple(checks), book)
+        for number, facts in enumerate(trades, start=1):
+            added = (*book, (f"proposed-{number}", facts))
+            failed = self._failed(facts, added)
+            if failed is not None:
+                checks.append(failed)
+                continue
+            book = added
+            checks.append(self._kept(_Kind.ADD, None, facts))
+        return ProposalResult(checks=tuple(checks))
 
-    def propose_update(self, trade_id: str, facts: TradeFacts) -> ProposalResult:
-        self._called("propose_update")
-        self._known_trade(trade_id)
+    def propose_update(self, trade_id: str, facts: TradeFacts, said: str) -> ProposalResult:
+        self._called("propose_update", said)
+        if trade_id not in self._keys():
+            return ProposalResult(checks=(_not_found(trade_id),))
         changed = tuple((key, facts if key == trade_id else old) for key, old in self._trades)
-        return self._kept((self._checked(facts, changed),), changed)
+        failed = self._failed(facts, changed)
+        check = failed if failed is not None else self._kept(_Kind.UPDATE, trade_id, facts)
+        return ProposalResult(checks=(check,))
 
-    def propose_delete(self, trade_id: str) -> ProposalResult:
-        self._called("propose_delete")
-        self._known_trade(trade_id)
+    def propose_delete(self, trade_id: str, said: str) -> ProposalResult:
+        self._called("propose_delete", said)
+        if trade_id not in self._keys():
+            return ProposalResult(checks=(_not_found(trade_id),))
         left = tuple(pair for pair in self._trades if pair[0] != trade_id)
-        check = _OVERSOLD if replay(left).oversold else _PASSED
-        return self._kept((check,), left)
+        if replay(left).oversold:
+            check = _failed_check(_OVERSOLD_CODE, _OVERSOLD_WORDS)
+        else:
+            check = self._kept(_Kind.DELETE, trade_id, None)
+        return ProposalResult(checks=(check,))
 
-    def proposal_status(self, proposal_id: str) -> ProposalStatus:
+    def proposal_status(self, proposal_id: str) -> ProposalState:
         self._called("proposal_status")
-        return self._proposal(proposal_id).status
+        return self._proposal(proposal_id).state
 
     # --- outside the port: what the person does on the ledger's own page ------
 
     def save(self, proposal_id: str) -> None:
-        """Save a pending proposal: the book changes, and every other pending one is void."""
+        """Save a pending proposal: the book changes; pending ones it spoils become void."""
         proposal = self._pending(proposal_id)
-        self._next_trade += max(0, len(proposal.after) - len(self._trades))
-        self._trades = proposal.after
-        proposal.status = ProposalStatus.SAVED
-        for other in self._proposals.values():
-            if other.status is ProposalStatus.PENDING:
-                other.status = ProposalStatus.VOID
+        after = self._applied(proposal, self._trades)
+        if after is None:
+            proposal.state = _void(proposal_id)
+            return
+        book, written = after
+        if proposal.kind is _Kind.ADD:
+            self._next_trade += 1
+        self._trades = book
+        proposal.state = ProposalState(
+            proposal_id=proposal_id, status=ProposalStatus.SAVED, trade_id=written
+        )
+        for key, other in self._proposals.items():
+            if other.state.status is not ProposalStatus.PENDING:
+                continue
+            same_target = other.target is not None and other.target == proposal.target
+            if same_target or self._applied(other, self._trades) is None:
+                other.state = _void(key)
 
     def reject(self, proposal_id: str) -> None:
         """Reject a pending proposal: the book stays as it is."""
-        self._pending(proposal_id).status = ProposalStatus.REJECTED
+        self._pending(proposal_id)
+        self._proposals[proposal_id].state = ProposalState(
+            proposal_id=proposal_id, status=ProposalStatus.REJECTED
+        )
 
     # --- inside ---------------------------------------------------------------
 
-    def _called(self, name: str) -> None:
+    def _called(self, name: str, said: str | None = None) -> None:
         self.calls.append(name)
+        if said is not None:
+            self.said.append(said)
         if self._failure is not None:
             raise self._failure
+
+    def _keys(self) -> set[str]:
+        return {key for key, _ in self._trades}
 
     def _known_asset(self, code: str) -> None:
         if code not in {asset.code for asset in self._assets}:
             raise LedgerError(
                 LedgerErrorKind.UNKNOWN_ASSET, "unknown_asset", f"The ledger has no asset {code}."
-            )
-
-    def _known_trade(self, trade_id: str) -> None:
-        if trade_id not in {key for key, _ in self._trades}:
-            raise LedgerError(
-                LedgerErrorKind.NOT_FOUND, "trade_not_found", f"The ledger has no trade {trade_id}."
             )
 
     def _proposal(self, proposal_id: str) -> _Proposal:
@@ -196,46 +254,66 @@ class FakeLedger:
 
     def _pending(self, proposal_id: str) -> _Proposal:
         proposal = self._proposal(proposal_id)
-        if proposal.status is not ProposalStatus.PENDING:
+        status = proposal.state.status
+        if status is not ProposalStatus.PENDING:
             raise LedgerError(
                 LedgerErrorKind.OTHER,
                 "proposal_not_pending",
-                f"The proposal {proposal_id} is {proposal.status.value}, not pending.",
+                f"The proposal {proposal_id} is {status.value}, not pending.",
             )
         return proposal
 
-    def _checked(self, facts: TradeFacts, book: Book) -> TradeCheck:
-        """The check of one trade, as it would stand in ``book``."""
+    def _failed(self, facts: TradeFacts, book: Book) -> TradeCheck | None:
+        """Why one trade fails, as it would stand in ``book``; ``None`` when it passes."""
         codes = {asset.code: asset for asset in self._assets}
         for code in (facts.asset, facts.quote, facts.fee_asset):
             if code not in codes:
-                return TradeCheck(
-                    outcome=CheckOutcome.FAILED,
-                    code="unknown_asset",
-                    message=f"The ledger has no asset {code}.",
-                )
+                return _failed_check("unknown_asset", f"The ledger has no asset {code}.")
         if codes[facts.quote].pricing is not Pricing.CAN_PRICE:
-            return TradeCheck(
-                outcome=CheckOutcome.FAILED,
-                code="cannot_price",
-                message=f"{facts.quote} cannot be the money a trade is priced in.",
+            return _failed_check(
+                "cannot_price", f"{facts.quote} cannot be the money a trade is priced in."
             )
-        return _OVERSOLD if replay(book).oversold else _PASSED
+        if replay(book).oversold:
+            return _failed_check(_OVERSOLD_CODE, _OVERSOLD_WORDS)
+        return None
 
-    def _kept(self, checks: tuple[TradeCheck, ...], after: Book) -> ProposalResult:
-        """The result of a proposal; kept as pending, with an identifier, only when all passed."""
-        if any(check.outcome is CheckOutcome.FAILED for check in checks):
-            return ProposalResult(checks=checks, proposal_id=None)
+    def _kept(self, kind: _Kind, target: str | None, facts: TradeFacts | None) -> TradeCheck:
+        """Keep one passed change as a pending proposal of its own; its check."""
         proposal_id = f"proposal-{len(self._proposals) + 1}"
-        self._proposals[proposal_id] = _Proposal(status=ProposalStatus.PENDING, after=after)
-        return ProposalResult(checks=checks, proposal_id=proposal_id)
+        state = ProposalState(proposal_id=proposal_id, status=ProposalStatus.PENDING)
+        self._proposals[proposal_id] = _Proposal(kind=kind, target=target, facts=facts, state=state)
+        return TradeCheck(outcome=CheckOutcome.PASSED, proposal_id=proposal_id)
+
+    def _applied(self, proposal: _Proposal, book: Book) -> tuple[Book, str] | None:
+        """``book`` with the proposal's change in it, and the trade it writes; ``None`` when
+        the change no longer fits the book. A new trade's key is the next one free."""
+        if proposal.kind is _Kind.ADD:
+            assert proposal.facts is not None
+            key = f"t-{self._next_trade:02d}"
+            added: Book = (*book, (key, proposal.facts))
+            return None if self._failed(proposal.facts, added) is not None else (added, key)
+        target = proposal.target
+        assert target is not None
+        if target not in {key for key, _ in book}:
+            return None
+        if proposal.kind is _Kind.DELETE:
+            left = tuple(pair for pair in book if pair[0] != target)
+            return None if replay(left).oversold else (left, target)
+        facts = proposal.facts
+        assert facts is not None
+        changed = tuple((key, facts if key == target else old) for key, old in book)
+        return None if self._failed(facts, changed) is not None else (changed, target)
 
 
-def _matches(facts: TradeFacts, trade_filter: TradeFilter) -> bool:
-    if trade_filter.start is not None and facts.occurred < trade_filter.start:
-        return False
-    if trade_filter.end is not None and facts.occurred >= trade_filter.end:
-        return False
-    if trade_filter.asset is not None and facts.asset != trade_filter.asset:
-        return False
-    return trade_filter.side is None or facts.side is trade_filter.side
+def _failed_check(code: str, message: str) -> TradeCheck:
+    return TradeCheck(outcome=CheckOutcome.FAILED, code=code, message=message)
+
+
+def _not_found(trade_id: str) -> TradeCheck:
+    return _failed_check(TARGET_NOT_FOUND, f"The ledger has no trade {trade_id}.")
+
+
+def _void(proposal_id: str) -> ProposalState:
+    return ProposalState(
+        proposal_id=proposal_id, status=ProposalStatus.VOID, reason=_VOID_CODE, message=_VOID_WORDS
+    )

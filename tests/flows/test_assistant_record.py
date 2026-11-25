@@ -100,7 +100,9 @@ def test_an_entry_holds_the_trade_sent_its_amounts_as_text_beside_its_own_money(
         "1",
         "USD",
     )
-    assert entry["sent"] == [{"proposal": "proposal-1", "what": "record", "status": "pending"}]
+    assert entry["sent"] == [
+        {"number": 1, "what": "record", "proposal": "proposal-1", "status": "pending"}
+    ]
     assert entry["reminders"] == ["numbers_left_over"]
     assert entry["models"] == {"tools": MODEL, "vision": None}
     assert set(entry["prompts"]) == {"assistant", "screening", "extraction"}

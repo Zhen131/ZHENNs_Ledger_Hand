@@ -67,10 +67,14 @@ class Ending(enum.Enum):
 
 @dataclass(frozen=True, kw_only=True)
 class Chat:
-    """The chat so far, and the identifiers of the proposals made in it, oldest first."""
+    """The chat so far, and the proposals made in it, oldest first.
+
+    Each item of ``proposals`` is one thing sent: the identifiers of the
+    proposals it left waiting in the ledger, one for each trade taken.
+    """
 
     items: tuple[ChatItem, ...] = ()
-    proposals: tuple[str, ...] = ()
+    proposals: tuple[tuple[str, ...], ...] = ()
 
     @property
     def user_said(self) -> tuple[str, ...]:

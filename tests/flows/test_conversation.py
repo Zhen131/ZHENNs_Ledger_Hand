@@ -103,7 +103,7 @@ def pending(ledger: FakeLedger) -> list[str]:
     while True:
         proposal = f"proposal-{number}"
         try:
-            status = ledger.proposal_status(proposal)
+            status = ledger.proposal_status(proposal).status
         except LedgerError:
             return waiting
         if status is ProposalStatus.PENDING:
@@ -120,7 +120,7 @@ def one_buy(**changed: str) -> tuple[list[Said], RoutedModel, FakeLedger]:
 
 def test_a_complete_trade_goes_to_the_ledger_as_one_pending_proposal() -> None:
     ledger = usdt_only_ledger()
-    before = (ledger.list_trades(TradeFilter()), ledger.positions())
+    before = (ledger.list_trades(TradeFilter()).trades, ledger.positions())
 
     (said,), _, _ = one_buy(ledger=ledger)  # type: ignore[arg-type]
 
@@ -147,8 +147,8 @@ def test_a_complete_trade_goes_to_the_ledger_as_one_pending_proposal() -> None:
     )
     usdt = next(asset for asset in INVENTED_ASSETS if asset.code == "USDT")
     assert trade.quote == usdt.code
-    assert (ledger.list_trades(TradeFilter()), ledger.positions()) == before
-    assert said.state.chat.proposals == (said.sent.proposal,)
+    assert (ledger.list_trades(TradeFilter()).trades, ledger.positions()) == before
+    assert said.state.chat.proposals == (said.sent.proposals,)
     assert said.well_ended
 
 
@@ -266,14 +266,17 @@ TWO_ROWS = table(
 )
 
 
-def test_two_trades_go_as_one_proposal_in_the_order_said() -> None:
+def test_two_trades_go_in_one_sending_a_proposal_each_in_the_order_said() -> None:
     ledger = usdt_only_ledger()
     (said,), _, _ = talk(TWO, tools=[RECORD], screen=[SPOT], extraction=[TWO_ROWS], ledger=ledger)
 
     assert said.recorded is not None
     assert [trade.asset for trade in said.recorded.trades] == ["BTC", "ETH"]
     assert said.sent is not None and said.sent.trades == 2
-    assert len(pending(ledger)) == 1
+    assert said.sent.proposals == ("proposal-1", "proposal-2")
+    assert pending(ledger) == ["proposal-1", "proposal-2"]
+    assert said.state.chat.proposals == (("proposal-1", "proposal-2"),)
+    assert ledger.calls.count("propose_add") == 1
 
 
 def test_a_fee_taken_in_the_coin_bought_or_in_usdt_names_that_ledger_asset() -> None:
@@ -301,7 +304,7 @@ def test_two_calls_to_record_in_one_step_hand_the_words_over_once() -> None:
 
     assert len(model.screen.calls) == 1
     assert len(model.extraction.calls) == 1
-    assert len(pending(ledger)) == 1
+    assert len(pending(ledger)) == 2
     assert said.sent is not None and said.sent.trades == 2
     assert [type(call) for call in said.turn.steps[0].calls] == [TakenCall, TakenCall]  # type: ignore[union-attr]
 
@@ -471,7 +474,7 @@ def test_a_missing_fee_is_asked_and_the_answer_sends_the_trade() -> None:
     assert second.sent is not None
     assert pending(ledger) == [second.sent.proposal]
     assert second.state.recording is None
-    assert second.state.chat.proposals == (second.sent.proposal,)
+    assert second.state.chat.proposals == (second.sent.proposals,)
 
 
 def test_nothing_waits_in_the_ledger_while_a_question_waits() -> None:

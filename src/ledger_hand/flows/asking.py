@@ -14,7 +14,10 @@ this module turns that into a lookup the ledger can answer, and asks it:
   all time. The asset and the side are checked against what the user said
   (``assistant.narrowing``): one the user did not ask for is not used, and
   the header says so; an asset the user named that the ledger does not
-  have ends in the program's words as well.
+  have ends in the program's words as well, and so does a code two assets
+  of the ledger share (a coin and a stock): both are named, none is
+  picked. The ledger is asked by days, both ends counted (a period's
+  first and last day), the way it counts them.
 
 ``judge_read`` judges a call to the two narrowed tools: the asset is taken
 out first and checked apart, and the rest is judged as any call is
@@ -48,6 +51,7 @@ from ledger_hand.assistant.narrowing import (
 )
 from ledger_hand.assistant.tools import ToolName
 from ledger_hand.core.ledger_records import PeriodRequest, TradeFilter
+from ledger_hand.core.ledger_table import same_code_words, same_codes
 from ledger_hand.core.time_range import Period, PeriodRefusal, PeriodRefused, read_period
 from ledger_hand.core.trade import Side
 from ledger_hand.ports import LedgerPort, ToolCall
@@ -129,9 +133,9 @@ def look_up(
     if isinstance(conditions, ProgramWords):
         return conditions
     period = conditions.period
-    start, end = (period.start, period.end) if period is not None else (None, None)
+    first, last = (period.first_day, period.last_day) if period is not None else (None, None)
     if accepted.tool is ToolName.GET_PERIOD_SUMMARY:
-        request = PeriodRequest(start=start, end=end, asset=conditions.asset)
+        request = PeriodRequest(first_day=first, last_day=last, asset=conditions.asset)
         summary = ledger.period_summary(request)
         return Lookup(
             tool=accepted.tool,
@@ -139,13 +143,16 @@ def look_up(
             summary=summary,
             trade_count=summary.trade_count,
         )
-    trade_filter = TradeFilter(start=start, end=end, asset=conditions.asset, side=conditions.side)
-    trades = ledger.list_trades(trade_filter)
+    trade_filter = TradeFilter(
+        first_day=first, last_day=last, asset=conditions.asset, side=conditions.side
+    )
+    listed = ledger.list_trades(trade_filter)
     return Lookup(
         tool=accepted.tool,
         conditions=conditions,
-        trades=latest_trades(trades),
-        trade_count=len(trades),
+        trades=latest_trades(listed.trades),
+        trade_count=len(listed.trades),
+        cut=listed.cut,
     )
 
 
@@ -192,12 +199,16 @@ def _found_conditions(
         period = reading
     code: str | None = None
     if asset is not None:
-        checked = check_asset(asset, ledger.list_assets(), said.now_words, said.before)
+        listed = ledger.list_assets()
+        checked = check_asset(asset, listed, said.now_words, said.before)
         if isinstance(checked, NoSuchAsset):
             return ProgramWords(_NO_SUCH_ASSET.format(word=checked.word))
         if isinstance(checked, AssetDropped):
             not_narrowed.append(checked.why)
         if isinstance(checked, AssetUsed):
+            shared = next((same for same in same_codes(listed) if same.code == checked.code), None)
+            if shared is not None:
+                return ProgramWords(same_code_words(shared))
             code = checked.code
     side: Side | None = None
     if given_side is not None:

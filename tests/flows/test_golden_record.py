@@ -9,8 +9,9 @@ copies it into a temporary folder first and works on the copy only.
   hold: a trade not sent and why, a reminder said and a share priced in
   dollars in the first; a question in the second; a screenshot in the third;
   the model's own answer in the fourth.
-- An entry made now has the same names as the golden ones, so that a change
-  to what an entry holds cannot go without a new version and a new sample.
+- An entry made now has the same names as the golden ones; what one line
+  of "sent" holds changed at version 2, checked against the golden record of
+  version 2 (``test_golden_record_v2.py``).
 - Adding to the copy keeps the four entries as they were.
 """
 
@@ -21,7 +22,6 @@ import shutil
 from pathlib import Path
 
 from ledger_hand.flows.assistant_record import (
-    RECORD_VERSION,
     Kept,
     RecordRead,
     entry_for,
@@ -111,16 +111,17 @@ def test_the_other_entries_hold_a_question_a_screenshot_and_the_models_answer(
     assert answer["reply"] == "I can look that up in the ledger for you."
 
 
-def test_an_entry_made_now_has_the_names_of_the_golden_ones() -> None:
-    said, _ = typed(SHARES, [SHARES_ROW], FakeLedger())
-    made = entry_for(said, words=SHARES, at=INVENTED_NOW, model="invented-model")
+def test_an_entry_of_version_one_keeps_every_name_an_entry_of_version_two_has() -> None:
+    # Version 2 changed what one line of "sent" holds, not the names of an entry
+    # (68B2); the names of an entry made now are checked against version 2's
+    # golden record, in test_golden_record_v2.py.
     golden = read_record(GOLDEN)
     assert isinstance(golden, RecordRead)
+    said, _ = typed(SHARES, [SHARES_ROW], FakeLedger())
+    made = entry_for(said, words=SHARES, at=INVENTED_NOW, model="invented-model")
 
-    assert RECORD_VERSION == 1
     for entry in golden.entries:
         assert list(entry) == list(made)
-    assert list(golden.entries[0]["trades"][0]) == list(made["trades"][0])
 
 
 def test_adding_to_a_copy_keeps_the_golden_entries_as_they_were(tmp_path: Path) -> None:

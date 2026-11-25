@@ -76,7 +76,7 @@ def proposed(ledger: FakeLedger) -> list[str]:
 
 
 def book(ledger: FakeLedger) -> list[tuple[str, TradeFacts]]:
-    return [(trade.id, trade.facts) for trade in ledger.list_trades(TradeFilter())]
+    return [(trade.id, trade.facts) for trade in ledger.list_trades(TradeFilter()).trades]
 
 
 # --- found straight away -----------------------------------------------------
@@ -93,8 +93,8 @@ def test_the_only_trade_of_a_day_is_proposed_for_deletion_and_the_book_is_unchan
     sent = said.edit_sent
     assert sent is not None
     assert (sent.kind, sent.trade) == (EditKind.DELETE, "t-03")
-    assert ledger.proposal_status(sent.proposal) is ProposalStatus.PENDING
-    assert said.state.chat.proposals == (sent.proposal,)
+    assert ledger.proposal_status(sent.proposal).status is ProposalStatus.PENDING
+    assert said.state.chat.proposals == ((sent.proposal,),)
     assert said.sent is None
     assert said.well_ended
     assert len(model.calls) == 1
@@ -187,7 +187,7 @@ def test_two_trades_of_a_day_are_listed_and_the_second_answer_picks_the_second()
     assert after == dataclasses.replace(BOOK["t-06"], fee=Decimal("0.000009"))
     assert after.raw_text.encode() == BOOK["t-06"].raw_text.encode()
     assert second.state.editing is None
-    assert second.state.chat.proposals == (second.edit_sent.proposal,)
+    assert second.state.chat.proposals == ((second.edit_sent.proposal,),)
     assert second.state.chat.items[-2:] == (
         Message(Role.USER, "第二笔"),
         Message(Role.ASSISTANT, second.reply),
@@ -232,9 +232,10 @@ def test_a_trade_given_by_the_model_is_dropped_and_no_wrong_step() -> None:
 def test_the_trade_picked_is_looked_up_again_and_taken_as_it_stands_now() -> None:
     ledger = FakeLedger()
     (first,), _, _ = talk("把10月6号那笔删掉", steps=[delete(period="10月6号")], ledger=ledger)
-    saved = ledger.propose_update("t-06", dataclasses.replace(BOOK["t-06"], note="checked"))
-    assert saved.proposal_id is not None
-    ledger.save(saved.proposal_id)
+    saved = ledger.propose_update(
+        "t-06", dataclasses.replace(BOOK["t-06"], note="checked"), "note checked"
+    )
+    ledger.save(saved.proposal_ids[0])
 
     model = ScriptedModel([])
     said = say(
@@ -260,9 +261,8 @@ def test_a_trade_gone_before_the_answer_is_said_to_be_gone() -> None:
         steps=[update(period="10月6号", field="note", new_value="ok")],
         ledger=ledger,
     )
-    gone = ledger.propose_delete("t-06")
-    assert gone.proposal_id is not None
-    ledger.save(gone.proposal_id)
+    gone = ledger.propose_delete("t-06", "delete t-06")
+    ledger.save(gone.proposal_ids[0])
 
     said = say(
         first.state,

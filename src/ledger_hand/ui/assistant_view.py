@@ -43,6 +43,7 @@ from ledger_hand.ui.assistant_how import how_lines, sent_line, words_by_line
 from ledger_hand.ui.assistant_record_words import not_kept_words
 from ledger_hand.ui.assistant_session import Exchange, NoteTone
 from ledger_hand.ui.assistant_tables import (
+    FEES_INSIDE,
     change_rows,
     listed_rows,
     lookup_rows,
@@ -137,6 +138,8 @@ def _tables(said: Said, number: int) -> None:
     if said.turn is not None:
         for index, lookup in enumerate(said.turn.lookups):
             _table(lookup_rows(lookup), table_key(number, "lookup", index), header_lines(lookup))
+            if lookup.summary is not None and lookup.summary.by_currency:
+                st.caption(FEES_INSIDE)
     recorded = said.recorded
     if recorded is not None and recorded.trades:
         st.caption("The trades in the proposal:")

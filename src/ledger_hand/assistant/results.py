@@ -42,15 +42,17 @@ from ledger_hand.assistant.judging import Misstep
 from ledger_hand.assistant.lookups import Conditions, Lookup
 from ledger_hand.assistant.tools import ToolName
 from ledger_hand.core.ledger_records import (
+    MOST_TRADES_LISTED,
     Asset,
+    CurrencyTotals,
     Figure,
     LedgerTrade,
     MoneyAmount,
     PeriodSummary,
     Position,
 )
-from ledger_hand.core.proposals import ProposalStatus
-from ledger_hand.ports import LedgerError
+from ledger_hand.core.proposals import ProposalState
+from ledger_hand.ports import LedgerError, LedgerErrorKind
 
 
 def _text(data: object) -> str:
@@ -85,29 +87,31 @@ def assets_text(assets: Sequence[Asset]) -> str:
     )
 
 
+def _position_entry(position: Position) -> dict[str, object]:
+    # "bought_with" keeps its name for the model (68B2, part 11): it now holds
+    # the asset's own money, which every figure of the holding is in.
+    entry: dict[str, object] = {
+        "asset": position.asset,
+        "bought_with": position.currency,
+        "quantity": _number(position.quantity),
+        "cost": _figure(position.cost),
+        "unrealized_profit": _figure(position.unrealized),
+    }
+    if position.cost_unreliable is not None:
+        entry["cost_not_reliable"] = position.cost_unreliable
+    return entry
+
+
 def positions_text(positions: Sequence[Position]) -> str:
-    """What is held, one holding for each asset and the money it was bought with."""
-    return _text(
-        {
-            "positions": [
-                {
-                    "asset": position.asset,
-                    "bought_with": position.quote,
-                    "quantity": _number(position.quantity),
-                    "cost": _figure(position.cost),
-                    "unrealized_profit": _figure(position.unrealized),
-                }
-                for position in positions
-            ]
-        }
-    )
+    """What is held, one holding for each asset, every figure in the asset's own money."""
+    return _text({"positions": [_position_entry(position) for position in positions]})
 
 
 def _trade_entry(trade: LedgerTrade) -> dict[str, object]:
     facts = trade.facts
     entry: dict[str, object] = {
         "id": trade.id,
-        "time": facts.occurred.isoformat(),
+        "time": facts.day.isoformat() if facts.date_only else facts.occurred.isoformat(),
         "side": facts.side.value,
         "asset": facts.asset,
         "quantity": _number(facts.quantity),
@@ -119,8 +123,14 @@ def _trade_entry(trade: LedgerTrade) -> dict[str, object]:
         "platform": facts.platform,
         "note": facts.note,
     }
+    if facts.date_only:
+        entry["date_only"] = True
     if trade.realized is not None:
         entry["realized_profit"] = _figure(trade.realized)
+    if trade.realized_unreliable is not None:
+        entry["realized_profit_not_reliable"] = trade.realized_unreliable
+    if trade.dated_after_today:
+        entry["dated_after_today"] = True
     return entry
 
 
@@ -129,18 +139,44 @@ def trades_text(trades: Sequence[LedgerTrade]) -> str:
     return _text({"trades": [_trade_entry(trade) for trade in trades]})
 
 
+def _sum(figure: Figure) -> object:
+    """A sum of one group: its digits alone, as before, or why it was not worked out."""
+    if isinstance(figure, MoneyAmount):
+        return _number(figure.amount)
+    return {"not_worked_out": figure.reason}
+
+
+def _group_entry(totals: CurrencyTotals, *, several: bool) -> dict[str, object]:
+    entry: dict[str, object] = {
+        "currency": totals.currency,
+        "spent_on_buys": _sum(totals.spent),
+        "received_from_sells": _sum(totals.received),
+        "realized_profit": _figure(totals.realized),
+    }
+    # With one group the summary's own count and fees say it all; with two
+    # or more, each group says its own (68B2, part 7).
+    if several:
+        entry["buy_count"] = totals.buy_count
+        entry["sell_count"] = totals.sell_count
+        entry["fees"] = [_figure(fee) for fee in totals.fees]
+    transfers = totals.realized_from_transfers
+    if not (isinstance(transfers, MoneyAmount) and transfers.amount == 0):
+        entry["realized_from_sells"] = _figure(totals.realized_from_sells)
+        entry["cost_taken_out_by_transfers"] = _figure(transfers)
+    unreliable = [row for row in totals.by_asset if row.unreliable is not None]
+    if unreliable:
+        entry["realized_not_reliable"] = [
+            {"asset": row.asset, "realized_profit": _figure(row.realized), "why": row.unreliable}
+            for row in unreliable
+        ]
+    return entry
+
+
 def _summary_data(summary: PeriodSummary) -> dict[str, object]:
+    several = len(summary.by_currency) > 1
     return {
         "trade_count": summary.trade_count,
-        "by_currency": [
-            {
-                "currency": totals.currency,
-                "spent_on_buys": _number(totals.spent),
-                "received_from_sells": _number(totals.received),
-                "realized_profit": _figure(totals.realized),
-            }
-            for totals in summary.by_currency
-        ],
+        "by_currency": [_group_entry(totals, several=several) for totals in summary.by_currency],
         "fees": [_figure(fee) for fee in summary.fees],
     }
 
@@ -183,13 +219,38 @@ def lookup_text(lookup: Lookup) -> str:
     else:
         data["trade_count"] = lookup.trade_count
         data["shown"] = len(lookup.trades)
+        if lookup.cut:
+            data["only_the_latest_taken"] = MOST_TRADES_LISTED
         data["trades"] = [_trade_entry(trade) for trade in lookup.trades]
     return _text(data)
 
 
-def status_text(proposal_id: str, status: ProposalStatus) -> str:
-    """Where a proposal stands."""
-    return _text({"proposal": proposal_id, "status": status.value})
+def _state_entry(state: ProposalState) -> dict[str, object]:
+    entry: dict[str, object] = {"proposal": state.proposal_id, "status": state.status.value}
+    if state.reason is not None:
+        entry["void_reason"] = state.reason
+    if state.message is not None:
+        entry["message"] = state.message
+    return entry
+
+
+def status_text(states: Sequence[ProposalState]) -> str:
+    """Where the proposals of the last thing sent stand: one, as before, or each of several.
+
+    Several proposals (a call to record more than one trade) are said one
+    by one under ``proposals``; ``status`` is theirs when they agree and
+    ``mixed`` when not, and ``proposal`` is the first.
+    """
+    if not states:
+        raise ValueError("there is at least one proposal to say")
+    data = _state_entry(states[0])
+    if len(states) > 1:
+        statuses = {state.status for state in states}
+        data["status"] = states[0].status.value if len(statuses) == 1 else "mixed"
+        data.pop("void_reason", None)
+        data.pop("message", None)
+        data["proposals"] = [_state_entry(state) for state in states]
+    return _text(data)
 
 
 def not_connected_text() -> str:
@@ -228,9 +289,28 @@ def period_misstep_text(misstep: Misstep, said: str) -> str:
     )
 
 
+# What two failures mean, which their codes alone do not say (the ledger's
+# assistant-link/README.md, rules 4 and 5).
+_MEANINGS = {
+    LedgerErrorKind.TIMED_OUT: (
+        "The ledger did not answer in time. A proposal may still have reached it: do not "
+        "send it again; ask the user to look at the ledger's pending list first."
+    ),
+    LedgerErrorKind.RESULT_UNKNOWN: (
+        "The ledger page may have been reloaded, so the result of this proposal can no "
+        "longer be looked up. This does not mean it was not saved; ask the user to look "
+        "at the ledger."
+    ),
+}
+
+
 def ledger_error_text(error: LedgerError) -> str:
     """The answer to a call the ledger refused."""
-    return _text({"status": "ledger_error", "code": error.code, "message": error.message})
+    data = {"status": "ledger_error", "code": error.code, "message": error.message}
+    meaning = _MEANINGS.get(error.kind)
+    if meaning is not None:
+        data["what_it_means"] = meaning
+    return _text(data)
 
 
 def not_run_text() -> str:

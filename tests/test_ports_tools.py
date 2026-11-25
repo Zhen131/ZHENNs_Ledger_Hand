@@ -64,6 +64,9 @@ def test_a_ledger_error_says_its_kind_code_and_sentence() -> None:
     assert [kind.value for kind in LedgerErrorKind] == [
         "unreachable",
         "unknown_asset",
+        "asset_is_currency",
         "not_found",
+        "timed_out",
+        "result_unknown",
         "other",
     ]

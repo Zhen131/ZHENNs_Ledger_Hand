@@ -36,10 +36,11 @@ The ledger itself, the one the person keeps their trades in, is reached
 through a ``LedgerPort``: list its assets and trades, sum a stretch of time
 up, say what is held, and propose to record, change or delete trades. A
 proposal writes nothing: it waits in the ledger for the person to save or
-reject it there. Every failure is one ``LedgerError`` carrying one of four
-kinds, a fixed code and a sentence; a trade that fails the ledger's check is
-not a failure, but part of the proposal's answer. Its shapes are declared in
-``core.ledger_records`` and ``core.proposals``.
+reject it there, one proposal for each trade. Every failure is one
+``LedgerError`` carrying one of seven kinds, a fixed code and a sentence; a
+trade that fails the ledger's check is not a failure, but part of the
+proposal's answer. Its shapes are declared in ``core.ledger_records`` and
+``core.proposals``.
 
 This module only declares shapes. It sends nothing, stores nothing, reads no
 settings and holds no prompt. Whether the text of a reply is valid JSON that
@@ -73,14 +74,14 @@ from ledger_hand.core.book import (
 )
 from ledger_hand.core.ledger_records import (
     Asset,
-    LedgerTrade,
     PeriodRequest,
     PeriodSummary,
     Position,
     TradeFacts,
     TradeFilter,
+    TradeList,
 )
-from ledger_hand.core.proposals import ProposalResult, ProposalStatus
+from ledger_hand.core.proposals import ProposalResult, ProposalState
 from ledger_hand.core.stored import StoredTrade
 
 
@@ -539,14 +540,23 @@ class StoragePort(Protocol):
 
 
 class LedgerErrorKind(enum.Enum):
-    """The four kinds of ledger failure. Every plug sorts every failure into one of them."""
+    """The kinds of ledger failure. Every plug sorts every failure into one of them."""
 
     UNREACHABLE = "unreachable"
-    """The ledger could not be reached."""
+    """The ledger could not be reached: no page connected, no ledger open, or the page
+    gone before it answered."""
     UNKNOWN_ASSET = "unknown_asset"
     """The ledger does not know an asset it was asked about."""
+    ASSET_IS_CURRENCY = "asset_is_currency"
+    """Trades were asked for by a money (cash), which the ledger does not list trades by."""
     NOT_FOUND = "not_found"
     """The trade or the proposal asked about is not in the ledger."""
+    TIMED_OUT = "timed_out"
+    """The ledger did not answer in time. A proposal may still have reached it: it is
+    never sent again, and the person is asked to look at the ledger's pending list."""
+    RESULT_UNKNOWN = "result_unknown"
+    """The ledger no longer knows the proposal asked about (its page was reloaded, which
+    forgets every proposal). This says nothing of whether it was saved."""
     OTHER = "other"
     """A failure that fits no other kind; the message says what the ledger reported."""
 
@@ -576,41 +586,45 @@ class LedgerPort(Protocol):
     """The person's ledger. Every method raises ``LedgerError`` when it fails.
 
     Nothing here writes to the ledger: a proposal waits there until the
-    person saves or rejects it on the ledger's own page.
+    person saves or rejects it on the ledger's own page. Every proposal
+    carries ``said``, what the user said this time, word for word: for a
+    change or a deletion that is what was said now, not what the trade was
+    recorded from.
     """
 
     def list_assets(self) -> tuple[Asset, ...]:
         """Every asset the ledger knows."""
         ...
 
-    def list_trades(self, trade_filter: TradeFilter) -> tuple[LedgerTrade, ...]:
-        """The trades ``trade_filter`` asks for, oldest first. An asset the ledger does not
-        know is ``UNKNOWN_ASSET``."""
+    def list_trades(self, trade_filter: TradeFilter) -> TradeList:
+        """The trades ``trade_filter`` asks for, oldest first: at most ``MOST_TRADES_LISTED``,
+        the latest, and whether older ones were left out. An asset the ledger does not
+        know is ``UNKNOWN_ASSET``; a money is ``ASSET_IS_CURRENCY``."""
         ...
 
     def period_summary(self, request: PeriodRequest) -> PeriodSummary:
-        """The sums of the stretch of time ``request`` names."""
+        """The sums of the stretch of days ``request`` names."""
         ...
 
     def positions(self) -> tuple[Position, ...]:
-        """What is held now, one holding for each asset and the money it was bought with."""
+        """What is held now, one holding for each asset; none that is sold out."""
         ...
 
-    def propose_add(self, trades: tuple[TradeFacts, ...]) -> ProposalResult:
+    def propose_add(self, trades: tuple[TradeFacts, ...], said: str) -> ProposalResult:
         """Propose to record ``trades``; the answer holds the check of each, in order."""
         ...
 
-    def propose_update(self, trade_id: str, facts: TradeFacts) -> ProposalResult:
-        """Propose that the trade ``trade_id`` becomes ``facts``. A trade not in the
-        ledger is ``NOT_FOUND``."""
+    def propose_update(self, trade_id: str, facts: TradeFacts, said: str) -> ProposalResult:
+        """Propose that the trade ``trade_id`` becomes ``facts``. A trade not in the ledger
+        is a failed check (or ``NOT_FOUND``)."""
         ...
 
-    def propose_delete(self, trade_id: str) -> ProposalResult:
-        """Propose to delete the trade ``trade_id``. A trade not in the ledger is
-        ``NOT_FOUND``."""
+    def propose_delete(self, trade_id: str, said: str) -> ProposalResult:
+        """Propose to delete the trade ``trade_id``. A trade not in the ledger is a failed
+        check (or ``NOT_FOUND``)."""
         ...
 
-    def proposal_status(self, proposal_id: str) -> ProposalStatus:
+    def proposal_status(self, proposal_id: str) -> ProposalState:
         """Where the proposal ``proposal_id`` stands. One the ledger never kept is
-        ``NOT_FOUND``."""
+        ``NOT_FOUND``; one it forgot is ``RESULT_UNKNOWN``."""
         ...

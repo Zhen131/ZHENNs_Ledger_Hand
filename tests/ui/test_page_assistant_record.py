@@ -145,7 +145,7 @@ def panel_texts(page: AppTest) -> list[str]:
 
 
 def pending(ledger: FakeLedger) -> bool:
-    return ledger.proposal_status("proposal-1") is ProposalStatus.PENDING
+    return ledger.proposal_status("proposal-1").status is ProposalStatus.PENDING
 
 
 def warnings_under(page: AppTest, number: int) -> list[str]:
@@ -168,7 +168,9 @@ def test_three_things_said_make_three_entries_each_read_back(tmp_path: Path) -> 
     kept = entries(data)
     assert [entry["said"] for entry in kept] == [ONE_BUY, "我现在持有什么", "那10月呢"]
     assert [entry["format_version"] for entry in kept] == [RECORD_VERSION] * 3
-    assert kept[0]["sent"] == [{"proposal": "proposal-1", "what": "record", "status": "pending"}]
+    assert kept[0]["sent"] == [
+        {"number": 1, "what": "record", "proposal": "proposal-1", "status": "pending"}
+    ]
     assert kept[1]["reply"] == "Invented answer one."
     assert kept[0]["at"] == INVENTED_NOW.isoformat()
     for number in (1, 2, 3):

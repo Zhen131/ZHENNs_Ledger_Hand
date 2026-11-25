@@ -28,7 +28,7 @@ from __future__ import annotations
 import enum
 from dataclasses import dataclass
 
-from ledger_hand.core.proposals import ProposalStatus
+from ledger_hand.core.proposals import ProposalState, ProposalStatus
 from ledger_hand.ledger.fake_ledger import FakeLedger
 from ledger_hand.ports import LedgerError, LedgerPort
 
@@ -41,10 +41,15 @@ class LedgerKind(enum.Enum):
 
 @dataclass(frozen=True, kw_only=True)
 class Standing:
-    """Where one proposal stands: its status, or the ledger's failure when it could not say."""
+    """Where one proposal stands: its status, or the ledger's failure when it could not say.
+
+    ``state`` is all the ledger said: the trade a saved proposal wrote, why a
+    void one became void.
+    """
 
     proposal: str
     status: ProposalStatus | None = None
+    state: ProposalState | None = None
     failure: LedgerError | None = None
 
 
@@ -67,9 +72,10 @@ class DemoDone:
 def standing(ledger: LedgerPort, proposal: str) -> Standing:
     """Where ``proposal`` stands, asked of ``ledger`` now."""
     try:
-        return Standing(proposal=proposal, status=ledger.proposal_status(proposal))
+        state = ledger.proposal_status(proposal)
     except LedgerError as error:
         return Standing(proposal=proposal, failure=error)
+    return Standing(proposal=proposal, status=state.status, state=state)
 
 
 def demo_save(ledger: LedgerPort, proposal: str) -> DemoDone:

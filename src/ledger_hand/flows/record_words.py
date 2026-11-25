@@ -12,7 +12,8 @@ says them too.
 question (its label and sentence, why it is asked again when it is, the
 answers to choose from and its notes, one to a line); for an
 ending, its sentence, filled in with what the flow or the ledger gave as
-the reason, then one line for each trade not sent or turned down. When a
+the reason, then one line for each trade not sent, for each that waits in
+the ledger when only part was taken, and for each turned down. When a
 proposal was sent, turned down by the ledger or nothing was sent, one line
 follows for each reminder of extraction whose kind is on
 ``SPOKEN_REMINDERS``, in the Record page's words (``reminder_words``); no
@@ -46,8 +47,16 @@ ENDING_WORDS: Mapping[RecordEnding, str] = MappingProxyType(
         RecordEnding.SENT: (
             "Sent to the ledger. It waits there for you to confirm it on the ledger's own page."
         ),
+        RecordEnding.PARTLY_SENT: (
+            "Only part of this was sent: the ledger took some trades and turned the others "
+            "down. Those it took wait there for you to confirm on the ledger's own page."
+        ),
         RecordEnding.LEDGER_REFUSED: (
             "The ledger turned this down, so nothing waits there for you to confirm."
+        ),
+        RecordEnding.MAYBE_SENT: (
+            "The ledger did not answer in time, so this may already be waiting there. "
+            "Nothing was sent again. Please look at the ledger's pending list first."
         ),
         RecordEnding.NOTHING_TO_SEND: "Nothing was sent to the ledger.",
         RecordEnding.NO_PRICING_MONEY: (
@@ -95,6 +104,7 @@ LEFT_OUT_WORDS: Mapping[LeftOut, str] = MappingProxyType(
         LeftOut.QUOTE_CANNOT_PRICE: (
             "Trade {number} was not sent: the ledger does not price trades in {code}."
         ),
+        LeftOut.SAME_CODE: "Trade {number} was not sent: {reason}",
         LeftOut.QUANTITY_IN_OTHER_UNIT: (
             "Trade {number} was not sent: its quantity was said as {quantity} {unit}, and "
             "{unit} is not {asset}. If {quantity} {unit} is what you paid or got in all, "
@@ -112,7 +122,13 @@ SPOKEN_REMINDERS: frozenset[IssueKind] = REMINDER_KINDS
 # The endings after which the reminders are said: a proposal was sent,
 # the ledger turned it down, or nothing was sent.
 _SAYS_REMINDERS = frozenset(
-    {RecordEnding.SENT, RecordEnding.LEDGER_REFUSED, RecordEnding.NOTHING_TO_SEND}
+    {
+        RecordEnding.SENT,
+        RecordEnding.PARTLY_SENT,
+        RecordEnding.LEDGER_REFUSED,
+        RecordEnding.MAYBE_SENT,
+        RecordEnding.NOTHING_TO_SEND,
+    }
 )
 
 
@@ -122,6 +138,7 @@ def reply_for(recorded: Recorded) -> str:
         question=_question(recorded), code=recorded.missing_money or "", reason=_reason(recorded)
     )
     lines = [first, *(_left_out(trade) for trade in recorded.left_out)]
+    lines.extend(_waiting(recorded))
     lines.extend(_turned_down(recorded))
     lines.extend(_reminders(recorded))
     return "\n".join(lines)
@@ -187,6 +204,17 @@ def _held_by(issue: Issue, left_out: tuple[LeftOutTrade, ...]) -> bool:
         trade.why is LeftOut.QUANTITY_IN_OTHER_UNIT and issue.draft == trade.number - 1
         for trade in left_out
     )
+
+
+def _waiting(recorded: Recorded) -> list[str]:
+    """When only part was taken, one line for each trade that waits in the ledger."""
+    if recorded.ending is not RecordEnding.PARTLY_SENT:
+        return []
+    return [
+        f"Trade {number} waits in the ledger to be confirmed ({check.proposal_id})."
+        for number, check in zip(recorded.numbers, recorded.checks, strict=True)
+        if check.outcome is CheckOutcome.PASSED
+    ]
 
 
 def _turned_down(recorded: Recorded) -> list[str]:

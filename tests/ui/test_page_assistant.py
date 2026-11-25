@@ -82,7 +82,8 @@ def pending(ledger: FakeLedger) -> list[str]:
     found = []
     for number in range(1, 10):
         try:
-            if ledger.proposal_status(f"proposal-{number}") is ProposalStatus.PENDING:
+            state = ledger.proposal_status(f"proposal-{number}")
+            if state.status is ProposalStatus.PENDING:
                 found.append(f"proposal-{number}")
         except Exception:  # noqa: BLE001
             break
@@ -145,12 +146,12 @@ def test_a_demo_save_makes_the_card_saved_and_the_trade_is_in_the_demo_ledger() 
     ledger = usdt_only_ledger()
     page = say_on_page(open_assistant(one_buy_model(), ledger=ledger), ONE_BUY)
     (proposal,) = pending(ledger)
-    before = len(ledger.list_trades(TradeFilter()))
+    before = len(ledger.list_trades(TradeFilter()).trades)
 
     page = page.button(key=save_key(proposal)).click().run()
 
     assert "Status: saved" in card_text(page, proposal)
-    assert len(ledger.list_trades(TradeFilter())) == before + 1
+    assert len(ledger.list_trades(TradeFilter()).trades) == before + 1
     assert [b.key for b in page.button if b.key in (save_key(proposal), reject_key(proposal))] == []
 
 

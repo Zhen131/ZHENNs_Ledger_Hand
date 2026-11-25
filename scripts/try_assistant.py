@@ -332,10 +332,10 @@ def trade_line(trade: TradeFacts) -> str:
 
 def _then(afterwards: Afterwards, chat: Chat, ledger: FakeLedger, out: TextIO) -> None:
     """Save or reject every proposal still pending, and show the book before and after."""
-    before = ledger.list_trades(TradeFilter())
+    before = ledger.list_trades(TradeFilter()).trades
     print(f"\nthen: {afterwards.value}", file=out)
-    for proposal in chat.proposals:
-        status = ledger.proposal_status(proposal)
+    for proposal in (one for sent in chat.proposals for one in sent):
+        status = ledger.proposal_status(proposal).status
         if status is not ProposalStatus.PENDING:
             print(f"{proposal}: {status.value}, left as it is", file=out)
             continue
@@ -343,8 +343,8 @@ def _then(afterwards: Afterwards, chat: Chat, ledger: FakeLedger, out: TextIO) -
             ledger.save(proposal)
         else:
             ledger.reject(proposal)
-        print(f"{proposal}: pending -> {ledger.proposal_status(proposal).value}", file=out)
-    after = ledger.list_trades(TradeFilter())
+        print(f"{proposal}: pending -> {ledger.proposal_status(proposal).status.value}", file=out)
+    after = ledger.list_trades(TradeFilter()).trades
     print(f"trades in the fake ledger: {len(before)} before, {len(after)} after", file=out)
     known = {trade.id for trade in before}
     added = [trade for trade in after if trade.id not in known]

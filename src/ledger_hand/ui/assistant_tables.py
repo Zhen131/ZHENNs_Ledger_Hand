@@ -10,13 +10,17 @@ money. No money is assumed.
 - ``proposed_rows``: the trades sent as one proposal, numbered as said.
 - ``lookup_rows``: what a read tool found: trades, the sums of a stretch of
   time, holdings or assets. Its header (the days, the asset, the side, the
-  counts) is the program's (``lookups.header_lines``).
+  counts) is the program's (``lookups.header_lines``). The sums are one row
+  a money, with its buys and sells counted and its fees, which
+  ``FEES_INSIDE`` says are inside its sums when taken in that money; a
+  holding names the asset's own money, every figure of it in that money.
+  A trade known only to its day shows its day alone.
 - ``change_rows``: a change, the trade before and after side by side, one
   row a part, the parts that change marked; or a deletion, the trade alone.
 - ``listed_rows``: the trades a change or deletion found, numbered from 1
   as the program numbered them when it asked which.
 
-Names defined here: ``CHANGED_MARK``, ``proposed_rows``, ``lookup_rows``,
+Names defined here: ``CHANGED_MARK``, ``FEES_INSIDE``, ``proposed_rows``, ``lookup_rows``,
 ``change_rows`` and ``listed_rows``.
 """
 
@@ -24,10 +28,11 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from ledger_hand.assistant.lookups import Lookup
+from ledger_hand.assistant.lookups import Lookup, when_text
 from ledger_hand.assistant.tools import ToolName
 from ledger_hand.core.ledger_records import (
     Asset,
+    CurrencyTotals,
     Figure,
     LedgerTrade,
     MoneyAmount,
@@ -43,7 +48,7 @@ CHANGED_MARK = "changed"
 
 
 def _when(facts: TradeFacts) -> str:
-    return facts.occurred.strftime("%Y-%m-%d %H:%M")
+    return when_text(facts)
 
 
 def _figure(figure: Figure | None) -> str:
@@ -75,37 +80,81 @@ def proposed_rows(numbers: Sequence[int], trades: Sequence[TradeFacts]) -> list[
     ]
 
 
+def _realized(trade: LedgerTrade) -> str:
+    shown_figure = _figure(trade.realized)
+    if trade.realized_unreliable is not None:
+        shown_figure += f" (not reliable: {trade.realized_unreliable})"
+    if trade.dated_after_today:
+        shown_figure += " (dated after today, in no sum)"
+    return shown_figure
+
+
 def _ledger_trade(trade: LedgerTrade) -> Row:
-    return {**_trade_cells(trade.facts), "Realized": _figure(trade.realized)}
+    return {**_trade_cells(trade.facts), "Realized": _realized(trade)}
+
+
+def _sum(figure: Figure) -> str:
+    if isinstance(figure, MoneyAmount):
+        return shown(figure.amount)
+    return f"not worked out: {figure.reason}"
+
+
+def _group_realized(totals: CurrencyTotals) -> str:
+    said = _figure(totals.realized)
+    transfers = totals.realized_from_transfers
+    if not (isinstance(transfers, MoneyAmount) and transfers.amount == 0):
+        said += (
+            f" (from sells {_figure(totals.realized_from_sells)}; cost taken out by "
+            f"transfers {_figure(transfers)}, not a loss from selling)"
+        )
+    return said
+
+
+# Said under every summary: a fee taken in the group's own money is inside its
+# two sums already (the ledger's assistant-link/README.md, rule 7).
+FEES_INSIDE = "Fees paid in a group's own money are already inside its spent and received."
 
 
 def _summary(summary: PeriodSummary) -> list[Row]:
-    rows = [
-        {
-            "Money": totals.currency,
-            "Spent on buys": shown(totals.spent),
-            "Received from sells": shown(totals.received),
-            "Realized": _figure(totals.realized),
-        }
-        for totals in summary.by_currency
-    ]
-    rows += [
-        {
-            "Money": fee.currency,
-            "Spent on buys": "-",
-            "Received from sells": "-",
-            "Realized": f"fees taken in {fee.currency}: {shown(fee.amount)}",
-        }
-        for fee in summary.fees
-    ]
+    rows: list[Row] = []
+    for totals in summary.by_currency:
+        rows.append(
+            {
+                "Money": totals.currency,
+                "Buys": str(totals.buy_count),
+                "Sells": str(totals.sell_count),
+                "Spent on buys": _sum(totals.spent),
+                "Received from sells": _sum(totals.received),
+                "Realized": _group_realized(totals),
+                "Fees": ", ".join(f"{shown(fee.amount)} {fee.currency}" for fee in totals.fees)
+                or "-",
+            }
+        )
+        rows += [
+            {
+                "Money": totals.currency,
+                "Buys": "-",
+                "Sells": "-",
+                "Spent on buys": "-",
+                "Received from sells": "-",
+                "Realized": f"{row.asset}: {_figure(row.realized)}, not reliable: {row.unreliable}",
+                "Fees": "-",
+            }
+            for row in totals.by_asset
+            if row.unreliable is not None
+        ]
     return rows
 
 
 def _position(position: Position) -> Row:
+    cost = _figure(position.cost)
+    if position.cost_unreliable is not None:
+        cost += f" (not reliable: {position.cost_unreliable})"
     return {
         "Asset": position.asset,
+        "In": position.currency,
         "Quantity": shown(position.quantity),
-        "Cost": _figure(position.cost),
+        "Cost": cost,
         "Unrealized": _figure(position.unrealized),
     }
 

@@ -13,7 +13,8 @@ later an interface to show; it works nothing out.
   every stage, and a test sees to it.
 - ``LeftOut`` and ``LeftOutTrade``: a trade of what was said that was not
   sent, and why.
-- ``Sent``: the program's own word on what reached the ledger.
+- ``Sent``: the program's own word on what reached the ledger: one proposal
+  for each trade the ledger took.
 - ``Recorded``: all of it: the ending, the flow's progress as it stands
   (with every call the flow made to the model, counted apart from the
   assistant's steps), the trades proposed, the trades left out, the
@@ -43,9 +44,15 @@ class RecordEnding(enum.Enum):
     ASKING = "asking"
     """A question about a trade waits for the user's answer."""
     SENT = "sent"
-    """A proposal was sent to the ledger and waits there to be confirmed."""
+    """Every trade sent waits in the ledger to be confirmed, each as a proposal of its own."""
+    PARTLY_SENT = "partly_sent"
+    """Some trades sent wait in the ledger to be confirmed; the ledger turned the others
+    down, each with its reason."""
     LEDGER_REFUSED = "ledger_refused"
-    """The ledger's check turned the proposal down: nothing waits there."""
+    """The ledger's check turned every trade down: nothing waits there."""
+    MAYBE_SENT = "maybe_sent"
+    """The ledger did not answer in time: the trades may be waiting there. They are not
+    sent again; the user is asked to look at the ledger's pending list."""
     NOTHING_TO_SEND = "nothing_to_send"
     """Every trade was left out; each has its reason."""
     NO_PRICING_MONEY = "no_pricing_money"
@@ -95,6 +102,8 @@ class LeftOut(enum.Enum):
     """The money it is priced in is one the ledger prices no trade in."""
     QUANTITY_IN_OTHER_UNIT = "quantity_in_other_unit"
     """Its quantity was said in a unit that is not the asset traded ("25U" of ETH)."""
+    SAME_CODE = "same_code"
+    """The ledger has more than one asset with the code it names; none is picked."""
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -117,10 +126,23 @@ class LeftOutTrade:
 
 @dataclass(frozen=True, kw_only=True)
 class Sent:
-    """What reached the ledger: the proposal's identifier, and how many trades it holds."""
+    """What waits in the ledger: one proposal for each trade it took, in the order said."""
 
-    proposal: str
-    trades: int
+    proposals: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        if not self.proposals or not all(isinstance(one, str) for one in self.proposals):
+            raise ValueError("what was sent holds at least one proposal's identifier")
+
+    @property
+    def trades(self) -> int:
+        """How many trades wait in the ledger."""
+        return len(self.proposals)
+
+    @property
+    def proposal(self) -> str:
+        """The proposals' identifiers, one after another, for words that name them."""
+        return ", ".join(self.proposals)
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -129,7 +151,8 @@ class Recorded:
 
     ``trades`` are the trades proposed, in the order said, and ``numbers``
     the number of each in what was said; ``checks`` are the ledger's checks
-    of them when it turned the proposal down. ``missing_money`` is the code
+    of them, one each, in the same order: a proposal's identifier, or why
+    the ledger turned it down. ``missing_money`` is the code
     of a money the ledger lacks, for a caller that names one; recording
     what the user said to the assistant leaves it empty.
     """

@@ -165,7 +165,14 @@ from ledger_hand.ports import (
 DEFAULT_PROMPT = ASSISTANT_FOURTH
 
 # Ledger failures the model can tell the user about; any other ends the turn.
-_TOLD_TO_THE_MODEL = frozenset({LedgerErrorKind.UNKNOWN_ASSET, LedgerErrorKind.NOT_FOUND})
+_TOLD_TO_THE_MODEL = frozenset(
+    {
+        LedgerErrorKind.UNKNOWN_ASSET,
+        LedgerErrorKind.NOT_FOUND,
+        LedgerErrorKind.ASSET_IS_CURRENCY,
+        LedgerErrorKind.RESULT_UNKNOWN,
+    }
+)
 
 
 class _LedgerFailedError(Exception):
@@ -276,12 +283,13 @@ def take_turn(
 
 
 def close_recording(
-    result: TurnResult, ending: str, reply: str, proposal: str | None
+    result: TurnResult, ending: str, reply: str, proposals: tuple[str, ...]
 ) -> TurnResult:
     """``result``, ended in recording, with its last step's results and the program's words.
 
-    ``ending`` says in one word how the recording ended; ``proposal`` is the
-    identifier of the proposal it made, if it made one.
+    ``ending`` says in one word how the recording ended; ``proposals`` are
+    the identifiers of the proposals it left waiting, one for each trade
+    the ledger took; none when it took none.
     """
     if result.ending is not Ending.RECORDING:
         raise ValueError(f"the turn did not go to recording: {result.ending.value}")
@@ -296,20 +304,22 @@ def close_recording(
         *(ToolResult(name=call.call.name, content=call.result) for call in calls),
         Message(Role.ASSISTANT, reply),
     )
-    proposals = result.chat.proposals + ((proposal,) if proposal is not None else ())
+    kept = result.chat.proposals + ((proposals,) if proposals else ())
     return dataclasses.replace(
         result,
         reply=reply,
         steps=(*earlier, dataclasses.replace(last, calls=calls)),
-        chat=Chat(items=items, proposals=proposals),
+        chat=Chat(items=items, proposals=kept),
     )
 
 
-def close_editing(result: TurnResult, ending: str, reply: str, proposal: str | None) -> TurnResult:
+def close_editing(
+    result: TurnResult, ending: str, reply: str, proposals: tuple[str, ...]
+) -> TurnResult:
     """``result``, ended in a change or deletion, with its last step's results and words.
 
-    ``ending`` says in one word how the change ended; ``proposal`` is the
-    identifier of the proposal it made, if it made one.
+    ``ending`` says in one word how the change ended; ``proposals`` holds
+    the identifier of the proposal it made, if it made one.
     """
     if result.ending is not Ending.EDITING:
         raise ValueError(f"the turn did not go to a change: {result.ending.value}")
@@ -324,12 +334,12 @@ def close_editing(result: TurnResult, ending: str, reply: str, proposal: str | N
         *(ToolResult(name=call.call.name, content=call.result) for call in calls),
         Message(Role.ASSISTANT, reply),
     )
-    proposals = result.chat.proposals + ((proposal,) if proposal is not None else ())
+    kept = result.chat.proposals + ((proposals,) if proposals else ())
     return dataclasses.replace(
         result,
         reply=reply,
         steps=(*earlier, dataclasses.replace(last, calls=calls)),
-        chat=Chat(items=items, proposals=proposals),
+        chat=Chat(items=items, proposals=kept),
     )
 
 
@@ -475,10 +485,14 @@ def _checked_words(text: str, steps: Sequence[Step], said: str) -> tuple[str, Wi
     return (AFTER_A_TABLE, withheld) if withheld is not None else (text, None)
 
 
-def _run(accepted: Accepted, ledger: LedgerPort, proposals: Sequence[str]) -> str:
-    """What the program hands back for a call taken that is not a read tool."""
+def _run(accepted: Accepted, ledger: LedgerPort, proposals: Sequence[tuple[str, ...]]) -> str:
+    """What the program hands back for a call taken that is not a read tool.
+
+    Where the last thing sent stands is asked of the ledger for every
+    proposal it left waiting.
+    """
     if accepted.tool is ToolName.GET_PROPOSAL_STATUS:
         if not proposals:
             return no_proposal_text()
-        return status_text(proposals[-1], ledger.proposal_status(proposals[-1]))
+        return status_text([ledger.proposal_status(one) for one in proposals[-1]])
     return not_connected_text()

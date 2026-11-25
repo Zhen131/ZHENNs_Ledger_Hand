@@ -11,8 +11,7 @@ reply and every trade is invented.
 from __future__ import annotations
 
 import json
-from datetime import datetime, timedelta
-from zoneinfo import ZoneInfo
+from datetime import date
 
 import pytest
 
@@ -272,12 +271,11 @@ def test_a_step_with_two_changes_goes_on_with_the_first_and_does_not_run_the_oth
 def test_the_status_of_a_proposal_when_the_chat_has_none_and_when_it_has_one() -> None:
     ledger = FakeLedger()
     none_yet, _ = turn([calls(("get_proposal_status", {})), "None."], ledger=ledger)
-    proposal = ledger.propose_delete("t-03").proposal_id
-    assert proposal is not None
+    (proposal,) = ledger.propose_delete("t-03", "delete it").proposal_ids
 
     with_one, _ = turn(
         [calls(("get_proposal_status", {})), "Pending."],
-        chat=Chat(proposals=(proposal,)),
+        chat=Chat(proposals=((proposal,),)),
         ledger=ledger,
     )
 
@@ -310,7 +308,7 @@ def test_a_ledger_that_cannot_be_reached_stops_the_turn() -> None:
 def test_a_ledger_that_does_not_know_a_proposal_is_told_to_the_model() -> None:
     result, _ = turn(
         [calls(("get_proposal_status", {})), "No such proposal."],
-        chat=Chat(proposals=("proposal-9",)),
+        chat=Chat(proposals=(("proposal-9",),)),
     )
 
     (taken,) = result.steps[0].calls
@@ -319,8 +317,8 @@ def test_a_ledger_that_does_not_know_a_proposal_is_told_to_the_model() -> None:
 
 
 def test_the_next_turn_is_handed_the_calls_and_the_trades_listed_before() -> None:
-    start = datetime(2026, 10, 6, tzinfo=ZoneInfo(INVENTED_ZONE))
-    two = FakeLedger().list_trades(TradeFilter(start=start, end=start + timedelta(days=1)))
+    day = date(2026, 10, 6)
+    two = FakeLedger().list_trades(TradeFilter(first_day=day, last_day=day)).trades
     listed = trades_text(two)
     assert [trade.id for trade in two] == ["t-05", "t-06"]
     first = Chat(
