@@ -100,7 +100,7 @@ from ledger_hand.extraction.extractor import Extracted, PassageRefused, extract
 from ledger_hand.extraction.issues import Issue, IssueKind
 from ledger_hand.extraction.prompting import PromptVersion
 from ledger_hand.extraction.prompts.answer import ANSWER_PROMPT
-from ledger_hand.extraction.prompts.asset_pick import ASSET_PICK_PROMPT
+from ledger_hand.extraction.prompts.asset_pick import ASSET_PICK_PROMPT, AssetPickPrompt
 from ledger_hand.extraction.prompts.first import FIRST_PROMPT
 from ledger_hand.extraction.prompts.screen import SCREEN_PROMPT
 from ledger_hand.extraction.screening import Decision, Screened, screen
@@ -169,6 +169,7 @@ def start(
     extract_prompt: PromptVersion = FIRST_PROMPT,
     hold_other_unit: bool = False,
     pick_assets: bool = False,
+    pick_prompt: AssetPickPrompt = ASSET_PICK_PROMPT,
 ) -> Progress:
     """Judge ``passage``, extract its trades, check them, and ask the first question.
 
@@ -190,8 +191,8 @@ def start(
 
     ``pick_assets`` hands each name of an asset the ledger's own table
     does not find to the model, to pick from the ledger's list, before any
-    question (``extraction.asset_picking``). Only the assistant turns it
-    on; with the built-in table it never asks.
+    question (``extraction.asset_picking``), with ``pick_prompt``. Only
+    the assistant turns it on; with the built-in table it never asks.
     """
     if not isinstance(now, datetime) or now.utcoffset() is None:
         raise ValueError("the current moment must be a datetime that carries an offset")
@@ -218,7 +219,8 @@ def start(
     if screening.decision is Decision.NO_TRADE:
         return dataclasses.replace(progress, stage=Stage.NO_TRADE)
     progress = dataclasses.replace(progress, set_aside=screening.set_aside)
-    return _extracted(progress, model, extract_prompt, hold=hold_other_unit, pick=pick_assets)
+    picking = pick_prompt if pick_assets else None
+    return _extracted(progress, model, extract_prompt, hold=hold_other_unit, pick=picking)
 
 
 def _extracted(
@@ -227,7 +229,7 @@ def _extracted(
     prompt: PromptVersion,
     *,
     hold: bool = False,
-    pick: bool = False,
+    pick: AssetPickPrompt | None = None,
 ) -> Progress:
     setting = progress.setting
     extraction = extract(
@@ -247,8 +249,8 @@ def _extracted(
     if not extraction.drafts:
         return dataclasses.replace(progress, stage=Stage.NO_TRADE, issues=extraction.issues)
     drafts = extraction.drafts
-    if pick:
-        drafts, picks = _picked(drafts, setting, model)
+    if pick is not None:
+        drafts, picks = _picked(drafts, setting, model, pick)
         for found in picks:
             progress = _with_calls(progress, Step.ASSET_PICK, found.calls, found.prompt)
         progress = dataclasses.replace(progress, picks=picks)
@@ -263,7 +265,7 @@ def _extracted(
 
 
 def _picked(
-    drafts: tuple[TradeDraft, ...], setting: Setting, model: ModelPort
+    drafts: tuple[TradeDraft, ...], setting: Setting, model: ModelPort, prompt: AssetPickPrompt
 ) -> tuple[tuple[TradeDraft, ...], tuple[AssetPick, ...]]:
     """The drafts with each asset picked from the ledger's list in, and what came of each name.
 
@@ -280,7 +282,9 @@ def _picked(
             continue
         key = spoken_key(word)
         if key not in found:
-            found[key] = pick_asset(word, assets, model, parameters=_pick_parameters(setting))
+            found[key] = pick_asset(
+                word, assets, model, prompt=prompt, parameters=_pick_parameters(setting)
+            )
         code = found[key].code
         picked.append(draft if code is None else dataclasses.replace(draft, coin=code))
     return tuple(picked), tuple(found.values())

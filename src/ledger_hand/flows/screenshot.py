@@ -52,6 +52,7 @@ from ledger_hand.extraction.picture_reading import (
     read_picture,
 )
 from ledger_hand.extraction.prompting import PromptVersion
+from ledger_hand.extraction.prompts.asset_pick import ASSET_PICK_PROMPT, AssetPickPrompt
 from ledger_hand.extraction.prompts.first import FIRST_PROMPT
 from ledger_hand.extraction.prompts.screen import SCREEN_PROMPT
 from ledger_hand.flows.progress import (
@@ -104,12 +105,14 @@ def start_from_reading(
     extract_prompt: PromptVersion = FIRST_PROMPT,
     hold_other_unit: bool = False,
     pick_assets: bool = False,
+    pick_prompt: AssetPickPrompt = ASSET_PICK_PROMPT,
 ) -> Progress:
     """Start the passage joined from ``reading`` (or ``text``) and ``note``, with ``model``.
 
     ``text`` is the text to use, when the person changed what was read.
-    ``screen_prompt``, ``extract_prompt``, ``hold_other_unit`` and
-    ``pick_assets`` go to ``recording.start`` as they are. Raises ``ValueError`` for a reading
+    ``screen_prompt``, ``extract_prompt``, ``hold_other_unit``,
+    ``pick_assets`` and ``pick_prompt`` go to ``recording.start`` as they
+    are. Raises ``ValueError`` for a reading
     that was not made, and as ``recording.start`` does for the moment and
     the zone.
     """
@@ -130,6 +133,7 @@ def start_from_reading(
         extract_prompt=extract_prompt,
         hold_other_unit=hold_other_unit,
         pick_assets=pick_assets,
+        pick_prompt=pick_prompt,
     )
     return dataclasses.replace(
         progress,

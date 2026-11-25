@@ -88,7 +88,8 @@ This module reads no clock, no zone and no settings: all are handed in.
 
 Names defined here: ``Route``, ``WordsBy``, ``AssistantChat``, ``Said``,
 ``ScreenshotText``, ``say``, ``say_from_reading``,
-``ASSISTANT_SCREEN_PROMPT`` and ``ASSISTANT_EXTRACT_PROMPT``.
+``ASSISTANT_SCREEN_PROMPT``, ``ASSISTANT_EXTRACT_PROMPT`` and
+``ASSISTANT_PICK_PROMPT``.
 """
 
 from __future__ import annotations
@@ -105,6 +106,7 @@ from ledger_hand.core.ledger_records import Asset
 from ledger_hand.core.ledger_table import table_of
 from ledger_hand.core.spoken_text import Tidied, tidy_spoken
 from ledger_hand.extraction.picture_reading import PictureRead
+from ledger_hand.extraction.prompts.asset_pick import ASSET_PICK_PROMPT
 from ledger_hand.extraction.prompts.first3 import FIRST_PROMPT_3
 from ledger_hand.extraction.prompts.screen2 import SCREEN_PROMPT_2
 from ledger_hand.flows import editing, recording
@@ -131,6 +133,9 @@ from ledger_hand.ports import LedgerError, LedgerPort, Message, ModelPort, Role,
 # extracts with the third extraction version, the one measured best.
 ASSISTANT_SCREEN_PROMPT = SCREEN_PROMPT_2
 ASSISTANT_EXTRACT_PROMPT = FIRST_PROMPT_3
+# The prompt version that picks, from the ledger's list, the asset a name not
+# found names; the one measured best on the practice half of the names set.
+ASSISTANT_PICK_PROMPT = ASSET_PICK_PROMPT
 
 # After a takeover, only this ending means it could not be done at all.
 _NOT_A_TRADE = frozenset({RecordEnding.NO_TRADE})
@@ -372,6 +377,7 @@ def _start(said: str, around: _Around, table: AssetTable, shot: ScreenshotText |
         "extract_prompt": ASSISTANT_EXTRACT_PROMPT,
         "hold_other_unit": True,
         "pick_assets": True,
+        "pick_prompt": ASSISTANT_PICK_PROMPT,
     }
     if shot is None:
         progress = recording.start(
