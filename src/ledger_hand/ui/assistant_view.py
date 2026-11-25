@@ -1,7 +1,11 @@
 """The assistant page's chat: every exchange so far, with the tables and buttons under each reply.
 
-For each exchange the person's words are shown as typed, then the program's
-reply as the flows put it, as plain text. Under the reply:
+For each exchange the person's words are shown as typed. When tidying
+changed them, a small line under them, in the same bubble and under the
+key ``read_as_key``, says what the program read them as ("Read as: ...");
+it stays out of the reply's own container, whose lines tests read by
+place. Then the program's reply as the flows put it, as plain text. Under
+the reply:
 
 - who wrote it, as the result says (``assistant_how.words_by_line``);
 - each failure the reply rests on, in one plain sentence
@@ -24,7 +28,7 @@ A note the page said by itself (a screenshot read, dropped or not read, a
 demo button that did nothing) is shown alone, a failure in an error box.
 
 Names defined here: ``exchange_key``, ``table_key``, ``choice_key``,
-``how_key``, ``record_key`` and ``draw``.
+``how_key``, ``record_key``, ``read_as_key``, ``READ_AS`` and ``draw``.
 """
 
 from __future__ import annotations
@@ -78,6 +82,15 @@ def record_key(number: int) -> str:
     return f"assistant_record_{number}"
 
 
+def read_as_key(number: int) -> str:
+    """The key of the container that says what exchange ``number``'s words were read as."""
+    return f"assistant_read_as_{number}"
+
+
+# The start of the line that says what the words were read as.
+READ_AS = "Read as: "
+
+
 def draw(parts: Parts, exchanges: Sequence[Exchange]) -> None:
     """Show every exchange, oldest first; buttons for the answers only under the latest."""
     for exchange in exchanges:
@@ -85,8 +98,18 @@ def draw(parts: Parts, exchanges: Sequence[Exchange]) -> None:
         if exchange.words is not None:
             with st.chat_message("user"):
                 st.text(exchange.words)
+                _read_as(exchange)
         with st.chat_message("assistant"), st.container(key=exchange_key(exchange.number)):
             _reply(parts, exchange, latest=latest)
+
+
+def _read_as(exchange: Exchange) -> None:
+    """The words as tidied, only when tidying changed them."""
+    said = exchange.said
+    if said is None or said.read_as is None or not said.read_as.changed:
+        return
+    with st.container(key=read_as_key(exchange.number)):
+        st.caption(READ_AS + said.read_as.text)
 
 
 def _reply(parts: Parts, exchange: Exchange, *, latest: bool) -> None:
