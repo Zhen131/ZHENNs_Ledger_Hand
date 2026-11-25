@@ -57,8 +57,9 @@ ledger_step() {
     printf '\n== %s ==\n' "$name"
     "$@"
     local status=$?
+    # A skipped step skips the whole tier, so the last line names the tier.
     if [ "$status" -eq 3 ]; then
-        printf '\nSKIPPED: %s\n' "$name" >&2
+        printf '\nSKIPPED: ledger\n' >&2
         exit 3
     fi
     if [ "$status" -ne 0 ]; then
