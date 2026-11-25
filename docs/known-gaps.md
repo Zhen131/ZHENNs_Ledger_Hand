@@ -681,17 +681,25 @@ does not reach it yet (the third part of batch 68). What it does not do:
   ledger, which the script prints as one line each time ("sent to the
   ledger: nothing"), and which an interface is to show the same way.
 - **A time said with another zone is not tidied, and is asked about.**
-  What is said is tidied before the model sees it (`core/spoken_text.py`),
-  and a zone said with a time is dropped only when it is the zone trades
-  are recorded in. A time said with any other zone, one in `SPOKEN_ZONES`
-  ("北京时间", Beijing time, when the ledger's zone is Budapest) or one not
-  in it ("美东时间", US Eastern time; "东八区", the zone eight hours east;
-  "UTC"), is left exactly as said, its numbers too. The program does not
-  read a zone said in words, so tidying the year alone would let the model
-  copy the clock time without the zone, and the time would be read in the
-  ledger's zone, hours off. Left as said, the time is not read and the user
-  is asked for it, as before. To take it, the reading of times has to learn
-  zones.
+  What is said is tidied before the model sees it (`core/spoken_text.py`).
+  When a sentence says, anywhere in it and not only beside a time, a zone
+  other than the one trades are recorded in, no time in that sentence is
+  tidied (its other numbers still are). That is a zone in `SPOKEN_ZONES`
+  that is not the ledger's ("按北京时间算，……", by Beijing time, when the
+  ledger's zone is Budapest); 时区 (time zone), 东X区 or 西X区 (the zone X
+  hours east or west); a Latin name such as UTC, GMT, EST or CET; and any
+  word ending in 时间 (time) that is not the ledger's zone in the table,
+  unless the words before 时间 end in one on a short list that names a time
+  of day or of an event (下午, afternoon; 成交, filled; 这段, this stretch of).
+  Anything else ending in 时间 ("东京时间", Tokyo time; "当地时间", local
+  time) is taken as a zone, so a time is sometimes held back that need not
+  be. The program does not read a zone said in words, so tidying the year
+  alone would let the model copy the clock time without the zone, and the
+  time would be read in the ledger's zone, hours off. Left as said, the time
+  is not read and the user is asked for it, as before. The ledger's own zone
+  said apart from the time ("按匈牙利时间算，……") is kept in the words, and
+  the time is tidied. To take another zone, the reading of times has to
+  learn zones.
 - **Some numbers are not tidied, and stay as said.** These are left as
   they were said, and read as before or asked about:
   a number ending in 一 that may be the start of the next word ("三十万一个",
@@ -704,7 +712,12 @@ does not reach it yet (the third part of batch 68). What it does not do:
   1.234, which may be a thousands mark); a point that may be a clock or a
   decimal ("八点二五", 8:25 or 8.25); a minute of one word without 分
   ("三点五", 3:05 or 3:50); a rough amount ("大概五十", about fifty) and a
-  share ("百分之三十", thirty percent). The first two kinds are the ones
+  share ("百分之三十", thirty percent); a number with a unit, a gap and more
+  of the amount ("二十块 五", "二十U五"). A time is left as said when a
+  minute follows past a filler ("三点的五十分", three o'clock and fifty
+  minutes), and a clock of one word after 点 with 分 and nothing else of a
+  time ("零点五分", which may be half a cent; "二十点五分钟", twenty and a half
+  minutes). The first two kinds are the ones
   that most often reach the ledger's flow as said; a later step is to mark
   them.
 - **Seconds are dropped from what is said in Chinese, not from English.**

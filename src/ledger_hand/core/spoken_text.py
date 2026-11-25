@@ -30,8 +30,10 @@ What is not sure is left as it was: a single number word ("两个"), a number
 ending in 一 that may begin the next word ("四百一股"), a number with a
 unit and then more of the amount ("二十块五"), an approximate amount, a
 share, a point that may be a clock or a decimal ("八点二五"), a minute of one
-word without 分 ("三点五"), and a time said with another zone or any zone
-not in ``SPOKEN_ZONES``. Words with no Chinese character in them are
+word without 分 ("三点五"), a minute that goes on past a filler ("三点的五十
+分"), money or a while in 分 ("零点五分", "二十点五分钟"), and every time of a
+sentence that says another zone anywhere, or any zone not in
+``SPOKEN_ZONES`` ("按北京时间算，……"). Words with no Chinese character in them are
 handed back as they were: the way English is read was measured already.
 
 This module reads no clock and no settings; the zone is handed in. It does
@@ -188,6 +190,23 @@ _ZONE_MARK_BEFORE = re.compile(
     f"|(?<![A-Za-z])(?i:{_LATIN_ZONE}))$"
 )
 
+# A minute said after a filler: the time goes on past its parts.
+_MINUTE_AFTER = re.compile(f"[0-9{_NUMBER_CHARACTERS}]+[分秒]")
+# A zone said anywhere: 时区, 东X区 or 西X区, or a Latin name of one.
+_OTHER_ZONE_MARK = re.compile(
+    f"时区|[东西][{_NUMBER_CHARACTERS}0-9]{{1,3}}区"
+    "|(?<![A-Za-z])(?i:UTC|GMT|EST|EDT|PST|PDT|CST|CET|CEST)(?![A-Za-z])"
+)
+# Words before 时间 that make it a time of day or of an event, not a zone.
+# A word not on this list counts as a zone, so a new one held by mistake is
+# one more row here.
+_NOT_ZONE_TIMES = (
+    *_HALF_WORDS,
+    "这段", "那段", "一段", "这个", "那个", "成交", "下单", "交易", "买入", "卖出",
+    "买的", "卖的", "第一", "什么", "多少", "同一", "具体", "准确", "确切", "的",
+    "有", "没", "花", "长", "短", "点",
+)  # fmt: skip
+
 # Units a number may stand before. A number followed by one is an amount.
 _UNITS = ("个", "股", "枚", "颗", "美金", "美元", "刀", "块", "欧", "欧元", "币", "份")
 # Units after which more of the amount may follow ("二十块五", "十二个半").
@@ -208,6 +227,12 @@ _TIME_CHARACTERS = "月日号时分秒"
 _MIXED_DECIMAL = re.compile(
     f"(?<![0-9A-Za-z.])(?P<whole>[0-9]+)\\.(?P<fraction>[0-9]*[{_DIGIT_WORDS}]+)"
     f"(?![0-9.点{_NUMBER_CHARACTERS}])"
+)
+# A unit after a number, then, gaps aside, more of the amount ("二十块 五", "二十U五").
+_UNIT_THEN_MORE = re.compile(
+    " *(?P<unit>[A-Za-z]+|\\$|"
+    + "|".join(sorted(_UNITS_WITH_CHANGE, key=len, reverse=True))
+    + f") *(?P<more>[{_NUMBER_CHARACTERS}半]*)"
 )
 _SAID_NUMBER = re.compile(f"[{_NUMBER_CHARACTERS}点]+")
 
@@ -254,8 +279,11 @@ def tidy_spoken(text: str, zone: str) -> Tidied:
         return Tidied(said=text, text=text, changes=())
     changes: list[Change] = []
     kept: list[tuple[int, int]] = []
+    other_zone = _other_zone_said(text, zone)
     for segment in _segments(text):
         found, span = _time_changes(text, segment, zone)
+        if other_zone:
+            found = []
         changes.extend(found)
         kept.append(span)
     changes.extend(_number_changes(text, kept))
@@ -348,7 +376,8 @@ def _is_a_time(segment: _Segment) -> bool:
         return False
     match = part.match
     if match["fen"] is not None:
-        return True
+        # "零点五分" may be money, "二十点五分钟" a while: one word after 点 is not sure.
+        return len(match["minute"]) > 1 or match["minute"] == "十"
     return match["mark"] != "时" and (match["fixed"] is not None or match["mark"] == "点钟")
 
 
@@ -362,6 +391,8 @@ def _time_changes(text: str, segment: _Segment, zone: str) -> tuple[list[Change]
     zones = [said for said in (before, after) if said is not None]
     if any(said[0] != zone for said in zones):
         return [], span
+    if _goes_on_unsure(text, segment):
+        return [], span
     changes = _part_changes(text, segment)
     if changes is None or not _same_time(text, segment, changes, zone):
         return [], span
@@ -370,6 +401,50 @@ def _time_changes(text: str, segment: _Segment, zone: str) -> tuple[list[Change]
     if not changes:
         return [], span
     return changes, span
+
+
+def _goes_on_unsure(text: str, segment: _Segment) -> bool:
+    """Whether the time may go on past where its parts end, or may be a while, not a time.
+
+    "三点的五十分" stops at "三点" for the parts, so the minute after the
+    filler would be lost; "二十点十五分钟" is a while. Either way the time is
+    left as said.
+    """
+    after, _gap = _after_fillers(text, segment.end)
+    if _MINUTE_AFTER.match(text, after) is not None:
+        return True
+    return any(
+        part.kind == "clock" and part.match["fen"] is not None and text.startswith("钟", part.end)
+        for part in segment.parts
+    )
+
+
+def _other_zone_said(text: str, zone: str) -> bool:
+    """Whether a zone other than ``zone`` is said anywhere in ``text``, or may be.
+
+    Any such words leave every time of the sentence as said: tidied, its
+    year would read, and the model might copy the time without the zone,
+    to be read in ``zone``, hours off. Said in any place, not only beside
+    the time ("按北京时间算，……"). A word ending in 时间 counts as a zone
+    unless it is a zone in ``SPOKEN_ZONES`` that is ``zone``, or the words
+    before 时间 end in one of ``_NOT_ZONE_TIMES`` ("下午时间", "成交时间").
+    (Decided on 2026-11-25: rather too many held than one time read hours off.)
+    """
+    if any(said in text for said, named in SPOKEN_ZONES.items() if named != zone):
+        return True
+    if _OTHER_ZONE_MARK.search(text) is not None:
+        return True
+    same = [said for said, named in SPOKEN_ZONES.items() if named == zone]
+    for found in re.finditer("时间", text):
+        head = text[: found.start()]
+        if not head or _CHINESE.fullmatch(head[-1]) is None:
+            continue
+        if text[: found.end()].endswith(tuple(same)):
+            continue
+        if head.endswith(_NOT_ZONE_TIMES):
+            continue
+        return True
+    return False
 
 
 def _zone_before(text: str, position: int) -> tuple[str, int, int] | None:
@@ -390,7 +465,7 @@ def _zone_before(text: str, position: int) -> tuple[str, int, int] | None:
     mark = _ZONE_MARK_BEFORE.search(head)
     if mark is None:
         return None
-    if mark["named"] is not None and any(head[: mark.start()].endswith(w) for w in _HALF_WORDS):
+    if mark["named"] is not None and head[: mark.start()].endswith(_NOT_ZONE_TIMES):
         return None
     start = mark.start() if mark["named"] is None else max(0, mark.start() - 4)
     return "", start, end
@@ -417,7 +492,7 @@ def _zone_after(text: str, position: int) -> tuple[str, int, int] | None:
     mark = _ZONE_MARK_AFTER.match(text, start)
     if mark is None:
         return None
-    if mark["named"] is not None and any(mark["named"][:-2].endswith(w) for w in _HALF_WORDS):
+    if mark["named"] is not None and mark["named"][:-2].endswith(_NOT_ZONE_TIMES):
         return None
     return "", start, mark.end()
 
@@ -710,11 +785,8 @@ def _left_alone(text: str, start: int, end: int, kept: list[tuple[int, int]]) ->
     for word in _ROUGHLY_BEFORE:
         if word in text[max(0, start - 3 - len(word)) : start]:
             return True
-    unit = _unit_at(text, end, _UNITS_WITH_CHANGE)
-    if unit is not None and not unit.isascii():
-        unit_end = text.index(unit, end) + len(unit)
-        more = re.match(f"[{_NUMBER_CHARACTERS}半]+", text[unit_end:])
-        if more is not None or unit in ("毛", "角"):
-            kept.append((start, unit_end + (more.end() if more is not None else 0)))
-            return True
+    unit = _UNIT_THEN_MORE.match(text, end)
+    if unit is not None and (unit["more"] or unit["unit"] in ("毛", "角")):
+        kept.append((start, unit.end()))
+        return True
     return False

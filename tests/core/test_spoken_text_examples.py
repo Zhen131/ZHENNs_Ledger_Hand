@@ -94,6 +94,36 @@ EXAMPLES: tuple[tuple[str, str | None, str], ...] = (
     ("买了1.二三四个ETH", None, BUDAPEST),
     ("这个月八号下午三点买的", "这个月8号下午3点买的", BUDAPEST),
     ("九九年十月三号上午十点买的", "2099年10月3号上午10点买的", BUDAPEST),
+    # Another zone said anywhere in the sentence: no time of it is tidied, numbers are.
+    (
+        "按北京时间算，二六年十一月二十号下午三点买了0.01个BTC，均价九万五千U，手续费0",
+        "按北京时间算，二六年十一月二十号下午三点买了0.01个BTC，均价95000U，手续费0",
+        BUDAPEST,
+    ),
+    (
+        "北京时间是二六年十一月二十号下午三点，买了两千U的ETH",
+        "北京时间是二六年十一月二十号下午三点，买了2000U的ETH",
+        BUDAPEST,
+    ),
+    ("二六年十一月二十号下午三点买的，这是UTC", None, BUDAPEST),
+    ("二六年十一月二十号下午三点买的，用的是东京时间", None, BUDAPEST),
+    # The ledger's own zone said apart from the time: the time is tidied, the words stay.
+    (
+        "按匈牙利时间算，二六年十一月二十号下午三点买的",
+        "按匈牙利时间算，2026年11月20号下午3点买的",
+        BUDAPEST,
+    ),
+    # Words ending in 时间 that name no zone.
+    ("成交时间是二六年十一月二十号下午三点", "成交时间是2026年11月20号下午3点", BUDAPEST),
+    ("这段时间二六年十月买了三千U的币", "这段时间2026年10月买了3000U的币", BUDAPEST),
+    ("下午时间三点十分买的", "下午时间3点10分买的", BUDAPEST),
+    # A minute after a filler, money in 分, a while: not sure, left as said.
+    ("二六年十一月二十号的下午三点的五十分买的", None, BUDAPEST),
+    ("手续费零点五分", None, BUDAPEST),
+    ("花了二十点五分钟", None, BUDAPEST),
+    # More of the amount after a unit, with a gap or after letters.
+    ("手续费二十块 五", None, BUDAPEST),
+    ("手续费二十U五", None, BUDAPEST),
 )
 
 
