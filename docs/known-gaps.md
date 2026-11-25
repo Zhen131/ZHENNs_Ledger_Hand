@@ -702,3 +702,29 @@ changed.
   latest twenty and says how many there are; the model is handed the same
   twenty.
 
+
+## The assistant page
+
+- **The chat is forgotten when the tab closes.** The Assistant page keeps
+  its chat, what was said in it and its proposal cards for as long as the
+  browser tab is open, and writes none of it anywhere. A new tab, a restart
+  or New chat starts from nothing; the proposals already sent stay in the
+  ledger.
+- **A proposal is confirmed only on the ledger's own page.** The page shows
+  where each proposal of its chat stands, asked of the ledger each time it
+  is drawn, but it cannot save or reject a proposal in a real ledger, and
+  has no form to change a proposal's figures: a wrong one is rejected and
+  said again.
+- **The demo buttons work on the demo ledger alone.** "Save in the demo
+  ledger" and "Reject in the demo ledger" are drawn only when the parts say
+  the ledger is the demo ledger (an invented book in memory), so the whole
+  path can be tried before the real ledger is connected. Whether they stay
+  is the owner's call; removing them changes one place of the page. The
+  demo ledger lives as long as the browser tab: it is kept when a setting
+  is changed, and starts again from the invented book in a new tab.
+- **The cloud model does not run the assistant.** With the cloud plug set,
+  the page says so in one fixed sentence, greys the input out and sends
+  nothing; a screenshot is turned down as on the Record page.
+- **What a tool handed back is cut short under "How this was done".** Each
+  result is shown as one line of at most 160 characters with how long it is
+  in all; the tables above it show what the ledger found in full.

@@ -173,7 +173,8 @@ src/ledger_hand/
         filling.py            putting an answer back into a trade                     (exists)
         assisting.py          one turn of the assistant: ask the model, judge, run, again (exists)
         asking.py             the four read tools: the period read, asset and side checked, the ledger asked (exists)
-        conversation.py       one thing said to the assistant: answer, model, recording, or a change (exists)
+        conversation.py       one thing said to the assistant: answer, model, recording, a change, a screenshot (exists)
+        standing.py           where a proposal stands; the demo ledger's save and reject (exists)
         editing.py            one trade changed or deleted: found, picked, read, proposed (exists)
         proposing.py          a settled passage's trades sent to the ledger as one proposal (exists)
         recorded.py           how recording through the assistant ended this time     (exists)
@@ -188,7 +189,7 @@ src/ledger_hand/
     settings.py           the only place that reads settings; why each default, as data (exists)
     wiring.py             builds the parts from the settings, page changes, the clock and the zone (exists)
     ui/                   the user interface; the only place that may use Streamlit   (exists)
-        app.py                the entry Streamlit runs: the title, Record and Settings (exists)
+        app.py                the entry Streamlit runs: the title, Record, Settings and Assistant (exists)
         record_page.py        the Record page: chat and screenshot beside the table, Export (exists)
         settings_page.py      the Settings page: every setting, its value, default and why (exists)
         settings_form.py      changing the settings for this browser tab              (exists)
@@ -202,6 +203,15 @@ src/ledger_hand/
         setting_text.py       a setting's value as it would be typed; the key as set or not (exists)
         notes.py              the last word after Export or on the settings page, shown (exists)
         session.py            what lasts between reruns: parts, progress, chat, a reading (exists)
+        assistant_page.py     the Assistant page: which ledger, the chat, the cards, a screenshot (exists)
+        assistant_view.py     each exchange: the reply, its failures, tables, answer buttons (exists)
+        assistant_tables.py   the tables laid out from a result, cell by cell          (exists)
+        assistant_how.py      who wrote a reply, what was sent, how it was done        (exists)
+        assistant_cards.py    a card for each proposal sent; the demo buttons          (exists)
+        assistant_turns.py    a message, a button or an upload handed to the flows     (exists)
+        assistant_numbers.py  how the Assistant page writes a number                   (exists)
+        assistant_failure_words.py  one plain sentence for every failure on the Assistant page (exists)
+        assistant_session.py  what the Assistant page keeps between reruns             (exists)
 evals/                    prompt experiments: test sentences, scoring, runner, results (exists)
     sets/                 the test sentences with gold answers: debug, final, writings, voice, tools, asks, edits, stocks (exists)
     gold.py               the shapes of a sentence and its gold answer             (exists)
@@ -422,7 +432,7 @@ the one place in the package that reads the machine's zone, and it may read
 the clock, as its job is to hand both to the flows. Only `ui/` may import
 it; the flows never do, since it imports them.
 
-`ui/` is two Streamlit pages, Record and Settings. It makes no business
+`ui/` is three Streamlit pages, Record, Settings and Assistant. It makes no business
 decision: what to ask, whether a passage is settled, whether it can be
 saved, which trade can be left out and which cannot be recorded all come
 from the flow's `Progress`; whether an export can be written, and what
@@ -445,6 +455,24 @@ environment first and puts them in with `settings.apply_changes`, the
 same reading and checks the environment's values get, then builds every
 part again from the result. Nothing is written back to the environment or
 to a file, and the key cannot be changed there.
+The Assistant page hands what the person types, a button's answer and a
+screenshot's text to `flows/conversation.py` (`say`, `say_from_reading`)
+and draws what comes back: the reply, who wrote it (`Said.words_by`), the
+failures it rests on, the tables laid out from the result's own values,
+and what reached the ledger. It never calls the ledger port itself: where
+a proposal stands, and the demo ledger's save and reject, go through
+`flows/standing.py`, which does nothing with any ledger but the demo one.
+Which kind of ledger the parts hold is a named value the wiring module
+sets (`LedgerKind`), not something the page guesses. The wiring module
+builds the demo ledger and reads how many steps the assistant may take
+(`LEDGER_HAND_ASSISTANT_STEPS`); when the settings page builds the parts
+again, the demo ledger of the parts kept is carried over, so proposals
+sent before a change are still there after it. The two pages that take a
+screenshot keep it under keys of their own (`session.Spot`), so one never
+sees the other's. Numbers on the Assistant page are written by one
+function (`ui/assistant_numbers.py`), in full, with thousands marks; the
+Record page keeps the ledger's way.
+
 It is the only part that keeps anything between reruns (Streamlit's
 `session_state`), and it imports nothing third-party but Streamlit itself,
 not what Streamlit brings along (pandas, numpy and the like). Two gates
@@ -723,8 +751,9 @@ The one plug so far is `ledger/fake_ledger.py`: an invented book in memory,
 which reads no file, no clock and no network, and with its own simple way
 of working out cost and profit (a moving average, which says nothing about
 the real ledger's). It keeps a proposal only when every trade passes, and
-offers two things outside the port, for tests and the try-out script:
-saving and rejecting a proposal. `tests/ledger/test_ledger_port.py` runs the
+offers two things outside the port, for tests, the try-out script and the
+Assistant page's demo buttons (through `flows/standing.py` only): saving
+and rejecting a proposal. `tests/ledger/test_ledger_port.py` runs the
 port's tests against every plug.
 
 ## The assistant
@@ -941,7 +970,12 @@ formatting tool.
   `flows/record_words.py`; the money a proposal is priced in moves from the
   one place in `flows/proposing.py` to the ledger's assets.
 - **The real ledger:** one more plug in `ledger/`, which must pass
-  `tests/ledger/test_ledger_port.py`.
+  `tests/ledger/test_ledger_port.py`. Give it a value of its own in
+  `flows/standing.py`'s `LedgerKind`, so the Assistant page shows it by name
+  and draws no demo button for it.
+- **Something more on the Assistant page:** a new table is one more
+  function in `ui/assistant_tables.py`, laid out from the result's own
+  values; a new failure is one more entry in `ui/assistant_failure_words.py`.
 - **Another kind of model server:** one more plug in `llm/`, one more value
   of `Plug` in the settings, and one more branch in `llm/connect.py`.
 - **Another model in an experiment:** no change to the code. Pull it into
