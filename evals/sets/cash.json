@@ -29,5 +29,21 @@
     {"id": "P14", "kind": "rebalance", "text": "I want to rebalance my portfolio; what do I hold right now?"},
     {"id": "P15", "kind": "profit", "text": "What was my realized profit in USD this year?"},
     {"id": "P16", "kind": "spent", "text": "Which trades did I pay for with USDT in September?"}
+  ],
+  "added_about": "Added on 2026-11-25 in the first rework, after the independent check found two questions about a coin's balance caught as cash (it wrote A1 and B1 there). 'named_added' must be caught as cash: a balance attached to no asset held, asked whether it is enough to buy one. 'must_pass_added' must never be caught: a balance attached to an asset that is not cash. The sentences above were not changed.",
+  "named_added": [
+    {"id": "A1", "text": "我的余额还够不够再买一手英伟达"},
+    {"id": "A2", "text": "余额够买0.1个BTC吗"},
+    {"id": "A3", "text": "Is my balance enough to buy 0.1 ETH?"}
+  ],
+  "must_pass_added": [
+    {"id": "B1", "kind": "coin_balance", "text": "我的 ETH 余额还有多少个"},
+    {"id": "B2", "kind": "coin_balance", "text": "What's my BTC balance?"},
+    {"id": "B3", "kind": "coin_balance", "text": "比特币余额是多少"},
+    {"id": "B4", "kind": "coin_balance", "text": "BTC的余额还剩几个"},
+    {"id": "B5", "kind": "coin_balance", "text": "以太坊余额多少"},
+    {"id": "B6", "kind": "coin_balance", "text": "Show me the balance of ETH"},
+    {"id": "B7", "kind": "coin_balance", "text": "What is my ETH's balance?"},
+    {"id": "B8", "kind": "coin_balance", "text": "my ADA balance please"}
   ]
 }

@@ -37,7 +37,8 @@ routes (``Route``):
   the turn's own words stand.
 
 When the model answers in its own words having looked nothing up, and a
-number stands in them beside a money ("50 USDT"), they are not shown: the
+number the user never said in this chat stands in them beside a money
+("50 USDT"), they are not shown: the
 user is told ``cash_question.CASH_WORDS`` instead, and the turn says why
 (``TurnResult.withheld``); the chat keeps the program's words.
 
@@ -349,7 +350,7 @@ def _cash_checked(turn: TurnResult, ledger: LedgerPort) -> TurnResult:
     """
     if turn.ending is not Ending.ANSWERED or turn.withheld is not None or turn.lookups:
         return turn
-    withheld = withheld_cash(turn.reply, ledger)
+    withheld = withheld_cash(turn.reply, ledger, turn.chat.user_said)
     if withheld is None:
         return turn
     items = (*turn.chat.items[:-1], Message(Role.ASSISTANT, CASH_WORDS))

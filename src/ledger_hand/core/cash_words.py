@@ -10,7 +10,9 @@ What a question about cash is (``CashAsk``), one kind each:
 
 - ``CASH``: cash or a balance named outright: "现金", "余额", "可用资金",
   "cash", "balance", "buying power". "balance" is a word of its own:
-  "rebalance" and "balanced" are not it.
+  "rebalance" and "balanced" are not it. A balance attached to an asset
+  that is not cash ("ETH 余额", "BTC balance", "balance of ETH", the names
+  handed in as ``held``) is a holding, not cash (first rework, 2026-11-25).
 - ``LEFT``: how much of a money is still had: "我还有多少USDT",
   "账上还剩多少美元", "USDT还剩多少", "how much USD do I have left",
   "do I still have any USDT". The money is one of ``money_words``: the
@@ -38,7 +40,8 @@ other does not. (The product owner, 2026-11-25: asked about cash, say
 truthfully that it cannot be looked up.)
 
 Names defined here: ``CashAsk``, ``BASE_MONEY_WORDS``, ``money_words``,
-``may_ask_what_is_left``, ``cash_question`` and ``figure_beside_money``.
+``held_names``, ``names_a_balance``, ``may_ask_what_is_left``,
+``cash_question``, ``figures_beside_money`` and ``figure_beside_money``.
 """
 
 from __future__ import annotations
@@ -49,7 +52,7 @@ import unicodedata
 from collections.abc import Iterable, Sequence
 
 from ledger_hand.core.ledger_records import Asset, AssetKind
-from ledger_hand.core.ledger_table import MONEY_NICKNAMES
+from ledger_hand.core.ledger_table import MONEY_NICKNAMES, names_of
 
 
 class CashAsk(enum.Enum):
@@ -71,12 +74,12 @@ BASE_MONEY_WORDS: tuple[str, ...] = (
 
 _CASH = (
     r"现金",
-    r"余额",
     r"可用资金",
     r"(?<![a-z])cash(?![a-z])",
-    r"(?<![a-z])balances?(?![a-z])",
     r"(?<![a-z])buying power(?![a-z])",
 )
+# "余额" and "balance" are cash only when no asset that is not cash is attached to them.
+_BALANCE = r"(?:余额|(?<![a-z])balances?(?![a-z]))"
 _DEPOSIT = (
     r"(?<![收投买录输转加])入金(?!额)",
     r"入了[^，,。.?？!！]{0,3}?金(?!额)",
@@ -139,6 +142,11 @@ def _any(patterns: Sequence[str], text: str) -> bool:
     return any(re.search(pattern, text) for pattern in patterns)
 
 
+def names_a_balance(said: str) -> bool:
+    """Whether ``said`` holds "余额" or "balance"; the caller then asks for the assets held."""
+    return re.search(_BALANCE, _normal(said)) is not None
+
+
 def may_ask_what_is_left(said: str) -> bool:
     """Whether ``said`` has the shape of asking what is still had, whatever is named.
 
@@ -160,14 +168,46 @@ def _left(text: str, words: Sequence[str]) -> bool:
     return _any(patterns, text)
 
 
-def cash_question(said: str, words: Sequence[str] = BASE_MONEY_WORDS) -> CashAsk | None:
+def held_names(assets: Iterable[Asset]) -> tuple[str, ...]:
+    """Every name of the ledger's assets that are not cash: codes, names and lent names.
+
+    For example, with BTC in the ledger: "BTC", "Bitcoin", "比特币", "大饼".
+    """
+    listed = tuple(assets)
+    held = {asset.code for asset in listed if asset.kind is not AssetKind.CASH}
+    sayings = names_of(listed).sayings()
+    return tuple(dict.fromkeys(name for name, code in sayings if code in held and name.strip()))
+
+
+def _attached_balance(text: str, held: Sequence[str]) -> str:
+    """``text`` with every "余额" or "balance" attached to an asset that is not cash taken out.
+
+    Attached is "ETH 余额", "英伟达的余额", "BTC balance", "ETH's balance" and
+    "balance of ETH"; "余额够不够买英伟达" is not.
+    """
+    if not held:
+        return text
+    asset = _money(held)
+    for pattern in (
+        rf"{asset}\s*(?:的|'s|’s)?\s*{_BALANCE}",
+        rf"{_BALANCE}\s*(?:of|for|in)\s+(?:my\s+|the\s+)?{asset}",
+    ):
+        text = re.sub(pattern, " ", text)
+    return text
+
+
+def cash_question(
+    said: str, words: Sequence[str] = BASE_MONEY_WORDS, held: Sequence[str] = ()
+) -> CashAsk | None:
     """Which kind of question about cash ``said`` is, or ``None`` when it is none.
 
-    ``words`` are the words for a money (``money_words``). The kinds are
-    tried in the order of ``CashAsk``; the first that fits is given.
+    ``words`` are the words for a money (``money_words``); ``held`` the names
+    of the assets that are not cash (``held_names``), so that "ETH 余额" is a
+    holding, not cash. The kinds are tried in the order of ``CashAsk``; the
+    first that fits is given.
     """
     text = _normal(said)
-    if _any(_CASH, text):
+    if _any(_CASH, text) or re.search(_BALANCE, _attached_balance(text, held)):
         return CashAsk.CASH
     if _left(text, words):
         return CashAsk.LEFT
@@ -178,20 +218,27 @@ def cash_question(said: str, words: Sequence[str] = BASE_MONEY_WORDS) -> CashAsk
     return None
 
 
-def figure_beside_money(text: str, words: Sequence[str] = BASE_MONEY_WORDS) -> str | None:
-    """The first number in ``text`` written right beside a money word, or ``None``.
+def figures_beside_money(
+    text: str, words: Sequence[str] = BASE_MONEY_WORDS
+) -> tuple[tuple[str, str], ...]:
+    """Every number in ``text`` written right beside a money word: the words found, the number.
 
-    For example, "你还有 50 USDT" gives "50 usdt"; "可以问我 10 月的交易"
-    gives ``None``, since no money stands beside the 10.
+    For example, "你还有 50 USDT" gives (("50 usdt", "50"),); "可以问我 10 月的交易"
+    gives none, since no money stands beside the 10.
     """
     normal = _normal(text)
     money = _money(words)
-    number = rf"(?<![0-9a-z.]){_NUMBER}(?![0-9])"
+    number = rf"(?<![0-9a-z.])(?P<number>{_NUMBER})(?![0-9])"
+    found: list[tuple[str, str]] = []
     for pattern in (
         rf"{number}\s*(?:个|块)?\s*{money}",
         rf"{money}\s*[:：]?\s*{number}",
     ):
-        found = re.search(pattern, normal)
-        if found is not None:
-            return found.group(0)
-    return None
+        found += [(one.group(0), one.group("number")) for one in re.finditer(pattern, normal)]
+    return tuple(found)
+
+
+def figure_beside_money(text: str, words: Sequence[str] = BASE_MONEY_WORDS) -> str | None:
+    """The first number in ``text`` written right beside a money word, or ``None``."""
+    found = figures_beside_money(text, words)
+    return found[0][0] if found else None

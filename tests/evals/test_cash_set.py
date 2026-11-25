@@ -53,7 +53,9 @@ def test_the_sets_hold_the_sentences_looked_for() -> None:
 
 
 @pytest.mark.parametrize(
-    "sentence", [one for one in SENTENCES if one.group == "named"], ids=lambda one: one.id
+    "sentence",
+    [one for one in SENTENCES if one.group in {"named", "named_added"}],
+    ids=lambda one: one.id,
 )
 def test_each_named_question_about_cash_is_caught(sentence) -> None:  # type: ignore[no-untyped-def]
     assert caught(sentence.text, FakeLedger()) is not None
@@ -72,7 +74,8 @@ def test_none_of_the_sentences_near_them_is_caught() -> None:
     caught_ones = [
         (one.id, one.text)
         for one in SENTENCES
-        if one.group == "must_pass" and caught(one.text, FakeLedger()) is not None
+        if one.group in {"must_pass", "must_pass_added"}
+        and caught(one.text, FakeLedger()) is not None
     ]
     assert caught_ones == []
 
@@ -84,3 +87,12 @@ def test_no_sentence_of_any_other_set_nor_any_demo_sentence_is_caught() -> None:
         if caught(text, FakeLedger()) is not None
     ]
     assert caught_ones == []
+
+
+def test_the_added_sentences_hold_two_named_and_six_more_that_must_pass() -> None:
+    named = [one for one in SENTENCES if one.group == "named_added"]
+    passing = [one for one in SENTENCES if one.group == "must_pass_added"]
+    chinese = [one for one in passing if any("\u4e00" <= c <= "\u9fff" for c in one.text)]
+    assert len(named) >= 2
+    assert len(passing) >= 8
+    assert len(chinese) * 2 == len(passing)

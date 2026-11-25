@@ -61,12 +61,12 @@ class CashSentence:
 
 
 def load_cash_set(path: Path = CASH_SET) -> tuple[datetime, str, tuple[CashSentence, ...]]:
-    """The set's moment, its zone and its sentences, ``named`` first."""
+    """The set's moment, its zone and its sentences, ``named`` first, those added last."""
     data = json.loads(path.read_text(encoding="utf-8"))
     sentences = tuple(
         CashSentence(id=str(one["id"]), group=group, text=str(one["text"]))
-        for group in ("named", "must_pass")
-        for one in data[group]
+        for group in ("named", "must_pass", "named_added", "must_pass_added")
+        for one in data.get(group, ())
     )
     return datetime.fromisoformat(data["now"]), str(data["zone"]), sentences
 

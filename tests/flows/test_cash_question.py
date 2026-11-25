@@ -92,7 +92,7 @@ def test_the_fixed_words_say_it_cannot_be_looked_up_where_to_look_and_no_figure(
 def test_the_ledger_is_asked_for_its_cash_only_for_the_shape_of_what_is_still_had() -> None:
     ledger = FakeLedger(assets=(*INVENTED_ASSETS, EURO))
 
-    assert caught("现金余额是多少", ledger) is CashAsk.CASH
+    assert caught("现金是多少", ledger) is CashAsk.CASH
     assert ledger.calls == []
     assert caught("我还剩多少Euro", ledger) is CashAsk.LEFT
     assert caught("How much EUR do I have left?", ledger) is CashAsk.LEFT
@@ -213,3 +213,63 @@ def test_the_demo_ledger_hands_back_no_holding_of_cash() -> None:
 
     assert cash == {"USDT", "USD"}
     assert held and not held & cash
+
+
+def test_a_balance_asks_for_the_assets_held_and_a_coins_balance_goes_to_the_model() -> None:
+    ledger = FakeLedger()
+
+    assert caught("我的 ETH 余额还有多少个", ledger) is None
+    assert caught("What's my BTC balance?", ledger) is None
+    assert caught("现金余额是多少", ledger) is CashAsk.CASH
+    assert caught("我的余额还够不够再买一点比特币", ledger) is CashAsk.CASH
+    assert ledger.calls == ["list_assets"] * 4
+
+
+def test_a_ledger_that_cannot_be_asked_still_knows_the_built_in_coins_balance() -> None:
+    failing = FakeLedger(failure=LedgerError(LedgerErrorKind.UNREACHABLE, "X", "gone"))
+
+    assert caught("比特币余额多少", failing) is None
+    assert caught("余额多少", failing) is CashAsk.CASH
+
+
+@pytest.mark.parametrize(
+    ("said", "reply"),
+    [
+        ("今天买了0.5个ETH，单价3000 USDT，手续费 1 USDT", "手续费是 1 USDT 吗？"),
+        ("把10月10号那笔改一下", "Do you mean the trade on 10 October for 950 USDT?"),
+        ("手续费五十美元", "手续费是五十美元吗？"),
+    ],
+)
+def test_a_figure_the_user_said_in_the_chat_is_let_through(said: str, reply: str) -> None:
+    earlier = ["那笔 950 USDT 的交易", said] if "950" in reply else [said]
+
+    assert withheld_cash(reply, FakeLedger(), earlier) is None
+
+
+def test_a_figure_said_in_an_earlier_turn_is_let_through_on_the_page_flow() -> None:
+    # A figure of three digits or more is held back by the older check of words
+    # with no lookup, so a small one is used here.
+    model = RoutedModel(
+        tools=[words("我听到了。"), words("Do you mean the trade with a 2 USDT fee?")]
+    )
+    ledger = FakeLedger()
+    first = said_once("我有一笔手续费 2 USDT 的交易想改", model, ledger)
+
+    second = say(
+        first.state,
+        "就是那笔",
+        model=model,
+        ledger=ledger,
+        now=INVENTED_NOW,
+        zone=INVENTED_ZONE,
+        max_steps=6,
+    )
+
+    assert second.reply == "Do you mean the trade with a 2 USDT fee?"
+
+
+def test_a_figure_the_user_never_said_still_gives_way() -> None:
+    withheld = withheld_cash("You have 50 USDT.", FakeLedger(), ["手续费 1 USDT", "How much?"])
+
+    assert withheld is not None
+    assert "50 usdt" in withheld.reason

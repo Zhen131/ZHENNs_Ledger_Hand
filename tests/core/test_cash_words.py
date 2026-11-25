@@ -9,6 +9,7 @@ from ledger_hand.core.cash_words import (
     CashAsk,
     cash_question,
     figure_beside_money,
+    held_names,
     may_ask_what_is_left,
     money_words,
 )
@@ -105,3 +106,47 @@ def test_a_figure_beside_a_money_is_found(text: str, found: str) -> None:
 )
 def test_a_figure_beside_no_money_is_not_found(text: str) -> None:
     assert figure_beside_money(text, money_words((COIN,))) is None
+
+
+NVIDIA = Asset(
+    id="n", code="NVDA", name="英伟达", kind=AssetKind.STOCK, pricing=Pricing.CANNOT_PRICE
+)
+BITCOIN = Asset(
+    id="b", code="BTC", name="Bitcoin", kind=AssetKind.CRYPTO, pricing=Pricing.CANNOT_PRICE
+)
+HELD = held_names((EURO, NVIDIA, BITCOIN))
+
+
+@pytest.mark.parametrize(
+    "said",
+    [
+        "我的 BTC 余额还有多少个",
+        "英伟达的余额",
+        "比特币余额是多少",
+        "What's my BTC balance?",
+        "my bitcoin's balance",
+        "the balance of BTC please",
+        "balance for NVDA",
+    ],
+)
+def test_a_balance_attached_to_an_asset_that_is_not_cash_is_a_holding(said: str) -> None:
+    assert cash_question(said, money_words((EURO, NVIDIA, BITCOIN)), HELD) is None
+
+
+@pytest.mark.parametrize(
+    "said",
+    [
+        "我的余额还够不够再买一手英伟达",
+        "余额够买0.1个BTC吗",
+        "Is my balance enough to buy 0.1 BTC?",
+        "EUR 余额",
+        "my balance",
+    ],
+)
+def test_a_balance_attached_to_no_asset_held_is_cash(said: str) -> None:
+    assert cash_question(said, money_words((EURO, NVIDIA, BITCOIN)), HELD) is CashAsk.CASH
+
+
+def test_the_names_held_are_those_of_assets_that_are_not_cash_with_their_lent_names() -> None:
+    assert "EUR" not in HELD and "Euro" not in HELD
+    assert {"NVDA", "英伟达", "BTC", "Bitcoin", "比特币"} <= set(HELD)
