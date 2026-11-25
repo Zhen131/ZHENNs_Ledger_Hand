@@ -18,9 +18,10 @@ import pytest
 from evals.cells import tidy_text
 from evals.name_set import load_name_set
 from ledger_hand.extraction.prompts.asset_pick import ASSET_PICK_PROMPT, AssetPickPrompt
+from ledger_hand.extraction.prompts.asset_pick2 import ASSET_PICK_PROMPT_2
 from tests.extraction.test_new_prompts_hold_no_test_sentence import SENTENCES, clauses
 
-PICK_PROMPTS = [ASSET_PICK_PROMPT]
+PICK_PROMPTS = [ASSET_PICK_PROMPT, ASSET_PICK_PROMPT_2]
 NAMES = load_name_set()
 # The names of the set's assets, and the bare names inside them.
 NAME_WORDS = sorted(

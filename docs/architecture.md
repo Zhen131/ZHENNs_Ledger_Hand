@@ -47,6 +47,7 @@ src/ledger_hand/
         coins.py              a small table of common coins                           (exists)
         assets.py             the asset table: what may be traded, the money to price it in (exists)
         ledger_table.py       the asset table and the asset names the ledger's own list makes (exists)
+        asset_words.py        share, coin or asset: the word said for a trade's asset (exists)
         numbers.py            reads number phrases; writes numbers for the ledger     (exists)
         time_wording.py       which known parts a time phrase is made of              (exists)
         timeparse.py          time phrases to exact moments ("now" is passed in)      (exists)
@@ -93,6 +94,7 @@ src/ledger_hand/
             first3.py             extraction: `first2`, the quantity copied whole: the assistant's (exists)
             first3_examples.py    the ten examples of `first` and the three with shares `first3` adds (exists)
             answer.py             reading an answer, zero-shot                        (exists)
+            asset_pick*.py        picking an asset from the ledger's list, with examples (exists)
             read.py               reading a screenshot out as text, zero-shot         (exists)
         passage_check.py      a passage that must not be sent: empty, too long, not text (exists)
         screen_table.py       the list of kinds the model fills when judging a passage (exists)
@@ -100,6 +102,7 @@ src/ledger_hand/
         answer_words.py       the fixed word lists an answer is read against          (exists)
         answer_table.py       what the model copies out of an answer; its reply       (exists)
         answer_phrase.py      reading an answer: rules first, the model only to copy  (exists)
+        asset_picking.py      the asset a name not found names, picked from the ledger's list (exists)
         split_table.py        the pieces the model copies for each trade when splitting (exists)
         segments.py           those pieces put back together, one segment per trade   (exists)
         splitting.py          split first, then extract each segment; for experiments (exists)
@@ -142,6 +145,7 @@ src/ledger_hand/
         link_tools.py         the eight tools this program expects of the link        (exists)
         fake_ledger.py        the fake ledger: an invented book in memory; save, reject (exists)
         invented_book.py      the invented book: assets, trades, market prices, "now"  (exists)
+        demo_book.py          the demo book: the invented one, seven assets and nine buys more (exists)
         moving_average.py     the fake ledger's own way of working out cost and profit (exists)
         fake_sums.py          the fake ledger's sums of a stretch of time and holdings (exists)
     assistant/            what the assistant's model is handed, and how its calls are judged (exists)
@@ -802,7 +806,13 @@ Two plugs:
   two things outside the port, for tests, the try-out script and the
   Assistant page's demo buttons (through `flows/standing.py` only):
   saving and rejecting a proposal. `tests/ledger/test_ledger_port.py` runs
-  the port's tests against it.
+  the port's tests against it. It holds one of two books: the invented
+  book (`ledger/invented_book.py`) when none is handed in, which the tests
+  and the measures written before use as it is; and the demo book
+  (`ledger/demo_book.py`, `demo_ledger`), the invented book with seven
+  more assets (shares with Chinese names among them, PepsiCo and DOT never
+  traded) and nine buys in August 2026, which the Assistant page and the
+  try-out script start with.
 - `ledger/link_ledger.py`: the real ledger, through its assistant link.
   `ledger/link_client.py` starts the ledger's own `assistant-link/main.ts`
   as a child process and speaks JSON-RPC with it; the plug turns the
@@ -888,6 +898,17 @@ that is not the asset traded ("25U" of ETH) is held back when the flow
 starts (`recording.start`, `hold_other_unit`, which only the assistant
 turns on), asked nothing about and left out, its reply saying the number
 read and the unit; the Record page keeps the number and only reminds.
+The name of an asset that the ledger's table does not find, and that
+cannot be written as a code ("微软的股票"), is handed to the model before
+any question, with the list of the assets that can be traded, to pick one
+or none (`recording.start`, `pick_assets`, which only the assistant turns
+on; `extraction/asset_picking.py`, prompt named in `flows/conversation.py`,
+`ASSISTANT_PICK_PROMPT`); the model sees only those words and the list, at
+temperature 0. The program takes the code only when it is on the list, the
+words picked out were said, and nothing but filler words ("的", "股票",
+"公司" ...) is left around them; otherwise the trade is asked about as
+before. What was taken is said in the reply that begins the recording and
+in the one that ends it, as the model's match (`record_words.PICKED_WORDS`).
 When a proposal was sent, turned down, or nothing was sent, the reply
 also says each reminder of extraction whose kind is on
 `record_words.SPOKEN_REMINDERS`, in the Record page's own words
@@ -983,7 +1004,17 @@ user, and money traded as an asset is said to be an exchange, which the
 assistant does not record. A ledger that prices trades in no money ends it
 before the model is asked anything. Asking the ledger and changing a trade
 find assets by the same names (`names_of`), at the time they always did,
-and do not use the money's nicknames. The assistant also judges and
+and do not use the money's nicknames. The table also keeps each asset's
+kind (`AssetTable.kinds`), so that, with it, what the user is asked calls
+the asset by what it is (`core/asset_words.py`): a share, a coin, or an
+asset while it is not recognised, and the fee's asset the "fee asset";
+never "币". The labels, the facts handed to the model that words the
+question, the program's own sentences, the reasons a trade is not sent and
+the reminders all follow it, and a sentence of the model's that calls a
+share a coin is not used. With the built-in table every word stays as it
+was. Recording through the assistant also hands a name the table does not
+find to the model, to pick from the ledger's list (see "The assistant");
+asking, changing and deleting do not. The assistant also judges and
 extracts with prompt versions of its own (`screen-2`, `first-3`, named in
 `flows/conversation.py`), handed to `recording.start`; a caller that names
 none gets the first versions, as before.
@@ -1042,7 +1073,10 @@ formatting tool.
   one more `RecordEnding`, and a new reason a trade is not sent one more
   `LeftOut` (`flows/recorded.py`), each with its sentence in
   `flows/record_words.py`; the money a proposal is priced in moves from the
-  one place in `flows/proposing.py` to the ledger's assets.
+  one place in `flows/proposing.py` to the ledger's assets. Another way of
+  naming an asset goes to the step that picks it from the ledger's list
+  (`extraction/asset_picking.py`: a filler word there, or a new prompt
+  version in a new file, measured with `evals/name_run.py`).
 - **The real ledger on the page:** the plug is `ledger/link_ledger.py`.
   Give it a value of its own in `flows/standing.py`'s `LedgerKind`, so the
   Assistant page shows it by name and draws no demo button for it.

@@ -549,9 +549,41 @@ does not reach it yet (the third part of batch 68). What it does not do:
   there.
 - **An asset the ledger lacks is never added from the assistant.** The
   assistant records only the ledger's own assets: a coin or a share it
-  lacks ("AAPL", "狗狗币") is not sent, with the word the user said, and the
+  lacks ("TSLA", "狗狗币") is not sent, with the word the user said, and the
   user adds it in the ledger first. No coin is confirmed on the spot, as
   the Record page lets one be.
+- **A share's Chinese name is matched by the model, and said only in the
+  reply.** A name of an asset the ledger's list does not hold as it is
+  ("微软的股票") is handed to the model with the list, and the program
+  takes the code it picks only after its checks (see
+  `extraction/asset_picking.py`). The reply says what was taken and that
+  the model matched it; the proposal in the ledger carries no mark of it,
+  so look at the asset before confirming.
+- **Answering "which asset" with a Chinese name is not understood.** Once
+  the program asks which asset a trade was, the answer is read as before:
+  answer with the asset's code as the ledger lists it ("MSFT"); "微软" is
+  not matched there.
+- **Asking, changing and deleting do not match Chinese names.** Only
+  recording hands a name to the model to pick from the list; a question
+  about "微软的交易", or a change of "微软那笔", finds no asset by that name.
+- **A fee taken in an asset named in Chinese is not matched.** Only the
+  asset traded is handed over; a fee said as "手续费0.1个英伟达" is not.
+- **A ledger of more than 500 assets that can be traded is not handed
+  over.** The whole list goes to the model each time; past 500 lines the
+  program does not ask, and such a name is asked about as before. 500 was
+  set by reckoning, not measured.
+- **An English short name that can be written as a code is never handed
+  over.** "Pepsi", "Coke" or "Google" can be codes, so the program says at
+  once that the ledger has no such asset and asks the user to add it,
+  even when the ledger holds PEP under "PepsiCo"; adding it as told would
+  make a second asset for the same company.
+- **A name with more after it than "的", "股票", "公司" and the like is
+  not taken.** When the model picks out a name and words are left around
+  it that are not on the short list of filler words ("微软A股" leaves "A股"),
+  nothing is taken, and the program asks which asset it was.
+- **How well names are picked was measured on one set.** The names set
+  (`evals/sets/stock_names.json`) and its results are in
+  `evals/RESULTS.md`; names said otherwise may fare otherwise.
 - **Changing the subject while a question waits.** While the recording
   flow's question waits, whatever the user says next is read as its
   answer. A question about the holdings at that moment is taken as an
