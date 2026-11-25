@@ -71,9 +71,9 @@ from ledger_hand.asking.prompts.bookkeeper import BOOKKEEPER_PROMPT
 from ledger_hand.core.assets import BUILT_IN_ASSETS, AssetTable, MoneyReading, UnknownAssets
 from ledger_hand.core.book import EarlierSave
 from ledger_hand.core.coins import spoken_key
-from ledger_hand.core.followup import CannotRecord, ConfirmCoin, next_follow_up
+from ledger_hand.core.followup import AskCell, CannotRecord, Cell, ConfirmCoin, next_follow_up
 from ledger_hand.core.trade import OccurredTime, TradeDraft, TradeRecord
-from ledger_hand.core.validation import check_draft
+from ledger_hand.core.validation import Missing, check_draft
 from ledger_hand.core.zones import is_zone_name
 from ledger_hand.extraction.answer_phrase import (
     AnswerProblem,
@@ -106,13 +106,16 @@ from ledger_hand.extraction.prompts.screen import SCREEN_PROMPT
 from ledger_hand.extraction.screening import Decision, Screened, screen
 from ledger_hand.extraction.unit_currency import currencies_in_unit
 from ledger_hand.flows.coin_book import with_confirmed_coins
-from ledger_hand.flows.filling import confirm, fill
+from ledger_hand.flows.filling import confirm, fill, fill_from_ledger, settle_clash
 from ledger_hand.flows.fingerprint import passage_fingerprint
+from ledger_hand.flows.guessing import guessed
+from ledger_hand.flows.last_money import LastMoneyLookup
 from ledger_hand.flows.progress import (
     DEFAULT_TUNING,
     Asked,
     Call,
     Failure,
+    MoneyClash,
     Progress,
     Question,
     Setting,
@@ -170,6 +173,7 @@ def start(
     hold_other_unit: bool = False,
     pick_assets: bool = False,
     pick_prompt: AssetPickPrompt = ASSET_PICK_PROMPT,
+    last_money: LastMoneyLookup | None = None,
 ) -> Progress:
     """Judge ``passage``, extract its trades, check them, and ask the first question.
 
@@ -193,6 +197,10 @@ def start(
     does not find to the model, to pick from the ledger's list, before any
     question (``extraction.asset_picking``), with ``pick_prompt``. Only
     the assistant turns it on; with the built-in table it never asks.
+
+    ``last_money`` looks up the money of an asset's last trade in the
+    ledger, to guess what a vague word for money meant (``guessing``);
+    only the assistant hands one in, and without it nothing is guessed.
     """
     if not isinstance(now, datetime) or now.utcoffset() is None:
         raise ValueError("the current moment must be a datetime that carries an offset")
@@ -220,7 +228,9 @@ def start(
         return dataclasses.replace(progress, stage=Stage.NO_TRADE)
     progress = dataclasses.replace(progress, set_aside=screening.set_aside)
     picking = pick_prompt if pick_assets else None
-    return _extracted(progress, model, extract_prompt, hold=hold_other_unit, pick=picking)
+    return _extracted(
+        progress, model, extract_prompt, hold=hold_other_unit, pick=picking, last=last_money
+    )
 
 
 def _extracted(
@@ -230,6 +240,7 @@ def _extracted(
     *,
     hold: bool = False,
     pick: AssetPickPrompt | None = None,
+    last: LastMoneyLookup | None = None,
 ) -> Progress:
     setting = progress.setting
     extraction = extract(
@@ -261,7 +272,7 @@ def _extracted(
         for position, draft in enumerate(drafts)
     )
     progress = dataclasses.replace(progress, trades=trades, issues=extraction.issues)
-    return _next_question(progress, model)
+    return _next_question(progress, model, last)
 
 
 def _picked(
@@ -398,21 +409,30 @@ def unbegun(passage: str, *, now: datetime, zone: str, tuning: Tuning = DEFAULT_
 # --- one trade at a time ----------------------------------------------------
 
 
-def _next_question(progress: Progress, model: ModelPort) -> Progress:
-    """Settle the open trades in order until one needs a question, or none is left."""
+def _next_question(
+    progress: Progress, model: ModelPort, last: LastMoneyLookup | None = None
+) -> Progress:
+    """Settle the open trades in order until one needs a question, or none is left.
+
+    Before a trade is checked, a vague word for its money is guessed from
+    the ledger where it may be (``guessing``), so that no question is
+    asked about a money the ledger's last trade settles.
+    """
     trades = list(progress.trades)
     assets = progress.setting.assets
     for position, trade in enumerate(trades):
         if trade.status is not TradeStatus.OPEN:
             continue
-        checked = check_draft(trade.draft, assets, progress.setting.now)
+        draft, progress = guessed(progress, position, trade.draft, last)
+        checked = check_draft(draft, assets, progress.setting.now)
         if isinstance(checked, TradeRecord):
-            trades[position] = TradeState(trade.draft, TradeStatus.RECORDED, checked)
+            trades[position] = TradeState(draft, TradeStatus.RECORDED, checked)
             continue
-        follow_up = next_follow_up(trade.draft, checked)
+        follow_up = next_follow_up(draft, checked)
+        trades[position] = TradeState(draft, TradeStatus.OPEN)
         if isinstance(follow_up, CannotRecord):
             trades[position] = TradeState(
-                trade.draft, TradeStatus.CANNOT_RECORD, reason=follow_up.because
+                draft, TradeStatus.CANNOT_RECORD, reason=follow_up.because
             )
             continue
         progress = dataclasses.replace(progress, trades=tuple(trades))
@@ -444,8 +464,18 @@ def _asking(
 # --- answers ----------------------------------------------------------------
 
 
-def answer(progress: Progress, text: str, model: ModelPort) -> Progress:
-    """Read ``text`` as the answer to the waiting question, or as a command once all is settled."""
+def answer(
+    progress: Progress,
+    text: str,
+    model: ModelPort,
+    *,
+    last_money: LastMoneyLookup | None = None,
+) -> Progress:
+    """Read ``text`` as the answer to the waiting question, or as a command once all is settled.
+
+    ``last_money`` is as for ``start``: the caller hands the same one in
+    each time.
+    """
     if progress.stage is Stage.REVIEWING:
         return _reviewed(progress, text)
     question = progress.question
@@ -468,17 +498,22 @@ def answer(progress: Progress, text: str, model: ModelPort) -> Progress:
         asks_again=setting.tuning.asks_again,
     )
     progress = _with_calls(progress, Step.ANSWER, reading.calls)
-    return _answered(progress, question, reading, model)
+    return _answered(progress, question, reading, model, last_money)
 
 
 def _answered(
-    progress: Progress, question: Question, reading: AnswerReading, model: ModelPort
+    progress: Progress,
+    question: Question,
+    reading: AnswerReading,
+    model: ModelPort,
+    last: LastMoneyLookup | None = None,
 ) -> Progress:
     outcome = reading.outcome
     if isinstance(outcome, Commanded):
+        progress = dataclasses.replace(progress, clash=None)
         if outcome.command is Command.CANCEL:
             return cancel(progress)
-        return _settle(progress, question.trade, TradeStatus.SKIPPED, model)
+        return _settle(progress, question.trade, TradeStatus.SKIPPED, model, last)
     if isinstance(outcome, NotRead):
         return _asked_again(progress, question, outcome)
     if isinstance(outcome, TwoTimes):
@@ -488,14 +523,52 @@ def _answered(
     trades = list(progress.trades)
     draft = trades[question.trade].draft
     assets = progress.setting.assets
+    clash = progress.clash
     if isinstance(outcome, Confirmed) and isinstance(question.asked, ConfirmCoin):
         draft, assets = confirm(draft, assets, question.asked, outcome.confirmation)
+    elif isinstance(outcome, Filled) and clash is not None and isinstance(outcome.value, str):
+        draft = settle_clash(draft, clash, outcome.value, assets)
+        clash = None
+    elif isinstance(outcome, Filled) and assets.from_ledger:
+        filled = fill_from_ledger(draft, outcome, assets, question.trade)
+        if isinstance(filled, MoneyClash):
+            progress = dataclasses.replace(progress, clash=filled)
+            return _asking_which_money(progress, filled, model)
+        draft = filled
     elif isinstance(outcome, Filled):
         draft = fill(draft, outcome)
     trades[question.trade] = TradeState(draft, TradeStatus.OPEN)
     setting = dataclasses.replace(progress.setting, assets=assets)
-    progress = dataclasses.replace(progress, trades=tuple(trades), setting=setting)
-    return _next_question(progress, model)
+    progress = dataclasses.replace(progress, trades=tuple(trades), setting=setting, clash=clash)
+    return _next_question(progress, model, last)
+
+
+def _asking_which_money(progress: Progress, clash: MoneyClash, model: ModelPort) -> Progress:
+    """Ask which money a trade (or its fee) was in, when an answer named another one.
+
+    The question is the one for a blank pricing currency, or a blank fee
+    currency, with a note that says both: what the trade had, and what the
+    answer said. Example: "Before, this trade was in USDT; now you said
+    2400 美元."
+    """
+    if clash.cell is Cell.FEE:
+        asked = AskCell(Cell.FEE_COIN, Missing.FEE_COIN)
+        what = "its fee was taken"
+    else:
+        asked = AskCell(Cell.QUOTE, Missing.QUOTE)
+        what = "this trade was priced"
+    guess = " (a guess from the ledger's last trade)" if clash.guessed else ""
+    note = (
+        f"Before, {what} in {clash.before}{guess}; now you said "
+        f"{format(clash.value, 'f')} {clash.said}. Which is it?"
+    )
+    progress = _asking(progress, clash.trade, asked, model)
+    question = progress.question
+    if question is None:
+        return progress
+    return dataclasses.replace(
+        progress, question=dataclasses.replace(question, notes=(note, *question.notes))
+    )
 
 
 # The reasons an answer was not used whose words say "coin", for the ledger's own table.
@@ -528,10 +601,16 @@ def _model_failure(outcome: NotRead) -> ModelErrorKind | None:
     return None
 
 
-def _settle(progress: Progress, position: int, status: TradeStatus, model: ModelPort) -> Progress:
+def _settle(
+    progress: Progress,
+    position: int,
+    status: TradeStatus,
+    model: ModelPort,
+    last: LastMoneyLookup | None = None,
+) -> Progress:
     trades = list(progress.trades)
     trades[position] = TradeState(trades[position].draft, status)
-    return _next_question(dataclasses.replace(progress, trades=tuple(trades)), model)
+    return _next_question(dataclasses.replace(progress, trades=tuple(trades)), model, last)
 
 
 # --- once every trade is settled --------------------------------------------

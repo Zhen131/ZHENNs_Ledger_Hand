@@ -150,7 +150,7 @@ def test_dao_said_with_two_moneys_to_price_in_asks_which() -> None:
         side="buy", coin="BTC", quantity="0.001 BTC", total="100刀", fee="0", time="今天上午9:40"
     )
 
-    (said,) = talk(words, rows=[model_row], ledger=FakeLedger())
+    (said,) = talk(words, rows=[model_row], ledger=FakeLedger(trades=()))
 
     assert said.recorded is not None and said.recorded.ending is RecordEnding.ASKING
     assert said.reply.startswith("[Trade 1 of 1: pricing currency]")
@@ -181,8 +181,25 @@ def test_a_fee_in_dao_with_two_moneys_asks_what_the_fee_was_paid_in() -> None:
 
     (said,) = talk(words, rows=[model_row], ledger=FakeLedger())
 
-    assert said.recorded is not None and said.recorded.ending is RecordEnding.ASKING
-    assert said.reply.startswith("[Trade 1 of 1: fee asset]")
+    assert said.recorded is not None and said.recorded.ending is RecordEnding.SENT
+    (trade,) = said.recorded.trades
+    assert (trade.quote, trade.fee_asset) == ("USD", "USD")
+    (state,) = said.recorded.progress.trades
+    assert state.record is not None and state.record.inferred == frozenset()
+    assert "This is a guess" not in said.reply
+
+
+def test_a_fee_in_dao_when_the_trade_names_both_moneys_is_still_asked_about() -> None:
+    words = "今天15:30在IBKR买了2股MSFT，410美元一股，总共820 USDT，手续费1刀"
+    model_row = SHARES_ROW | {"total": "820 USDT", "fee": "1刀"}
+    ledger = FakeLedger()
+
+    first, second = talk(words, "美元", rows=[model_row], ledger=ledger)
+
+    assert first.reply.startswith("[Trade 1 of 1: pricing currency]")
+    assert second.recorded is not None and second.recorded.ending is RecordEnding.ASKING
+    assert second.reply.startswith("[Trade 1 of 1: fee asset]")
+    assert "list_trades" not in ledger.calls
 
 
 # --- one money is never taken for another ---------------------------------------------

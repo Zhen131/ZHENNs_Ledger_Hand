@@ -16,7 +16,7 @@ that starts from a screenshot; this module states the shapes.
 
 Names defined here: ``Progress``, ``Stage``, ``TradeState``, ``TradeStatus``,
 ``Question``, ``Failure``, ``Setting``, ``Step``, ``Call``, ``Tuning``,
-``DEFAULT_TUNING``, ``REMINDER_KINDS`` and ``Asked``.
+``DEFAULT_TUNING``, ``REMINDER_KINDS``, ``MoneyClash`` and ``Asked``.
 """
 
 from __future__ import annotations
@@ -24,16 +24,18 @@ from __future__ import annotations
 import enum
 from dataclasses import dataclass
 from datetime import datetime
+from decimal import Decimal
 
 from ledger_hand.asking.question_text import Writer
 from ledger_hand.core.assets import AssetTable
 from ledger_hand.core.book import EarlierSave
-from ledger_hand.core.followup import AskCell, AskWhichCell, ConfirmCoin, Problem
+from ledger_hand.core.followup import AskCell, AskWhichCell, Cell, ConfirmCoin, Problem
 from ledger_hand.core.trade import OccurredTime, TradeDraft, TradeRecord
 from ledger_hand.extraction.asset_picking import AssetPick
 from ledger_hand.extraction.extractor import DEFAULT_ASKS_AGAIN, PassageProblem
 from ledger_hand.extraction.issues import Issue, IssueKind
 from ledger_hand.extraction.screening import Report
+from ledger_hand.flows.last_money import LastMoney
 from ledger_hand.ports import ModelError, ModelErrorKind, ModelParameters, ReplyRecord
 
 type Asked = AskCell | ConfirmCoin | AskWhichCell
@@ -188,6 +190,28 @@ class Call:
     record: ReplyRecord
 
 
+@dataclass(frozen=True, kw_only=True)
+class MoneyClash:
+    """An answer whose money is not the one the trade already has; the user is asked which.
+
+    ``trade`` is the trade's position, counting from 0; ``cell`` the
+    amount answered (price, total or fee) and ``value`` its number, not
+    filled in yet; ``said`` the word for money answered with it and
+    ``said_code`` what it names; ``before`` what the trade's money (or
+    its fee's) named until then, and ``guessed`` whether that was the
+    program's guess. Example: "30 USDT" spent, then "2400美元" answered
+    for the price: ``before`` is USDT and ``said_code`` USD.
+    """
+
+    trade: int
+    cell: Cell
+    value: Decimal
+    said: str
+    said_code: str
+    before: str
+    guessed: bool
+
+
 @dataclass(frozen=True)
 class Progress:
     """Where the recording of one passage stands. It never changes; each step gives a new one.
@@ -213,6 +237,11 @@ class Progress:
     ``picks`` holds what came of each name of an asset handed to the model
     to pick from the ledger's list at the start (the assistant's way), one
     for each name, in the order first met; empty when none was.
+
+    ``last_moneys`` keeps what the ledger said of each asset's last trade,
+    by the asset's code, so that one asset is asked about once in a
+    passage. ``clash`` is an answer whose money is not the trade's, while
+    the user is asked which money it is; ``None`` otherwise.
     """
 
     stage: Stage
@@ -231,6 +260,8 @@ class Progress:
     seen_before: tuple[EarlierSave, ...] = ()
     raw_text: str | None = None
     picks: tuple[AssetPick, ...] = ()
+    last_moneys: tuple[tuple[str, LastMoney], ...] = ()
+    clash: MoneyClash | None = None
 
     @property
     def records(self) -> tuple[TradeRecord, ...]:

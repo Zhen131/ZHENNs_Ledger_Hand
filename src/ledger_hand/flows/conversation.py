@@ -68,6 +68,11 @@ reply that begins the recording and in the one that ends it, with that the
 model matched it (``record_words``). It is off (``ASSISTANT_PICKS_ASSETS``):
 measured, it picked listed assets for names the ledger lacks. Such a name
 is asked about, and the question says to add the asset first.
+A vague word for money ("美金", "刀", "$") that the trade itself does not
+settle is guessed from the asset's last trade in the ledger: the flow is
+handed the one function that asks (``last_money.last_money_of``), each
+time it is started or answered, and the reply says each money guessed
+(``record_words``). (The product owner's rule of 2026-11-25.)
 The recording flow is handed no book of its own: what the assistant
 records goes to the ledger. So there is no reminder that the same words
 were saved before, and a coin the user confirms is known for that passage
@@ -128,6 +133,7 @@ from ledger_hand.flows import editing, recording
 from ledger_hand.flows.assisting import close_editing, close_recording, first_edit, take_turn
 from ledger_hand.flows.cash_question import CASH_WORDS, caught, withheld_cash
 from ledger_hand.flows.editing import Edited, EditEnding, EditSent, EditWaiting
+from ledger_hand.flows.last_money import last_money_of
 from ledger_hand.flows.progress import DEFAULT_TUNING, Progress, Tuning
 from ledger_hand.flows.proposing import propose
 from ledger_hand.flows.record_words import reply_for
@@ -420,9 +426,9 @@ def _begun(said: str, around: _Around, shot: ScreenshotText | None = None) -> Re
 def _start(said: str, around: _Around, table: AssetTable, shot: ScreenshotText | None) -> Progress:
     """The recording flow begun the assistant's way, for words typed and a screenshot alike.
 
-    The prompt versions, the holding back and the picking of an asset from
-    the ledger's list are named here once, so the two ways cannot drift
-    apart.
+    The prompt versions, the holding back, the picking of an asset from
+    the ledger's list and the looking up of an asset's last money in the
+    ledger are named here once, so the two ways cannot drift apart.
     """
     assistant_way = {
         "screen_prompt": ASSISTANT_SCREEN_PROMPT,
@@ -430,6 +436,7 @@ def _start(said: str, around: _Around, table: AssetTable, shot: ScreenshotText |
         "hold_other_unit": True,
         "pick_assets": ASSISTANT_PICKS_ASSETS,
         "pick_prompt": ASSISTANT_PICK_PROMPT,
+        "last_money": last_money_of(around.ledger, around.now),
     }
     if shot is None:
         progress = recording.start(
@@ -472,7 +479,9 @@ def _onward(
 
 
 def _answered(state: AssistantChat, waiting: Progress, said: str, around: _Around) -> Said:
-    recorded = _onward(recording.answer(waiting, said, around.model), around.ledger)
+    last_money = last_money_of(around.ledger, around.now)
+    progress = recording.answer(waiting, said, around.model, last_money=last_money)
+    recorded = _onward(progress, around.ledger)
     reply = reply_for(recorded)
     chat = _with_words(state.chat, (Message(Role.USER, said), Message(Role.ASSISTANT, reply)))
     chat = _with_proposal(chat, recorded)
