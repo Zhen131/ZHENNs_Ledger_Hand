@@ -65,7 +65,14 @@ def load_cash_set(path: Path = CASH_SET) -> tuple[datetime, str, tuple[CashSente
     data = json.loads(path.read_text(encoding="utf-8"))
     sentences = tuple(
         CashSentence(id=str(one["id"]), group=group, text=str(one["text"]))
-        for group in ("named", "must_pass", "named_added", "must_pass_added")
+        for group in (
+            "named",
+            "must_pass",
+            "named_added",
+            "must_pass_added",
+            "named_added_2",
+            "must_pass_added_2",
+        )
         for one in data.get(group, ())
     )
     return datetime.fromisoformat(data["now"]), str(data["zone"]), sentences

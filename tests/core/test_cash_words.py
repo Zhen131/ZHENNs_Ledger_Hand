@@ -2,16 +2,19 @@
 
 from __future__ import annotations
 
+from decimal import Decimal
+
 import pytest
 
 from ledger_hand.core.cash_words import (
     BASE_MONEY_WORDS,
     CashAsk,
     cash_question,
-    figure_beside_money,
+    figures_in,
     held_names,
     may_ask_what_is_left,
     money_words,
+    unsaid_cash_figure,
 )
 from ledger_hand.core.ledger_records import Asset, AssetKind, Pricing
 
@@ -86,26 +89,48 @@ def test_the_shape_of_what_is_still_had_holds_whatever_is_named() -> None:
 
 
 @pytest.mark.parametrize(
-    ("text", "found"),
+    ("reply", "found"),
     [
-        ("你还有 50 USDT", "50 usdt"),
-        ("You have $50.", "$50"),
-        ("大约5U", "5u"),
-        ("一共1,250.5 美元", "1,250.5 美元"),
-        ("五十美元", "五十美元"),
-        ("USDT: 30", "usdt: 30"),
+        ("你的 USDT 余额是 50", "50"),
+        ("Your cash balance is 50.", "50"),
+        ("你还有1万美元", "1万"),
+        ("You still have fifty dollars.", "fifty"),
+        ("USDT 还剩 50 个", "50"),
+        ("你账上还有五十刀。", "五十"),
+        ("You have $1,200 left.", "1,200"),
     ],
 )
-def test_a_figure_beside_a_money_is_found(text: str, found: str) -> None:
-    assert figure_beside_money(text) == found
+def test_a_number_never_said_in_words_that_name_a_money_is_found(reply: str, found: str) -> None:
+    assert unsaid_cash_figure(reply, BASE_MONEY_WORDS, ["帮我看看账户"]) == found
 
 
 @pytest.mark.parametrize(
-    "text",
-    ["可以问我 10 月的交易", "用 USDT 记一笔", "You hold 2 UNI", "BTC 0.5", "我有 3 笔交易"],
+    ("said", "reply"),
+    [
+        ("手续费 1 USDT 记上", "手续费是 1 USDT 吗？"),
+        ("the fee was 1 USDT", "Is the fee 1.0 USDT?"),
+        ("花了 1000 USDT 买 ETH", "你是说一千 USDT 吗？"),
+        ("花了 1000 USDT 买 ETH", "你是说 1,000 USDT 吗？"),
+        ("手续费 50 刀", "手续费是五十刀吗？"),
+        ("手续费五十刀", "Was the fee 50 dollars?"),
+        ("10月10号那笔 950 USDT", "Do you mean the trade on 10 October for 950 USDT?"),
+    ],
 )
-def test_a_figure_beside_no_money_is_not_found(text: str) -> None:
-    assert figure_beside_money(text, money_words((COIN,))) is None
+def test_a_number_the_user_said_is_let_through_whatever_its_writing(said: str, reply: str) -> None:
+    assert unsaid_cash_figure(reply, BASE_MONEY_WORDS, [said]) is None
+
+
+@pytest.mark.parametrize(
+    "reply", ["可以问我 10 月的交易", "我可以帮你记用 USDT 付的交易", "You hold 2 UNI"]
+)
+def test_words_with_no_money_or_no_number_unsaid_are_let_through(reply: str) -> None:
+    words = money_words((COIN,))
+    assert unsaid_cash_figure(reply, words, ["10月"]) is None
+
+
+def test_numbers_are_read_in_digits_chinese_and_english_words() -> None:
+    values = [value for _, value in figures_in("1万、一千、1,000.5、twenty-five、a hundred")]
+    assert values == [10000, 1000, Decimal("1000.5"), 25, 100]
 
 
 NVIDIA = Asset(
@@ -120,6 +145,9 @@ HELD = held_names((EURO, NVIDIA, BITCOIN))
 @pytest.mark.parametrize(
     "said",
     [
+        "余额里 BTC 还有几个",
+        "微软股票的余额还有多少",
+        "what is the balance on my bitcoin",
         "我的 BTC 余额还有多少个",
         "英伟达的余额",
         "比特币余额是多少",
@@ -150,3 +178,8 @@ def test_a_balance_attached_to_no_asset_held_is_cash(said: str) -> None:
 def test_the_names_held_are_those_of_assets_that_are_not_cash_with_their_lent_names() -> None:
     assert "EUR" not in HELD and "Euro" not in HELD
     assert {"NVDA", "英伟达", "BTC", "Bitcoin", "比特币"} <= set(HELD)
+
+
+def test_a_chinese_numeral_in_a_word_counts_as_a_number_too() -> None:
+    # "一笔" holds the number 1: with a money named and 1 never said, it gives way.
+    assert unsaid_cash_figure("我可以帮你记一笔用 USDT 付的交易") == "一"

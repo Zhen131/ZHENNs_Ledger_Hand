@@ -164,12 +164,12 @@ def test_a_figure_beside_a_money_with_nothing_looked_up_gives_way_to_the_fixed_w
     assert reply in said.turn.steps[-1].text
 
 
-def test_words_with_no_figure_beside_a_money_are_shown_as_the_model_wrote_them() -> None:
-    model = RoutedModel(tools=[words("你可以问我 10 月的交易，或者用 USDT 记一笔。")])
+def test_words_with_no_number_are_shown_as_the_model_wrote_them() -> None:
+    model = RoutedModel(tools=[words("你可以问我交易，或者用 USDT 记账。")])
 
     said = said_once("你能做什么", model)
 
-    assert said.reply == "你可以问我 10 月的交易，或者用 USDT 记一笔。"
+    assert said.reply == "你可以问我交易，或者用 USDT 记账。"
     assert said.turn is not None and said.turn.withheld is None
 
 
@@ -272,4 +272,25 @@ def test_a_figure_the_user_never_said_still_gives_way() -> None:
     withheld = withheld_cash("You have 50 USDT.", FakeLedger(), ["手续费 1 USDT", "How much?"])
 
     assert withheld is not None
-    assert "50 usdt" in withheld.reason
+    assert "'50'" in withheld.reason
+
+
+@pytest.mark.parametrize(
+    "reply",
+    [
+        "你的 USDT 余额是 50",
+        "Your cash balance is 50.",
+        "你还有1万美元",
+        "You still have fifty dollars.",
+        "USDT 还剩 50 个",
+    ],
+)
+def test_a_cash_figure_the_user_never_said_gives_way_on_the_whole_path(reply: str) -> None:
+    said = said_once("帮我看看账户", RoutedModel(tools=[words(reply)]))
+
+    assert said.reply == CASH_WORDS
+    assert said.turn is not None and said.turn.withheld is not None
+
+
+def test_a_thousand_written_in_chinese_is_the_users_1000() -> None:
+    assert withheld_cash("你是说一千 USDT 吗？", FakeLedger(), ["花了 1000 USDT 买 ETH"]) is None

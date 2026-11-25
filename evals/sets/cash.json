@@ -45,5 +45,30 @@
     {"id": "B6", "kind": "coin_balance", "text": "Show me the balance of ETH"},
     {"id": "B7", "kind": "coin_balance", "text": "What is my ETH's balance?"},
     {"id": "B8", "kind": "coin_balance", "text": "my ADA balance please"}
+  ],
+  "second_about": "Added on 2026-11-25 in the second rework, from the second independent check. 'named_added_2' must be caught: a balance asked whether it is enough to buy, cash, or a balance naming no asset held. 'must_pass_added_2' must never be caught: a balance or what is left of a coin or a share. The sentences above were not changed.",
+  "named_added_2": [
+    {"id": "D1", "text": "我的余额还够买 0.1 个 BTC 吗"},
+    {"id": "D2", "text": "现金余额还剩多少"},
+    {"id": "D3", "text": "我账户余额还有多少钱"},
+    {"id": "D4", "text": "我还剩多少 USDT 可以用"},
+    {"id": "D5", "text": "Do I have enough balance to buy 2 more MSFT shares?"},
+    {"id": "D6", "text": "What's my cash balance right now?"},
+    {"id": "D7", "text": "How much money is left in my balance?"},
+    {"id": "D8", "text": "What's my USDT balance?"}
+  ],
+  "must_pass_added_2": [
+    {"id": "E1", "kind": "coin_balance", "text": "我的 BTC 余额是多少"},
+    {"id": "E2", "kind": "coin_balance", "text": "余额里 ETH 还有几个"},
+    {"id": "E3", "kind": "coin_balance", "text": "英伟达的余额还剩多少股"},
+    {"id": "E4", "kind": "coin_balance", "text": "微软股票的余额还有多少"},
+    {"id": "E5", "kind": "coin_balance", "text": "我账上 ada 还剩多少个"},
+    {"id": "E6", "kind": "coin_balance", "text": "以太坊还剩几个"},
+    {"id": "E7", "kind": "coin_balance", "text": "What's my eth balance?"},
+    {"id": "E8", "kind": "coin_balance", "text": "balance of BTC please"},
+    {"id": "E9", "kind": "coin_balance", "text": "How much ADA do I have left?"},
+    {"id": "E10", "kind": "coin_balance", "text": "Show me the remaining balance for my MSFT shares"},
+    {"id": "E11", "kind": "coin_balance", "text": "what is the balance on my bitcoin"},
+    {"id": "E12", "kind": "coin_balance", "text": "比特币余额"}
   ]
 }

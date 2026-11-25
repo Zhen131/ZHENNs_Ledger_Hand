@@ -1,4 +1,4 @@
-"""The words that tell a question about cash, and a figure said beside a money.
+"""The words that tell a question about cash, and a figure the model made up beside a money.
 
 This module tells, from the user's own words alone, whether they ask about
 cash. It asks no ledger and no model. None of the eight tools the
@@ -10,9 +10,13 @@ What a question about cash is (``CashAsk``), one kind each:
 
 - ``CASH``: cash or a balance named outright: "现金", "余额", "可用资金",
   "cash", "balance", "buying power". "balance" is a word of its own:
-  "rebalance" and "balanced" are not it. A balance attached to an asset
-  that is not cash ("ETH 余额", "BTC balance", "balance of ETH", the names
-  handed in as ``held``) is a holding, not cash (first rework, 2026-11-25).
+  "rebalance" and "balanced" are not it. A sentence with a balance in it
+  is judged by three rules, in order (second rework, 2026-11-25): asked
+  whether it is enough to buy ("够不够", "够买", "enough ... buy",
+  "afford"), it is cash; else, naming anywhere an asset that is not cash
+  (the names handed in as ``held``) or a word that counts an asset ("股",
+  "币", "个", "枚", "份", "shares", "coins", "stocks", "tokens"), it is
+  not; else it is cash.
 - ``LEFT``: how much of a money is still had: "我还有多少USDT",
   "账上还剩多少美元", "USDT还剩多少", "how much USD do I have left",
   "do I still have any USDT". The money is one of ``money_words``: the
@@ -29,10 +33,11 @@ money and none of these words ("我还能买多少BTC", "how much do I have left
 or that names a coin rather than a money ("我还有多少BTC" is a holding, and
 goes to the model as before).
 
-``figure_beside_money`` finds a number written right beside a money word
-("50 USDT", "$50", "50美元", "5U", "五十美元"): the check made of the model's
-words when nothing was looked up, so that no figure the model made up is
-ever said as cash.
+``unsaid_cash_figure`` is the check made of the model's words when nothing
+was looked up: words that name a money (a word for one, or "现金", "余额",
+"cash", "balance") and hold any number the user never said in the chat,
+compared by value ("一千" is 1000, "fifty" is 50), so that no figure the
+model made up is ever said as cash.
 
 Why the words are in one place: catching the question and the check of
 the model's words must use the same list, or one would know a money the
@@ -41,7 +46,7 @@ truthfully that it cannot be looked up.)
 
 Names defined here: ``CashAsk``, ``BASE_MONEY_WORDS``, ``money_words``,
 ``held_names``, ``names_a_balance``, ``may_ask_what_is_left``,
-``cash_question``, ``figures_beside_money`` and ``figure_beside_money``.
+``cash_question``, ``figures_in`` and ``unsaid_cash_figure``.
 """
 
 from __future__ import annotations
@@ -50,9 +55,11 @@ import enum
 import re
 import unicodedata
 from collections.abc import Iterable, Sequence
+from decimal import Decimal, InvalidOperation
 
 from ledger_hand.core.ledger_records import Asset, AssetKind
 from ledger_hand.core.ledger_table import MONEY_NICKNAMES, names_of
+from ledger_hand.core.numbers import Recognised, read_number
 
 
 class CashAsk(enum.Enum):
@@ -78,7 +85,7 @@ _CASH = (
     r"(?<![a-z])cash(?![a-z])",
     r"(?<![a-z])buying power(?![a-z])",
 )
-# "余额" and "balance" are cash only when no asset that is not cash is attached to them.
+# "余额" and "balance": cash unless the sentence names an asset held (``_balance_is_cash``).
 _BALANCE = r"(?:余额|(?<![a-z])balances?(?![a-z]))"
 _DEPOSIT = (
     r"(?<![收投买录输转加])入金(?!额)",
@@ -179,21 +186,36 @@ def held_names(assets: Iterable[Asset]) -> tuple[str, ...]:
     return tuple(dict.fromkeys(name for name, code in sayings if code in held and name.strip()))
 
 
-def _attached_balance(text: str, held: Sequence[str]) -> str:
-    """``text`` with every "余额" or "balance" attached to an asset that is not cash taken out.
+# Asking whether the money is enough to buy something: a balance asked so is cash.
+_AFFORD = (
+    r"够不够",
+    r"够[^，,。.?？!！]{0,6}买",
+    r"(?<![a-z])enough(?![a-z]).*(?<![a-z])buy(?![a-z])",
+    r"(?<![a-z])afford(?![a-z])",
+)
+# Words that count an asset: a balance said with one is of that asset, not cash.
+_COUNTERS = (
+    r"股",
+    r"币",
+    r"个",
+    r"枚",
+    r"份",
+    r"(?<![a-z])(?:shares?|coins?|stocks?|tokens?)(?![a-z])",
+)
 
-    Attached is "ETH 余额", "英伟达的余额", "BTC balance", "ETH's balance" and
-    "balance of ETH"; "余额够不够买英伟达" is not.
+
+def _balance_is_cash(text: str, held: Sequence[str]) -> bool:
+    """Whether a balance named in ``text`` asks about cash (the second rework, 2026-11-25).
+
+    Asked whether it is enough to buy: cash, whatever is named. Otherwise
+    any name of an asset that is not cash, or a word that counts an asset
+    ("股", "个", "shares"), anywhere in the sentence: not cash. Else cash.
     """
-    if not held:
-        return text
-    asset = _money(held)
-    for pattern in (
-        rf"{asset}\s*(?:的|'s|’s)?\s*{_BALANCE}",
-        rf"{_BALANCE}\s*(?:of|for|in)\s+(?:my\s+|the\s+)?{asset}",
-    ):
-        text = re.sub(pattern, " ", text)
-    return text
+    if _any(_AFFORD, text):
+        return True
+    if held and re.search(_money(held), text):
+        return False
+    return not _any(_COUNTERS, text)
 
 
 def cash_question(
@@ -202,12 +224,14 @@ def cash_question(
     """Which kind of question about cash ``said`` is, or ``None`` when it is none.
 
     ``words`` are the words for a money (``money_words``); ``held`` the names
-    of the assets that are not cash (``held_names``), so that "ETH 余额" is a
-    holding, not cash. The kinds are tried in the order of ``CashAsk``; the
+    of the assets that are not cash (``held_names``), so that "余额里 ETH 还有
+    几个" is a holding, not cash. The kinds are tried in the order of ``CashAsk``; the
     first that fits is given.
     """
     text = _normal(said)
-    if _any(_CASH, text) or re.search(_BALANCE, _attached_balance(text, held)):
+    if _any(_CASH, text):
+        return CashAsk.CASH
+    if re.search(_BALANCE, text) and _balance_is_cash(text, held):
         return CashAsk.CASH
     if _left(text, words):
         return CashAsk.LEFT
@@ -218,27 +242,114 @@ def cash_question(
     return None
 
 
-def figures_beside_money(
-    text: str, words: Sequence[str] = BASE_MONEY_WORDS
-) -> tuple[tuple[str, str], ...]:
-    """Every number in ``text`` written right beside a money word: the words found, the number.
+_CASH_NAMES = r"(?:现金|余额|(?<![a-z])(?:cash|balances?)(?![a-z]))"
+_SAID_NUMBER = re.compile(
+    rf"[0-9][0-9,]*(?:\.[0-9]+)?(?:[万亿千]|[kw](?![a-z]))?|[{_CHINESE_NUMERALS}]+"
+)
+_ONES = {
+    word: value
+    for value, word in enumerate(
+        [
+            "zero",
+            "one",
+            "two",
+            "three",
+            "four",
+            "five",
+            "six",
+            "seven",
+            "eight",
+            "nine",
+            "ten",
+            "eleven",
+            "twelve",
+            "thirteen",
+            "fourteen",
+            "fifteen",
+            "sixteen",
+            "seventeen",
+            "eighteen",
+            "nineteen",
+        ]
+    )
+}
+_TENS = {
+    word: value * 10
+    for value, word in enumerate(
+        ["twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety"], start=2
+    )
+}
+_SCALES = {"hundred": 100, "thousand": 1_000, "million": 1_000_000}
+_WORD_NUMBER = re.compile(
+    r"(?<![a-z])(?:(?:a|and|" + "|".join((*_ONES, *_TENS, *_SCALES)) + r")(?:[ -]+|(?![a-z])))+",
+)
 
-    For example, "你还有 50 USDT" gives (("50 usdt", "50"),); "可以问我 10 月的交易"
-    gives none, since no money stands beside the 10.
+
+def _spelled(words: str) -> Decimal | None:
+    """An English number spelt in words ("fifty", "a thousand", "twenty-five"), or ``None``."""
+    total, current, seen = 0, 0, False
+    parts = [part for part in re.split(r"[ -]+", words.strip()) if part]
+    for index, part in enumerate(parts):
+        if part in _ONES or part in _TENS:
+            current += _ONES.get(part, 0) + _TENS.get(part, 0)
+            seen = True
+        elif part in _SCALES:
+            scale = _SCALES[part]
+            if scale == 100:
+                current = (current or 1) * 100
+            else:
+                total += (current or 1) * scale
+                current = 0
+            seen = True
+        elif part == "a" and index + 1 < len(parts) and parts[index + 1] in _SCALES:
+            current = 0
+    return Decimal(total + current) if seen else None
+
+
+def figures_in(text: str) -> tuple[tuple[str, Decimal], ...]:
+    """Every number in ``text`` as written and its value: digits, Chinese and English words.
+
+    For example, "1万美元" is 10000, "一千" is 1000, "fifty" is 50 and
+    "1,000.0" is 1000. A Chinese numeral the reader cannot read is left out;
+    English words beyond 0 to 99, hundred, thousand and million are not read.
     """
     normal = _normal(text)
-    money = _money(words)
-    number = rf"(?<![0-9a-z.])(?P<number>{_NUMBER})(?![0-9])"
-    found: list[tuple[str, str]] = []
-    for pattern in (
-        rf"{number}\s*(?:个|块)?\s*{money}",
-        rf"{money}\s*[:：]?\s*{number}",
-    ):
-        found += [(one.group(0), one.group("number")) for one in re.finditer(pattern, normal)]
+    found: list[tuple[str, Decimal]] = []
+    for match in _SAID_NUMBER.finditer(normal):
+        written = match.group(0)
+        reading = read_number(written)
+        if isinstance(reading, Recognised):
+            found.append((written, reading.value))
+            continue
+        digits = re.match(r"[0-9][0-9,]*(?:\.[0-9]+)?", written)
+        if digits is not None:
+            try:
+                found.append((digits.group(0), Decimal(digits.group(0).replace(",", ""))))
+            except InvalidOperation:
+                continue
+    for match in _WORD_NUMBER.finditer(normal):
+        value = _spelled(match.group(0))
+        if value is not None:
+            found.append((match.group(0).strip(), value))
     return tuple(found)
 
 
-def figure_beside_money(text: str, words: Sequence[str] = BASE_MONEY_WORDS) -> str | None:
-    """The first number in ``text`` written right beside a money word, or ``None``."""
-    found = figures_beside_money(text, words)
-    return found[0][0] if found else None
+def unsaid_cash_figure(
+    reply: str, words: Sequence[str] = BASE_MONEY_WORDS, user_said: Sequence[str] = ()
+) -> str | None:
+    """A number in ``reply`` the user never said, when ``reply`` also names a money; else ``None``.
+
+    The reply names a money by a word for one (``words``) or by "现金",
+    "余额", "cash" or "balance", anywhere; the number need not stand beside
+    it (the second rework, 2026-11-25). Numbers are compared by value, so
+    "一千" is the user's "1000". For example, "你的 USDT 余额是 50" gives "50"
+    when the user never said 50.
+    """
+    normal = _normal(reply)
+    if not (re.search(_money(words), normal) or re.search(_CASH_NAMES, normal)):
+        return None
+    said = {value for text in user_said for _, value in figures_in(text)}
+    for written, value in figures_in(reply):
+        if value not in said:
+            return written
+    return None

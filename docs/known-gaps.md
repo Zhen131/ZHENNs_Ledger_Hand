@@ -550,10 +550,8 @@ tools handed to the model and is left for a batch of its own. Until then:
 - **A question about cash is caught from the user's words alone.** Before
   the model is asked, `core/cash_words.py` looks for four kinds: cash or a
   balance named ("现金", "余额", "可用资金", "cash", "balance", "buying
-  power"; not "rebalance"; and not a balance attached to an asset that is
-  not cash, "ETH 余额", "英伟达的余额", "BTC balance", "balance of ETH",
-  which is a holding and goes to the model; "我的余额还够不够再买一手英伟达"
-  is still cash); how much of a money is still had ("还有多少",
+  power"; not "rebalance"; a sentence with a balance in it is judged by
+  three rules, see below); how much of a money is still had ("还有多少",
   "还剩", "剩下", "有多少" or "how much ... have", "left", "remaining",
   with a money right beside: a nickname of a money such as "U", "美元",
   "刀", "$", "钱", "money", or the code or name of an asset the ledger
@@ -584,20 +582,47 @@ tools handed to the model and is left for a batch of its own. Until then:
   saying under it that it holds no cash balance; the model may also ask
   back, or promise to look up money moved in or out, which it cannot.
 - **The check of the model's own words.** With nothing looked up, words
-  holding a number beside a money that the user never said in this chat
-  ("50 USDT", "$50", "5U") give way to the fixed words. A figure the user
-  said, in this sentence or earlier in the chat, is let through, so a
-  question back ("手续费是 1 USDT 吗？") stays (first rework, 2026-11-25). A
-  number said without a money beside it ("还有 50") is not caught by it.
-- **That check can also turn away good words.** An answer with nothing
-  looked up and a figure beside a money the user never said gives way to
-  the words about cash, even when it was about something else ("BTC 现在
-  大约 9 万美元"). It errs on the side of saying nothing made up.
+  that name a money anywhere (a code or nickname of a money, "现金", "余额",
+  "cash", "balance") and hold any number the user never said in this chat
+  give way to the fixed words; the number need not stand beside the money
+  ("你的 USDT 余额是 50", "Your cash balance is 50.", "你还有1万美元",
+  "You still have fifty dollars.", "USDT 还剩 50 个"; second rework,
+  2026-11-25). Numbers are compared by value on both sides: digits
+  ("1,000", "1.0"), Chinese numerals ("一千", "五十", "1万", read by
+  `core/numbers.py`) and English words for 0 to 99 with "hundred",
+  "thousand" and "million" ("fifty", "a thousand", "twenty-five"). A
+  figure the user said, in this sentence or earlier in the chat, is let
+  through, so a question back ("手续费是 1 USDT 吗？", "你是说一千 USDT
+  吗？" after "1000") stays.
+- **What that check does not know.** English number words beyond those
+  ("one point five", "a dozen", "billion", "1.5 thousand" written apart)
+  are not read; nor numbers in other scripts. A number the user said for
+  something else passes: after "买了 50 个 ADA", "你还有 50 USDT" is shown
+  (not mended in this round). Words naming no money at all ("你还剩 50")
+  are not checked. Numbers with three digits or more, or with a point, are
+  stopped earlier by the older check of words with no lookup, so a
+  question back such as "你是说 1,000 USDT 吗？" is still not shown.
+- **That check also turns away good words.** Any answer with nothing
+  looked up that names a money and holds a number the user never said
+  gives way to the words about cash: a date ("10 月的交易"), a count
+  ("一笔", "3 笔交易"), or "one" in "one of them" counts as a number. It
+  errs on the side of saying nothing made up.
+- **A balance: three rules (second rework, 2026-11-25).** A sentence with
+  "余额" or "balance" asking whether the money is enough to buy ("够不够",
+  "够…买", "enough … buy", "afford") is cash, whatever it names. Else, if
+  it names anywhere an asset of the ledger that is not cash (its code or
+  name, letter case aside, or a built-in coin name the ledger's code
+  lends, such as "比特币") or holds a word that counts an asset ("股",
+  "股票", "币", "个", "枚", "份", "shares", "coins", "stocks", "tokens"),
+  it goes to the model as a holding ("余额里 ETH 还有几个", "英伟达的余额还剩
+  多少股", "what is the balance on my bitcoin"). Else it is cash ("余额是
+  多少", "what's my balance", "USDT 余额"). Only the ledger's own names and
+  the coin table's are known: a share the ledger calls MSFT or Microsoft,
+  asked as "微软的余额" without "股" or "股票", is taken for cash; so is
+  "英伟达的余额" when the ledger's name for it is not "英伟达". A balance
+  asked with a counter about cash ("USDT 余额还有多少个") goes to the model.
 - **A coin still held is not cash.** "我还有多少BTC" and "我的 ETH 余额还有
-  多少个" ask for a holding and go to the model as before. A balance is
-  tied to an asset only by the asset's name standing right before it
-  ("ETH 余额", "ETH's balance") or after "balance of"; said further apart
-  ("余额里 ETH 有多少"), it is taken for cash.
+  多少个" ask for a holding and go to the model as before.
 - **While a question waits, the words are its answer.** As for every other
   subject ("Changing the subject while a question waits"), a question about
   cash said while a recording question waits is read as its answer.

@@ -54,7 +54,7 @@ def test_the_sets_hold_the_sentences_looked_for() -> None:
 
 @pytest.mark.parametrize(
     "sentence",
-    [one for one in SENTENCES if one.group in {"named", "named_added"}],
+    [one for one in SENTENCES if one.group in {"named", "named_added", "named_added_2"}],
     ids=lambda one: one.id,
 )
 def test_each_named_question_about_cash_is_caught(sentence) -> None:  # type: ignore[no-untyped-def]
@@ -74,7 +74,7 @@ def test_none_of_the_sentences_near_them_is_caught() -> None:
     caught_ones = [
         (one.id, one.text)
         for one in SENTENCES
-        if one.group in {"must_pass", "must_pass_added"}
+        if one.group in {"must_pass", "must_pass_added", "must_pass_added_2"}
         and caught(one.text, FakeLedger()) is not None
     ]
     assert caught_ones == []
