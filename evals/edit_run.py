@@ -19,6 +19,11 @@ conditions (as ``ask_run`` writes them), one line for each sentence, and
 an ``end`` line with the counts and the pass lines. The table is printed
 at the end.
 
+A set may name ``"book": "exam"`` and ``"half"`` at its top, as for
+``ask_run``: the exam book is held and the gold answers' trades are its
+own, the line about E1 to E3 is left out, and a hidden half prints its
+totals alone and is logged. A set naming neither runs as before.
+
 Exit status: 0 the run finished; 2 it could not start.
 
 Names defined here: ``outcome_of``, ``run`` and ``main``.
@@ -36,9 +41,12 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import TextIO
 
+from evals.ask_run import hidden_totals
 from evals.edit_set import (
     EDIT_SET,
+    FIRST_THREE,
     EditSentence,
+    EditSet,
     Outcome,
     Verdict,
     judge_edit,
@@ -46,19 +54,40 @@ from evals.edit_set import (
     passes,
 )
 from evals.edit_set import markdown as edit_markdown
+from evals.exam_book import EXAM_TRADES, exam_ledger
+from evals.hidden_runs import log_hidden_run
 from evals.run import Backend, local_backend
 from evals.tool_run import REPO_ROOT, TOOL_RESULTS_DIR, _git
 from ledger_hand.assistant.tools import tool_specs
+from ledger_hand.core.ledger_records import TradeFacts
 from ledger_hand.flows import assisting
-from ledger_hand.flows.conversation import AssistantChat, Said, say
+from ledger_hand.flows.conversation import ASSISTANT_EXTRACT_PROMPT, AssistantChat, Said, say
 from ledger_hand.flows.editing import EditEnding
 from ledger_hand.ledger.fake_ledger import FakeLedger
+from ledger_hand.ledger.invented_book import INVENTED_TRADES
 from ledger_hand.ports import ModelError, ModelPort
 from ledger_hand.settings import SettingsError, load_assistant_steps
 
 
 def _sha256(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
+
+
+def _ledger(edit_set: EditSet) -> FakeLedger:
+    """A fresh fake ledger: the exam book for a set that names it, else the invented book."""
+    return exam_ledger() if edit_set.book == "exam" else FakeLedger()
+
+
+def _book(edit_set: EditSet) -> dict[str, TradeFacts]:
+    """The trades the gold answers of ``edit_set`` name, by identifier."""
+    return dict(EXAM_TRADES if edit_set.book == "exam" else INVENTED_TRADES)
+
+
+def _named(edit_set: EditSet) -> dict[str, object]:
+    """The book and half a set names, for the first line; nothing for a set that names neither."""
+    if edit_set.book is None and edit_set.half is None:
+        return {}
+    return {"book": edit_set.book, "half": edit_set.half}
 
 
 def outcome_of(saids: Sequence[Said]) -> Outcome:
@@ -93,13 +122,19 @@ def _came(saids: Sequence[Said]) -> str:
 
 
 def _one(
-    sentence: EditSentence, model: ModelPort, steps: int, now: datetime, zone: str
+    sentence: EditSentence,
+    model: ModelPort,
+    steps: int,
+    now: datetime,
+    zone: str,
+    ledger: FakeLedger | None = None,
 ) -> list[tuple[str, Said]]:
     """One sentence, in a chat of its own, with the ruler's answers when the gold has them.
 
     Each answer is said once at most: a question asked again is not answered again.
+    ``ledger`` is the fake ledger to hold; the invented book's when none is given.
     """
-    ledger = FakeLedger()
+    ledger = ledger if ledger is not None else FakeLedger()
     gold = sentence.gold
     pending = {EditEnding.PICKING: gold.pick, EditEnding.CHOOSING: gold.choose}
     state = AssistantChat()
@@ -170,6 +205,7 @@ def _conditions(
         "now": edit_set.now.isoformat(),
         "zone": edit_set.zone,
         "started_at": started.isoformat(timespec="seconds"),
+        **_named(edit_set),
     }
 
 
@@ -182,10 +218,12 @@ def run(
     with path.open("a", encoding="utf-8") as out:
         for sentence in edit_set.sentences:
             began = time.monotonic()
-            said = _one(sentence, backend.model, max_steps, edit_set.now, edit_set.zone)
+            said = _one(
+                sentence, backend.model, max_steps, edit_set.now, edit_set.zone, _ledger(edit_set)
+            )
             saids = [one for _, one in said]
             outcome = outcome_of(saids)
-            verdict = judge_edit(sentence.gold, outcome)
+            verdict = judge_edit(sentence.gold, outcome, _book(edit_set))
             rows.append((sentence, outcome, verdict, _came(saids)))
             line = _line(sentence, said, verdict, time.monotonic() - began)
             out.write(json.dumps(line, ensure_ascii=False) + "\n")
@@ -214,19 +252,45 @@ def main(arguments: Sequence[str] = (), *, out: TextIO = sys.stdout) -> int:
     head = _conditions(backend, started, set_file, steps)
     path.write_text(json.dumps(head, ensure_ascii=False) + "\n", encoding="utf-8")
     rows = run(backend, set_file, path, steps)
+    _finish(rows, head, set_file, path, out)
+    return 0
+
+
+def _finish(
+    rows: Sequence[tuple[EditSentence, Outcome, Verdict, str]],
+    head: dict[str, object],
+    set_file: Path,
+    path: Path,
+    out: TextIO,
+) -> None:
+    """The end line, then the table; for a hidden half, the totals alone and the log's line."""
+    edit_set = load_edit_set(set_file)
+    first = FIRST_THREE if edit_set.book is None else ()
     verdicts = {sentence.id: verdict for sentence, _, verdict, _ in rows}
     end = {
         "record": "end",
         "right": sum(verdict is Verdict.RIGHT for verdict in verdicts.values()),
         "of": len(rows),
         "silently_wrong": sum(verdict is Verdict.SILENTLY_WRONG for verdict in verdicts.values()),
-        "passes": passes(verdicts),
+        "passes": passes(verdicts, first),
     }
     with path.open("a", encoding="utf-8") as tail:
         tail.write(json.dumps(end, ensure_ascii=False) + "\n")
     print(f"results: {path.relative_to(REPO_ROOT).as_posix()}", file=out)
-    print(edit_markdown(rows, head), file=out)
-    return 0
+    if edit_set.half == "hidden":
+        counts = {
+            verdict.name: sum(one is verdict for one in verdicts.values()) for verdict in Verdict
+        }
+        log_hidden_run(
+            set_file,
+            path,
+            {**counts, "of": len(rows)},
+            extraction_prompt=ASSISTANT_EXTRACT_PROMPT.name,
+            prompt=str(head["prompt"]),
+        )
+        print(hidden_totals(counts, head), file=out)
+        return
+    print(edit_markdown(rows, head, first), file=out)
 
 
 if __name__ == "__main__":

@@ -24,9 +24,17 @@ Ollama version, every parameter, the steps allowed, the moment and zone,
 and when the run began. One line follows for each sentence, then an
 ``end`` line with the counts and the pass lines. The table is printed at the end.
 
+A set may name two keys at its top. ``"book": "exam"`` holds the exam
+book (``exam_book``) in place of the invented one, and leaves out the
+pass line about Q1 to Q6, which such a set does not hold.
+``"half": "hidden"`` prints the count of each verdict alone, never a
+sentence, and adds the run to the hidden-run log (``hidden_runs``); the
+results file still holds every sentence. A set naming neither runs,
+writes and prints as before.
+
 Exit status: 0 the run finished; 2 it could not start.
 
-Names defined here: ``found_in``, ``run`` and ``main``.
+Names defined here: ``found_in``, ``run``, ``hidden_totals`` and ``main``.
 """
 
 from __future__ import annotations
@@ -41,14 +49,27 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import TextIO
 
-from evals.ask_set import ASK_SET, AskSentence, Found, Verdict, judge_answer, load_ask_set, passes
+from evals.ask_set import (
+    ASK_SET,
+    FIRST_SIX,
+    AskSentence,
+    AskSet,
+    Found,
+    Verdict,
+    judge_answer,
+    load_ask_set,
+    passes,
+    totals,
+)
 from evals.ask_set import markdown as ask_markdown
+from evals.exam_book import exam_ledger
+from evals.hidden_runs import log_hidden_run
 from evals.run import Backend, local_backend
 from evals.tool_run import REPO_ROOT, TOOL_RESULTS_DIR, _git
 from ledger_hand.assistant.outcome import Ending
 from ledger_hand.assistant.tools import tool_specs
 from ledger_hand.flows import assisting
-from ledger_hand.flows.conversation import AssistantChat, Said, say
+from ledger_hand.flows.conversation import ASSISTANT_EXTRACT_PROMPT, AssistantChat, Said, say
 from ledger_hand.ledger.fake_ledger import FakeLedger
 from ledger_hand.ports import ModelError
 from ledger_hand.settings import SettingsError, load_assistant_steps
@@ -56,6 +77,18 @@ from ledger_hand.settings import SettingsError, load_assistant_steps
 
 def _sha256(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
+
+
+def _ledger(ask_set: AskSet) -> FakeLedger:
+    """A fresh fake ledger: the exam book for a set that names it, else the invented book."""
+    return exam_ledger() if ask_set.book == "exam" else FakeLedger()
+
+
+def _named(ask_set: AskSet) -> dict[str, object]:
+    """The book and half a set names, for the first line; nothing for a set that names neither."""
+    if ask_set.book is None and ask_set.half is None:
+        return {}
+    return {"book": ask_set.book, "half": ask_set.half}
 
 
 def found_in(said: Said) -> Found:
@@ -115,6 +148,7 @@ def _conditions(
         "now": ask_set.now.isoformat(),
         "zone": ask_set.zone,
         "started_at": started.isoformat(timespec="seconds"),
+        **_named(ask_set),
     }
 
 
@@ -171,7 +205,7 @@ def run(
                     state,
                     sentence.text,
                     model=backend.model,
-                    ledger=FakeLedger(),
+                    ledger=_ledger(ask_set),
                     now=ask_set.now,
                     zone=ask_set.zone,
                     max_steps=max_steps,
@@ -206,18 +240,52 @@ def main(arguments: Sequence[str] = (), *, out: TextIO = sys.stdout) -> int:
     head = _conditions(backend, started, set_file, steps)
     path.write_text(json.dumps(head, ensure_ascii=False) + "\n", encoding="utf-8")
     rows = run(backend, set_file, path, steps)
+    _finish(rows, head, set_file, path, out)
+    return 0
+
+
+def _finish(
+    rows: Sequence[tuple[AskSentence, Found, Verdict, str]],
+    head: dict[str, object],
+    set_file: Path,
+    path: Path,
+    out: TextIO,
+) -> None:
+    """The end line, then the table; for a hidden half, the totals alone and the log's line."""
+    ask_set = load_ask_set(set_file)
+    first = FIRST_SIX if ask_set.book is None else ()
     verdicts = {sentence.id: verdict for sentence, _, verdict, _ in rows}
     end = {
         "record": "end",
         "right": sum(verdict is Verdict.RIGHT for verdict in verdicts.values()),
         "of": len(rows),
-        "passes": passes(verdicts),
+        "passes": passes(verdicts, first),
     }
     with path.open("a", encoding="utf-8") as tail:
         tail.write(json.dumps(end, ensure_ascii=False) + "\n")
     print(f"results: {path.relative_to(REPO_ROOT).as_posix()}", file=out)
-    print(ask_markdown(rows, head), file=out)
-    return 0
+    if ask_set.half == "hidden":
+        counts = totals(verdicts)
+        log_hidden_run(
+            set_file,
+            path,
+            {**counts, "of": len(rows)},
+            extraction_prompt=ASSISTANT_EXTRACT_PROMPT.name,
+            prompt=str(head["prompt"]),
+        )
+        print(hidden_totals(counts, head), file=out)
+        return
+    print(ask_markdown(rows, head, first), file=out)
+
+
+def hidden_totals(counts: dict[str, int], head: dict[str, object]) -> str:
+    """The counts of each verdict alone, for a hidden half: no sentence, no identifier."""
+    names = " | ".join(counts)
+    values = " | ".join(str(count) for count in counts.values())
+    return (
+        f"Model `{head['model']}`, prompt `{head['prompt']}`, the hidden half: totals only.\n\n"
+        f"| {names} |\n|{' --- |' * len(counts)}\n| {values} |"
+    )
 
 
 if __name__ == "__main__":
