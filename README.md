@@ -873,7 +873,11 @@ counts alone) and judge every asset picked, named or sent;
 `.venv/bin/python -m evals.judged_run --screen screen-2
 --extract first-3` runs the debug set (or, with `--final-exam`, the final
 set) through the start of recording, judging step and all, to hold a
-prompt version the assistant uses to the old sentences; all of them write
+prompt version the assistant uses to the old sentences;
+`.venv/bin/python -m evals.spoken_run --set <file>` says each sentence of
+the exam said the owner's way (`evals/sets/spoken/`, see "The exam said
+the owner's way") to the whole assistant against the exam book and judges
+every gold trade; all of them write
 into `evals/tool_results/`; see the last sections of `evals/RESULTS.md`.
 
 ### Recording trades by hand
@@ -1257,6 +1261,44 @@ of `LEDGER_HAND_MODEL_TEMPERATURE` (0 by default); wording a question runs
 at `LEDGER_HAND_MODEL_QUESTION_TEMPERATURE`. The state of a recorded passage
 names the version used for each step.
 
+### The exam said the owner's way
+
+`evals/sets/spoken/` holds about a hundred sentences written the way the
+owner talks, every figure made up: recording in three tiers, as said
+(`spoken-r100-*.json`), a little tidier (`spoken-r80-*.json`) and tidy
+(`spoken-r70-*.json`); questions about the ledger (`spoken-asks-*.json`);
+and changes and deletions (`spoken-edits-*.json`). Each kind is cut in two
+halves: the odd-numbered sentences are the practice half (`*-practice.json`),
+which may be looked at while prompts are tuned; the even-numbered ones are
+the hidden half (`*-hidden.json`), which is not. A file says which half it
+is (`"half"`), so a run of a hidden half prints its counts alone, never a
+sentence nor its identifier, and adds one line to the hidden-run log
+(`evals/tool_results/hidden-runs.log`), which is only ever added to; a test
+sees that every hidden results file has its line there. Every sentence is
+said against the exam book (`evals/exam_book.py`): the demo book and seven
+more trades the questions and changes need.
+
+```sh
+.venv/bin/python -m evals.spoken_run --set evals/sets/spoken/spoken-r100-practice.json
+.venv/bin/python -m evals.spoken_run --set evals/sets/spoken/spoken-r70-hidden.json
+.venv/bin/python -m evals.ask_run --set evals/sets/spoken/spoken-asks-practice.json
+.venv/bin/python -m evals.edit_run --set evals/sets/spoken/spoken-edits-hidden.json
+```
+
+`evals.spoken_run` says each recording sentence once, in a chat of its own,
+to the whole assistant, and judges each gold trade into one ending (①
+saved with no cell changed; ② sent, every wrong cell carrying its own
+mark; ③ a wrong figure with no mark; ④ asked, rightly or not, or waiting
+another trade's turn; ⑤ not sent; or not measured), with the columns kept
+apart beside them (`evals/spoken_judge.py`, `evals/spoken_tally.py`). It
+answers one question only: the asset's code, once a trade, when the
+program asks which asset a trade is; a trade saved after that is counted
+apart (①a). A sentence the ledger cannot take yet (a payment in euros) is
+not enabled and counted in a table of its own. The question and change
+measures read the same two keys at a set's top: `"book": "exam"` holds the
+exam book, and `"half": "hidden"` keeps the run to its totals; a set that
+names neither runs as before.
+
 ### The commands
 
 ```sh
@@ -1275,6 +1317,9 @@ names the version used for each step.
 .venv/bin/python -m evals.compare_methods evals/results/<one list>.jsonl evals/results/<split first>.jsonl [--choose]
 .venv/bin/python -m evals.compare_models evals/results/<one model>.jsonl evals/results/<other model>.jsonl [--parameter <name>]
 .venv/bin/python -m evals.compare_sets evals/results/<run of first>.jsonl evals/results/<run of a candidate>.jsonl ... [--choose | --final]
+.venv/bin/python -m evals.spoken_run --set evals/sets/spoken/spoken-<r100|r80|r70>-<practice|hidden>.json
+.venv/bin/python -m evals.ask_run --set evals/sets/spoken/spoken-asks-<practice|hidden>.json
+.venv/bin/python -m evals.edit_run --set evals/sets/spoken/spoken-edits-<practice|hidden>.json
 ```
 
 Run these from the top of the repository, with the model server running.
@@ -1937,7 +1982,7 @@ check and the hygiene scan).
 | `tests/export/samples.py`, `tests/export/attack.py`, `tests/export/golden/` | Invented trades to export, batches of edge cases made to find where this program and the ledger part ways, both shared with the ledger tier, and the golden sample. A golden sample is never edited once committed; a new format version gets one of its own. |
 | `tests/guardrails/` | The layering check and the hygiene scan, the tests that prove they catch what they should, and the two gate tests that apply them to this repository. |
 | `scripts/check.sh` | One command that runs all checks. |
-| `evals/` | The experiment kit, outside the package: the test sentences and their gold answers (`sets/debug.json`, `sets/final.json`, read by `gold.py`), what they cover (`coverage.py`), the small set of hard ways of writing a number (`sets/writings.json`, described by `writings.py`), the ten passages in the owner's own voice (`sets/voice.json`, described by `voice.py`), judging one field (`cells.py`), pairing drafts with gold trades (`matching.py`), the scores (`scoring.py`), the results file (`records.py`), the summary and its tables (`tables.py`), the runner (`run.py`), the summary worked out again (`summarize.py`), three more counts beside the summary (`extra_counts.py`), prompt versions side by side with the rule that picks one (`compare.py`), prompt versions side by side on each set with the rule that picks a candidate over `first` (`compare_sets.py`), two runs compared sentence by sentence (`same_replies.py`), the two ways of reading a passage (`methods.py`) side by side with the rule that picks one (`compare_methods.py`), two models side by side on one set (`compare_models.py`), and the record of every reply read for a passage (`reads.py`), and the assistant's measures: its first step (`tool_set.py`, `tool_run.py`), asking the ledger (`ask_set.py`, `ask_run.py`), changing or deleting a trade (`sets/edits.json`, `edit_set.py`, `edit_run.py`), recording a share bought with dollars (`sets/stocks.json`, `stock_set.py`, `stock_run.py`), picking an asset named the way people say it from the ledger's list (`sets/stock_names.json`, `name_set.py`, `name_run.py`), and the extraction sets run through the start of recording, judging and all (`judged_run.py`). |
+| `evals/` | The experiment kit, outside the package: the test sentences and their gold answers (`sets/debug.json`, `sets/final.json`, read by `gold.py`), what they cover (`coverage.py`), the small set of hard ways of writing a number (`sets/writings.json`, described by `writings.py`), the ten passages in the owner's own voice (`sets/voice.json`, described by `voice.py`), judging one field (`cells.py`), pairing drafts with gold trades (`matching.py`), the scores (`scoring.py`), the results file (`records.py`), the summary and its tables (`tables.py`), the runner (`run.py`), the summary worked out again (`summarize.py`), three more counts beside the summary (`extra_counts.py`), prompt versions side by side with the rule that picks one (`compare.py`), prompt versions side by side on each set with the rule that picks a candidate over `first` (`compare_sets.py`), two runs compared sentence by sentence (`same_replies.py`), the two ways of reading a passage (`methods.py`) side by side with the rule that picks one (`compare_methods.py`), two models side by side on one set (`compare_models.py`), and the record of every reply read for a passage (`reads.py`), and the assistant's measures: its first step (`tool_set.py`, `tool_run.py`), asking the ledger (`ask_set.py`, `ask_run.py`), changing or deleting a trade (`sets/edits.json`, `edit_set.py`, `edit_run.py`), recording a share bought with dollars (`sets/stocks.json`, `stock_set.py`, `stock_run.py`), picking an asset named the way people say it from the ledger's list (`sets/stock_names.json`, `name_set.py`, `name_run.py`), the extraction sets run through the start of recording, judging and all (`judged_run.py`), and the exam said the owner's way: its ten sets (`sets/spoken/`), their gold answers and checks (`spoken_set.py`), the exam book (`exam_book.py`), judging each trade (`spoken_judge.py`), the counts (`spoken_tally.py`), its runner (`spoken_run.py`) and the log of every run of a hidden half (`hidden_runs.py`, `tool_results/hidden-runs.log`). |
 | `evals/results/` | One results file per run (`*.jsonl`) and its summary (`*.summary.json`). In Git: all of it is invented data. |
 | `evals/tool_set.py`, `evals/tool_run.py`, `evals/sets/tools.json`, `evals/tool_results/` | The assistant's nineteen sentences, the measure of the model's first step on each, its runner and its results. |
 | `evals/ask_set.py`, `evals/ask_run.py`, `evals/sets/asks.json` | The questions about the ledger with their gold answers, how one answer is judged, and the runner that runs each to the end; its results go to `evals/tool_results/` too. |

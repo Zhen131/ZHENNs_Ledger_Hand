@@ -9786,3 +9786,78 @@ them changed.
   with `run-20261125T165944Z`); B1 to B8 and E1 to E12 all went to the
   holdings, none caught.
 - First step right on 19 of 19 (`run-20261125T185433Z-tools-assistant-4.jsonl`).
+
+## 2026-11-26: the owner's way of speaking, three tiers, `qwen2.5:7b`
+
+### The sets and the ruler
+
+About a hundred sentences written the way the owner talks, every figure
+made up, in `evals/sets/spoken/`, written and committed with their gold
+answers (`23d131d`) before any run: recording as said (`r100`, 30
+sentences), a little tidier (`r80`, 25) and tidy (`r70`, 25); questions
+about the ledger (12); changes and deletions (8). Odd numbers are the
+practice half, even numbers the hidden half, which prints its totals only
+and is logged in `evals/tool_results/hidden-runs.log`. Nine recording
+sentences (a payment in euros, with a fee for changing money) are not
+enabled: the ledger has no euro yet. Every sentence is said against the
+exam book (`evals/exam_book.py`). The ruler for recording
+(`evals/spoken_run.py`) says each sentence once to the whole assistant and
+judges each gold trade: ① saved with no cell changed (①a: once the ruler
+answered the asset's code, the one question it answers); ② sent, every
+wrong cell marked; ③ a wrong figure with no mark; ④ asked; ⑤ not sent.
+The questions and changes are run by `evals.ask_run` and `evals.edit_run`
+with the set's `"book": "exam"` and `"half"`.
+
+Model `qwen2.5:7b` (fingerprint `845dbda0ea48…`), Ollama 0.34.3,
+temperature 0, the settings' six steps; prompts `screen-2`, `first-3`,
+`assistant-4`; commit `cce730e`, work tree clean.
+
+### The baseline
+
+Recording (one row a file; the hidden rows are totals only). ① share: ①
+and ①a over the enabled gold trades with no cell none or suspect.
+
+| Tier | Half | Sentences (enabled / not) | Gold trades | ① | ①a | ② | ③ | ④ rightly asked | ④ not rightly | ④ not its turn | ⑤ | ① share (of) | First tool right | Not enabled: told / asked / sent / other | Results |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| r100 | practice | 12 / 3 | 12 | 6 | 0 | 0 | 0 | 2 | 3 | 0 | 1 | 60.0% (10) | 12 of 12 | 3 / 0 / 0 / 0 | `spoken-20261125T225944Z-spoken-r100-practice-first-3-assistant-4.jsonl` |
+| r100 | hidden | 15 / 0 | 17 | 4 | 0 | 0 | 1 | 5 | 3 | 2 | 2 | 33.3% (12) | 15 of 15 | 0 / 0 / 0 / 0 | `spoken-20261125T230244Z-spoken-r100-hidden-first-3-assistant-4.jsonl` |
+| r80 | practice | 11 / 2 | 13 | 4 | 0 | 0 | 1 | 2 | 4 | 2 | 0 | 36.4% (11) | 11 of 11 | 2 / 0 / 0 / 0 | `spoken-20261125T230554Z-spoken-r80-practice-first-3-assistant-4.jsonl` |
+| r80 | hidden | 11 / 1 | 11 | 7 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 63.6% (11) | 11 of 11 | 1 / 0 / 0 / 0 | `spoken-20261125T230917Z-spoken-r80-hidden-first-3-assistant-4.jsonl` |
+| r70 | practice | 13 / 0 | 14 | 9 | 3 | 0 | 1 | 1 | 0 | 0 | 0 | 92.3% (13) | 13 of 13 | 0 / 0 / 0 / 0 | `spoken-20261125T231209Z-spoken-r70-practice-first-3-assistant-4.jsonl` |
+| r70 | hidden | 9 / 3 | 9 | 6 | 2 | 0 | 0 | 0 | 1 | 0 | 0 | 100.0% (8) | 9 of 9 | 3 / 0 / 0 / 0 | `spoken-20261125T231520Z-spoken-r70-hidden-first-3-assistant-4.jsonl` |
+
+No sentence went unmeasured; no ③ was kept out by the line about a picked
+asset (picking is off); no money that should be marked a guess went
+unmarked; no asked trade had a draft cell wrong and unmarked. One ③ of
+the hidden `r100` came with a reminder about the whole passage. The
+practice ③s: R80-07, 950 U put as the price of 0.301823 ETH, the total
+worked out from it (286.73185); R70-05, the total the program worked out
+(150.00078) where 150 was said, since the model did not copy it. Of the
+practice ④s not rightly asked, four were the fee asked where "没有手续费" or
+"都没有手续费" was said and the model copied no fee (R100-09, R80-03, R80-09,
+R80-11), and three were the side asked of a sentence that says no "买"
+before the amounts ("在OKX，…个SOL，花了…U": R100-15, R100-29, R80-05). R100-13 was not sent:
+the model took "U" for no money and the trade came out priced in BTC.
+
+Questions and changes:
+
+| Set | Half | Right | Other verdicts | Results |
+| --- | --- | --- | --- | --- |
+| `spoken-asks-practice.json` | practice | 3 of 6 | A-01, A-03, A-07 no table (the model answered in words); nothing narrower or off | `run-20261125T231804Z-spoken-asks-practice-assistant-4.jsonl` |
+| `spoken-asks-hidden.json` | hidden | 6 of 6 | none | `run-20261125T231854Z-spoken-asks-hidden-assistant-4.jsonl` |
+| `spoken-edits-practice.json` | practice | 4 of 4 | none | `run-20261125T231840Z-spoken-edits-practice-assistant-4.jsonl` |
+| `spoken-edits-hidden.json` | hidden | 2 of 4 | 0 silently wrong, 2 not done | `run-20261125T231959Z-spoken-edits-hidden-assistant-4.jsonl` |
+
+The older sets at the same commit, as `judged_run --screen screen-2
+--extract first-3 --hold-other-unit --tidy`: the final set 22 of 22 trades
+whole, 0 fields wrong with nothing said
+(`judged-20261125T232018Z-final-screen-2-first-3-hold-tidy.jsonl`); the
+debug set 30 of 34, 1
+(`judged-20261125T232308Z-debug-screen-2-first-3-hold-tidy.jsonl`); the
+voice set 2 of 10, 6
+(`judged-20261125T232728Z-voice-screen-2-first-3-hold-tidy.jsonl`); each
+the same as at `520245a`. `stocks.json` 15 of 18, 1 silently wrong
+(`run-20261125T232908Z-stocks-assistant-4.jsonl`): K10, "每股410刀", whose
+gold answer (ask the money) was written before a vague word for money was
+guessed from the asset's last trade; it was sent priced in USD, with the
+line that this is a guess. The gold answer was not changed.

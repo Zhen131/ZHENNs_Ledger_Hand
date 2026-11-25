@@ -910,6 +910,36 @@ tools handed to the model and is left for a batch of its own. Until then:
   The model copies from the words tidied, so a note said as "第二十一次加仓"
   (the twenty-first addition to the position) reaches the ledger as
   "第21次加仓". The words as said, kept with each trade, are not touched.
+- **The owner's way of speaking, measured before any tuning
+  (2026-11-26).** On the exam's three tiers (`evals/sets/spoken/`), with
+  the prompts as they stand: a wrong figure with no mark of its own went
+  to the ledger once on the hidden half as said, and once each on the
+  practice halves a little tidier and tidy (an amount put as the price; a
+  total the program worked out, 150.00078, where 150 was said). Saved
+  with no cell changed, of the trades that could be: as said 60% and 33%,
+  a little tidier 36% and 64%, tidy 92% and 100% (practice and hidden;
+  `evals/RESULTS.md`, "2026-11-26: the owner's way of speaking, three
+  tiers, `qwen2.5:7b`"). One ③ of the hidden half came with a reminder
+  about the whole passage only, which marks no cell.
+- **A cell that should be empty is asked about, and the draft waits.** A
+  fee not looked at, or a time with no time of day, is asked about rather
+  than sent empty, until the ledger takes a card with empty cells. While
+  the question waits, the other cells of the draft go to the ledger as
+  they stand once it is answered; the exam counts a draft cell wrong and
+  unmarked apart, and found none at the baseline.
+- **A fee said to be none is often not copied.** "没有手续费" and
+  "都没有手续费" are left out by the model on four practice sentences, and
+  the program then asks for the fee. A sentence with no "买" before the
+  amounts ("在OKX，…个SOL，花了…U") is asked whether it was a buy or a sell.
+- **A payment in euros is not recorded.** The ledger has no euro yet, so
+  a share bought with euros (with a fee for changing money) is not sent,
+  and the reply says the ledger has no currency EUR; all nine such
+  sentences of the exam ended so. A question about the cash left is
+  answered by the program's fixed words. Dividends, deposits and withdrawals are not in the exam.
+- **The tools' words still say to list trades before a change.** The
+  system prompt's rule and `list_trades`'s own words both say to find the
+  trade first; the tools that change and delete say to call them straight
+  away. Not changed here.
 
 ## The assistant: changing and deleting
 
