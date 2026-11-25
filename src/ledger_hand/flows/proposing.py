@@ -78,6 +78,7 @@ def propose(
         raise ValueError(f"only settled trades are proposed: {progress.stage.value}")
     left_out, records = _flow_left_out(progress)
     if not records:
+        left_out = _told_by_same_code(left_out, ledger, listed)
         return Recorded(ending=RecordEnding.NOTHING_TO_SEND, progress=progress, left_out=left_out)
     try:
         listed = ledger.list_assets() if listed is None else listed
@@ -191,6 +192,23 @@ def _ledger_reason(
         code = assets.money(draft.quote).code or draft.quote
         return LeftOutTrade(number=number, why=LeftOut.QUOTE_CANNOT_PRICE, code=code)
     return None
+
+
+def _told_by_same_code(
+    left_out: tuple[LeftOutTrade, ...], ledger: LedgerPort, listed: Sequence[Asset] | None
+) -> tuple[LeftOutTrade, ...]:
+    """When nothing is sent: each trade the ledger seemed to lack, told by the two assets
+    sharing its code when that is why. The ledger is asked for its list only then, and a
+    ledger that cannot be asked leaves the words as they were."""
+    if not any(trade.why is LeftOut.NOT_IN_LEDGER for trade in left_out):
+        return left_out
+    if listed is None:
+        try:
+            listed = ledger.list_assets()
+        except LedgerError:
+            return left_out
+    shared = {same.code: same for same in same_codes(listed)}
+    return tuple(_same_code(trade, shared) for trade in left_out)
 
 
 def _same_code(trade: LeftOutTrade, shared: Mapping[str, SameCode]) -> LeftOutTrade:

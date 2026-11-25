@@ -310,3 +310,63 @@ def test_with_no_ledger_the_page_says_so_and_the_input_is_grey() -> None:
     assert page.chat_input(key=INPUT_KEY).proto.disabled
     assert "No ledger is connected" in str(page.container(key="assistant_notice").warning[0].value)
     assert errors(page, "assistant_notice") == []
+
+
+TWO_BUYS = (
+    "今天上午9:40在币安买了0.02 BTC，价格94900，手续费0.00002 BTC；"
+    "下午2点又买了0.5 ETH，价格2700，手续费1.35 USDT"
+)
+
+
+def two_buys_model() -> RoutedModel:
+    return RoutedModel(
+        tools=[RECORD],
+        screen=[screened(("spot_trade", "买了0.02 BTC"))],
+        extraction=[
+            table(
+                row(
+                    side="buy",
+                    coin="BTC",
+                    quantity="0.02 BTC",
+                    price="94900",
+                    fee="0.00002 BTC",
+                    time="今天上午9:40",
+                ),
+                row(
+                    side="buy",
+                    coin="ETH",
+                    quantity="0.5 ETH",
+                    price="2700",
+                    fee="1.35 USDT",
+                    time="下午2点",
+                ),
+            )
+        ],
+    )
+
+
+def test_two_trades_sent_at_once_are_one_card_each_with_its_own_status_and_buttons() -> None:
+    ledger = usdt_only_ledger()
+    page = say_on_page(open_assistant(two_buys_model(), ledger=ledger), TWO_BUYS)
+
+    assert pending(ledger) == ["proposal-1", "proposal-2"]
+    card = card_text(page, "proposal-1")
+    assert card[0] == "proposal-1, proposal-2: 2 trades to record, sent by message 1"
+    assert "Trade 1 (proposal-1). Status: waiting for you to confirm on the ledger's own page" in (
+        card
+    )
+    assert "Trade 2 (proposal-2). Status: waiting for you to confirm on the ledger's own page" in (
+        card
+    )
+
+    page = page.button(key=save_key("proposal-2")).click().run()
+
+    card = card_text(page, "proposal-1")
+    assert "Trade 1 (proposal-1). Status: waiting for you to confirm on the ledger's own page" in (
+        card
+    )
+    assert "Trade 2 (proposal-2). Status: saved" in card
+    assert [b.key for b in page.button if b.key == save_key("proposal-1")] == [
+        save_key("proposal-1")
+    ]
+    assert [b.key for b in page.button if b.key == save_key("proposal-2")] == []
