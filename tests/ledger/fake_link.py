@@ -8,7 +8,8 @@ link does, and follows the script ``FAKE_LINK_SCENARIO`` names:
 - ``normal``: says it listens, shakes hands, says a page connected, lists
   the eight tools and answers ``list_assets`` with a result,
   ``get_positions`` with the ledger's error, ``drop_page`` by saying the
-  page disconnected, and any other name with JSON-RPC's "invalid params";
+  page disconnected, ``echo`` with its own arguments, and any other name
+  with JSON-RPC's "invalid params";
   a notification goes before every answer, as one the client must skip.
 - ``port_in_use``: says the port is taken, with the token in the line, and
   leaves with status 2, as the link does.
@@ -138,6 +139,10 @@ def answer(scenario: str, message: dict[str, object]) -> None:
     elif method == "tools/call":
         params = message.get("params")
         name = str(params.get("name")) if isinstance(params, dict) else ""
+        if name == "echo" and isinstance(params, dict):
+            body = {"echoed": params.get("arguments")}
+            say({"jsonrpc": "2.0", "id": asked, "result": {"structuredContent": body}})
+            return
         answer_call(scenario, asked, name)
 
 

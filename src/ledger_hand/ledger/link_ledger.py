@@ -20,7 +20,11 @@ What it turns, and how (68B2, part 13):
   this program does not ask for), nor one with no time zone. Each is a
   failed check of this program's own (``HAND_...``), and the others go on.
   A fee of 0 is taken in the money traded. An empty platform or note is
-  sent as ``null``. At most ``MOST_PER_CALL`` trades go in one call.
+  sent as ``null``. At most ``MOST_PER_CALL`` trades go in one call; when
+  a later call fails after an earlier one was taken, the trades taken are
+  handed back, and the rest are failed checks: one that timed out "may
+  already have reached the ledger" (``HAND_MAY_HAVE_ARRIVED``), never sent
+  again.
 - A change sends the whole trade after it, with the write side's names.
   The time is left out unless it changed; the platform, the note and the
   rate are copied from the trade as last listed, unless they changed. A
@@ -55,8 +59,9 @@ refuses whole, each to a ``LedgerErrorKind``; and ``TRADE_REFUSALS``, for
 one trade of a proposal turned down, which is a failed check, never a
 failure. A link that cannot be reached, or is gone, is ``UNREACHABLE``;
 one that does not answer in time is ``TIMED_OUT``, and a proposal is then
-never sent again. The ledger's own sentence is carried as it came, in the
-language of its page.
+never sent again. A status word this program does not know is a failure
+of its own (``HAND_STATUS_UNKNOWN``), said in a plain sentence. The ledger's own
+sentence is carried as it came, in the language of its page.
 
 Names defined here: ``ToolCaller``, ``LinkLedger``, ``CALL_FAILURES``,
 ``TRADE_REFUSALS``, ``Refusal``, ``codes_on_no_table``, ``MOST_PER_CALL``, ``MOST_RESTARTS``,
@@ -315,17 +320,31 @@ class LinkLedger:
                 sendable.append((index, written))
         for start in range(0, len(sendable), MOST_PER_CALL):
             batch = sendable[start : start + MOST_PER_CALL]
-            arguments = {"trades": [one for _, one in batch], **self._who(said)}
-            results = _list(self._answer("propose_trade_add", arguments), "results")
-            if len(results) != len(batch):
-                raise LedgerError(
-                    _O,
-                    "HAND_ANSWER_UNEXPECTED",
-                    "The ledger answered for another number of trades.",
-                )
+            try:
+                results = self._added(batch, said)
+            except LedgerError as error:
+                if start == 0:
+                    raise
+                # An earlier call left proposals waiting: they are handed back,
+                # and the rest said as the failure leaves them (68B3, addition 1).
+                for index, _ in sendable[start:]:
+                    checks[index] = _after_earlier(error)
+                break
             for (index, _), result in zip(batch, results, strict=True):
                 checks[index] = _check(result)
         return ProposalResult(checks=tuple(check for check in checks if check is not None))
+
+    def _added(self, batch: Sequence[tuple[int, dict[str, Any]]], said: str) -> list[Any]:
+        """The ledger's result for each trade of one call to record ``batch``."""
+        arguments = {"trades": [one for _, one in batch], **self._who(said)}
+        results = _list(self._answer("propose_trade_add", arguments), "results")
+        if len(results) != len(batch):
+            raise LedgerError(
+                _O,
+                "HAND_ANSWER_UNEXPECTED",
+                "The ledger answered for another number of trades.",
+            )
+        return results
 
     def propose_update(self, trade_id: str, facts: TradeFacts, said: str) -> ProposalResult:
         too_long = self._too_long(said)
@@ -356,7 +375,16 @@ class LinkLedger:
 
     def proposal_status(self, proposal_id: str) -> ProposalState:
         answer = self._answer("get_proposal_status", {"proposalId": proposal_id})
-        status = ProposalStatus(answer["status"])
+        word = answer.get("status")
+        try:
+            status = ProposalStatus(word)
+        except ValueError:
+            raise LedgerError(
+                _O,
+                "HAND_STATUS_UNKNOWN",
+                f"The ledger answered a status this program does not know ({word!r}), so "
+                "where this proposal stands cannot be said here: please look at the ledger.",
+            ) from None
         saved = status is ProposalStatus.SAVED
         void = status is ProposalStatus.VOID
         return ProposalState(
@@ -737,6 +765,18 @@ def _check(result: Mapping[str, Any]) -> TradeCheck:
     code = _text(error.get("code")) or "UNEXPECTED_PROGRAM_ERROR"
     message = _text(error.get("message")) or "The ledger gave no reason."
     return _refused(code, message)
+
+
+def _after_earlier(error: LedgerError) -> TradeCheck:
+    """A trade of a later call that failed, when an earlier call's trades are waiting."""
+    if error.kind is LedgerErrorKind.TIMED_OUT:
+        return _refused(
+            "HAND_MAY_HAVE_ARRIVED",
+            "The ledger did not answer in time for this trade, so it may already have "
+            "reached the ledger: please look at the ledger's pending list. It was not "
+            "sent again.",
+        )
+    return _refused(error.code, f"It was not sent: {error.message}")
 
 
 def _refused(code: str, message: str) -> TradeCheck:

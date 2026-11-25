@@ -352,3 +352,58 @@ def test_a_token_too_short_or_with_other_characters_is_refused() -> None:
         with pytest.raises(ValueError) as raised:
             LinkToken(bad)
         assert bad not in str(raised.value)
+
+
+# --- one call on its way at a time (68B3, part two, 7) -------------------------
+
+
+def test_calls_from_many_threads_at_once_each_get_their_own_answer(
+    ledger_folder: Path, node: str
+) -> None:
+    import threading
+
+    link = LedgerLink(replace(setup(ledger_folder, node), answer_seconds=5.0))
+    link.start()
+    got: dict[int, object] = {}
+    failed: list[BaseException] = []
+
+    def ask(number: int) -> None:
+        try:
+            for round_ in range(5):
+                answer = link.call("echo", {"caller": number, "round": round_})
+                got[number * 10 + round_] = answer.content["echoed"]
+        except BaseException as error:  # noqa: BLE001 - every failure is reported below
+            failed.append(error)
+
+    threads = [threading.Thread(target=ask, args=(n,)) for n in range(8)]
+    try:
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join(timeout=30)
+    finally:
+        link.close()
+
+    assert failed == []
+    assert got == {n * 10 + r: {"caller": n, "round": r} for n in range(8) for r in range(5)}
+
+
+def test_a_ledger_whose_packages_were_not_all_installed_is_said_so(
+    ledger_folder: Path, node: str
+) -> None:
+    (ledger_folder / "package.json").write_text(
+        '{"dependencies": {"tsx": "4", "@modelcontextprotocol/server": "1"}}', encoding="utf-8"
+    )
+
+    error = failure_of(LedgerLink(setup(ledger_folder, node)))
+
+    assert error.failure is LinkFailure.PACKAGES_MISSING
+    assert error.detail == "@modelcontextprotocol/server"
+
+
+def test_a_ledger_with_every_package_installed_starts(ledger_folder: Path, node: str) -> None:
+    (ledger_folder / "package.json").write_text('{"dependencies": {"tsx": "4"}}', encoding="utf-8")
+
+    with LedgerLink(setup(ledger_folder, node)) as link:
+        assert link.running()
+    assert not link.running()

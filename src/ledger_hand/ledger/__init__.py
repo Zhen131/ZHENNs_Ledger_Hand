@@ -11,8 +11,9 @@ The real ledger is reached through its assistant link, a small Node.js
 program in the ledger's own folder. ``link_client.LedgerLink`` starts it as
 a child process and talks to it (``link_failures`` names how that fails and
 keeps the token); ``link_tools`` writes down the eight tools this program
-expects of it. They hand back what the ledger answers as it came; no plug
-uses them yet.
+expects of it. ``link_ledger.LinkLedger`` is the real ledger's plug over
+them, and ``link_keeper.LinkKeeper`` the program's one link, started and
+stopped from the Assistant page, which every browser tab shares.
 
 This part imports only the core and the ports file. It reads no clock, no
 settings and no file, and reaches no network: the link client is handed

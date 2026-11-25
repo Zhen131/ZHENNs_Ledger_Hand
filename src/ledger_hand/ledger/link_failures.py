@@ -37,6 +37,9 @@ class LinkFailure(enum.Enum):
     LEDGER_FOLDER_WRONG = (
         "The folder named as the ledger's is not a ledger with its programs installed."
     )
+    PACKAGES_MISSING = (
+        "The ledger's folder lacks packages its assistant link needs, so the link cannot start."
+    )
     PORT_IN_USE = "The port the assistant link listens on is already used by another program."
     CANNOT_START = "The ledger's assistant link did not start."
     HANDSHAKE_REFUSED = "The ledger's assistant link refused this program's name or version."

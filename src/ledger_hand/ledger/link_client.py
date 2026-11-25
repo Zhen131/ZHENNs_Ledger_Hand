@@ -15,13 +15,17 @@ the link gives it), ``call`` (one tool, its arguments as a dictionary; the
 answer is the ledger's ``structuredContent`` as it came, a result or the
 ledger's ``{code, category, message, field?}`` error, marked by
 ``AnswerKind``), ``page_state`` (whether a ledger page is connected, from
-the link's lines on its standard error, which carry no ledger data) and
-``close``. It translates nothing into the ledger port's shapes; that is
-for the plug built on it.
+the link's lines on its standard error, which carry no ledger data),
+``running`` (whether the link is still alive) and ``close``. It
+translates nothing into the ledger port's shapes; that is for the plug
+built on it.
 
 Every failure is a ``LedgerLinkError`` with a ``LinkFailure``; none hangs:
 each wait has a limit (``LinkSetup.start_seconds``, ``answer_seconds``),
-kept with the waiting tools of ``subprocess`` and ``queue``. The token lives
+kept with the waiting tools of ``subprocess`` and ``queue``. Only one call
+is on its way at a time: a second caller, such as a second browser tab,
+waits until the first has its answer, since an answer whose number is not
+the caller's is passed over (68B3, part two, 7). The token lives
 only in memory: it goes to the link in its environment and to whoever asks
 ``token_to_show``; it is in no error, no ``repr`` and no file.
 
@@ -121,6 +125,8 @@ class LedgerLink:
         self._replies: queue.Queue[object] = queue.Queue()
         self._starting: queue.Queue[object] = queue.Queue()
         self._lock = threading.Lock()
+        # Held from writing a request until its answer is in: one call on its way at a time.
+        self._talking = threading.Lock()
         self._page = PageState.NOT_CONNECTED
         self._last_error = ""
         self._next_id = 0
@@ -196,6 +202,11 @@ class LedgerLink:
         with self._lock:
             return self._page
 
+    def running(self) -> bool:
+        """Whether the link was started and has not left or been closed."""
+        process = self._process
+        return process is not None and process.poll() is None
+
     def close(self) -> None:
         """Close the link's input, so that it leaves; stop it when it does not. Safe to repeat."""
         process = self._process
@@ -221,6 +232,9 @@ class LedgerLink:
             raise self._error(LinkFailure.LEDGER_FOLDER_WRONG, "no assistant-link/main.ts in it")
         if not (folder / "node_modules" / "tsx").is_dir():
             raise self._error(LinkFailure.LEDGER_FOLDER_WRONG, "its programs are not installed")
+        missing = _missing_packages(folder)
+        if missing:
+            raise self._error(LinkFailure.PACKAGES_MISSING, ", ".join(missing))
 
     def _check_node(self) -> None:
         try:
@@ -327,10 +341,11 @@ class LedgerLink:
         }
 
     def _request(self, method: str, params: Mapping[str, Any]) -> dict[str, Any]:
-        self._next_id += 1
-        asked = self._next_id
-        self._write({"jsonrpc": "2.0", "id": asked, "method": method, "params": dict(params)})
-        return self._reply(asked)
+        with self._talking:
+            self._next_id += 1
+            asked = self._next_id
+            self._write({"jsonrpc": "2.0", "id": asked, "method": method, "params": dict(params)})
+            return self._reply(asked)
 
     def _write(self, message: Mapping[str, Any]) -> None:
         process = self._process
@@ -383,6 +398,23 @@ def _reader(
         ended.put(_END)
 
     threading.Thread(target=read, daemon=True).start()
+
+
+def _missing_packages(folder: Path) -> list[str]:
+    """The packages the ledger's ``package.json`` depends on that its ``node_modules`` lacks.
+
+    A ledger whose packages were installed before a new one was added to it
+    has all but that one; the link then stops with "Cannot find module"
+    (68C4, 2026-11-25). A ``package.json`` that cannot be read names none.
+    """
+    try:
+        listed = json.loads((folder / "package.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return []
+    needed = listed.get("dependencies") if isinstance(listed, dict) else None
+    if not isinstance(needed, dict):
+        return []
+    return [name for name in needed if not (folder / "node_modules" / name).is_dir()]
 
 
 def _error_code(reply: Mapping[str, Any]) -> object:
