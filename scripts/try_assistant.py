@@ -10,8 +10,10 @@
 
 Each argument is one thing the user says, in order, in one chat. They are
 sent to the model the settings name (by default ``qwen2.5:7b`` on this
-machine's Ollama), with the fake ledger and its invented book behind the
-tools. For each thing said it prints which way it went (the model chose the
+machine's Ollama), with the fake ledger and its demo book behind the tools
+(``ledger.demo_book``: the invented book with more assets, among them
+shares with Chinese names, and buys in August 2026). For each thing said
+it prints which way it went (the model chose the
 tools, it was taken as the answer to the question waiting, or the program
 took over after two wrong steps), after a line "read as: ..." when the
 words were tidied first (number words and a time said in Chinese written
@@ -37,7 +39,7 @@ says how many times the model may be asked in one turn (six by default).
 When a question waits, the next argument is its answer.
 
 "Now" is the invented book's fixed moment, 24 November 2026, 23:55 in
-Budapest, since its trades are written against it; ``--clock`` takes the
+Budapest, since the demo book's trades are written against it; ``--clock`` takes the
 machine's clock and zone instead. Which "now" is used is printed first.
 ``--save`` or ``--reject`` saves or rejects, once everything is said, every
 proposal still pending in the fake ledger, as the person would on the
@@ -87,6 +89,7 @@ from ledger_hand.core.zones import is_zone_name
 from ledger_hand.flows.conversation import AssistantChat, Route, Said, say
 from ledger_hand.flows.progress import DEFAULT_TUNING, Asked, Tuning
 from ledger_hand.flows.recording import tuning_from
+from ledger_hand.ledger.demo_book import demo_ledger
 from ledger_hand.ledger.fake_ledger import FakeLedger
 from ledger_hand.ledger.invented_book import INVENTED_NOW, INVENTED_ZONE
 from ledger_hand.llm.connect import connect_model
@@ -139,7 +142,7 @@ def main(
         if built is None:
             return 2
         model, max_steps, tuning = model or built[0], max_steps or built[1], built[2]
-    ledger = ledger or FakeLedger()
+    ledger = ledger or demo_ledger()
     print(f"now:    {now.isoformat()} in {zone} ({whose} moment)", file=out)
     print(f"model:  {getattr(model, 'name', None) or _model_name()}", file=out)
     print(f"ledger: {type(ledger).__name__}; at most {max_steps} steps a turn", file=out)

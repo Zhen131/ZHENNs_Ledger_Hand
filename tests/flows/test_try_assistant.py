@@ -14,6 +14,7 @@ import io
 
 import pytest
 
+from ledger_hand.ledger.fake_ledger import FakeLedger
 from ledger_hand.ports import ModelError, ModelErrorKind, ToolCall, ToolReply
 from ledger_hand.settings import Variable
 from scripts import try_assistant
@@ -29,7 +30,7 @@ def asks(name: str, **arguments: object) -> ToolReply:
 
 def run(arguments: list[str], model: ScriptedModel) -> tuple[int, str, ScriptedModel]:
     out = io.StringIO()
-    status = try_assistant.main(arguments, out=out, model=model, max_steps=6)
+    status = try_assistant.main(arguments, out=out, model=model, ledger=FakeLedger(), max_steps=6)
     return status, out.getvalue(), model
 
 

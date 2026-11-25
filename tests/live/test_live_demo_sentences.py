@@ -35,7 +35,7 @@ import pytest
 from ledger_hand.assistant.lookups import Lookup, header_lines, lookup_lines
 from ledger_hand.flows.conversation import AssistantChat, Said, say
 from ledger_hand.flows.recording import tuning_from
-from ledger_hand.ledger.fake_ledger import FakeLedger
+from ledger_hand.ledger.demo_book import demo_ledger
 from ledger_hand.ledger.invented_book import INVENTED_NOW, INVENTED_ZONE
 from ledger_hand.llm.local import connect_local_model
 from ledger_hand.settings import load_assistant_steps, load_model_settings
@@ -56,7 +56,7 @@ def said_once(words: str) -> Said:
         AssistantChat(),
         words,
         model=connect_local_model(settings),
-        ledger=FakeLedger(),
+        ledger=demo_ledger(),
         now=INVENTED_NOW,
         zone=INVENTED_ZONE,
         max_steps=load_assistant_steps(),

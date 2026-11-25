@@ -801,7 +801,8 @@ so that the next export writes them again.
 
 These sentences show the assistant at work, one of each kind, on the
 Assistant page or with `scripts/try_assistant.py`. Each is said on its own,
-in a new chat, to the demo ledger as it starts; under each is what it gets.
+in a new chat, to the demo ledger as it starts (the demo book; see "The
+demo book" below); under each is what it gets.
 Every figure, platform and date is invented. None names a time relative to
 now ("yesterday", "this month"): the try-out script takes the invented
 book's moment, 24 November 2026, 23:55 in Budapest, as now, and the page
@@ -817,7 +818,10 @@ the same sentence comes out the same again; it does not show that other
 words for the same thing would. The live tier says each of them once more
 (`tests/live/test_live_demo_sentences.py`, against
 `tests/live/demo_sentences.json`), and a quick test keeps this list and
-that file the same, word for word.
+that file the same, word for word. Three of them (the MSFT trades, the
+assets and the holdings) were written for the invented book and gained
+rows with the demo book; those three were said once more against it, not
+five times.
 
 1. `Bought 0.004 BTC at 63250 USDT on OKX on 20 November 2026 at 14:20, fee 0.25 USDT.`
    Gets: One trade sent to the ledger, waiting there: a buy of 0.004 BTC at 63250 USDT, total 253 USDT, fee 0.25 USDT, on 20 November 2026 at 14:20, OKX. No reminder line.
@@ -828,11 +832,11 @@ that file the same, word for word.
 4. `Bought 30 USDT of ADA at 0.31 on OKX on 21 November 2026 at 16:40, fee 0.`
    Gets: Nothing sent: the money was said where the quantity goes, and the reply says so and asks for the trade again with the money as the total. No reminder line.
 5. `Show me my MSFT trades.`
-   Gets: A table of every MSFT trade, all time, buys and sells: 2 rows, the buy of 2 October 2026 and the sell of 12 November 2026. The header also says it was not narrowed to buys: the model asks for buys, and the program widens it, since the question names no side.
+   Gets: A table of every MSFT trade, all time, buys and sells: 3 rows, the buys of 12 August and 2 October 2026 and the sell of 12 November 2026. The header also says it was not narrowed to buys: the model asks for buys, and the program widens it, since the question names no side.
 6. `Which assets does my ledger have?`
-   Gets: A table of the ledger's assets: 6 rows, USDT, USD, BTC, ETH, ADA and MSFT.
+   Gets: A table of the ledger's assets: 13 rows, USDT, USD, BTC, ETH, ADA, MSFT, SOL, INTC, KO, AAPL, NVDA, PEP and DOT.
 7. `Which coins and shares am I holding at the moment?`
-   Gets: A table of what is held: 4 rows, ADA, BTC, ETH and MSFT, each with its cost and its profit or loss on paper (not worked out for ADA, which has no market price).
+   Gets: A table of what is held: 9 rows, AAPL, ADA, BTC, ETH, INTC, KO, MSFT, NVDA and SOL, each with its cost and its profit or loss on paper (not worked out for ADA, SOL, INTC, KO, AAPL and NVDA, which have no market price).
 8. `Change the platform of the ADA buy on 25 September 2026 to Binance.`
    Gets: A change sent to the ledger, waiting there: the ADA buy of 25 September 2026, its platform from OKX to Binance, shown before and after.
 9. `Delete the MSFT sell on 12 November 2026.`

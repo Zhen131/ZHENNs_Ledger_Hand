@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import io
 
+from ledger_hand.ledger.fake_ledger import FakeLedger
 from ledger_hand.ports import ToolCall, ToolReply
 from scripts import try_assistant
 from tests.fakes.scripted_model import ScriptedModel, scripted_record
@@ -17,7 +18,7 @@ def asks(name: str, **arguments: object) -> ToolReply:
 
 def run(arguments: list[str], model: ScriptedModel) -> tuple[int, list[str]]:
     out = io.StringIO()
-    status = try_assistant.main(arguments, out=out, model=model, max_steps=6)
+    status = try_assistant.main(arguments, out=out, model=model, ledger=FakeLedger(), max_steps=6)
     return status, out.getvalue().splitlines()
 
 

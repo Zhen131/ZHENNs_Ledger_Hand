@@ -21,10 +21,11 @@ place of the model's: a model that is not in the server's list is
 ``None``; so are they for parts handed in without them.
 
 For the assistant page, the parts hold the ledger the assistant reaches
-(``ledger``: the demo ledger, ``ledger.fake_ledger.FakeLedger``, a new one
-each time the parts are built), which kind of ledger it is
-(``ledger_kind``, ``flows.standing.LedgerKind``), and how many times the
-assistant may ask the model in one turn (``assistant_steps``, from
+(``ledger``: the demo ledger, a ``ledger.fake_ledger.FakeLedger`` holding
+the demo book of ``ledger.demo_book``, a new one each time the parts are
+built), which kind of ledger it is (``ledger_kind``,
+``flows.standing.LedgerKind``), and how many times the assistant may ask
+the model in one turn (``assistant_steps``, from
 ``settings.load_assistant_steps``). Parts handed in without a ledger hold
 ``None`` for both, and the page then sends nothing.
 
@@ -85,7 +86,7 @@ from ledger_hand.flows.progress import Tuning
 from ledger_hand.flows.recording import tuning_from
 from ledger_hand.flows.standing import LedgerKind
 from ledger_hand.flows.uploading import VisionModelCheck, VisionModelPresence
-from ledger_hand.ledger.fake_ledger import FakeLedger
+from ledger_hand.ledger.demo_book import demo_ledger
 from ledger_hand.ledger.link_client import LedgerLink, LinkSetup
 from ledger_hand.ledger.link_failures import LinkToken
 from ledger_hand.ledger.link_ledger import LinkLedger
@@ -197,7 +198,7 @@ def assemble(changes: Mapping[Variable, str] | None = None) -> Parts:
         places=places,
         vision_model=connect_vision_model(settings) if local else None,
         vision_check=_vision_model_check(settings) if local else None,
-        ledger=FakeLedger(),
+        ledger=demo_ledger(),
         ledger_kind=LedgerKind.DEMO,
         assistant_steps=steps,
         steps_refused=steps_refused,

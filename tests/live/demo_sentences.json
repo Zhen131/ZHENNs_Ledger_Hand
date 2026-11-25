@@ -1,5 +1,5 @@
 {
-  "about": "The sentences for a demo, each said once in a chat of its own to the whole assistant, with the fake ledger and its invented book behind it, and what each must come to. Every figure, platform and date is invented. No sentence names a time relative to now: the try-out script and the tests take the invented book's fixed moment as now, the Assistant page the machine's clock, so only dates and clock times written in full give the same result in both. README.md, 'Sentences for a demo', lists the same sentences, word for word.",
+  "about": "The sentences for a demo, each said once in a chat of its own to the whole assistant, with the fake ledger and its demo book behind it (the invented book with seven more assets and nine buys in August 2026), and what each must come to. Every figure, platform and date is invented. No sentence names a time relative to now: the try-out script and the tests take the invented book's fixed moment as now, the Assistant page the machine's clock, so only dates and clock times written in full give the same result in both. README.md, 'Sentences for a demo', lists the same sentences, word for word.",
   "sentences": [
     {
       "id": "record-coin",
@@ -89,13 +89,14 @@
         "time": "Time: all time",
         "asset": "Asset: MSFT",
         "side": "Side: buys and sells",
-        "rows": 2,
+        "rows": 3,
         "items": [
+          "t-16",
           "t-04",
           "t-10"
         ]
       },
-      "shows": "A table of every MSFT trade, all time, buys and sells: 2 rows, the buy of 2 October 2026 and the sell of 12 November 2026. The header also says it was not narrowed to buys: the model asks for buys, and the program widens it, since the question names no side."
+      "shows": "A table of every MSFT trade, all time, buys and sells: 3 rows, the buys of 12 August and 2 October 2026 and the sell of 12 November 2026. The header also says it was not narrowed to buys: the model asks for buys, and the program widens it, since the question names no side."
     },
     {
       "id": "ask-assets",
@@ -103,17 +104,24 @@
       "said": "Which assets does my ledger have?",
       "expect": {
         "tool": "list_assets",
-        "rows": 6,
+        "rows": 13,
         "items": [
           "USDT",
           "USD",
           "BTC",
           "ETH",
           "ADA",
-          "MSFT"
+          "MSFT",
+          "SOL",
+          "INTC",
+          "KO",
+          "AAPL",
+          "NVDA",
+          "PEP",
+          "DOT"
         ]
       },
-      "shows": "A table of the ledger's assets: 6 rows, USDT, USD, BTC, ETH, ADA and MSFT."
+      "shows": "A table of the ledger's assets: 13 rows, USDT, USD, BTC, ETH, ADA, MSFT, SOL, INTC, KO, AAPL, NVDA, PEP and DOT."
     },
     {
       "id": "ask-holdings",
@@ -121,15 +129,20 @@
       "said": "Which coins and shares am I holding at the moment?",
       "expect": {
         "tool": "get_positions",
-        "rows": 4,
+        "rows": 9,
         "items": [
+          "AAPL",
           "ADA",
           "BTC",
           "ETH",
-          "MSFT"
+          "INTC",
+          "KO",
+          "MSFT",
+          "NVDA",
+          "SOL"
         ]
       },
-      "shows": "A table of what is held: 4 rows, ADA, BTC, ETH and MSFT, each with its cost and its profit or loss on paper (not worked out for ADA, which has no market price)."
+      "shows": "A table of what is held: 9 rows, AAPL, ADA, BTC, ETH, INTC, KO, MSFT, NVDA and SOL, each with its cost and its profit or loss on paper (not worked out for ADA, SOL, INTC, KO, AAPL and NVDA, which have no market price)."
     },
     {
       "id": "change-platform",
