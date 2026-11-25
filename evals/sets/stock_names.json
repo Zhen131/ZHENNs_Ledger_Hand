@@ -1,0 +1,403 @@
+{
+  "about": "Sentences that each buy one asset named the way people say it, said against the demo book (fake ledger), to measure picking an asset from the ledger's list. Written, with their gold answers and halves, before any run, and never changed afterwards. 'group' is 'on_list' (the demo book holds the asset; 'gold' is its code) or 'off_list' (it does not; 'gold' is null: nothing may be picked or sent). 'words' are the words that name the asset, for the direct measure. 'half' is 'practice' (odd numbers of each group) or 'locked' (even numbers): prompts are tuned and chosen on the practice half only; the locked half is measured once, after the choice. 'kind': on_list, similar_name (a name like one on the list: PepsiCo beside Coca-Cola; Sprite, Infineon, Weibo), built_in_name (a coin name the built-in table lends: never handed to the model), qualified (a name on the list with more words that make it something else), other_company, coin. Every figure is invented; no prompt holds any of these sentences.",
+  "now": "2026-11-24T23:55:00+01:00",
+  "zone": "Europe/Budapest",
+  "sentences": [
+    {
+      "id": "N01",
+      "group": "on_list",
+      "kind": "on_list",
+      "half": "practice",
+      "text": "2026年11月16号15:40在IBKR买了3股微软，405美元一股，手续费1美元",
+      "words": "微软",
+      "gold": "MSFT"
+    },
+    {
+      "id": "N02",
+      "group": "on_list",
+      "kind": "on_list",
+      "half": "locked",
+      "text": "2026年11月17号16:05在IBKR买了2股微软的股票，410美元一股，手续费1美元",
+      "words": "微软的股票",
+      "gold": "MSFT"
+    },
+    {
+      "id": "N03",
+      "group": "on_list",
+      "kind": "on_list",
+      "half": "practice",
+      "text": "2026年11月18号15:35在IBKR买了10股英特尔的股票，21美元一股，手续费1美元",
+      "words": "英特尔的股票",
+      "gold": "INTC"
+    },
+    {
+      "id": "N04",
+      "group": "on_list",
+      "kind": "on_list",
+      "half": "locked",
+      "text": "2026年11月19号16:20在IBKR买了20股英特尔，22.5美元一股，手续费1美元",
+      "words": "英特尔",
+      "gold": "INTC"
+    },
+    {
+      "id": "N05",
+      "group": "on_list",
+      "kind": "on_list",
+      "half": "practice",
+      "text": "2026年11月16号16:45在IBKR买了5股可口可乐，69美元一股，手续费1美元",
+      "words": "可口可乐",
+      "gold": "KO"
+    },
+    {
+      "id": "N06",
+      "group": "on_list",
+      "kind": "on_list",
+      "half": "locked",
+      "text": "2026年11月20号15:50在IBKR买了4股可口可乐的股票，70.5美元一股，手续费1美元",
+      "words": "可口可乐的股票",
+      "gold": "KO"
+    },
+    {
+      "id": "N07",
+      "group": "on_list",
+      "kind": "on_list",
+      "half": "practice",
+      "text": "2026年11月17号15:45在IBKR买了2股苹果公司，228美元一股，手续费1美元",
+      "words": "苹果公司",
+      "gold": "AAPL"
+    },
+    {
+      "id": "N08",
+      "group": "on_list",
+      "kind": "on_list",
+      "half": "locked",
+      "text": "2026年11月18号16:10在IBKR买了3股苹果，226美元一股，手续费1美元",
+      "words": "苹果",
+      "gold": "AAPL"
+    },
+    {
+      "id": "N09",
+      "group": "on_list",
+      "kind": "on_list",
+      "half": "practice",
+      "text": "2026年11月19号15:55在IBKR买了6股英伟达，125美元一股，手续费1美元",
+      "words": "英伟达",
+      "gold": "NVDA"
+    },
+    {
+      "id": "N10",
+      "group": "on_list",
+      "kind": "on_list",
+      "half": "locked",
+      "text": "2026年11月20号16:30在IBKR买了8股英伟达的股票，123美元一股，手续费1美元",
+      "words": "英伟达的股票",
+      "gold": "NVDA"
+    },
+    {
+      "id": "N11",
+      "group": "on_list",
+      "kind": "similar_name",
+      "half": "practice",
+      "text": "2026年11月16号16:15在IBKR买了3股百事可乐，150美元一股，手续费1美元",
+      "words": "百事可乐",
+      "gold": "PEP"
+    },
+    {
+      "id": "N12",
+      "group": "on_list",
+      "kind": "similar_name",
+      "half": "locked",
+      "text": "2026年11月17号16:40在IBKR买了2股百事可乐的股票，152美元一股，手续费1美元",
+      "words": "百事可乐的股票",
+      "gold": "PEP"
+    },
+    {
+      "id": "N13",
+      "group": "on_list",
+      "kind": "similar_name",
+      "half": "practice",
+      "text": "2026年11月18号15:30在IBKR买了4股百事公司，149美元一股，手续费1美元",
+      "words": "百事公司",
+      "gold": "PEP"
+    },
+    {
+      "id": "N14",
+      "group": "on_list",
+      "kind": "similar_name",
+      "half": "locked",
+      "text": "2026年11月19号16:50在IBKR买了5股百事，151美元一股，手续费1美元",
+      "words": "百事",
+      "gold": "PEP"
+    },
+    {
+      "id": "N15",
+      "group": "on_list",
+      "kind": "on_list",
+      "half": "practice",
+      "text": "2026年11月21号15:45在IBKR买了1股微软公司，415美元一股，手续费1美元",
+      "words": "微软公司",
+      "gold": "MSFT"
+    },
+    {
+      "id": "N16",
+      "group": "on_list",
+      "kind": "on_list",
+      "half": "locked",
+      "text": "2026年11月21号16:15在IBKR买了15股英特尔股份，23美元一股，手续费1美元",
+      "words": "英特尔股份",
+      "gold": "INTC"
+    },
+    {
+      "id": "N17",
+      "group": "on_list",
+      "kind": "on_list",
+      "half": "practice",
+      "text": "2026年11月22号15:40在IBKR买了6股Coca Cola，71美元一股，手续费1美元",
+      "words": "Coca Cola",
+      "gold": "KO"
+    },
+    {
+      "id": "N18",
+      "group": "on_list",
+      "kind": "on_list",
+      "half": "locked",
+      "text": "2026年11月23号15:50在IBKR买了2股Apple stock，230美元一股，手续费1美元",
+      "words": "Apple stock",
+      "gold": "AAPL"
+    },
+    {
+      "id": "N19",
+      "group": "on_list",
+      "kind": "on_list",
+      "half": "practice",
+      "text": "2026年11月23号16:05在IBKR买了7股英伟达公司，127美元一股，手续费1美元",
+      "words": "英伟达公司",
+      "gold": "NVDA"
+    },
+    {
+      "id": "N20",
+      "group": "on_list",
+      "kind": "built_in_name",
+      "half": "locked",
+      "text": "2026年11月23号10:20在OKX买了20个波卡，4.5 USDT一个，手续费0.09 USDT",
+      "words": "波卡",
+      "gold": "DOT"
+    },
+    {
+      "id": "N21",
+      "group": "on_list",
+      "kind": "on_list",
+      "half": "practice",
+      "text": "2026年11月21号16:35在IBKR买了2股苹果的股票，229美元一股，手续费1美元",
+      "words": "苹果的股票",
+      "gold": "AAPL"
+    },
+    {
+      "id": "N22",
+      "group": "on_list",
+      "kind": "on_list",
+      "half": "locked",
+      "text": "2026年11月22号16:45在IBKR买了4股英伟达股票，126美元一股，手续费1美元",
+      "words": "英伟达股票",
+      "gold": "NVDA"
+    },
+    {
+      "id": "X01",
+      "group": "off_list",
+      "kind": "similar_name",
+      "half": "practice",
+      "text": "2026年11月16号16:25在IBKR买了3股雪碧，60美元一股，手续费1美元",
+      "words": "雪碧",
+      "gold": null
+    },
+    {
+      "id": "X02",
+      "group": "off_list",
+      "kind": "similar_name",
+      "half": "locked",
+      "text": "2026年11月18号16:35在IBKR买了2股雪碧的股票，61美元一股，手续费1美元",
+      "words": "雪碧的股票",
+      "gold": null
+    },
+    {
+      "id": "X03",
+      "group": "off_list",
+      "kind": "similar_name",
+      "half": "practice",
+      "text": "2026年11月17号15:55在IBKR买了10股英飞凌，35美元一股，手续费1美元",
+      "words": "英飞凌",
+      "gold": null
+    },
+    {
+      "id": "X04",
+      "group": "off_list",
+      "kind": "similar_name",
+      "half": "locked",
+      "text": "2026年11月19号15:40在IBKR买了8股英飞凌公司，36美元一股，手续费1美元",
+      "words": "英飞凌公司",
+      "gold": null
+    },
+    {
+      "id": "X05",
+      "group": "off_list",
+      "kind": "similar_name",
+      "half": "practice",
+      "text": "2026年11月18号15:50在IBKR买了10股微博，10美元一股，手续费1美元",
+      "words": "微博",
+      "gold": null
+    },
+    {
+      "id": "X06",
+      "group": "off_list",
+      "kind": "similar_name",
+      "half": "locked",
+      "text": "2026年11月20号16:00在IBKR买了12股微博的股票，9.8美元一股，手续费1美元",
+      "words": "微博的股票",
+      "gold": null
+    },
+    {
+      "id": "X07",
+      "group": "off_list",
+      "kind": "qualified",
+      "half": "practice",
+      "text": "2026年11月20号14:30在OKX买了10个以太坊经典，18 USDT一个，手续费0.1 USDT",
+      "words": "以太坊经典",
+      "gold": null
+    },
+    {
+      "id": "X08",
+      "group": "off_list",
+      "kind": "qualified",
+      "half": "locked",
+      "text": "2026年11月20号22:00在IBKR买了2股比特币ETF，50美元一股，手续费1美元",
+      "words": "比特币ETF",
+      "gold": null
+    },
+    {
+      "id": "X09",
+      "group": "off_list",
+      "kind": "qualified",
+      "half": "practice",
+      "text": "2026年11月21号15:40在IBKR买了1张微软的期权，3.5美元，手续费0.65美元",
+      "words": "微软的期权",
+      "gold": null
+    },
+    {
+      "id": "X10",
+      "group": "off_list",
+      "kind": "qualified",
+      "half": "locked",
+      "text": "2026年11月21号10:00买了2手苹果期货，8000元一吨",
+      "words": "苹果期货",
+      "gold": null
+    },
+    {
+      "id": "X11",
+      "group": "off_list",
+      "kind": "qualified",
+      "half": "practice",
+      "text": "2026年11月22号16:00在IBKR买了5股英伟达两倍做多ETF，40美元一股，手续费1美元",
+      "words": "英伟达两倍做多ETF",
+      "gold": null
+    },
+    {
+      "id": "X12",
+      "group": "off_list",
+      "kind": "qualified",
+      "half": "locked",
+      "text": "2026年11月22号16:30在IBKR买了3股可口可乐装瓶公司，60美元一股，手续费1美元",
+      "words": "可口可乐装瓶公司",
+      "gold": null
+    },
+    {
+      "id": "X13",
+      "group": "off_list",
+      "kind": "qualified",
+      "half": "practice",
+      "text": "2026年11月23号15:30在IBKR买了2股微软和英特尔，各100美元一股，手续费1美元",
+      "words": "微软和英特尔",
+      "gold": null
+    },
+    {
+      "id": "X14",
+      "group": "off_list",
+      "kind": "qualified",
+      "half": "locked",
+      "text": "2026年11月23号15:35在IBKR买了3股微策略，300美元一股，手续费1美元",
+      "words": "微策略",
+      "gold": null
+    },
+    {
+      "id": "X15",
+      "group": "off_list",
+      "kind": "other_company",
+      "half": "practice",
+      "text": "2026年11月16号15:35在IBKR买了2股特斯拉，340美元一股，手续费1美元",
+      "words": "特斯拉",
+      "gold": null
+    },
+    {
+      "id": "X16",
+      "group": "off_list",
+      "kind": "other_company",
+      "half": "locked",
+      "text": "2026年11月17号15:50在IBKR买了3股谷歌，175美元一股，手续费1美元",
+      "words": "谷歌",
+      "gold": null
+    },
+    {
+      "id": "X17",
+      "group": "off_list",
+      "kind": "other_company",
+      "half": "practice",
+      "text": "2026年11月18号10:30在IBKR买了1股茅台，1500美元一股，手续费1美元",
+      "words": "茅台",
+      "gold": null
+    },
+    {
+      "id": "X18",
+      "group": "off_list",
+      "kind": "other_company",
+      "half": "locked",
+      "text": "2026年11月19号16:10在IBKR买了2股亚马逊，210美元一股，手续费1美元",
+      "words": "亚马逊",
+      "gold": null
+    },
+    {
+      "id": "X19",
+      "group": "off_list",
+      "kind": "other_company",
+      "half": "practice",
+      "text": "2026年11月20号10:15在IBKR买了10股腾讯，50美元一股，手续费1美元",
+      "words": "腾讯",
+      "gold": null
+    },
+    {
+      "id": "X20",
+      "group": "off_list",
+      "kind": "other_company",
+      "half": "locked",
+      "text": "2026年11月21号15:30在IBKR买了5股阿里巴巴集团，120美元一股，手续费1美元",
+      "words": "阿里巴巴集团",
+      "gold": null
+    },
+    {
+      "id": "X21",
+      "group": "off_list",
+      "kind": "coin",
+      "half": "practice",
+      "text": "2026年11月22号21:10在OKX买了500个狗狗币，0.18 USDT一个，手续费0.09 USDT",
+      "words": "狗狗币",
+      "gold": null
+    },
+    {
+      "id": "X22",
+      "group": "off_list",
+      "kind": "coin",
+      "half": "locked",
+      "text": "2026年11月23号21:40在OKX买了50个柚子币，0.6 USDT一个，手续费0.03 USDT",
+      "words": "柚子币",
+      "gold": null
+    }
+  ]
+}
