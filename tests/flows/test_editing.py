@@ -378,8 +378,8 @@ def test_a_new_value_not_copied_twice_asks_for_the_value_again() -> None:
     (said,), _, ledger = talk(
         "把9月25号那笔ADA的数量改成六百四十一",
         steps=[
-            update(period="9月25号", asset="ADA", field="quantity", new_value="641"),
-            update(period="9月25号", asset="ADA", field="quantity", new_value="641"),
+            update(period="9月25号", asset="ADA", field="quantity", new_value="614"),
+            update(period="9月25号", asset="ADA", field="quantity", new_value="614"),
         ],
     )
 
