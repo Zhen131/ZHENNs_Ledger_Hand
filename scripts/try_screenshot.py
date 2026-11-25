@@ -47,6 +47,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import TextIO
 
+from ledger_hand.core.assets import BUILT_IN_ASSETS
 from ledger_hand.extraction.extractor import Extracted, extract
 from ledger_hand.extraction.picture_reading import PictureRead
 from ledger_hand.flows.screenshot import joined_passage, read_screenshot
@@ -167,7 +168,7 @@ def _tried(
         print(f"{_INDENT}{line}", file=out)
     print(f"note: {note.strip()!r}" if note.strip() else "note: none", file=out)
     passage = joined_passage(reading.text, note)
-    result = extract(passage, model, now=now, zone=zone)
+    result = extract(passage, model, now=now, zone=zone, assets=BUILT_IN_ASSETS)
     show_result(result, passage, zone, out)
     _show_reading_calls(reading.calls, out)
     return 0 if isinstance(result, Extracted) else 1

@@ -17,7 +17,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from ledger_hand.core.coins import BUILT_IN_TABLE
+from ledger_hand.core.assets import BUILT_IN_ASSETS
 from ledger_hand.core.followup import (
     AMOUNT_CELLS,
     FOLLOW_UP_ORDER,
@@ -64,7 +64,7 @@ def only(problem: Missing | Violation) -> DraftProblems:
 
 
 def check(draft: TradeDraft) -> TradeRecord | DraftProblems:
-    return check_draft(draft, BUILT_IN_TABLE, NOW)
+    return check_draft(draft, BUILT_IN_ASSETS, NOW)
 
 
 # --- every problem has a place, and only one --------------------------------
@@ -84,10 +84,15 @@ def test_the_order_and_its_destinations_are_as_written() -> None:
         ("RAW_TEXT", "CANNOT_RECORD"),
         ("COIN_IS_USDT", "CANNOT_RECORD"),
         ("UNSUPPORTED_QUOTE", "CANNOT_RECORD"),
+        ("COIN_IS_PRICING_MONEY", "CANNOT_RECORD"),
+        ("QUOTE_CANNOT_PRICE", "CANNOT_RECORD"),
+        ("ASSET_NOT_IN_LEDGER", "CANNOT_RECORD"),
+        ("FEE_ASSET_NOT_IN_LEDGER", "CANNOT_RECORD"),
         ("SIDE", "ASK_SIDE"),
         ("COIN", "ASK_COIN"),
         ("COIN_NOT_A_SYMBOL", "ASK_COIN"),
         ("COIN_CONFIRMATION", "CONFIRM_COIN"),
+        ("QUOTE", "ASK_QUOTE"),
         ("QUANTITY_NOT_POSITIVE", "ASK_QUANTITY"),
         ("QUANTITY_TOO_MANY_DIGITS", "ASK_QUANTITY"),
         ("PRICE_NOT_POSITIVE", "ASK_PRICE"),
@@ -118,10 +123,15 @@ EXPECTED: dict[Missing | Violation, FollowUp] = {
     Missing.RAW_TEXT: CannotRecord(Missing.RAW_TEXT),
     Violation.COIN_IS_USDT: CannotRecord(Violation.COIN_IS_USDT),
     Violation.UNSUPPORTED_QUOTE: CannotRecord(Violation.UNSUPPORTED_QUOTE),
+    Violation.COIN_IS_PRICING_MONEY: CannotRecord(Violation.COIN_IS_PRICING_MONEY),
+    Violation.QUOTE_CANNOT_PRICE: CannotRecord(Violation.QUOTE_CANNOT_PRICE),
+    Violation.ASSET_NOT_IN_LEDGER: CannotRecord(Violation.ASSET_NOT_IN_LEDGER),
+    Violation.FEE_ASSET_NOT_IN_LEDGER: CannotRecord(Violation.FEE_ASSET_NOT_IN_LEDGER),
     Missing.SIDE: AskCell(Cell.SIDE, Missing.SIDE),
     Missing.COIN: AskCell(Cell.COIN, Missing.COIN),
     Violation.COIN_NOT_A_SYMBOL: AskCell(Cell.COIN, Violation.COIN_NOT_A_SYMBOL),
     Missing.COIN_CONFIRMATION: ConfirmCoin(Cell.COIN, Missing.COIN_CONFIRMATION),
+    Missing.QUOTE: AskCell(Cell.QUOTE, Missing.QUOTE),
     Violation.QUANTITY_NOT_POSITIVE: AskCell(Cell.QUANTITY, Violation.QUANTITY_NOT_POSITIVE),
     Violation.QUANTITY_TOO_MANY_DIGITS: AskCell(Cell.QUANTITY, Violation.QUANTITY_TOO_MANY_DIGITS),
     Violation.PRICE_NOT_POSITIVE: AskCell(Cell.PRICE, Violation.PRICE_NOT_POSITIVE),
@@ -286,6 +296,7 @@ def test_one_right_answer_about_the_price_settles_it(right_price: Decimal | None
 @pytest.mark.parametrize("cell", list(Cell), ids=lambda cell: cell.name)
 def test_a_cell_can_be_read_emptied_and_filled_again(cell: Cell) -> None:
     draft = complete(total=Decimal("1898"), platform="OKX", note="fine")
+    draft = dataclasses.replace(draft, quote="USDT")
     value = value_of(draft, cell)
     assert value is not None
 

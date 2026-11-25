@@ -15,7 +15,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from ledger_hand.core.coins import BUILT_IN_TABLE
+from ledger_hand.core.assets import BUILT_IN_ASSETS
 from ledger_hand.core.trade import (
     Amount,
     OccurredTime,
@@ -34,7 +34,7 @@ DAY = OccurredTime(date(2026, 10, 6), TimePrecision.DAY, ZONE)
 
 
 def progress(*trades: TradeState) -> Progress:
-    return Progress(Stage.REVIEWING, "invented", Setting(NOW, ZONE, BUILT_IN_TABLE), trades=trades)
+    return Progress(Stage.REVIEWING, "invented", Setting(NOW, ZONE, BUILT_IN_ASSETS), trades=trades)
 
 
 def record(*, derived: Amount | None, occurred: OccurredTime = DAY) -> TradeRecord:
@@ -44,6 +44,7 @@ def record(*, derived: Amount | None, occurred: OccurredTime = DAY) -> TradeReco
         quantity=Decimal("0.02"),
         price=Decimal("94900"),
         total=Decimal("1898"),
+        quote="USDT",
         derived=derived,
         fee=Decimal("0.1"),
         fee_coin="USDT",

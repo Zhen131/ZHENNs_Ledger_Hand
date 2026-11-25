@@ -40,7 +40,7 @@ from __future__ import annotations
 import dataclasses
 from datetime import datetime
 
-from ledger_hand.core.coins import BUILT_IN_TABLE, CoinTable
+from ledger_hand.core.assets import BUILT_IN_ASSETS, AssetTable
 from ledger_hand.core.zones import is_zone_name
 from ledger_hand.extraction.picture_reading import (
     PictureNotRead,
@@ -91,7 +91,7 @@ def start_from_reading(
     zone: str,
     text: str | None = None,
     note: str = "",
-    coins: CoinTable = BUILT_IN_TABLE,
+    assets: AssetTable = BUILT_IN_ASSETS,
     tuning: Tuning = DEFAULT_TUNING,
     book: StoragePort | None = None,
 ) -> Progress:
@@ -106,7 +106,7 @@ def start_from_reading(
     if not isinstance(reading, PictureRead):
         raise TypeError(f"a reading is a PictureRead, not {type(reading).__name__}")
     passage = joined_passage(reading.text if text is None else text, note)
-    progress = start(passage, model, now=now, zone=zone, coins=coins, tuning=tuning, book=book)
+    progress = start(passage, model, now=now, zone=zone, assets=assets, tuning=tuning, book=book)
     return dataclasses.replace(
         progress,
         calls=(*_reading_calls(reading), *progress.calls),
@@ -122,7 +122,7 @@ def start_from_screenshot(
     now: datetime,
     zone: str,
     note: str = "",
-    coins: CoinTable = BUILT_IN_TABLE,
+    assets: AssetTable = BUILT_IN_ASSETS,
     tuning: Tuning = DEFAULT_TUNING,
     book: StoragePort | None = None,
 ) -> Progress:
@@ -137,13 +137,13 @@ def start_from_screenshot(
     reading = read_screenshot(picture, vision_model)
     if isinstance(reading, PictureRead):
         return start_from_reading(
-            reading, model, now=now, zone=zone, note=note, coins=coins, tuning=tuning, book=book
+            reading, model, now=now, zone=zone, note=note, assets=assets, tuning=tuning, book=book
         )
     problems = tuple(problem.value for problem in reading.problems)
     return Progress(
         Stage.FAILED,
         note.strip(),
-        Setting(now, zone, coins, tuning),
+        Setting(now, zone, assets, tuning),
         failure=Failure(Step.READING, reading.error, problems),
         prompts=((Step.READING, reading.version),),
         calls=_reading_calls(reading),

@@ -37,6 +37,7 @@ from datetime import date, datetime, timezone
 from decimal import Decimal
 from zoneinfo import ZoneInfo
 
+from ledger_hand.core.assets import BUILT_IN_ASSETS
 from ledger_hand.core.coins import BUILT_IN_TABLE, CoinTable
 from ledger_hand.core.ledger_limits import (
     MAX_COINS_PER_FILE,
@@ -90,7 +91,7 @@ def _buy(occurred: OccurredTime, **changes: object) -> TradeDraft:
 
 def _taken(identifier: str, draft: TradeDraft, now: datetime) -> StoredTrade | None:
     """``draft`` saved if the check accepts it at ``now``; ``None`` if it does not."""
-    result = check_draft(draft, BUILT_IN_TABLE, now)
+    result = check_draft(draft, BUILT_IN_ASSETS, now)
     if not isinstance(result, TradeRecord):
         return None
     return StoredTrade(id=identifier, record=result, created_at=CREATED, updated_at=CREATED)

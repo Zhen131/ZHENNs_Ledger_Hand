@@ -26,6 +26,7 @@ on the day the tests run.
 
 from __future__ import annotations
 
+import dataclasses
 import json
 from collections.abc import Callable
 from datetime import date, datetime, timezone
@@ -33,6 +34,7 @@ from decimal import Decimal
 from pathlib import Path
 from zoneinfo import ZoneInfo, available_timezones
 
+from ledger_hand.core.assets import BUILT_IN_ASSETS
 from ledger_hand.core.coins import BUILT_IN_TABLE, CoinTable
 from ledger_hand.core.stored import StoredTrade
 from ledger_hand.core.trade import OccurredTime, Side, TimePrecision, TradeDraft, TradeRecord
@@ -98,7 +100,7 @@ def record(
     draft: TradeDraft, coins: CoinTable = BUILT_IN_TABLE, now: datetime = NOW
 ) -> TradeRecord:
     """The record the check makes of ``draft``; a draft it does not accept is a mistake here."""
-    result = check_draft(draft, coins, now)
+    result = check_draft(draft, dataclasses.replace(BUILT_IN_ASSETS, coins=coins), now)
     if not isinstance(result, TradeRecord):
         raise AssertionError(f"the check did not accept a sample trade: {result}")
     return result

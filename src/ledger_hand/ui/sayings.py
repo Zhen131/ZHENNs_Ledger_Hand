@@ -31,7 +31,6 @@ from __future__ import annotations
 from collections.abc import Sequence
 
 from ledger_hand.core.fee_cost import fee_left_out_of_cost
-from ledger_hand.core.ledger_limits import QUOTE_CURRENCY
 from ledger_hand.core.zones import zone_named
 from ledger_hand.extraction.issues import Issue
 from ledger_hand.extraction.screening import REASONS, Report
@@ -101,7 +100,7 @@ def fees_left_out(progress: Progress | None) -> list[str]:
         return []
     return [
         f"Trade {number}: its fee is paid in {trade.record.fee_coin}, which is neither "
-        f"{QUOTE_CURRENCY} nor {trade.record.coin}. The ledger takes the trade, but leaves "
+        f"{trade.record.quote} nor {trade.record.coin}. The ledger takes the trade, but leaves "
         "this fee out when it works out the cost."
         for number, trade in enumerate(progress.trades, start=1)
         if trade.status is TradeStatus.RECORDED

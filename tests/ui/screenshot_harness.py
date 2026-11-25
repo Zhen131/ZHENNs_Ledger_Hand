@@ -23,7 +23,7 @@ from pathlib import Path
 from streamlit.testing.v1 import AppTest
 from streamlit.testing.v1.element_tree import FileUploader
 
-from ledger_hand.core.coins import BUILT_IN_TABLE
+from ledger_hand.core.assets import BUILT_IN_ASSETS
 from ledger_hand.flows.recording import tuning_from
 from ledger_hand.flows.uploading import VisionModelPresence
 from ledger_hand.ports import ModelError, ModelPort, StoragePort
@@ -70,7 +70,7 @@ def open_with_vision(
         model=model,
         tuning=tuning_from(chosen),
         book=book,
-        coins=BUILT_IN_TABLE,
+        assets=BUILT_IN_ASSETS,
         clock=lambda: NOW,
         zone=ZONE,
         settings=chosen,

@@ -25,7 +25,7 @@ from evals.coverage import feature_holds
 from evals.gold import DEBUG_SET, FINAL_SET, GoldTrade, Group, Sentence, Split, gold_draft, load_set
 from evals.voice import VOICE_SET
 from evals.writings import WRITINGS_SET
-from ledger_hand.core.coins import BUILT_IN_TABLE
+from ledger_hand.core.assets import BUILT_IN_ASSETS
 from ledger_hand.core.numbers import NotANumber, Recognised, Unsure, read_number
 from ledger_hand.core.timeparse import TimeRecognised, read_time
 from ledger_hand.core.trade import OccurredTime, TradeRecord
@@ -118,7 +118,7 @@ def test_every_hand_given_label_is_borne_out(sentence: Sentence) -> None:
 def test_the_check_of_a_draft_finds_missing_exactly_what_the_gold_answer_says(
     sentence: Sentence, trade: GoldTrade
 ) -> None:
-    result = check_draft(gold_draft(trade, sentence.text), BUILT_IN_TABLE, sentence.now)
+    result = check_draft(gold_draft(trade, sentence.text), BUILT_IN_ASSETS, sentence.now)
 
     if trade.missing:
         assert isinstance(result, DraftProblems)
@@ -167,7 +167,7 @@ def test_every_gold_coin_and_currency_is_what_its_phrase_names(
     for field in (Field.COIN, Field.PRICE_CURRENCY, Field.FEE_CURRENCY):
         cell = trade.cell(field)
         if cell.phrase is not None:
-            assert word_identity(cell.phrase, BUILT_IN_TABLE) == cell.value, field
+            assert word_identity(cell.phrase, BUILT_IN_ASSETS) == cell.value, field
     for field in (Field.PLATFORM, Field.OPINION):
         cell = trade.cell(field)
         if cell.phrase is not None:
@@ -189,7 +189,7 @@ def test_a_currency_written_with_a_number_is_in_the_gold_answer(
         reading = read_number(phrase, extra_units=allowed_units(trade))
         if not isinstance(reading, Recognised) or reading.unit is None:
             continue
-        named = currencies_in_unit(reading.unit, BUILT_IN_TABLE, allowed_units(trade))
+        named = currencies_in_unit(reading.unit, BUILT_IN_ASSETS, allowed_units(trade))
         if named:
             assert trade.value(currency_field) == named[0].identity, number_field
 

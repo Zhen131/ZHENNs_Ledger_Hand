@@ -44,6 +44,7 @@ RECORD = TradeRecord(
     quantity=Decimal("0.02"),
     price=Decimal("94900"),
     total=Decimal("1898"),
+    quote="USDT",
     derived=None,
     fee=Decimal("2"),
     fee_coin="USDT",

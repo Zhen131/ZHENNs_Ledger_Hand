@@ -16,7 +16,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from ledger_hand.core.coins import BUILT_IN_TABLE
+from ledger_hand.core.assets import BUILT_IN_ASSETS
 from ledger_hand.core.trade import OccurredTime, Side, TimePrecision, TradeDraft, TradeRecord
 from ledger_hand.core.validation import DraftProblems, Missing, Violation, check_draft
 
@@ -57,7 +57,7 @@ def test_a_moment_whose_offset_has_seconds_is_refused_with_its_reason(
     occurred = old(zone, year, precision)
     assert occurred.value.isoformat().endswith(offset)
 
-    result = check_draft(draft(occurred), BUILT_IN_TABLE, NOW)
+    result = check_draft(draft(occurred), BUILT_IN_ASSETS, NOW)
 
     assert result == DraftProblems(missing=(), violations=(Violation.OFFSET_HAS_SECONDS,))
 
@@ -65,7 +65,7 @@ def test_a_moment_whose_offset_has_seconds_is_refused_with_its_reason(
 def test_an_old_day_has_no_offset_and_is_accepted() -> None:
     day = OccurredTime(date(1890, 6, 1), TimePrecision.DAY, BUDAPEST)
 
-    result = check_draft(draft(day), BUILT_IN_TABLE, NOW)
+    result = check_draft(draft(day), BUILT_IN_ASSETS, NOW)
 
     assert isinstance(result, TradeRecord)
     assert result.occurred == day
@@ -78,13 +78,13 @@ def test_an_old_moment_with_a_whole_minute_offset_is_accepted(zone: str, year: i
     assert offset is not None
     assert not offset % timedelta(minutes=1)
 
-    assert isinstance(check_draft(draft(occurred), BUILT_IN_TABLE, NOW), TradeRecord)
+    assert isinstance(check_draft(draft(occurred), BUILT_IN_ASSETS, NOW), TradeRecord)
 
 
 def test_the_offset_is_reported_with_every_other_problem() -> None:
     broken = draft(old(BUDAPEST, 1890), side=None, fee=Decimal("-1"))
 
-    result = check_draft(broken, BUILT_IN_TABLE, NOW)
+    result = check_draft(broken, BUILT_IN_ASSETS, NOW)
 
     assert result == DraftProblems(
         missing=(Missing.SIDE,),

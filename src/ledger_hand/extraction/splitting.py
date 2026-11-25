@@ -70,7 +70,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
 
-from ledger_hand.core.coins import BUILT_IN_TABLE, CoinTable
+from ledger_hand.core.assets import BUILT_IN_ASSETS, AssetTable
 from ledger_hand.core.trade import Side
 from ledger_hand.core.zones import is_zone_name
 from ledger_hand.extraction.extractor import (
@@ -172,7 +172,7 @@ class _Reading:
     model: ModelPort
     now: datetime
     zone: str
-    coins: CoinTable
+    assets: AssetTable
     prompt: PromptVersion
     parameters: ModelParameters | None
     asks_again: int
@@ -183,7 +183,7 @@ class _Reading:
             self.model if model is None else model,
             now=self.now,
             zone=self.zone,
-            coins=self.coins,
+            assets=self.assets,
             prompt=self.prompt,
             parameters=self.parameters,
             asks_again=self.asks_again,
@@ -209,7 +209,7 @@ def split_then_extract(
     *,
     now: datetime,
     zone: str,
-    coins: CoinTable = BUILT_IN_TABLE,
+    assets: AssetTable = BUILT_IN_ASSETS,
     prompt: PromptVersion = FIRST_PROMPT,
     split_prompt: SplitPromptVersion = SPLIT_PROMPT,
     parameters: ModelParameters | None = None,
@@ -224,7 +224,7 @@ def split_then_extract(
     problem = passage_problem(passage)
     if problem is not None:
         return SplitExtraction(PassageRefused(problem), Route.REFUSED, None, (), (), ())
-    reading = _Reading(model, now, zone, coins, prompt, parameters, asks_again)
+    reading = _Reading(model, now, zone, assets, prompt, parameters, asks_again)
     made = _Made(listed=None)
     split = _split(passage, reading, split_prompt, made)
     if isinstance(split, Route):

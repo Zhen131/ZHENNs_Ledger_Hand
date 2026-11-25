@@ -101,7 +101,7 @@ def take_text(text: str) -> None:
                 parts.model,
                 now=parts.clock(),
                 zone=parts.zone,
-                coins=parts.coins,
+                assets=parts.assets,
                 tuning=parts.tuning,
                 book=parts.book,
             )
@@ -161,7 +161,7 @@ def export_saved() -> None:
             parts.places.exports,
             now=parts.clock(),
             zone=parts.zone,
-            coins=parts.coins,
+            coins=parts.assets.coins,
         )
     except StorageError as error:
         session.keep_note(Place.EXPORT, Note(Tone.FAILED, sayings.export_failed(error)))
@@ -214,7 +214,7 @@ def continue_screenshot(read_key: str, note_key: str) -> None:
             zone=parts.zone,
             text=session.box_text(Box.READ),
             note=session.box_text(Box.NOTE),
-            coins=parts.coins,
+            assets=parts.assets,
             tuning=parts.tuning,
             book=parts.book,
         )

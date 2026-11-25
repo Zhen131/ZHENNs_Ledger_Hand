@@ -1,6 +1,6 @@
 """The check: a draft goes in; a finished record, or two lists of problems, comes out.
 
-``check_draft`` takes a draft, the coin table, the current moment and a few
+``check_draft`` takes a draft, the asset table, the current moment and a few
 adjustable settings. A draft that is complete and sound becomes a
 ``TradeRecord``. Any other draft comes back as ``DraftProblems``: what is
 still missing, and what breaks a rule. A draft that falls short is an ordinary
@@ -11,9 +11,13 @@ enumeration is written below, whatever order the problems were found in.
 The rules:
 
 - The side, the coin, the time, the fee and the original text must be there.
-- The coin must be in the coin table or confirmed by the user, must be
-  writable as a ledger symbol, and cannot be USDT.
-- If a word for the pricing currency was said, it must be a word for USDT.
+- The coin must be an asset of the asset table or confirmed by the user
+  (when the table lets an unseen asset be confirmed), must be writable as a
+  ledger symbol, and cannot be a money the table prices trades in.
+- The trade is priced in one money the table prices trades in. When no word
+  for it was said, or the word names more than one such money, a table
+  with only one takes that one, and a table with several asks which. A word
+  for any other money, or for no money, means the trade cannot be recorded.
 - Of quantity, price and total, at least two must be stated. The third is
   calculated and marked as calculated. If all three are stated, quantity times
   price may differ from the total by no more than the tolerance, and all three
@@ -26,8 +30,10 @@ The rules:
   holds. After rounding, the calculated amount must itself be above zero and
   fit the ledger, and the three amounts must still agree.
 - The fee must be stated, even when it is zero, and cannot be negative. A fee
-  above zero needs its coin: USDT, or a coin the table knows. A fee of zero is
-  always recorded in USDT.
+  above zero needs its coin: a money the table prices trades in, or an asset
+  the table knows. A word naming more than one such money counts as no
+  word. A fee of zero is always recorded in the money the trade is priced
+  in.
 - On a buy, a fee paid in the coin being bought must be smaller than the
   quantity.
 - The time cannot be in the future: a moment may be at most ``future_grace``
@@ -69,12 +75,12 @@ from datetime import datetime, timedelta
 from decimal import Context, Decimal, Inexact
 
 from ledger_hand.core.arithmetic import ledger_context, round_half_up, working_context
-from ledger_hand.core.coins import CoinTable, means_usdt, spoken_key
+from ledger_hand.core.assets import AssetTable, MoneyReading, UnknownAssets
+from ledger_hand.core.coins import spoken_key
 from ledger_hand.core.ledger_limits import (
     MAX_DECIMAL_PLACES,
     NOTE_MAX_LENGTH,
     PLATFORM_MAX_LENGTH,
-    QUOTE_CURRENCY,
     RAW_TEXT_MAX_LENGTH,
     TOTAL_TOLERANCE,
     fits_digit_limits,
@@ -98,6 +104,7 @@ class Missing(enum.Enum):
     FEE_COIN_CONFIRMATION = "confirmation of a fee coin not seen before"
     OCCURRED = "when the trade happened"
     RAW_TEXT = "the original text"
+    QUOTE = "the currency the trade was priced in"
 
 
 class Violation(enum.Enum):
@@ -125,6 +132,10 @@ class Violation(enum.Enum):
     NOTE_TOO_LONG = "the note is longer than the ledger allows"
     RAW_TEXT_EMPTY = "the original text is empty"
     RAW_TEXT_TOO_LONG = "the original text is longer than the ledger allows"
+    COIN_IS_PRICING_MONEY = "the traded asset is a currency trades are priced in"
+    QUOTE_CANNOT_PRICE = "the trade is priced in a currency the ledger does not price trades in"
+    ASSET_NOT_IN_LEDGER = "the asset is not in the ledger; add it there first"
+    FEE_ASSET_NOT_IN_LEDGER = "the fee's asset is not in the ledger; add it there first"
 
 
 @dataclass(frozen=True)
@@ -198,19 +209,20 @@ class _Amounts:
 @dataclass(frozen=True)
 class _Fee:
     amount: Decimal
-    coin: str
+    coin: str | None
 
 
 def check_draft(
     draft: TradeDraft,
-    coins: CoinTable,
+    assets: AssetTable,
     now: datetime,
     settings: CheckSettings = DEFAULT_SETTINGS,
 ) -> TradeRecord | DraftProblems:
     """Turn ``draft`` into a record, or say what is missing and what breaks a rule.
 
-    ``now`` is the current moment and must carry an offset; the check never
-    reads a clock itself.
+    ``assets`` says which assets may be traded and which money they may be
+    priced in. ``now`` is the current moment and must carry an offset; the
+    check never reads a clock itself.
     """
     if now.utcoffset() is None:
         raise ValueError("the current moment must carry a time zone offset")
@@ -218,10 +230,10 @@ def check_draft(
     side = draft.side
     if side is None:
         found.append(Missing.SIDE)
-    coin = _coin_symbol(draft.coin, coins, found)
-    _check_quote(draft.quote, found)
+    coin = _coin_symbol(draft.coin, assets, found)
+    quote = _quote(draft.quote, assets, found)
     amounts = _amounts(draft, settings, found)
-    fee = _fee(draft, coins, found)
+    fee = _fee(draft, assets, quote, found)
     _check_fee_below_quantity(side, coin, amounts, fee, found)
     occurred = _occurred(draft.occurred, now, settings.future_grace, found)
     platform = _platform(draft.platform, found)
@@ -231,8 +243,10 @@ def check_draft(
         found
         or side is None
         or coin is None
+        or quote is None
         or amounts is None
         or fee is None
+        or fee.coin is None
         or occurred is None
         or raw_text is None
     ):
@@ -243,6 +257,7 @@ def check_draft(
         quantity=amounts.quantity,
         price=amounts.price,
         total=amounts.total,
+        quote=quote,
         derived=amounts.derived,
         fee=fee.amount,
         fee_coin=fee.coin,
@@ -263,26 +278,46 @@ def _in_fixed_order(found: list[_Problem]) -> DraftProblems:
 # --- the coin and the pricing currency --------------------------------------
 
 
-def _coin_symbol(spoken: str | None, coins: CoinTable, found: list[_Problem]) -> str | None:
+def _coin_symbol(spoken: str | None, assets: AssetTable, found: list[_Problem]) -> str | None:
     if spoken is None or not spoken_key(spoken):
         found.append(Missing.COIN)
         return None
-    if means_usdt(spoken):
-        found.append(Violation.COIN_IS_USDT)
+    if assets.money(spoken).reading in (MoneyReading.ONE, MoneyReading.SEVERAL):
+        found.append(
+            Violation.COIN_IS_USDT
+            if assets.prices_only_in_usdt()
+            else Violation.COIN_IS_PRICING_MONEY
+        )
         return None
-    coin = coins.find(spoken)
+    coin = assets.find(spoken)
     if coin is not None:
         return coin.symbol
-    if is_symbol(spoken_key(spoken)):
+    if not is_symbol(spoken_key(spoken)):
+        found.append(Violation.COIN_NOT_A_SYMBOL)
+    elif assets.unknown is UnknownAssets.CONFIRM_ON_THE_SPOT:
         found.append(Missing.COIN_CONFIRMATION)
     else:
-        found.append(Violation.COIN_NOT_A_SYMBOL)
+        found.append(Violation.ASSET_NOT_IN_LEDGER)
     return None
 
 
-def _check_quote(spoken: str | None, found: list[_Problem]) -> None:
-    if spoken is not None and spoken_key(spoken) and not means_usdt(spoken):
-        found.append(Violation.UNSUPPORTED_QUOTE)
+def _quote(spoken: str | None, assets: AssetTable, found: list[_Problem]) -> str | None:
+    """The code of the money the trade is priced in, or ``None`` with the problem noted."""
+    said = assets.money(spoken) if spoken is not None and spoken_key(spoken) else None
+    if said is None or said.reading is MoneyReading.SEVERAL:
+        # Not said, or not clear which: a table with one money needs no answer.
+        sole = assets.sole_pricing_code
+        if sole is None:
+            found.append(Missing.QUOTE)
+        return sole
+    if said.reading is MoneyReading.ONE:
+        return said.code
+    found.append(
+        Violation.UNSUPPORTED_QUOTE
+        if assets.prices_only_in_usdt()
+        else Violation.QUOTE_CANNOT_PRICE
+    )
+    return None
 
 
 # --- quantity, price and total ----------------------------------------------
@@ -405,7 +440,9 @@ def amounts_agree(quantity: Decimal, price: Decimal, total: Decimal) -> bool:
 # --- the fee ----------------------------------------------------------------
 
 
-def _fee(draft: TradeDraft, coins: CoinTable, found: list[_Problem]) -> _Fee | None:
+def _fee(
+    draft: TradeDraft, assets: AssetTable, quote: str | None, found: list[_Problem]
+) -> _Fee | None:
     fee = draft.fee
     if fee is None:
         found.append(Missing.FEE)
@@ -419,28 +456,37 @@ def _fee(draft: TradeDraft, coins: CoinTable, found: list[_Problem]) -> _Fee | N
     if negative or not fits:
         return None
     if fee.is_zero():
-        return _Fee(fee.copy_abs(), QUOTE_CURRENCY)
-    coin = _fee_coin_symbol(draft, coins, found)
+        # Recorded in the money the trade is priced in; while that is not
+        # settled, a problem is already noted and no record is built.
+        return _Fee(fee.copy_abs(), quote)
+    coin = _fee_coin_symbol(draft, assets, found)
     return None if coin is None else _Fee(fee, coin)
 
 
-def _fee_coin_symbol(draft: TradeDraft, coins: CoinTable, found: list[_Problem]) -> str | None:
+def _fee_coin_symbol(draft: TradeDraft, assets: AssetTable, found: list[_Problem]) -> str | None:
     spoken = draft.fee_coin
-    if spoken is None or not spoken_key(spoken):
+    said = None if spoken is None or not spoken_key(spoken) else assets.money(spoken)
+    if spoken is None or said is None or said.reading is MoneyReading.SEVERAL:
+        # Not said, or not clear which money: asked as the fee's coin.
         found.append(Missing.FEE_COIN)
         return None
-    if means_usdt(spoken):
-        return QUOTE_CURRENCY
-    coin = coins.find(spoken)
+    if said.reading is MoneyReading.ONE:
+        return said.code
+    coin = assets.find(spoken)
     if coin is not None:
         return coin.symbol
     key = spoken_key(spoken)
     if not is_symbol(key):
         found.append(Violation.FEE_COIN_NOT_A_SYMBOL)
     elif draft.coin is None or spoken_key(draft.coin) != key:
-        # The same unseen coin as the trade itself is confirmed once, as the
-        # trade's coin; only a different one needs a confirmation of its own.
-        found.append(Missing.FEE_COIN_CONFIRMATION)
+        # The same unseen coin as the trade itself is confirmed once, or
+        # refused once, as the trade's coin; only a different one is taken
+        # up on its own.
+        found.append(
+            Missing.FEE_COIN_CONFIRMATION
+            if assets.unknown is UnknownAssets.CONFIRM_ON_THE_SPOT
+            else Violation.FEE_ASSET_NOT_IN_LEDGER
+        )
     return None
 
 

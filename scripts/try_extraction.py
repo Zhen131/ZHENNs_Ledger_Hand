@@ -35,6 +35,7 @@ from typing import TextIO
 
 import tzlocal
 
+from ledger_hand.core.assets import BUILT_IN_ASSETS
 from ledger_hand.core.numbers import write_number
 from ledger_hand.core.timeparse import write_time
 from ledger_hand.core.trade import OccurredTime, TradeDraft
@@ -82,7 +83,9 @@ def main(
         model = _model(out)
         if model is None:
             return 2
-    result = extract(passage, model, now=now or datetime.now(timezone.utc), zone=zone)
+    result = extract(
+        passage, model, now=now or datetime.now(timezone.utc), zone=zone, assets=BUILT_IN_ASSETS
+    )
     show_result(result, passage, zone, out)
     return 0 if isinstance(result, Extracted) else 1
 

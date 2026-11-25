@@ -62,6 +62,7 @@ from datetime import datetime
 from ledger_hand.assistant.edit_calls import EDIT_TOOLS
 from ledger_hand.assistant.edit_words import not_done_words
 from ledger_hand.assistant.outcome import Chat, Ending, TakenCall, TurnResult
+from ledger_hand.core.assets import BUILT_IN_ASSETS
 from ledger_hand.flows import editing, recording
 from ledger_hand.flows.assisting import close_editing, close_recording, first_edit, take_turn
 from ledger_hand.flows.editing import Edited, EditEnding, EditSent, EditWaiting
@@ -201,7 +202,12 @@ def say(
 def _begun(said: str, around: _Around) -> Recorded:
     """What the user said, word for word, handed to the recording flow; no book is handed in."""
     progress = recording.start(
-        said, around.model, now=around.now, zone=around.zone, tuning=around.tuning
+        said,
+        around.model,
+        now=around.now,
+        zone=around.zone,
+        assets=BUILT_IN_ASSETS,
+        tuning=around.tuning,
     )
     return _onward(progress, around.ledger)
 

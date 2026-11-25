@@ -20,7 +20,9 @@ not by the order the check found them in. Every ``Missing`` and every
 added without saying where it goes. Problems that make a trade impossible to
 record come first, since asking anything else about such a trade is
 pointless; the rest follow the order a trade is told in: the side, the coin,
-the amounts, the fee, the time, then the platform and the note.
+the currency it was priced in, the amounts, the fee, the time, then the
+platform and the note. The currency is asked only of an asset table with
+more than one money to price in; with one, the check never finds it missing.
 
 Only one question comes back at a time, and only for one cell (or one set of
 cells that one problem lies between). What happens to the answer is not
@@ -60,6 +62,7 @@ class Cell(enum.Enum):
     OCCURRED = "time"
     PLATFORM = "platform"
     NOTE = "note"
+    QUOTE = "pricing currency"
 
 
 # The draft's field behind each cell.
@@ -74,6 +77,7 @@ _FIELD_OF = {
     Cell.OCCURRED: "occurred",
     Cell.PLATFORM: "platform",
     Cell.NOTE: "note",
+    Cell.QUOTE: "quote",
 }
 
 # Quantity, price and total, in the order a blank one of them is asked for.
@@ -87,6 +91,7 @@ class Destination(enum.Enum):
     ASK_SIDE = "ask whether it was a buy or a sell"
     ASK_COIN = "ask which coin was traded"
     CONFIRM_COIN = "ask whether the word for the coin is a coin's symbol"
+    ASK_QUOTE = "ask which currency the trade was priced in"
     ASK_QUANTITY = "ask the quantity"
     ASK_PRICE = "ask the price"
     ASK_TOTAL = "ask the total"
@@ -114,11 +119,17 @@ FOLLOW_UP_ORDER: tuple[tuple[Problem, Destination], ...] = (
     (Missing.RAW_TEXT, Destination.CANNOT_RECORD),
     (Violation.COIN_IS_USDT, Destination.CANNOT_RECORD),
     (Violation.UNSUPPORTED_QUOTE, Destination.CANNOT_RECORD),
+    (Violation.COIN_IS_PRICING_MONEY, Destination.CANNOT_RECORD),
+    (Violation.QUOTE_CANNOT_PRICE, Destination.CANNOT_RECORD),
+    (Violation.ASSET_NOT_IN_LEDGER, Destination.CANNOT_RECORD),
+    (Violation.FEE_ASSET_NOT_IN_LEDGER, Destination.CANNOT_RECORD),
     # The side and the coin.
     (Missing.SIDE, Destination.ASK_SIDE),
     (Missing.COIN, Destination.ASK_COIN),
     (Violation.COIN_NOT_A_SYMBOL, Destination.ASK_COIN),
     (Missing.COIN_CONFIRMATION, Destination.CONFIRM_COIN),
+    # The currency the trade was priced in.
+    (Missing.QUOTE, Destination.ASK_QUOTE),
     # The amounts: a stated amount that is wrong in itself, then the blanks,
     # then whether the three agree.
     (Violation.QUANTITY_NOT_POSITIVE, Destination.ASK_QUANTITY),
@@ -158,6 +169,7 @@ _ONE_CELL = {
     Destination.ASK_TIME: Cell.OCCURRED,
     Destination.ASK_PLATFORM: Cell.PLATFORM,
     Destination.ASK_NOTE: Cell.NOTE,
+    Destination.ASK_QUOTE: Cell.QUOTE,
 }
 _CONFIRMED_CELL = {
     Destination.CONFIRM_COIN: Cell.COIN,
@@ -262,4 +274,5 @@ _TYPE_OF: dict[Cell, type] = {
     Cell.OCCURRED: OccurredTime,
     Cell.PLATFORM: str,
     Cell.NOTE: str,
+    Cell.QUOTE: str,
 }

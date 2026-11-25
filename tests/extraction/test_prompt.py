@@ -13,7 +13,7 @@ import re
 
 import pytest
 
-from ledger_hand.core.coins import BUILT_IN_TABLE
+from ledger_hand.core.assets import BUILT_IN_ASSETS
 from ledger_hand.core.numbers import Recognised, read_number
 from ledger_hand.core.timeparse import TimeRecognised, read_time
 from ledger_hand.extraction import prompts
@@ -180,11 +180,11 @@ def test_the_examples_include_a_fee_paid_in_a_coin_other_than_usdt() -> None:
     fee_coins = set()
     for _, row in EXAMPLE_ROWS:
         if row.get(Field.FEE_CURRENCY):
-            fee_coins.add(word_identity(row[Field.FEE_CURRENCY], BUILT_IN_TABLE))
+            fee_coins.add(word_identity(row[Field.FEE_CURRENCY], BUILT_IN_ASSETS))
         elif row.get(Field.FEE):
             unit = read_number(row[Field.FEE], (row.get(Field.COIN, ""),))
             if isinstance(unit, Recognised) and unit.unit:
-                fee_coins.add(word_identity(unit.unit, BUILT_IN_TABLE))
+                fee_coins.add(word_identity(unit.unit, BUILT_IN_ASSETS))
 
     assert fee_coins - {"USDT"}
 

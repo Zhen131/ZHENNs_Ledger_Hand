@@ -47,7 +47,7 @@ def test_the_parts_are_built_from_the_settings_and_the_machine(machine: Path) ->
 
     assert isinstance(parts, Parts)
     assert parts.zone == "Europe/Budapest"
-    assert parts.coins is BUILT_IN_TABLE
+    assert parts.assets.coins is BUILT_IN_TABLE
     assert parts.tuning == tuning_from(ModelSettings())
     assert isinstance(parts.book, SqliteStore)
     assert parts.book.path == machine / BOOK_FILE_NAME

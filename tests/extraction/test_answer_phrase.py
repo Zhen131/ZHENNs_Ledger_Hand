@@ -14,7 +14,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from ledger_hand.core.coins import BUILT_IN_TABLE
+from ledger_hand.core.assets import BUILT_IN_ASSETS
 from ledger_hand.core.followup import AMOUNT_CELLS, AskCell, AskWhichCell, Cell, ConfirmCoin
 from ledger_hand.core.numbers import Doubt
 from ledger_hand.core.timeparse import Refusal
@@ -44,7 +44,7 @@ from tests.fakes.scripted_model import ScriptedModel
 
 ZONE = "Europe/Budapest"
 NOW = datetime(2026, 10, 7, 9, 30, tzinfo=ZoneInfo(ZONE))
-SETTING = AnswerSetting(now=NOW, zone=ZONE, coins=BUILT_IN_TABLE, coin="BTC")
+SETTING = AnswerSetting(now=NOW, zone=ZONE, assets=BUILT_IN_ASSETS, coin="BTC")
 PRICE = AskCell(Cell.PRICE, Missing.ONE_MORE_OF_QUANTITY_PRICE_TOTAL)
 QUANTITY = AskCell(Cell.QUANTITY, Missing.TWO_OF_QUANTITY_PRICE_TOTAL)
 FEE = AskCell(Cell.FEE, Missing.FEE)
@@ -200,12 +200,12 @@ def test_a_time_said_with_words_around_it_is_copied_by_the_model() -> None:
 
 def test_a_time_the_clocks_showed_twice_offers_both_and_either_can_be_chosen() -> None:
     late_october = datetime(2026, 10, 25, 12, 0, tzinfo=ZoneInfo(ZONE))
-    setting = AnswerSetting(now=late_october, zone=ZONE, coins=BUILT_IN_TABLE)
+    setting = AnswerSetting(now=late_october, zone=ZONE, assets=BUILT_IN_ASSETS)
     reading, _ = read("2:30", TIME, setting=setting)
     assert isinstance(reading.outcome, TwoTimes)
     both = (reading.outcome.earlier, reading.outcome.later)
 
-    choosing = AnswerSetting(now=late_october, zone=ZONE, coins=BUILT_IN_TABLE, candidates=both)
+    choosing = AnswerSetting(now=late_october, zone=ZONE, assets=BUILT_IN_ASSETS, candidates=both)
     first, _ = read("first", TIME, setting=choosing)
     second, _ = read("第二个", TIME, setting=choosing)
 

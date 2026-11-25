@@ -9,6 +9,7 @@ book. Every trade is invented.
 
 from __future__ import annotations
 
+import dataclasses
 from collections.abc import Iterator
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -153,6 +154,21 @@ def test_an_identifier_already_saved_is_a_conflict_and_nothing_of_that_save_is_k
     assert [entry.trade.id for entry in store.trades(Listing.ALL)] == [first.id]
     assert store.confirmed_coins() == ()
     assert store.earlier_saves("p2") == ()
+
+
+def test_a_trade_priced_in_another_money_than_usdt_is_a_conflict_and_nothing_is_kept(
+    store: StoragePort,
+) -> None:
+    first, second, _, _ = four_trades()
+    in_usd = dataclasses.replace(second, record=dataclasses.replace(second.record, quote="USD"))
+
+    with pytest.raises(StorageError) as raised:
+        store.save(passage("p1", first, in_usd, coins=("PIKA",)))
+
+    assert raised.value.kind is StorageErrorKind.CONFLICT
+    assert store.trades(Listing.ALL) == ()
+    assert store.confirmed_coins() == ()
+    assert store.earlier_saves("p1") == ()
 
 
 def test_confirmed_coins_are_kept_with_the_save_and_keep_their_first_moment(

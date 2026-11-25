@@ -13,7 +13,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from ledger_hand.core.coins import BUILT_IN_TABLE
+from ledger_hand.core.assets import BUILT_IN_ASSETS
 from ledger_hand.flows.progress import Progress, Setting, Stage
 from ledger_hand.flows.record_words import ENDING_WORDS, LEFT_OUT_WORDS, reply_for
 from ledger_hand.flows.recorded import (
@@ -26,7 +26,7 @@ from ledger_hand.flows.recorded import (
 )
 
 NOW = datetime(2026, 11, 24, 23, 55, tzinfo=ZoneInfo("Europe/Budapest"))
-PROGRESS = Progress(Stage.NO_TRADE, "你好", Setting(NOW, "Europe/Budapest", BUILT_IN_TABLE))
+PROGRESS = Progress(Stage.NO_TRADE, "你好", Setting(NOW, "Europe/Budapest", BUILT_IN_ASSETS))
 
 
 def test_every_ending_has_a_sentence() -> None:

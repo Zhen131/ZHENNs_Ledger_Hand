@@ -10,9 +10,12 @@ extraction left it empty for a reason (a number or a time it could not
 read), and the notes shown beside the question:
 
 - the passage's own words for the field, when there are some;
-- when a price or a total is asked and the passage's words for it name a
-  currency other than USDT, that only trades priced in USDT are recorded,
-  and that the trade can be skipped;
+- when a price or a total is asked and the passage's words for it name
+  something the asset table does not price trades in, that only trades
+  priced in such money are recorded, and that the trade can be skipped;
+  with the built-in table the note names USDT, as it always has;
+- when the currency the trade was priced in is asked, the codes it may be
+  answered with;
 - for the cells one problem lies between, their values now, and how to say
   which one is wrong;
 - for a coin to confirm, that the answer is yes or no; for the fee, that
@@ -30,8 +33,8 @@ Names defined here: ``make_question``.
 from __future__ import annotations
 
 from ledger_hand.asking.question_text import QuestionFacts, write_question
+from ledger_hand.core.assets import MoneyReading
 from ledger_hand.core.followup import AskCell, AskWhichCell, Cell, ConfirmCoin, value_of
-from ledger_hand.core.ledger_limits import QUOTE_CURRENCY
 from ledger_hand.core.numbers import write_number
 from ledger_hand.core.timeparse import write_time
 from ledger_hand.core.trade import OccurredTime, Side, TradeDraft
@@ -52,6 +55,7 @@ _FIELD_OF = {
     Cell.OCCURRED: Field.TIME,
     Cell.PLATFORM: Field.PLATFORM,
     Cell.NOTE: Field.OPINION,
+    Cell.QUOTE: Field.PRICE_CURRENCY,
 }
 # The issues whose phrase is the passage's own words for a field left empty.
 _QUOTED_KINDS = frozenset(
@@ -73,6 +77,10 @@ _KNOWN = (
 
 SKIP_OR_CANCEL = "Say 'skip' to leave this trade out, or 'cancel' to drop the whole passage."
 USDT_ONLY = "Only trades priced in USDT are recorded; the passage may price this one in a coin."
+PRICEABLE_ONLY = (
+    "Only trades priced in a currency the ledger prices trades in are recorded; "
+    "the passage may price this one in something else."
+)
 TWICE = "The clocks showed that time twice that day: answer 1 or 2, or say the time again."
 
 
@@ -104,7 +112,9 @@ def make_question(
         word=_word(asked, draft),
     )
     tuning = setting.tuning
-    written = write_question(facts, model, setting.coins, parameters=tuning.question_parameters)
+    written = write_question(
+        facts, model, setting.assets.coins, parameters=tuning.question_parameters
+    )
     question = Question(
         trade=position,
         asked=asked,
@@ -185,7 +195,7 @@ def _notes(
     if quoted is not None:
         notes.append(f"The passage says: {quoted!r}.")
         if _prices_in_a_coin(asked, quoted, draft, setting):
-            notes.append(USDT_ONLY)
+            notes.append(USDT_ONLY if setting.assets.prices_only_in_usdt() else PRICEABLE_ONLY)
     if isinstance(asked, AskWhichCell):
         now = ", ".join(f"{cell.value} {_value_or_blank(draft, cell)}" for cell in asked.cells)
         notes.append(f"Now: {now}.")
@@ -197,6 +207,8 @@ def _notes(
         notes.append("Answer yes or no.")
     if isinstance(asked, AskCell) and asked.cell is Cell.FEE:
         notes.append("Answer 'none' if there was no fee.")
+    if isinstance(asked, AskCell) and asked.cell is Cell.QUOTE:
+        notes.append(f"Answer with one of: {', '.join(setting.assets.pricing_codes)}.")
     if candidates:
         notes.append(TWICE)
     notes.append(SKIP_OR_CANCEL)
@@ -209,9 +221,15 @@ def _value_or_blank(draft: TradeDraft, cell: Cell) -> str:
 
 
 def _prices_in_a_coin(asked: Asked, quoted: str, draft: TradeDraft, setting: Setting) -> bool:
-    """Whether a price or total is asked and the passage's words for it name a coin, not USDT."""
+    """Whether a price or total is asked and the passage's words for it name no pricing money.
+
+    A word naming one money the table prices in, or several such, does not
+    count; anything else named (a coin, other money) does.
+    """
     if not isinstance(asked, AskCell) or asked.cell not in (Cell.PRICE, Cell.TOTAL):
         return False
     allowed = tuple(word for word in (draft.coin, draft.fee_coin) if word is not None)
-    named = currencies_in_unit(quoted, setting.coins, allowed)
-    return any(word.identity != QUOTE_CURRENCY for word in named)
+    assets = setting.assets
+    named = currencies_in_unit(quoted, assets, allowed)
+    pricing = (MoneyReading.ONE, MoneyReading.SEVERAL)
+    return any(assets.money(word.text).reading not in pricing for word in named)

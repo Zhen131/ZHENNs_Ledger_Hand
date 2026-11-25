@@ -39,7 +39,7 @@ from evals.cells import CellOutcome, CellResult, EmptyReason, tidy_text
 from evals.gold import Group, Language, Sentence, Split
 from evals.records import Results, produced_from_line, sentence_from_line
 from evals.scoring import Produced, Scores, SentenceScore, add_up, score_sentence
-from ledger_hand.core.coins import BUILT_IN_TABLE
+from ledger_hand.core.assets import BUILT_IN_ASSETS
 from ledger_hand.core.trade import TradeRecord
 from ledger_hand.core.validation import check_draft
 from ledger_hand.extraction.reply_table import Field
@@ -203,7 +203,7 @@ def _not_to_record(scored: Sequence[Scored]) -> list[dict[str, object]]:
     for sentence, produced, score in scored:
         checks: list[str] = []
         for draft in produced.drafts:
-            result = check_draft(draft, BUILT_IN_TABLE, sentence.now)
+            result = check_draft(draft, BUILT_IN_ASSETS, sentence.now)
             if isinstance(result, TradeRecord):
                 checks.append("not stopped: it passes the check")
             else:

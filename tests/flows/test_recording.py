@@ -330,8 +330,8 @@ def test_a_coin_confirmed_once_is_known_for_the_rest_of_the_run() -> None:
 
     assert after.stage is Stage.REVIEWING
     assert [record.coin for record in after.records] == ["PIKA", "PIKA"]
-    assert after.setting.coins.find("PIKA") is not None
-    assert first.setting.coins.find("PIKA") is None
+    assert after.setting.assets.find("PIKA") is not None
+    assert first.setting.assets.find("PIKA") is None
 
 
 def test_a_coin_denied_is_asked_for_again() -> None:

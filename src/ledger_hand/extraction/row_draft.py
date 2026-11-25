@@ -1,8 +1,8 @@
 """One row of the model's table becomes one draft, with the issues it raised.
 
 ``draft_from_row`` takes a row as the model wrote it and the surroundings
-every row shares (the passage, the coin table, the current moment and the
-zone), and gives back a ``RowDraft``: the draft, its issues, and the numbers
+every row shares (the passage, the asset table, the current moment and
+the zone), and gives back a ``RowDraft``: the draft, its issues, and the numbers
 of the passage its phrases hold.
 
 Each copied field goes through the same steps:
@@ -15,12 +15,13 @@ Each copied field goes through the same steps:
    and the reader is given the same unit words there as in step 2.
 2. The piece is turned into a value with the core's rules:
 
-   - the coin is looked up in the coin table; a coin the table knows goes in
-     by its symbol, any other as its name in capitals, a candidate symbol
+   - the coin is looked up in the asset table; an asset the table knows goes
+     in by its symbol, any other as its name in capitals, a candidate symbol
      that the check of a draft will ask the user to confirm or will refuse;
    - quantity, price, total and fee are read by ``read_number``, which is
      told that the trade's own coin and fee coin, as copied, may stand as a
-     unit; nothing else is allowed;
+     unit, and so may the asset table's own unit words ("股"); nothing else
+     is allowed;
    - the time is read by ``read_time`` with the moment and zone handed in;
    - the pricing currency, the fee's currency, the platform and the opinion
      go in as written.
@@ -54,7 +55,8 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from decimal import Decimal
 
-from ledger_hand.core.coins import CoinTable, spoken_key
+from ledger_hand.core.assets import AssetTable
+from ledger_hand.core.coins import spoken_key
 from ledger_hand.core.numbers import NotANumber, Recognised, Unsure, read_number
 from ledger_hand.core.timeparse import TimeRecognised, TwoCandidates, read_time
 from ledger_hand.core.trade import OccurredTime, TradeDraft
@@ -76,7 +78,7 @@ class Surroundings:
     """What every row of one reply is read against."""
 
     passage: Passage
-    coins: CoinTable
+    assets: AssetTable
     now: datetime
     zone: str
 
@@ -109,14 +111,15 @@ def draft_from_row(row: ReplyRow, position: int, around: Surroundings) -> RowDra
     pieces = _pieces(row.cells, work)
     work.texts = {name: piece.text for name, piece in pieces.items()}
     allowed = _allowed_words(work.texts)
+    units = _read_units(allowed, around.assets)
     amounts: dict[Field, Decimal | None] = {}
     for name in _NUMBER_FIELDS:
-        amounts[name], unit = _number(name, work, allowed)
+        amounts[name], unit = _number(name, work, units)
         if unit is not None:
             _use_unit(name, unit, work, allowed)
     draft = TradeDraft(
         side=row.side,
-        coin=_coin(work.texts.get(Field.COIN), around.coins),
+        coin=_coin(work.texts.get(Field.COIN), around.assets),
         quantity=amounts[Field.QUANTITY],
         price=amounts[Field.PRICE],
         total=amounts[Field.TOTAL],
@@ -133,8 +136,17 @@ def draft_from_row(row: ReplyRow, position: int, around: Surroundings) -> RowDra
 
 
 def _allowed_words(texts: Mapping[Field, str]) -> tuple[str, ...]:
-    """The unit words the number reader is given: the trade's coin and fee coin, as written."""
+    """The trade's coin and fee coin, as written: unit words that may name a currency."""
     return tuple(texts[name] for name in (Field.COIN, Field.FEE_CURRENCY) if name in texts)
+
+
+def _read_units(allowed: tuple[str, ...], assets: AssetTable) -> tuple[str, ...]:
+    """The unit words the number reader is given: ``allowed``, then the table's own unit words.
+
+    The table's words go to the reader only; they name no currency, so they
+    are never handed on to the reading of a unit.
+    """
+    return (*allowed, *assets.extra_units)
 
 
 def _pieces(cells: Mapping[Field, str], work: _Row) -> dict[Field, Piece]:
@@ -147,8 +159,11 @@ def _pieces(cells: Mapping[Field, str], work: _Row) -> dict[Field, Piece]:
     found: dict[Field, Piece | PieceMiss] = {
         name: passage.find(phrase) for name, phrase in cells.items() if name not in _NUMBER_FIELDS
     }
-    allowed = _allowed_words(
-        {name: piece.text for name, piece in found.items() if isinstance(piece, Piece)}
+    allowed = _read_units(
+        _allowed_words(
+            {name: piece.text for name, piece in found.items() if isinstance(piece, Piece)}
+        ),
+        work.around.assets,
     )
     for name in _NUMBER_FIELDS:
         if name in cells:
@@ -163,10 +178,10 @@ def _pieces(cells: Mapping[Field, str], work: _Row) -> dict[Field, Piece]:
     return pieces
 
 
-def _coin(text: str | None, coins: CoinTable) -> str | None:
+def _coin(text: str | None, assets: AssetTable) -> str | None:
     if text is None:
         return None
-    coin = coins.find(text)
+    coin = assets.find(text)
     return coin.symbol if coin is not None else spoken_key(text)
 
 
@@ -198,8 +213,8 @@ _UNIT_TARGETS = {
 
 
 def _use_unit(name: Field, unit: str, work: _Row, allowed: tuple[str, ...]) -> None:
-    coins = work.around.coins
-    named = currencies_in_unit(unit, coins, allowed)
+    assets = work.around.assets
+    named = currencies_in_unit(unit, assets, allowed)
     if not named:
         return
     target, mismatch = _UNIT_TARGETS[name]
@@ -210,7 +225,7 @@ def _use_unit(name: Field, unit: str, work: _Row, allowed: tuple[str, ...]) -> N
     if current is None and name is not Field.QUANTITY:
         work.texts[target] = named[0].text
         return
-    wanted = None if current is None else word_identity(current, coins)
+    wanted = None if current is None else word_identity(current, assets)
     if any(word.identity != wanted for word in named):
         work.note(mismatch, name, phrase=unit)
 

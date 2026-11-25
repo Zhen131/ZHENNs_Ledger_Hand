@@ -18,6 +18,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
+from ledger_hand.core.assets import BUILT_IN_ASSETS
 from ledger_hand.core.coins import BUILT_IN_TABLE
 from ledger_hand.core.stored import StoredTrade
 from ledger_hand.core.trade import OccurredTime, Side, TimePrecision, TradeDraft, TradeRecord
@@ -45,7 +46,7 @@ def accepted(occurred: OccurredTime, now: datetime) -> TradeRecord | None:
         occurred=occurred,
         raw_text=f"1 BTC at {occurred.value} in {occurred.time_zone}",
     )
-    result = check_draft(draft, BUILT_IN_TABLE, now)
+    result = check_draft(draft, BUILT_IN_ASSETS, now)
     return result if isinstance(result, TradeRecord) else None
 
 
@@ -60,7 +61,7 @@ def violations(occurred: OccurredTime, now: datetime) -> tuple[Violation, ...]:
         occurred=occurred,
         raw_text=f"1 BTC at {occurred.value} in {occurred.time_zone}",
     )
-    result = check_draft(draft, BUILT_IN_TABLE, now)
+    result = check_draft(draft, BUILT_IN_ASSETS, now)
     assert isinstance(result, DraftProblems), result
     return result.violations
 

@@ -53,7 +53,7 @@ from datetime import datetime
 from decimal import Decimal
 
 from evals.gold import GoldCell, GoldValue
-from ledger_hand.core.coins import BUILT_IN_TABLE
+from ledger_hand.core.assets import BUILT_IN_ASSETS
 from ledger_hand.core.numbers import write_number
 from ledger_hand.core.timeparse import write_time
 from ledger_hand.core.trade import OccurredTime, Side, TradeDraft
@@ -162,7 +162,7 @@ def agrees(field: Field, gold: GoldValue | None, got: GoldValue | None) -> bool:
 
 
 def _identity(word: object) -> str:
-    return word_identity(str(word), BUILT_IN_TABLE)
+    return word_identity(str(word), BUILT_IN_ASSETS)
 
 
 def _same_time(gold: OccurredTime, got: OccurredTime) -> bool:

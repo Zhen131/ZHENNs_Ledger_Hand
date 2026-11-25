@@ -33,7 +33,7 @@ from pathlib import Path
 
 from streamlit.testing.v1 import AppTest
 
-from ledger_hand.core.coins import BUILT_IN_TABLE
+from ledger_hand.core.assets import BUILT_IN_ASSETS
 from ledger_hand.flows.recording import tuning_from
 from ledger_hand.llm.ollama import parameters_from
 from ledger_hand.ports import JsonSchema, Message, ModelParameters, ModelReply, StoragePort
@@ -113,7 +113,7 @@ def open_with(
         model=model,  # type: ignore[arg-type]
         tuning=tuning_from(chosen),
         book=book,
-        coins=BUILT_IN_TABLE,
+        assets=BUILT_IN_ASSETS,
         clock=clock,
         zone=ZONE,
         settings=chosen,

@@ -56,8 +56,8 @@ import dataclasses
 from datetime import datetime
 
 from ledger_hand.asking.prompts.bookkeeper import BOOKKEEPER_PROMPT
+from ledger_hand.core.assets import BUILT_IN_ASSETS, AssetTable, UnknownAssets
 from ledger_hand.core.book import EarlierSave
-from ledger_hand.core.coins import BUILT_IN_TABLE, CoinTable
 from ledger_hand.core.followup import CannotRecord, ConfirmCoin, next_follow_up
 from ledger_hand.core.trade import OccurredTime, TradeRecord
 from ledger_hand.core.validation import check_draft
@@ -133,15 +133,17 @@ def start(
     *,
     now: datetime,
     zone: str,
-    coins: CoinTable = BUILT_IN_TABLE,
+    assets: AssetTable = BUILT_IN_ASSETS,
     tuning: Tuning = DEFAULT_TUNING,
     book: StoragePort | None = None,
 ) -> Progress:
     """Judge ``passage``, extract its trades, check them, and ask the first question.
 
-    With ``book``, the earlier saves of the passage are looked up and the
-    coins confirmed before join ``coins``; a failure of the book raises its
-    ``StorageError`` before the model is asked anything.
+    ``assets`` is the asset table: which assets may be traded and which
+    money they may be priced in. With ``book``, the earlier saves of the
+    passage are looked up and, when the table lets an unseen asset be
+    confirmed, the coins confirmed before join it; a failure of the book
+    raises its ``StorageError`` before the model is asked anything.
     """
     if not isinstance(now, datetime) or now.utcoffset() is None:
         raise ValueError("the current moment must be a datetime that carries an offset")
@@ -150,9 +152,12 @@ def start(
     seen_before: tuple[EarlierSave, ...] = ()
     if book is not None:
         seen_before = book.earlier_saves(passage_fingerprint(passage))
-        coins = with_confirmed_coins(coins, book.confirmed_coins())
+        if assets.unknown is UnknownAssets.CONFIRM_ON_THE_SPOT:
+            assets = dataclasses.replace(
+                assets, coins=with_confirmed_coins(assets.coins, book.confirmed_coins())
+            )
     progress = Progress(
-        Stage.REFUSED, passage, Setting(now, zone, coins, tuning), seen_before=seen_before
+        Stage.REFUSED, passage, Setting(now, zone, assets, tuning), seen_before=seen_before
     )
     screening = screen(passage, model, asks_again=tuning.asks_again)
     progress = _with_calls(progress, Step.SCREENING, _calls_of(screening))
@@ -175,7 +180,7 @@ def _extracted(progress: Progress, model: ModelPort) -> Progress:
         model,
         now=setting.now,
         zone=setting.zone,
-        coins=setting.coins,
+        assets=setting.assets,
         asks_again=setting.tuning.asks_again,
     )
     progress = _with_calls(progress, Step.EXTRACTION, _calls_of(extraction))
@@ -219,11 +224,11 @@ def _with_calls(progress: Progress, step: Step, records: tuple[ReplyRecord, ...]
 def _next_question(progress: Progress, model: ModelPort) -> Progress:
     """Settle the open trades in order until one needs a question, or none is left."""
     trades = list(progress.trades)
-    coins = progress.setting.coins
+    assets = progress.setting.assets
     for position, trade in enumerate(trades):
         if trade.status is not TradeStatus.OPEN:
             continue
-        checked = check_draft(trade.draft, coins, progress.setting.now)
+        checked = check_draft(trade.draft, assets, progress.setting.now)
         if isinstance(checked, TradeRecord):
             trades[position] = TradeState(trade.draft, TradeStatus.RECORDED, checked)
             continue
@@ -278,7 +283,7 @@ def answer(progress: Progress, text: str, model: ModelPort) -> Progress:
         AnswerSetting(
             now=setting.now,
             zone=setting.zone,
-            coins=setting.coins,
+            assets=setting.assets,
             coin=trade.draft.coin,
             fee_coin=trade.draft.fee_coin,
             candidates=question.candidates,
@@ -305,13 +310,13 @@ def _answered(
         )
     trades = list(progress.trades)
     draft = trades[question.trade].draft
-    coins = progress.setting.coins
+    assets = progress.setting.assets
     if isinstance(outcome, Confirmed) and isinstance(question.asked, ConfirmCoin):
-        draft, coins = confirm(draft, coins, question.asked, outcome.confirmation)
+        draft, assets = confirm(draft, assets, question.asked, outcome.confirmation)
     elif isinstance(outcome, Filled):
         draft = fill(draft, outcome)
     trades[question.trade] = TradeState(draft, TradeStatus.OPEN)
-    setting = dataclasses.replace(progress.setting, coins=coins)
+    setting = dataclasses.replace(progress.setting, assets=assets)
     progress = dataclasses.replace(progress, trades=tuple(trades), setting=setting)
     return _next_question(progress, model)
 

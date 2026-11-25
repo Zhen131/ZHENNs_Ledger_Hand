@@ -88,7 +88,7 @@ from evals.summarize import summary_path
 from evals.tables import markdown, summarize
 from evals.voice import VOICE_SET
 from evals.writings import WRITINGS_SET
-from ledger_hand.core.coins import BUILT_IN_TABLE
+from ledger_hand.core.assets import BUILT_IN_ASSETS
 from ledger_hand.core.trade import TradeRecord
 from ledger_hand.core.validation import check_draft
 from ledger_hand.extraction.extractor import (
@@ -397,7 +397,7 @@ def _failure(result: Extraction) -> dict[str, object] | None:
 def _checks(sentence: Sentence, produced: Produced) -> list[str]:
     said: list[str] = []
     for draft in produced.drafts:
-        result = check_draft(draft, BUILT_IN_TABLE, sentence.now)
+        result = check_draft(draft, BUILT_IN_ASSETS, sentence.now)
         if isinstance(result, TradeRecord):
             said.append("passes")
         else:
@@ -465,7 +465,7 @@ def read_passage(
             model,
             now=sentence.now,
             zone=sentence.zone,
-            coins=BUILT_IN_TABLE,
+            assets=BUILT_IN_ASSETS,
             prompt=prompt,
             split_prompt=SPLIT_PROMPT,
             asks_again=DEFAULT_ASKS_AGAIN,
@@ -476,7 +476,7 @@ def read_passage(
         model,
         now=sentence.now,
         zone=sentence.zone,
-        coins=BUILT_IN_TABLE,
+        assets=BUILT_IN_ASSETS,
         prompt=prompt,
         asks_again=DEFAULT_ASKS_AGAIN,
     )

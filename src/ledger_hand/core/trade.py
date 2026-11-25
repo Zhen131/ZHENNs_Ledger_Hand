@@ -144,7 +144,7 @@ class TradeDraft:
     """A trade that may still have blanks.
 
     ``coin``, ``quote`` and ``fee_coin`` hold the words as they were said; the
-    coin table turns them into symbols when the draft is checked. ``quote`` is
+    asset table turns them into symbols and codes when the draft is checked. ``quote`` is
     the word used for the pricing currency, if one was said. ``derived`` names
     the amounts the program filled in by calculation.
     """
@@ -189,10 +189,11 @@ class TradeDraft:
 class TradeRecord:
     """A complete trade that has passed every rule. It cannot be changed.
 
-    ``coin`` is a ledger symbol. ``fee_coin`` is a ledger symbol or USDT.
-    ``derived`` names the one amount the program calculated from the other
-    two, or is ``None`` when the user gave all three. The pricing currency is
-    always USDT and is therefore not a field.
+    ``coin`` is a ledger symbol. ``quote`` is the code of the money the trade
+    is priced in, one the asset table prices trades in; it has no default,
+    so every record says it. ``fee_coin`` is a ledger symbol or the code of a
+    money. ``derived`` names the one amount the program calculated from the
+    other two, or is ``None`` when the user gave all three.
     """
 
     side: Side
@@ -200,6 +201,7 @@ class TradeRecord:
     quantity: Decimal
     price: Decimal
     total: Decimal
+    quote: str
     derived: Amount | None
     fee: Decimal
     fee_coin: str

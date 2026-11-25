@@ -11,7 +11,9 @@ Every failure is a ``StorageError`` with the port's kinds; no exception of
 book wrote makes the book ``DAMAGED``. A trade that cannot be written at all
 (a number or a time the ledger's way of writing cannot hold) is a mistake of
 the calling code, since the check of a draft never lets one through, and
-raises ``ValueError`` before the book is opened.
+raises ``ValueError`` before the book is opened. A trade priced in another
+money than the one the book keeps is refused as a ``CONFLICT``, also before
+the book is opened, and nothing of the save is kept.
 
 Names defined here: ``SqliteStore`` and ``DEFAULT_BUSY_TIMEOUT_SECONDS``.
 """
@@ -41,6 +43,7 @@ from ledger_hand.storage.rows import (
     TRADE_COLUMNS,
     moment_from,
     moment_text,
+    priced_otherwise,
     trade_from,
     trade_values,
 )
@@ -81,6 +84,13 @@ class SqliteStore:
         self.busy_timeout_seconds = float(busy_timeout_seconds)
 
     def save(self, passage: PassageSave) -> tuple[StoredTrade, ...]:
+        refused = priced_otherwise(passage.trades)
+        if refused:
+            raise StorageError(
+                StorageErrorKind.CONFLICT,
+                f"priced in a money the book does not keep: {', '.join(refused)}; "
+                "nothing was saved",
+            )
         rows = [trade_values(trade) for trade in passage.trades]
         coins = [(coin.symbol, moment_text(coin.confirmed_at)) for coin in passage.coins]
         with self._book() as book, _transaction(book):

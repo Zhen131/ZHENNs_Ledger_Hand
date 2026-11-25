@@ -26,8 +26,8 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from ledger_hand.asking.question_text import Writer
+from ledger_hand.core.assets import AssetTable
 from ledger_hand.core.book import EarlierSave
-from ledger_hand.core.coins import CoinTable
 from ledger_hand.core.followup import AskCell, AskWhichCell, ConfirmCoin, Problem
 from ledger_hand.core.trade import OccurredTime, TradeDraft, TradeRecord
 from ledger_hand.extraction.extractor import DEFAULT_ASKS_AGAIN, PassageProblem
@@ -112,13 +112,13 @@ DEFAULT_TUNING = Tuning()
 class Setting:
     """What every step of one passage shares.
 
-    ``now`` and ``zone`` are those the passage was given with. ``coins`` is
-    the coin table, with every coin the user confirmed during this run.
+    ``now`` and ``zone`` are those the passage was given with. ``assets`` is
+    the asset table, with every coin the user confirmed during this run.
     """
 
     now: datetime
     zone: str
-    coins: CoinTable
+    assets: AssetTable
     tuning: Tuning = DEFAULT_TUNING
 
 

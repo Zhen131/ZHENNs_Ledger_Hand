@@ -19,6 +19,7 @@ from datetime import date, datetime, timezone
 from decimal import Decimal
 from zoneinfo import ZoneInfo
 
+from ledger_hand.core.assets import BUILT_IN_ASSETS
 from ledger_hand.core.book import ConfirmedCoin, PassageSave
 from ledger_hand.core.coins import BUILT_IN_TABLE
 from ledger_hand.core.stored import StoredTrade
@@ -38,7 +39,7 @@ COINS = BUILT_IN_TABLE.with_confirmed("PIKA")
 
 
 def _record(draft: TradeDraft) -> TradeRecord:
-    result = check_draft(draft, COINS, NOW)
+    result = check_draft(draft, BUILT_IN_ASSETS.with_confirmed("PIKA"), NOW)
     if not isinstance(result, TradeRecord):
         raise AssertionError(f"the check did not accept an invented trade: {result}")
     return result

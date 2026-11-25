@@ -25,6 +25,7 @@ def record(*, coin: str, fee: str, fee_coin: str) -> TradeRecord:
         quantity=Decimal("0.5"),
         price=Decimal("3420"),
         total=Decimal("1710"),
+        quote="USDT",
         derived=None,
         fee=Decimal(fee),
         fee_coin=fee_coin,

@@ -2,7 +2,7 @@
 
 ``assemble`` gives back ``Parts``: the model (the plug the model settings
 choose, local or cloud, trying again as they say), the tuning they name, the book
-(the SQLite plug where the data settings keep it), the coin table, a
+(the SQLite plug where the data settings keep it), the asset table, a
 function that reads the current moment from the machine's clock, the name
 of the machine's time zone, read with ``tzlocal``, and the settings and the
 data places the parts were built from, for the interface to show. The
@@ -57,7 +57,7 @@ from datetime import datetime, timezone
 
 import tzlocal
 
-from ledger_hand.core.coins import BUILT_IN_TABLE, CoinTable
+from ledger_hand.core.assets import BUILT_IN_ASSETS, AssetTable
 from ledger_hand.core.zones import is_zone_name
 from ledger_hand.flows.progress import Tuning
 from ledger_hand.flows.recording import tuning_from
@@ -82,7 +82,9 @@ from ledger_hand.storage.sqlite_store import SqliteStore
 class Parts:
     """What the interface hands to the flows.
 
-    ``clock`` gives the current moment with its offset; ``zone`` is the name
+    ``assets`` is the asset table every passage is recorded with, and its
+    coins are those an export may write; today it is always the built-in
+    one. ``clock`` gives the current moment with its offset; ``zone`` is the name
     of the time zone a passage is read in. ``settings`` are the model
     settings the model and the tuning were built from, and ``places`` where
     the data is kept, the folder exports go into among it; both are there
@@ -96,7 +98,7 @@ class Parts:
     model: ModelPort
     tuning: Tuning
     book: StoragePort
-    coins: CoinTable
+    assets: AssetTable
     clock: Callable[[], datetime]
     zone: str
     settings: ModelSettings = field(default_factory=ModelSettings)
@@ -147,7 +149,7 @@ def assemble(changes: Mapping[Variable, str] | None = None) -> Parts:
         model=model,
         tuning=tuning_from(settings),
         book=SqliteStore(places.book),
-        coins=BUILT_IN_TABLE,
+        assets=BUILT_IN_ASSETS,
         clock=read_clock,
         zone=zone,
         settings=settings,

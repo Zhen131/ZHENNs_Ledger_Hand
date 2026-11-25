@@ -12,20 +12,30 @@ Reading a row back checks every value as it goes. A value that cannot be what
 the book wrote raises ``ValueError`` or ``TypeError``; the store reports that
 as a damaged book.
 
-Names defined here: ``TRADE_COLUMNS``, ``trade_values``, ``trade_from``,
-``moment_text`` and ``moment_from``.
+The book has no column for the money a trade is priced in: every trade it
+keeps is priced in USDT (``KEPT_QUOTE``). A trade read back is given it, and
+a trade priced in anything else is not kept at all (``priced_otherwise``
+names them, so that the store refuses the save); the table and the book's
+version stay as they are.
+
+Names defined here: ``TRADE_COLUMNS``, ``KEPT_QUOTE``, ``trade_values``,
+``trade_from``, ``priced_otherwise``, ``moment_text`` and ``moment_from``.
 """
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from datetime import date, datetime, timezone
 from decimal import Decimal, InvalidOperation
 
+from ledger_hand.core.ledger_limits import QUOTE_CURRENCY
 from ledger_hand.core.numbers import write_number
 from ledger_hand.core.stored import StoredTrade
 from ledger_hand.core.timeparse import write_time
 from ledger_hand.core.trade import Amount, OccurredTime, Side, TimePrecision, TradeRecord
+
+# The one money every trade in the book is priced in.
+KEPT_QUOTE = QUOTE_CURRENCY
 
 # The columns of a trade's row that hold the trade itself, in the order of the table.
 TRADE_COLUMNS = (
@@ -62,6 +72,11 @@ def moment_from(text: object) -> datetime:
     return moment.astimezone(timezone.utc)
 
 
+def priced_otherwise(trades: Iterable[StoredTrade]) -> tuple[str, ...]:
+    """The identifiers of the trades in ``trades`` priced in a money the book does not keep."""
+    return tuple(trade.id for trade in trades if trade.record.quote != KEPT_QUOTE)
+
+
 def trade_values(trade: StoredTrade) -> dict[str, str | None]:
     """The values of the row that keeps ``trade``, by column."""
     record = trade.record
@@ -95,6 +110,7 @@ def trade_from(values: Mapping[str, object]) -> StoredTrade:
         quantity=_number(values["quantity"]),
         price=_number(values["price"]),
         total=_number(values["total"]),
+        quote=KEPT_QUOTE,
         derived=None if derived is None else Amount(_text(derived)),
         fee=_number(values["fee"]),
         fee_coin=_text(values["fee_coin"]),

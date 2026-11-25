@@ -1,7 +1,7 @@
 """Extraction: one passage in, drafts of trades and a list of issues out.
 
 ``extract`` takes the passage the user typed, a model port, the current
-moment, the time zone's name and the coin table, and gives back one of:
+moment, the time zone's name and the asset table, and gives back one of:
 
 - ``Extracted``: the drafts, one per trade the model found, and the issues
   (see ``issues``). No trade at all is an ordinary result: no drafts.
@@ -53,7 +53,7 @@ from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 
-from ledger_hand.core.coins import BUILT_IN_TABLE, CoinTable
+from ledger_hand.core.assets import BUILT_IN_ASSETS, AssetTable
 from ledger_hand.core.trade import TradeDraft
 from ledger_hand.core.zones import is_zone_name
 from ledger_hand.extraction.issues import Issue, IssueKind
@@ -113,7 +113,7 @@ def extract(
     *,
     now: datetime,
     zone: str,
-    coins: CoinTable = BUILT_IN_TABLE,
+    assets: AssetTable = BUILT_IN_ASSETS,
     prompt: PromptVersion = FIRST_PROMPT,
     parameters: ModelParameters | None = None,
     asks_again: int = DEFAULT_ASKS_AGAIN,
@@ -143,7 +143,7 @@ def extract(
         calls.append(reply.record)
         read = read_reply(reply)
         if isinstance(read, ReplyRows):
-            surroundings = Surroundings(Passage(passage), coins, now, zone)
+            surroundings = Surroundings(Passage(passage), assets, now, zone)
             return _extracted(read.rows, surroundings, tuple(calls))
         problems.append(read.problem)
     return ReplyUnreadable(tuple(problems), tuple(calls))

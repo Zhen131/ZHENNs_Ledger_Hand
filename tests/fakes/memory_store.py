@@ -2,8 +2,9 @@
 
 ``MemoryStore`` does what the port promises, the way the SQLite plug does
 it: a save is whole or not at all, an identifier already saved is a
-conflict, a marking is whole or not at all, a coin keeps the moment it was
-first confirmed, and moments come back in UTC. It passes the same tests of
+conflict, so is a trade priced in anything but USDT, a marking is whole or
+not at all, a coin keeps the moment it was first confirmed, and moments
+come back in UTC. It passes the same tests of
 the port as the real plug (``tests/storage/test_storage_port.py``).
 
 A test can make the next call of one operation fail with a ``StorageError``
@@ -25,6 +26,7 @@ from ledger_hand.core.book import (
     Listing,
     PassageSave,
 )
+from ledger_hand.core.ledger_limits import QUOTE_CURRENCY
 from ledger_hand.core.stored import StoredTrade
 from ledger_hand.ports import StorageError, StorageErrorKind
 
@@ -61,6 +63,11 @@ class MemoryStore:
 
     def save(self, passage: PassageSave) -> tuple[StoredTrade, ...]:
         self._called("save")
+        otherwise = [trade.id for trade in passage.trades if trade.record.quote != QUOTE_CURRENCY]
+        if otherwise:
+            raise StorageError(
+                StorageErrorKind.CONFLICT, f"priced in another money: {', '.join(otherwise)}"
+            )
         held = {listed.trade.id for listed in self.listed}
         taken = sorted(trade.id for trade in passage.trades if trade.id in held)
         if taken:

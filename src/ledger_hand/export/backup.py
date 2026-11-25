@@ -31,6 +31,10 @@ It is refused, with nothing written, when:
   their UTF-16 code units;
 - a trade names a coin the coin table does not hold, so that its card cannot
   be written;
+- a trade is priced in a money other than USDT. The file writes every
+  trade, and every coin's market, in USDT, so such a trade is refused and
+  named rather than written as if it were priced in USDT. The check of a
+  draft with the built-in asset table never makes one; this is a guard;
 - a trade's time is a moment whose offset from UTC is not a whole number of
   minutes, which some zones had before the 1970s. The ledger's way of writing
   a time cannot hold such an offset. The check of a draft already refuses
@@ -108,6 +112,7 @@ class ExportProblem(enum.Enum):
     ID_TOO_LONG = "an identifier is longer than the ledger allows"
     ID_USED_TWICE = "an identifier is used twice, by two trades or by a trade and a coin"
     COIN_NOT_IN_TABLE = "a trade names a coin the coin table does not hold"
+    NOT_PRICED_IN_USDT = "a trade is priced in a money other than USDT, which the file cannot hold"
     OFFSET_NOT_WHOLE_MINUTES = (
         "a trade's time has an offset from UTC that is not a whole number of minutes"
     )
@@ -199,6 +204,7 @@ def export_backup(
     issues: list[ExportIssue] = []
     symbols = _coins_used(trades)
     cards = _coin_cards(symbols, coins, issues)
+    _check_quotes(trades, issues)
     _check_identifiers(trades, symbols, issues)
     _check_offsets(trades, issues)
     _check_dates(trades, today, issues)
@@ -278,6 +284,12 @@ def _check_identifiers(
 def _as_the_ledger_sees_it(text: str) -> bytes:
     """``text`` as UTF-16 code units, which is how the ledger holds and compares text."""
     return text.encode("utf-16-le", "surrogatepass")
+
+
+def _check_quotes(trades: Sequence[StoredTrade], issues: list[ExportIssue]) -> None:
+    for trade in trades:
+        if trade.record.quote != QUOTE_CURRENCY:
+            issues.append(ExportIssue(ExportProblem.NOT_PRICED_IN_USDT, trade.id))
 
 
 def _check_offsets(trades: Sequence[StoredTrade], issues: list[ExportIssue]) -> None:

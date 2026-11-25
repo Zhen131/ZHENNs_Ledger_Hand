@@ -13,7 +13,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from ledger_hand.core.coins import BUILT_IN_TABLE
+from ledger_hand.core.assets import BUILT_IN_ASSETS
 from ledger_hand.core.ledger_limits import RAW_TEXT_MAX_LENGTH
 from ledger_hand.core.numbers import Caution, Doubt
 from ledger_hand.core.timeparse import Refusal, TimeCaution
@@ -119,7 +119,7 @@ def test_one_trade_becomes_one_draft_with_every_field_converted() -> None:
 def test_the_draft_of_one_full_trade_passes_the_check() -> None:
     (draft,) = extracted(ONE_TRADE, table(ONE_ROW)).drafts
 
-    record = check_draft(draft, BUILT_IN_TABLE, NOW)
+    record = check_draft(draft, BUILT_IN_ASSETS, NOW)
 
     assert not isinstance(record, DraftProblems), record
     assert record.total == Decimal("1898")
@@ -501,7 +501,7 @@ def test_a_coin_as_the_unit_of_the_price_becomes_the_pricing_currency() -> None:
     reply = table(row(side="buy", coin="ETH", quantity="2 ETH", price="0.05 BTC"))
 
     (draft,) = extracted(passage, reply).drafts
-    problems = check_draft(draft, BUILT_IN_TABLE, NOW)
+    problems = check_draft(draft, BUILT_IN_ASSETS, NOW)
 
     assert draft.quote == "BTC"
     assert draft.price == Decimal("0.05")
@@ -529,7 +529,7 @@ def test_a_coin_outside_the_table_becomes_a_capital_candidate_to_confirm(written
 
     result = extracted(passage, reply)
     (draft,) = result.drafts
-    problems = check_draft(draft, BUILT_IN_TABLE, NOW)
+    problems = check_draft(draft, BUILT_IN_ASSETS, NOW)
 
     assert draft.coin == "BONK"
     assert draft.quantity == Decimal("500")

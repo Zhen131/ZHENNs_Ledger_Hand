@@ -15,7 +15,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from ledger_hand.core.coins import BUILT_IN_TABLE, CoinTable
+from ledger_hand.core.assets import BUILT_IN_ASSETS, AssetTable
 from ledger_hand.core.trade import (
     Amount,
     OccurredTime,
@@ -102,11 +102,11 @@ def amount_of(built: TradeRecord, amount: Amount) -> Decimal:
 
 def check(
     draft: TradeDraft,
-    coins: CoinTable = BUILT_IN_TABLE,
+    assets: AssetTable = BUILT_IN_ASSETS,
     now: datetime = NOW,
     settings: CheckSettings = DEFAULT_SETTINGS,
 ) -> TradeRecord | DraftProblems:
-    return check_draft(draft, coins, now, settings)
+    return check_draft(draft, assets, now, settings)
 
 
 def missing(draft: TradeDraft, **options: object) -> tuple[Missing, ...]:
@@ -142,6 +142,7 @@ def test_complete_sound_draft_becomes_a_record_with_the_same_values() -> None:
         quantity=Decimal("0.02"),
         price=Decimal("94900"),
         total=Decimal("1898"),
+        quote="USDT",
         derived=None,
         fee=Decimal("2"),
         fee_coin="USDT",
@@ -174,6 +175,7 @@ def test_sell_known_to_the_day_with_platform_note_and_chinese_text_passes() -> N
         quantity=Decimal("0.5"),
         price=Decimal("3000"),
         total=Decimal("1500"),
+        quote="USDT",
         derived=Amount.TOTAL,
         fee=Decimal("1.5"),
         fee_coin="USDT",
@@ -610,7 +612,7 @@ def test_fee_paid_in_an_unseen_coin_needs_that_coin_confirmed() -> None:
     draft = complete(fee=Decimal("3"), fee_coin="feecoin")
 
     assert check(draft) == DraftProblems(missing=(Missing.FEE_COIN_CONFIRMATION,), violations=())
-    assert record_of(check(draft, BUILT_IN_TABLE.with_confirmed("FEECOIN"))).fee_coin == "FEECOIN"
+    assert record_of(check(draft, BUILT_IN_ASSETS.with_confirmed("FEECOIN"))).fee_coin == "FEECOIN"
 
 
 @pytest.mark.parametrize("fee_coin", ["某某币", "FEE-COIN", "X" * 33])
@@ -624,7 +626,7 @@ def test_fee_in_the_same_unseen_coin_as_the_trade_asks_for_one_confirmation() ->
     draft = complete(coin="newcoin", quantity=Decimal("500"), fee=Decimal("1"), fee_coin="NEWCOIN")
 
     assert check(draft) == DraftProblems(missing=(Missing.COIN_CONFIRMATION,), violations=())
-    built = record_of(check(draft, BUILT_IN_TABLE.with_confirmed("newcoin")))
+    built = record_of(check(draft, BUILT_IN_ASSETS.with_confirmed("newcoin")))
     assert (built.coin, built.fee_coin) == ("NEWCOIN", "NEWCOIN")
 
 
@@ -673,7 +675,7 @@ def test_unseen_coin_needs_confirming_and_passes_once_confirmed(spoken: str, sym
     draft = complete(coin=spoken)
 
     assert check(draft) == DraftProblems(missing=(Missing.COIN_CONFIRMATION,), violations=())
-    assert record_of(check(draft, BUILT_IN_TABLE.with_confirmed(spoken))).coin == symbol
+    assert record_of(check(draft, BUILT_IN_ASSETS.with_confirmed(spoken))).coin == symbol
 
 
 @pytest.mark.parametrize("spoken", ["USDT", "usdt", "U", "刀", "美元"])
@@ -939,6 +941,7 @@ def test_problems_are_listed_in_the_order_the_enumerations_are_written() -> None
         "FEE_COIN_CONFIRMATION",
         "OCCURRED",
         "RAW_TEXT",
+        "QUOTE",
     ]
     assert [item.name for item in Violation] == [
         "COIN_IS_USDT",
@@ -961,6 +964,10 @@ def test_problems_are_listed_in_the_order_the_enumerations_are_written() -> None
         "NOTE_TOO_LONG",
         "RAW_TEXT_EMPTY",
         "RAW_TEXT_TOO_LONG",
+        "COIN_IS_PRICING_MONEY",
+        "QUOTE_CANNOT_PRICE",
+        "ASSET_NOT_IN_LEDGER",
+        "FEE_ASSET_NOT_IN_LEDGER",
     ]
 
 

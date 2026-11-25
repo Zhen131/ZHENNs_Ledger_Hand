@@ -35,7 +35,7 @@ from collections.abc import Iterable, Mapping
 from decimal import Decimal
 
 from evals.gold import Feature, GoldTrade, Group, Language, NotToRecord, Sentence, Split
-from ledger_hand.core.coins import BUILT_IN_TABLE
+from ledger_hand.core.assets import BUILT_IN_ASSETS
 from ledger_hand.core.trade import Side, TimePrecision
 from ledger_hand.extraction.reply_table import Field
 from ledger_hand.extraction.unit_currency import word_identity
@@ -182,11 +182,11 @@ def _fee_item(trade: GoldTrade) -> Item | None:
     currency = trade.value(Field.FEE_CURRENCY)
     if not isinstance(currency, str):
         return None
-    named = word_identity(currency, BUILT_IN_TABLE)
+    named = word_identity(currency, BUILT_IN_ASSETS)
     coin = trade.value(Field.COIN)
     if named == "USDT":
         return Item.FEE_USDT
-    if isinstance(coin, str) and named == word_identity(coin, BUILT_IN_TABLE):
+    if isinstance(coin, str) and named == word_identity(coin, BUILT_IN_ASSETS):
         return Item.FEE_OWN_COIN
     return Item.FEE_THIRD_COIN
 

@@ -22,7 +22,7 @@ from zoneinfo import ZoneInfo
 from streamlit.testing.v1 import AppTest
 from streamlit.testing.v1.element_tree import Button
 
-from ledger_hand.core.coins import BUILT_IN_TABLE
+from ledger_hand.core.assets import BUILT_IN_ASSETS
 from ledger_hand.flows.progress import DEFAULT_TUNING
 from ledger_hand.ports import ModelPort, StoragePort
 from ledger_hand.wiring import Parts
@@ -50,7 +50,7 @@ def open_page(model: ModelPort, book: StoragePort) -> AppTest:
         model=model,
         tuning=DEFAULT_TUNING,
         book=book,
-        coins=BUILT_IN_TABLE,
+        assets=BUILT_IN_ASSETS,
         clock=lambda: NOW,
         zone=ZONE,
     )

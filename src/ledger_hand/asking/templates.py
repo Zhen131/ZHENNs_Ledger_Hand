@@ -26,6 +26,7 @@ _ASK = {
     Cell.OCCURRED: "When did this trade happen?",
     Cell.PLATFORM: "What shorter name should be kept for the platform (or 'none')?",
     Cell.NOTE: "What shorter note should be kept (or 'none')?",
+    Cell.QUOTE: "Which currency was this trade priced in?",
 }
 
 # A few problems that are worth saying in the question itself.

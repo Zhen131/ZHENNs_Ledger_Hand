@@ -64,6 +64,7 @@ from typing import TextIO
 
 import tzlocal
 
+from ledger_hand.core.assets import BUILT_IN_ASSETS
 from ledger_hand.core.book import Listing
 from ledger_hand.core.numbers import write_number
 from ledger_hand.core.timeparse import write_time
@@ -131,7 +132,15 @@ def main(
     print(f"passage: {passage!r}", file=out)
     print(f"zone:    {zone}", file=out)
     try:
-        progress = start(passage, model, now=now or _now(), zone=zone, tuning=tuning, book=book)
+        progress = start(
+            passage,
+            model,
+            now=now or _now(),
+            zone=zone,
+            assets=BUILT_IN_ASSETS,
+            tuning=tuning,
+            book=book,
+        )
     except StorageError as error:
         return _book_failed(error, out)
     _show_seen_before(progress, zone, out)
@@ -305,7 +314,9 @@ def _book_task(
         if options.list:
             return _list(book, zone, out)
         print(f"exports: {where.exports}", file=out)
-        outcome = export(book, where.exports, now=now or _now(), zone=zone)
+        outcome = export(
+            book, where.exports, now=now or _now(), zone=zone, coins=BUILT_IN_ASSETS.coins
+        )
     except StorageError as error:
         return _book_failed(error, out)
     _show_export(outcome, out)

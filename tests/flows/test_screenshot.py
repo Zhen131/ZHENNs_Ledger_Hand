@@ -14,7 +14,7 @@ from decimal import Decimal
 
 import pytest
 
-from ledger_hand.core.coins import BUILT_IN_TABLE
+from ledger_hand.core.assets import BUILT_IN_ASSETS
 from ledger_hand.extraction.picture_reading import PictureNotRead, PictureRead, ReadingProblem
 from ledger_hand.flows.progress import (
     DEFAULT_TUNING,
@@ -245,7 +245,7 @@ def test_a_model_failure_while_reading_ends_the_passage_there() -> None:
     assert progress == Progress(
         Stage.FAILED,
         NOTE.strip(),
-        Setting(NOW, ZONE, BUILT_IN_TABLE, DEFAULT_TUNING),
+        Setting(NOW, ZONE, BUILT_IN_ASSETS, DEFAULT_TUNING),
         failure=Failure(Step.READING, error, ()),
         prompts=((Step.READING, "read-1"),),
         calls=(),

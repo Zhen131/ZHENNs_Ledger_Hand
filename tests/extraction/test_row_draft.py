@@ -9,6 +9,7 @@ from decimal import Decimal
 
 import pytest
 
+from ledger_hand.core.assets import BUILT_IN_ASSETS
 from ledger_hand.core.coins import BUILT_IN_TABLE
 from ledger_hand.core.trade import Side
 from ledger_hand.extraction.issues import Issue, IssueKind
@@ -21,7 +22,7 @@ from tests.extraction.scripted_runs import NOW, ZONE
 
 def made(passage: str, side: Side | None = Side.BUY, **cells: str) -> RowDraft:
     row = ReplyRow(side, {Field(name): text for name, text in cells.items()})
-    return draft_from_row(row, 0, Surroundings(Passage(passage), BUILT_IN_TABLE, NOW, ZONE))
+    return draft_from_row(row, 0, Surroundings(Passage(passage), BUILT_IN_ASSETS, NOW, ZONE))
 
 
 def kinds(result: RowDraft) -> list[IssueKind]:

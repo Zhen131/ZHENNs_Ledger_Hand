@@ -21,11 +21,12 @@ The steps:
    (``answer_words``).
 3. The whole answer is read by the rules: a number with ``read_number``, a
    time with ``read_time`` (the same current moment and zone as the
-   passage), a coin with the coin table, and buy or sell, yes or no, "no
-   fee", "the passage did not say it" and which of several cells with the
-   word lists. A number, a time or a coin the rules understand but cannot
-   take (a number they are unsure of, a time in the future) is not read
-   further: the reason is handed back.
+   passage), a coin or a currency with the asset table, and buy or sell,
+   yes or no, "no fee", "the passage did not say it" and which of several
+   cells with the word lists. The currency a trade was priced in is read by
+   the rules alone; the model is never asked to copy it. A number, a time
+   or a coin the rules understand but cannot take (a number they are unsure
+   of, a time in the future) is not read further: the reason is handed back.
 4. Only when the rules cannot read the whole answer is the model asked to
    copy, out of it, the one piece that gives what was asked
    (``prompts/answer.py``). The piece must be a piece of the answer, found
@@ -37,7 +38,9 @@ The steps:
 A unit written with a number is the user's own writing and is used: on a
 price or a total it names the pricing currency, on the fee the fee's
 currency; on a quantity it must not name a currency other than the trade's
-coin. A unit that names more than one currency is not used.
+coin. A unit that names more than one currency is not used. Besides the
+trade's coin and fee coin, the asset table's own unit words ("股") may
+stand after a number; they name no currency.
 
 For the question about which of several cells is wrong, the answer has to
 name exactly one of them with the words of ``answer_words``; the value after
@@ -67,9 +70,10 @@ from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
 
-from ledger_hand.core.coins import CoinTable, means_usdt, spoken_key
+from ledger_hand.core.assets import AssetTable, MoneyReading
+from ledger_hand.core.coins import spoken_key
 from ledger_hand.core.followup import AskCell, AskWhichCell, Cell, ConfirmCoin
-from ledger_hand.core.ledger_limits import QUOTE_CURRENCY, is_symbol
+from ledger_hand.core.ledger_limits import is_symbol
 from ledger_hand.core.numbers import Doubt, Recognised, Unsure, read_number
 from ledger_hand.core.timeparse import (
     Refusal,
@@ -152,6 +156,7 @@ class AnswerProblem(enum.Enum):
     NO_CELL_NAMED = "the answer does not name exactly one of the values asked about"
     MODEL_FAILED = "the model could not be asked to read the answer"
     MODEL_REPLY_UNREADABLE = "the model's reply about the answer could not be read"
+    MONEY_NAMES_SEVERAL = "the word names more than one currency a trade may be priced in"
 
 
 @dataclass(frozen=True)
@@ -209,15 +214,15 @@ class AnswerReading:
 class AnswerSetting:
     """What reading an answer needs to know.
 
-    ``now`` and ``zone`` are those of the passage. ``coin`` and ``fee_coin``
-    are the trade's coin and fee coin as the draft holds them; a number may
-    carry them as its unit. ``candidates`` are two moments the user is to
-    choose from, when the time is asked with them.
+    ``now`` and ``zone`` are those of the passage. ``assets`` is the asset
+    table. ``coin`` and ``fee_coin`` are the trade's coin and fee coin as the
+    draft holds them; a number may carry them as its unit. ``candidates`` are
+    two moments the user is to choose from, when the time is asked with them.
     """
 
     now: datetime
     zone: str
-    coins: CoinTable
+    assets: AssetTable
     coin: str | None = None
     fee_coin: str | None = None
     candidates: tuple[OccurredTime, ...] = ()
@@ -225,6 +230,11 @@ class AnswerSetting:
     @property
     def coin_words(self) -> tuple[str, ...]:
         return tuple(word for word in (self.coin, self.fee_coin) if word is not None)
+
+    @property
+    def unit_words(self) -> tuple[str, ...]:
+        """The words a number may carry as its unit: the coin words, then the table's own."""
+        return (*self.coin_words, *self.assets.extra_units)
 
 
 type _Read = Callable[[str], Outcome | None]
@@ -310,13 +320,15 @@ def _reader(asked: AskCell | ConfirmCoin, setting: AnswerSetting) -> _Reader:
     if cell in (Cell.COIN, Cell.FEE_COIN):
         wanted = Wanted.COIN if cell is Cell.COIN else Wanted.FEE_COIN
         return _Reader(wanted, lambda text: _read_coin(text, cell, setting), _find_plain)
+    if cell is Cell.QUOTE:
+        return _Reader(None, lambda text: _read_quote(text, setting), _find_plain)
     if cell is Cell.OCCURRED:
         return _Reader(Wanted.TIME, lambda text: _read_time(text, setting), _find_plain)
     return _Reader(None, lambda text: _read_text(text, cell), _find_plain)
 
 
 def _amount_reader(cell: Cell, setting: AnswerSetting) -> _Reader:
-    units = setting.coin_words
+    units = setting.unit_words
     return _Reader(
         _AMOUNT_WANTED[cell],
         lambda text: _read_amount(text, cell, setting),
@@ -339,13 +351,36 @@ def _read_confirmation(text: str) -> Outcome | None:
 
 
 def _read_coin(text: str, cell: Cell, setting: AnswerSetting) -> Outcome | None:
-    known = setting.coins.find(text)
+    known = setting.assets.find(text)
     if known is not None:
         return Filled(cell, known.symbol)
-    if means_usdt(text):
-        return Filled(cell, QUOTE_CURRENCY)
+    money = setting.assets.money(text)
+    if money.reading is MoneyReading.ONE:
+        return Filled(cell, money.code)
     key = spoken_key(text)
+    if money.reading is MoneyReading.SEVERAL:
+        # As the traded coin it is refused whichever money it is; as the
+        # fee's coin it has to be said again.
+        if cell is Cell.COIN:
+            return Filled(cell, key)
+        return NotRead(AnswerProblem.MONEY_NAMES_SEVERAL)
     return Filled(cell, key) if is_symbol(key) else None
+
+
+def _read_quote(text: str, setting: AnswerSetting) -> Outcome | None:
+    """The money a trade was priced in, by the asset table; a word for other money is kept.
+
+    Money the table does not price trades in goes into the draft as it was
+    said, so that the check of the draft says the trade cannot be recorded.
+    """
+    money = setting.assets.money(text)
+    if money.reading is MoneyReading.ONE:
+        return Filled(Cell.QUOTE, money.code)
+    if money.reading is MoneyReading.SEVERAL:
+        return NotRead(AnswerProblem.MONEY_NAMES_SEVERAL)
+    if money.reading is MoneyReading.CANNOT_PRICE:
+        return Filled(Cell.QUOTE, text.strip())
+    return None
 
 
 def _read_text(text: str, cell: Cell) -> Outcome:
@@ -357,16 +392,16 @@ def _read_text(text: str, cell: Cell) -> Outcome:
 def _read_amount(text: str, cell: Cell, setting: AnswerSetting) -> Outcome | None:
     if cell is Cell.FEE and tidy(text) in NO_FEE_WORDS:
         return Filled(Cell.FEE, Decimal(0))
-    reading = read_number(text, extra_units=setting.coin_words)
+    reading = read_number(text, extra_units=setting.unit_words)
     if isinstance(reading, Unsure):
         return NotRead(AnswerProblem.NUMBER_UNSURE, reading.reason)
     if not isinstance(reading, Recognised):
         return None
     if reading.unit is None:
         return Filled(cell, reading.value)
-    named = currencies_in_unit(reading.unit, setting.coins, setting.coin_words)
+    named = currencies_in_unit(reading.unit, setting.assets, setting.coin_words)
     if cell is Cell.QUANTITY:
-        coin = None if setting.coin is None else word_identity(setting.coin, setting.coins)
+        coin = None if setting.coin is None else word_identity(setting.coin, setting.assets)
         if any(word.identity != coin for word in named):
             return NotRead(AnswerProblem.UNIT_NOT_THE_COIN)
         return Filled(cell, reading.value)
