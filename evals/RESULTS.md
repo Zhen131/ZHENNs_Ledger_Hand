@@ -9826,6 +9826,11 @@ and ①a over the enabled gold trades with no cell none or suspect.
 | r70 | practice | 13 / 0 | 14 | 9 | 3 | 0 | 1 | 1 | 0 | 0 | 0 | 92.3% (13) | 13 of 13 | 0 / 0 / 0 / 0 | `spoken-20261125T231209Z-spoken-r70-practice-first-3-assistant-4.jsonl` |
 | r70 | hidden | 9 / 3 | 9 | 6 | 2 | 0 | 0 | 0 | 1 | 0 | 0 | 100.0% (8) | 9 of 9 | 3 / 0 / 0 / 0 | `spoken-20261125T231520Z-spoken-r70-hidden-first-3-assistant-4.jsonl` |
 
+Of the ③s, those off only by a total the program worked out, by less than
+one part in ten thousand of the total said: practice 1 (R70-05), hidden 1
+(as said), 0 in each other file. They stay ③: the total was said, the model
+did not copy it, and what was sent is not what was said, with no reminder.
+
 No sentence went unmeasured; no ③ was kept out by the line about a picked
 asset (picking is off); no money that should be marked a guess went
 unmarked; no asked trade had a draft cell wrong and unmarked. One ③ of
@@ -9861,3 +9866,22 @@ the same as at `520245a`. `stocks.json` 15 of 18, 1 silently wrong
 gold answer (ask the money) was written before a vague word for money was
 guessed from the asset's last trade; it was sent priced in USD, with the
 line that this is a guess. The gold answer was not changed.
+
+### K10's gold answer brought to the rule for a vague word for money
+
+On 2026-11-26, at `386e2e9`, the gold answer of K10 of
+`evals/sets/stocks.json` ("今天15:30在IBKR买了2股MSFT，每股410刀，手续费1刀")
+was changed, and no other sentence. It was written to ask which money
+("ask the pricing currency"), before the product owner's rule of
+2026-11-25 that a vague word for money ("刀") follows the money of the
+asset's last trade in the ledger and is marked as a guess. MSFT's last
+trade in the invented book is in USD, so the gold answer now sends buy 2
+MSFT at 410 USD, total 820 USD, fee 1 USD, 15:30, IBKR. `stock_run` does
+not see the mark that the money was guessed; that mark is held by the
+test of row 9 of the rule's examples
+(`tests/flows/test_conversation_vague_money.py`,
+`test_row_09_dao_for_price_and_fee_is_the_usd_of_msft_s_last_trade_both_guessed`).
+Before, at `cce730e`: 15 of 18, 1 silently wrong (K10)
+(`run-20261125T232908Z-stocks-assistant-4.jsonl`). After, at `386e2e9`:
+16 of 18, 0 silently wrong; K14 and K15, open orders the model answered
+in words, not done (`run-20261125T234644Z-stocks-assistant-4.jsonl`).
