@@ -688,17 +688,18 @@ does not reach it yet (the third part of batch 68). What it does not do:
   that is not the ledger's ("按北京时间算，……", by Beijing time, when the
   ledger's zone is Budapest); 时区 (time zone), 东X区 or 西X区 (the zone X
   hours east or west); a Latin name such as UTC, GMT, EST, CET or JST; and
-  every 时间 (time), unless it is surely not a zone. Only these are let
-  through: the ledger's own zone as the table says it, with 的 (of), 那边的
-  or 这边的 (over there, over here) allowed between ("匈牙利的时间", Hungary's
-  time); 时间 after one word of a short list, with at most one 的 between
-  (成交, filled; 下单, ordered; 具体, exact; 这段, this stretch of; and a few
-  more, listed in `src/ledger_hand/core/spoken_text.py`); a half of the day at the start of a
-  phrase ("下午时间", afternoon time); and 时间 at the start of a phrase
-  followed by 是, 在, 为 or a colon ("时间是……", the time is). Anything else,
-  a place or not ("北京的时间", Beijing's time; "国内的时间", the time at home;
-  "我老家的时间", the time in my home town), is taken as a zone, so a time is
-  sometimes held back that need not
+  every 时间 (time), unless it is the ledger's own zone as the table says
+  it ("匈牙利时间", Hungary time; "布达佩斯时间", Budapest time), with 的
+  (of), 那边的 or 这边的 (over there, over here) allowed between ("匈牙利的
+  时间"). Any other 时间, a place or not, holds every time of the sentence
+  back: "北京的时间" (Beijing's time), "美股交易时间" (US stock trading
+  hours), and also "成交的时间是……" (the time it was filled is ...) or
+  "下午时间" (afternoon time), which name no zone. **This is a price paid on
+  purpose:** a sentence with 时间 in it, other than the ledger's own zone,
+  has its Chinese time read as before, not at all, and the user is asked
+  for it. A list of words let through was tried and dropped (2026-11-25):
+  every word on it let some zone through ("时间是美东", "按纽约那个时间").
+  So a time is sometimes held back that need not
   be. The program does not read a zone said in words, so tidying the year
   alone would let the model copy the clock time without the zone, and the
   time would be read in the ledger's zone, hours off. Left as said, the time

@@ -113,10 +113,10 @@ EXAMPLES: tuple[tuple[str, str | None, str], ...] = (
         "按匈牙利时间算，2026年11月20号下午3点买的",
         BUDAPEST,
     ),
-    # Words ending in 时间 that name no zone.
-    ("成交时间是二六年十一月二十号下午三点", "成交时间是2026年11月20号下午3点", BUDAPEST),
-    ("这段时间二六年十月买了三千U的币", "这段时间2026年10月买了3000U的币", BUDAPEST),
-    ("下午时间三点十分买的", "下午时间3点10分买的", BUDAPEST),
+    # Any other 时间, a zone or not, leaves every time of the sentence as said.
+    ("成交时间是二六年十一月二十号下午三点", None, BUDAPEST),
+    ("这段时间二六年十月买了三千U的币", "这段时间二六年十月买了3000U的币", BUDAPEST),
+    ("下午时间三点十分买的", None, BUDAPEST),
     # A minute after a filler, money in 分, a while: not sure, left as said.
     ("二六年十一月二十号的下午三点的五十分买的", None, BUDAPEST),
     ("手续费零点五分", None, BUDAPEST),
@@ -140,16 +140,35 @@ EXAMPLES: tuple[tuple[str, str | None, str], ...] = (
     ("公司那边的时间是二六年十一月二十号下午三点", None, BUDAPEST),
     ("按北京下午时间三点十分买的", None, BUDAPEST),
     ("二六年十一月二十号下午三点买的，JST", None, BUDAPEST),
-    # The ledger's own zone with 的 between, and 时间 on the list: tidied.
+    # The ledger's own zone with 的 between: tidied.
     (
         "按匈牙利的时间，二六年十一月二十号下午三点买的",
         "按匈牙利的时间，2026年11月20号下午3点买的",
         BUDAPEST,
     ),
-    ("成交的时间是二六年十一月二十号下午三点", "成交的时间是2026年11月20号下午3点", BUDAPEST),
-    ("下单时间：二六年十一月二十号下午三点", "下单时间：2026年11月20号下午3点", BUDAPEST),
-    ("具体时间是二六年十一月二十号下午三点", "具体时间是2026年11月20号下午3点", BUDAPEST),
-    ("时间是二六年十一月二十号下午三点", "时间是2026年11月20号下午3点", BUDAPEST),
+    ("成交的时间是二六年十一月二十号下午三点", None, BUDAPEST),
+    ("下单时间：二六年十一月二十号下午三点", None, BUDAPEST),
+    ("具体时间是二六年十一月二十号下午三点", None, BUDAPEST),
+    ("时间是二六年十一月二十号下午三点", None, BUDAPEST),
+    # Missed at the third check: each 时间 here may be a zone, so the times stay.
+    (
+        "时间是美东二六年十一月二十号下午三点，买了0.01个BTC，均价九万五千U，手续费0",
+        "时间是美东二六年十一月二十号下午三点，买了0.01个BTC，均价95000U，手续费0",
+        BUDAPEST,
+    ),
+    ("成交时间是美东二六年十一月二十号下午三点买的", None, BUDAPEST),
+    (
+        "按纽约那个时间，二六年十一月二十号下午三点买了0.01个BTC，均价九万五千U，手续费0",
+        "按纽约那个时间，二六年十一月二十号下午三点买了0.01个BTC，均价95000U，手续费0",
+        BUDAPEST,
+    ),
+    ("北京这个时间二六年十一月二十号下午三点买的", None, BUDAPEST),
+    (
+        "美股交易时间二六年十一月二十号下午三点买了0.01个BTC，均价九万五千U，手续费0",
+        "美股交易时间二六年十一月二十号下午三点买了0.01个BTC，均价95000U，手续费0",
+        BUDAPEST,
+    ),
+    ("北京的成交时间是二六年十一月二十号下午三点", None, BUDAPEST),
 )
 
 
