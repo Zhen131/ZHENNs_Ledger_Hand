@@ -707,7 +707,8 @@ changed.
 
 - **The chat is forgotten when the tab closes.** The Assistant page keeps
   its chat, what was said in it and its proposal cards for as long as the
-  browser tab is open, and writes none of it anywhere. A new tab, a restart
+  browser tab is open; only the assistant's record (below) keeps what was
+  said on disk, and the page cannot be filled again from it. A new tab, a restart
   or New chat starts from nothing; the proposals already sent stay in the
   ledger.
 - **A proposal is confirmed only on the ledger's own page.** The page shows
@@ -728,3 +729,24 @@ changed.
 - **What a tool handed back is cut short under "How this was done".** Each
   result is shown as one line of at most 160 characters with how long it is
   in all; the tables above it show what the ledger found in full.
+
+## The assistant's record
+
+- **The record is plain text.** `assistant-record.jsonl` in the data folder
+  holds what was said to the assistant, word for word, with its numbers,
+  and is not encrypted. It stays on this computer and out of Git; the
+  Settings page and the README say so. Whether it should be encrypted, or
+  kept at all, is the owner's call.
+- **Two tabs writing at the same moment may lose one entry.** Adding an
+  entry reads the whole file first, and when the most kept is reached, the
+  entries kept are written to a new file that then takes the old one's
+  name. When another browser tab adds its entry between the read and the
+  new name, that entry is lost. One person on one computer seldom says two
+  things in two tabs in the same instant, so this is accepted; the file is
+  never left half-written by it.
+- **It cannot be looked through on a page.** The Settings page shows where
+  the file is and how many entries it holds, and clears it; reading the
+  entries means opening the file.
+- **The record says how a proposal stood when it was sent, not after.**
+  Each entry keeps the proposals sent as waiting; whether one was later
+  saved or rejected is the ledger's to say.

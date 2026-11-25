@@ -306,8 +306,9 @@ ledger, and only then, each waiting card also has "Save in the demo
 ledger" and "Reject in the demo ledger", which do there what you would do
 on the ledger's page, so the whole path can be tried. New chat forgets the
 chat and its cards; a question left unanswered is dropped. The chat lasts
-as long as the browser tab and is never written to disk; the demo ledger
-is kept when a setting is changed.
+as long as the browser tab; the demo ledger is kept when a setting is
+changed. What was said is kept on disk in one place only, the assistant's
+record (below).
 
 A screenshot can be uploaded under the chat, as on the Record page: the
 text read waits in a box to be checked and changed, beside a note, and
@@ -315,7 +316,43 @@ Continue records the two exactly as the same words typed, without asking
 the model that chooses tools. The two pages keep their screenshots apart.
 The upload box is greyed out while a question waits. The assistant runs
 on the local plug only: with the cloud plug set, the page says so in one
-sentence and greys the input out.
+sentence and greys the input out. When `LEDGER_HAND_ASSISTANT_STEPS` is
+refused, the page says why and greys out both the input and the upload
+box, so no screenshot is read for nothing.
+
+### The assistant's record on this computer
+
+Each time the assistant has dealt with one thing said (typed, an answer,
+or a screenshot's text), the program adds one line to
+`assistant-record.jsonl` in the data folder (see "Where the data is
+kept"). Started from the top of the repository, as this README does, that
+is the repository's own `data/` folder, which Git ignores. Each line is
+one entry of JSON, with its own version number, holding: when, what you
+said (for a screenshot, the text and note you continued with; the picture
+itself is never kept), which way it went, who wrote the reply, each tool
+the model asked for with its arguments, a short piece of what the ledger
+handed back and any failure codes, the trades proposed with their amounts
+and money, each trade not sent and why, the kinds of reminder said, the
+proposals sent and how they stood, and the model and prompt versions
+used. The most recent 1,000 entries are kept; older ones are dropped.
+
+**The file is plain text, not encrypted: it holds what you said to the
+assistant, word for word, with its numbers.** It stays on this computer;
+it is not in Git and not in the book of the Record page. Keep it out of
+anything shared.
+
+The Settings page shows, under the data folder, which file it is, says
+that it is plain text with your words in it, and how many entries it
+holds. "Clear the assistant's record" asks first; "Yes, delete the
+record" deletes the file, and "Keep it" leaves it. A record written by a
+newer version of the program, or with a line that cannot be read, is
+never changed or deleted by the program: nothing more is added to it, the
+Assistant page says so under each reply (what was said is still done),
+and the Settings page says why it cannot be read; it can still be cleared
+there, by your own two presses. Only a last line cut off half-way (the
+program stopped while writing it) is passed over, and cut off before the
+next entry. When the file cannot be written, the reply is still done and
+the page says it was not kept.
 
 ### What the page says when something fails
 
@@ -1108,7 +1145,7 @@ proxy.
 
 | Variable | Default | What it sets | Why this default |
 | --- | --- | --- | --- |
-| `LEDGER_HAND_DATA_DIR` | `data` in the working directory | The data folder. The book is `ledger-hand-book.sqlite3` in it and export files go into `exports/` in it. A relative folder is taken from the working directory; a leading `~` is the home folder. | Started from the top of the repository, as this README does, the program keeps everything it writes in one folder that the repository's ignore file keeps out of Git. |
+| `LEDGER_HAND_DATA_DIR` | `data` in the working directory | The data folder. The book is `ledger-hand-book.sqlite3` in it, export files go into `exports/` in it, and the assistant's record is `assistant-record.jsonl` in it. A relative folder is taken from the working directory; a leading `~` is the home folder. | Started from the top of the repository, as this README does, the program keeps everything it writes in one folder that the repository's ignore file keeps out of Git. |
 
 The data folder and the exports folder are made when something is first
 written there; reading the setting makes nothing, and recording a passage
@@ -1120,7 +1157,8 @@ settings and does not start with their prefix, so setting it never
 makes the model settings refuse anything; neither do `LEDGER_HAND_LEDGER_DIR`
 and `LEDGER_HAND_PYTHON`, which the scripts read. The default `data/` is
 kept out of Git by the repository's ignore file. The book holds the original
-passages, as typed: keep it out of anything shared.
+passages, as typed, and the assistant's record holds what was said to the
+assistant, in plain text: keep both out of anything shared.
 
 ### How far the assistant may go
 
@@ -1611,7 +1649,8 @@ check and the hygiene scan).
 | `docs/known-gaps.md` | Known limits of the program as it stands, each with what it affects and, where a choice is needed, waiting for the project owner. |
 | `docs/project-report.md` | The project described for a reader new to it: the problem, the steps, the prompt techniques, the parameters, the error handling, the experiments, the design decisions, the known limitations, and the course's checklist mapped onto the repository. `tests/test_project_report_paths.py` checks that every path it names is in the repository. |
 | `tests/storage/golden/` | The golden book of version 1, a SQLite file, and its text dump. Never edited once committed; a new version of the book gets one of its own. |
-| `data/` | Not in Git. The data folder by default: the book (`ledger-hand-book.sqlite3`) and the export files (`exports/`). Created when first written to. |
+| `tests/flows/golden/` | The golden assistant's record of version 1: four invented entries. Never edited once committed; a new version of the record gets one of its own. |
+| `data/` | Not in Git. The data folder by default: the book (`ledger-hand-book.sqlite3`), the export files (`exports/`) and the assistant's record (`assistant-record.jsonl`). Created when first written to. |
 | `.venv/` | Not in Git. The local Python environment. |
 
 A folder or file is created by the change that first needs it;

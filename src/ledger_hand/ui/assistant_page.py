@@ -17,7 +17,8 @@ greyed out while a question waits for its answer, and with a refused step
 limit, as the chat input is, so that no screenshot is read for nothing.
 
 New chat forgets this chat; a question left unanswered is dropped with it.
-The chat lasts as long as the browser tab and is never written to disk.
+The chat lasts as long as the browser tab; only the assistant's record on
+this machine keeps what was said on disk (``assistant_turns``).
 
 When the program's parts cannot be built, the page says why, as the Record
 page does, and shows nothing else.

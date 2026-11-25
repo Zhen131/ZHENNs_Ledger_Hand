@@ -186,6 +186,7 @@ src/ledger_hand/
         coin_book.py          the confirmed coins between the book and the coin table (exists)
         exporting.py          the trades not exported yet, written as one file, marked (exists)
         export_file.py        a new file, whole, never replacing another              (exists)
+        assistant_record.py   the assistant's record: one versioned line per thing said (exists)
     settings.py           the only place that reads settings; why each default, as data (exists)
     wiring.py             builds the parts from the settings, page changes, the clock and the zone (exists)
     ui/                   the user interface; the only place that may use Streamlit   (exists)
@@ -212,6 +213,8 @@ src/ledger_hand/
         assistant_numbers.py  how the Assistant page writes a number                   (exists)
         assistant_failure_words.py  one plain sentence for every failure on the Assistant page (exists)
         assistant_session.py  what the Assistant page keeps between reruns             (exists)
+        assistant_record_words.py  what the pages say about the assistant's record     (exists)
+        record_panel.py       the Settings page's part on the assistant's record; clearing it (exists)
 evals/                    prompt experiments: test sentences, scoring, runner, results (exists)
     sets/                 the test sentences with gold answers: debug, final, writings, voice, tools, asks, edits, stocks (exists)
     gold.py               the shapes of a sentence and its gold answer             (exists)
@@ -257,7 +260,7 @@ tests/                    mirrors src; also holds the guardrails, fakes and gold
     live/                 the live check against a real model, run by hand only       (exists)
     extraction/           tests of extraction against the scripted model              (exists)
     asking/               tests of wording a question                                 (exists)
-    flows/                tests of recording a passage, of the assistant, and of their scripts (exists)
+    flows/                tests of recording a passage, of the assistant, and of their scripts; the golden record (exists)
     ui/                   the pages run headless against fakes; the plain words; the settings file (exists)
     evals/                tests of the experiment kit and the test sentences          (exists)
 ```
@@ -462,6 +465,12 @@ failures it rests on, the tables laid out from the result's own values,
 and what reached the ledger. It never calls the ledger port itself: where
 a proposal stands, and the demo ledger's save and reject, go through
 `flows/standing.py`, which does nothing with any ledger but the demo one.
+Each thing the flows hand back is added to the assistant's record
+(`flows/assistant_record.py`) where the data places say
+(`DataPlaces.assistant_record`), at the moment handed to the flows; the
+page only says when it was not kept, and why. The Settings page shows the
+record and clears it through the same module (`ui/record_panel.py`),
+drawn only once the parts are built.
 Which kind of ledger the parts hold is a named value the wiring module
 sets (`LedgerKind`), not something the page guesses. The wiring module
 builds the demo ledger and reads how many steps the assistant may take
@@ -720,6 +729,25 @@ hygiene scan sees what is inside. Tests copy it to a temporary folder before
 opening it and check that the current code reads exactly what it holds,
 that the dump makes the same tables and rows, and that both files are the
 bytes committed.
+
+**The assistant's record** is a second local file with a version
+number, apart from the book: `assistant-record.jsonl` in the data folder,
+one line of JSON for each thing said to the assistant
+(`flows/assistant_record.py`). Every entry carries `format_version`, a
+named constant (`RECORD_VERSION`, now 1), which is none of the ledger's
+four version numbers and not the book's. A file holding an entry of a
+newer version, or a line that cannot be read, is never written, cut or
+deleted by the program: nothing is added and the pages say why. Only a
+last line cut off half-way, with no line end, is passed over and cut off
+before the next entry. The file keeps the most recent `KEPT_AT_MOST`
+entries; dropping older ones writes a new file beside it that then takes
+its name (`os.replace`). The file is plain text with the person's words in
+it; it is never in Git. Its golden sample,
+`tests/flows/golden/assistant-record-v1.jsonl`, four invented entries made
+by the code itself, is checked by its digest, copied to a temporary folder
+before it is read, and never edited; a test sees that an entry made now has
+the same names as the golden ones, so a change to what an entry holds
+comes with a new version and a new sample.
 
 `tests/fakes/memory_store.py` is the port's stand-in for tests: it keeps
 everything in memory, does what the port promises the way the SQLite plug

@@ -3,7 +3,8 @@
 The assistant page keeps its own things under keys of its own, apart from
 the Record page's: the Record page's chat, passage and screenshot are never
 seen here, nor these there. It keeps, for as long as the browser tab is
-open and never on disk:
+open and never on disk (the assistant's record is written apart, by
+``assistant_turns``):
 
 - the chat as the flows hand it back (``conversation.AssistantChat``): what
   the model is shown the next time, and what waits for the user's answer;
