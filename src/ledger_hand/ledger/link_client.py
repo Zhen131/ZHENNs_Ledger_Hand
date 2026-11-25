@@ -136,6 +136,16 @@ class LedgerLink:
     def __exit__(self, *_: object) -> None:
         self.close()
 
+    @property
+    def port(self) -> int:
+        """The port of 127.0.0.1 the link listens on, for the person to enter on the page."""
+        return self._setup.port
+
+    @property
+    def page_port(self) -> int:
+        """The port the ledger page is opened on; the link takes pages from there only."""
+        return self._setup.page_port
+
     def token_to_show(self) -> str:
         """The token, for the interface to show the person beside the port; nowhere else."""
         return self._setup.token.reveal()
