@@ -365,6 +365,8 @@ def test_a_link_killed_in_the_middle_is_said_and_typing_asks_no_model() -> None:
     page = say_on_page(page, ONE_BUY)
 
     assert state_line(page) == f"Assistant link: {STATE_WORDS[LinkState.GONE]}"
+    (error,) = page.chat_message[1].error
+    assert str(error.value).endswith(STATE_WORDS[LinkState.GONE])
     assert model.tools.steps_left == 1
     assert page.exception == []
 

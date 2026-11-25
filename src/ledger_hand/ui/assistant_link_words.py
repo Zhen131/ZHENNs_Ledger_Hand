@@ -144,6 +144,8 @@ def no_link(missing: NoLink) -> str:
 def not_connected(state: LinkState | None, port: int | None, page_port: int | None) -> str:
     """What is said when something is typed while the ledger page is not connected."""
     head = "Your ledger page is not connected yet, so nothing was sent and the model was not asked."
+    if state is LinkState.GONE:
+        return f"{head} {STATE_WORDS[state]}"
     if state is None or port is None or page_port is None:
         return f"{head} Press Start at the top of this page first, then connect your ledger page."
     steps = " ".join(step.format(port=port, page_port=page_port) for step in THREE_STEPS)
