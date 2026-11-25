@@ -22,8 +22,11 @@ never in these words, the table of what was sent carries them, laid out
 by the caller from the proposal itself; the one exception is a quantity
 said in another unit, said back as the number read and its unit.
 
+``spoken_reminders`` gives the reminders said, as they are, so that a
+caller that keeps them (the assistant's record) keeps the same ones.
+
 Names defined here: ``ENDING_WORDS``, ``LEFT_OUT_WORDS``,
-``SPOKEN_REMINDERS`` and ``reply_for``.
+``SPOKEN_REMINDERS``, ``reply_for`` and ``spoken_reminders``.
 """
 
 from __future__ import annotations
@@ -164,13 +167,18 @@ def _left_out(trade: LeftOutTrade) -> str:
 
 def _reminders(recorded: Recorded) -> list[str]:
     """One line for each reminder to say, once recording ended with a proposal or none."""
+    return [f"Reminder: {reminder_text(issue)}" for issue in spoken_reminders(recorded)]
+
+
+def spoken_reminders(recorded: Recorded) -> tuple[Issue, ...]:
+    """The reminders the reply for ``recorded`` says, in the order said; none for most endings."""
     if recorded.ending not in _SAYS_REMINDERS:
-        return []
-    return [
-        f"Reminder: {reminder_text(issue)}"
+        return ()
+    return tuple(
+        issue
         for issue in recorded.progress.reminders
         if issue.kind in SPOKEN_REMINDERS and not _held_by(issue, recorded.left_out)
-    ]
+    )
 
 
 def _held_by(issue: Issue, left_out: tuple[LeftOutTrade, ...]) -> bool:

@@ -53,7 +53,7 @@ Names defined here: ``ENV_PREFIX``, ``Variable``, ``Plug``, ``Thinking``, the ``
 constants, ``MAX_RETRIES``, ``MAX_SCREENSHOT_MB``, ``Secret``, ``SettingsError``, ``ModelSettings``,
 ``About``, ``ABOUT``, ``load_model_settings``, ``apply_changes``,
 ``DATA_DIRECTORY_VARIABLE``, ``BOOK_FILE_NAME``, ``EXPORTS_DIRECTORY_NAME``,
-``DataPlaces``, ``load_data_places``, ``ASSISTANT_STEPS_VARIABLE``,
+``ASSISTANT_RECORD_FILE_NAME``, ``DataPlaces``, ``load_data_places``, ``ASSISTANT_STEPS_VARIABLE``,
 ``DEFAULT_ASSISTANT_STEPS``, ``FEWEST_ASSISTANT_STEPS``, ``MOST_ASSISTANT_STEPS``
 and ``load_assistant_steps``.
 """
@@ -603,11 +603,15 @@ DEFAULT_DATA_DIRECTORY = "data"
 BOOK_FILE_NAME = "ledger-hand-book.sqlite3"
 # The folder export files are written into.
 EXPORTS_DIRECTORY_NAME = "exports"
+# The assistant's record on this machine: one line of JSON for each thing
+# said to it, in plain text, never in Git and never in the book.
+ASSISTANT_RECORD_FILE_NAME = "assistant-record.jsonl"
 
 
 @dataclass(frozen=True)
 class DataPlaces:
-    """Where the data is kept: the folder, the book inside it, and the folder of exports."""
+    """Where the data is kept: the folder, the book inside it, the folder of exports, and
+    the assistant's record."""
 
     directory: Path
 
@@ -618,6 +622,10 @@ class DataPlaces:
     @property
     def exports(self) -> Path:
         return self.directory / EXPORTS_DIRECTORY_NAME
+
+    @property
+    def assistant_record(self) -> Path:
+        return self.directory / ASSISTANT_RECORD_FILE_NAME
 
 
 def load_data_places(
