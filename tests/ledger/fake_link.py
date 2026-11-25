@@ -14,6 +14,8 @@ link does, and follows the script ``FAKE_LINK_SCENARIO`` names:
 - ``port_in_use``: says the port is taken, with the token in the line, and
   leaves with status 2, as the link does.
 - ``bad_option``: says something else is wrong and leaves with status 2.
+- ``missing_module``: says, as Node.js does, that a package is not
+  installed, and leaves with status 1.
 - ``refuse_handshake``: refuses the handshake with "invalid params".
 - ``silent``: never answers a tool call.
 - ``die``: leaves in the middle of a tool call.
@@ -164,6 +166,9 @@ def main() -> None:
         os.close(2)
         time.sleep(float(os.environ.get("FAKE_LINK_LINGER", "3")))
         sys.exit(2)
+    if scenario == "missing_module":
+        note("Error: Cannot find module '@modelcontextprotocol/server/stdio'")
+        sys.exit(1)
     if scenario == "bad_option":
         note("assistant-link: ERROR: --page-port must be a whole number from 1 to 65535.")
         sys.exit(2)

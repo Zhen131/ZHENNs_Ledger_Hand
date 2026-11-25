@@ -407,3 +407,12 @@ def test_a_ledger_with_every_package_installed_starts(ledger_folder: Path, node:
     with LedgerLink(setup(ledger_folder, node)) as link:
         assert link.running()
     assert not link.running()
+
+
+def test_a_package_node_cannot_find_is_said_as_packages_missing(
+    ledger_folder: Path, node: str
+) -> None:
+    error = failure_of(LedgerLink(setup(ledger_folder, node, "missing_module")))
+
+    assert error.failure is LinkFailure.PACKAGES_MISSING
+    assert error.detail == "@modelcontextprotocol/server/stdio"

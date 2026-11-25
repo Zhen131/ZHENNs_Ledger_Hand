@@ -69,6 +69,8 @@ _NODE_VERSION = re.compile(r"v(\d+)\.\d+\.\d+")
 _LINE_PREFIX = "assistant-link: "
 _ERROR_PREFIX = _LINE_PREFIX + "ERROR: "
 _PORT_TAKEN = "already in use"
+# Node.js's own line when a package the link imports is not installed.
+_NOT_INSTALLED = re.compile(r"Cannot find (?:module|package) '([^']+)'")
 # JSON-RPC's code for "invalid params"; the link answers it to a refused name.
 _INVALID_PARAMS = -32602
 _END = object()
@@ -129,6 +131,7 @@ class LedgerLink:
         self._talking = threading.Lock()
         self._page = PageState.NOT_CONNECTED
         self._last_error = ""
+        self._not_installed = ""
         self._next_id = 0
 
     def __repr__(self) -> str:
@@ -312,6 +315,9 @@ class LedgerLink:
             return self._error(LinkFailure.TIMED_OUT, "waiting for the link to leave")
         with self._lock:
             said = self._last_error
+            not_installed = self._not_installed
+        if not_installed:
+            return self._error(LinkFailure.PACKAGES_MISSING, not_installed)
         if status == _EXIT_CANNOT_START and _PORT_TAKEN in said:
             return self._error(LinkFailure.PORT_IN_USE, said)
         return self._error(LinkFailure.CANNOT_START, f"exit status {status}. {said}".strip())
@@ -330,6 +336,10 @@ class LedgerLink:
                 self._page = PageState.DISCONNECTED
             elif text.startswith(_ERROR_PREFIX):
                 self._last_error = self._setup.token.hide_in(text.removeprefix(_ERROR_PREFIX))
+            else:
+                missing = _NOT_INSTALLED.search(text)
+                if missing is not None and not self._not_installed:
+                    self._not_installed = missing.group(1)
 
     # --- talking ----------------------------------------------------------------
 
@@ -405,7 +415,10 @@ def _missing_packages(folder: Path) -> list[str]:
 
     A ledger whose packages were installed before a new one was added to it
     has all but that one; the link then stops with "Cannot find module"
-    (68C4, 2026-11-25). A ``package.json`` that cannot be read names none.
+    (68C4, 2026-11-25), which is read off its standard error too, since the
+    packages the link needs are among the development ones, which this
+    check does not ask for. A ``package.json`` that cannot be read names
+    none.
     """
     try:
         listed = json.loads((folder / "package.json").read_text(encoding="utf-8"))
