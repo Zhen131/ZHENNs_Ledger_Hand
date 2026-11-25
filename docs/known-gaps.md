@@ -791,8 +791,8 @@ changed.
   get an answer; none would.
 - **A tool's name written out as the answer.** Now and then the model
   writes a tool's name, or "call list_trades with ...", as its reply
-  instead of calling it. Under the default prompt this was seen once in
-  nineteen sentences; the user then sees that line and nothing done.
+  instead of calling it. Under the default prompt this is rare; the user
+  then sees that line and nothing done.
 - **A word the model copies as a time is taken as one.** When the model
   copies a word of the user's as the time and the program can read it, the
   table is narrowed by it and the header shows the days. In "我一月一次定投

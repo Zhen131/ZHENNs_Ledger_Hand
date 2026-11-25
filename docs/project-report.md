@@ -799,7 +799,7 @@ rough edges are known and listed, each with why it stands.
 | Choosing what to do is not measured on new sentences | The line of 95% is to be judged on sentences the owner says in their own way, not written yet; every sentence measured so far was seen while the prompts were written ("The assistant, measured"). |
 | An English question with a time in it often gets no table | The model writes the time in Chinese, which is not the user's words, so nothing is looked up; two of the four questions not right are of this kind (`docs/known-gaps.md`). |
 | About one change or deletion in four is not done the first time | 13 of 17, none sent wrong; the rest ask back or ask for the date again ("The assistant, measured"; `docs/known-gaps.md`). |
-| Figures copied into the wrong field can be sent with no warning | When the copied figures still agree with each other the program has nothing to say ("0.01个BTC 花了950U" sent as a price of 950); the proposal waits to be confirmed, showing quantity, price and total (`docs/known-gaps.md`). |
+| Figures copied into the wrong field can be sent with no warning | When the copied figures still agree with each other the program has nothing to say (an amount paid in all copied as the price); the proposal waits to be confirmed, showing quantity, price and total (`docs/known-gaps.md`). |
 
 ## 9. Requirements map
 

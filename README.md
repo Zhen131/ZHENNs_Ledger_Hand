@@ -977,7 +977,7 @@ The assistant is checked there too, with the demo ledger and the invented
 book's moment: what is held now, one trade told in full, one day's trades,
 and each of the sentences for a demo (`tests/live/test_live_demo_sentences.py`,
 see "Sentences for a demo"), each held to what `tests/live/demo_sentences.json`
-says it must come to. The sentences take about a minute in all.
+says it must come to.
 
 To see what happens when no model server is running, do not stop the one you
 have: point the address at a port nothing listens on instead, for example
