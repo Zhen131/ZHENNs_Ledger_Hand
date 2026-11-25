@@ -195,17 +195,20 @@ _MINUTE_AFTER = re.compile(f"[0-9{_NUMBER_CHARACTERS}]+[分秒]")
 # A zone said anywhere: 时区, 东X区 or 西X区, or a Latin name of one.
 _OTHER_ZONE_MARK = re.compile(
     f"时区|[东西][{_NUMBER_CHARACTERS}0-9]{{1,3}}区"
-    "|(?<![A-Za-z])(?i:UTC|GMT|EST|EDT|PST|PDT|CST|CET|CEST)(?![A-Za-z])"
+    "|(?<![A-Za-z])(?i:UTC|GMT|EST|EDT|PST|PDT|CST|CET|CEST|JST|HKT|SGT|KST|AEST|AEDT)"
+    "(?![A-Za-z])"
 )
-# Words before 时间 that make it a time of day or of an event, not a zone.
-# A word not on this list counts as a zone, so a new one held by mistake is
-# one more row here.
-_NOT_ZONE_TIMES = (
-    *_HALF_WORDS,
-    "这段", "那段", "一段", "这个", "那个", "成交", "下单", "交易", "买入", "卖出",
-    "买的", "卖的", "第一", "什么", "多少", "同一", "具体", "准确", "确切", "的",
-    "有", "没", "花", "长", "短", "点",
+# The only words 时间 may follow and still name no zone: the time of a trade
+# or a stretch of time, never a place. One 的 may come between ("成交的时间").
+# Anything else before 时间, a place or not ("北京的时间", "老家的时间"), may
+# be a zone. A row more lets one more wording through; add few.
+_RELEASED_TIMES = (
+    "成交", "下单", "交易", "买入", "卖出", "购买", "委托", "订单", "具体", "当时",
+    "这个", "那个", "这段", "一段", "第一", "长", "短", "有", "没", "什么",
 )  # fmt: skip
+# How the zone trades are recorded in may be said with words between ("匈牙利那边的时间").
+_SAME_ZONE_BETWEEN = ("", "的", "那边的", "这边的")
+_STARTS_A_PHRASE = _PUNCTUATION
 
 # Units a number may stand before. A number followed by one is an amount.
 _UNITS = ("个", "股", "枚", "颗", "美金", "美元", "刀", "块", "欧", "欧元", "币", "份")
@@ -420,31 +423,43 @@ def _goes_on_unsure(text: str, segment: _Segment) -> bool:
 
 
 def _other_zone_said(text: str, zone: str) -> bool:
-    """Whether a zone other than ``zone`` is said anywhere in ``text``, or may be.
+    """Whether ``text`` says, or may say, a zone other than ``zone``, anywhere in it.
 
     Any such words leave every time of the sentence as said: tidied, its
     year would read, and the model might copy the time without the zone,
-    to be read in ``zone``, hours off. Said in any place, not only beside
-    the time ("按北京时间算，……"). A word ending in 时间 counts as a zone
-    unless it is a zone in ``SPOKEN_ZONES`` that is ``zone``, or the words
-    before 时间 end in one of ``_NOT_ZONE_TIMES`` ("下午时间", "成交时间").
-    (Decided on 2026-11-25: rather too many held than one time read hours off.)
+    to be read in ``zone``, hours off. 时区, 东X区, 西X区 or a Latin name of a
+    zone always count. So does every 时间, unless it is surely not a zone:
+    the zone ``zone`` itself as ``SPOKEN_ZONES`` says it (with 的, 那边的 or
+    这边的 between allowed: "匈牙利的时间"); one of ``_RELEASED_TIMES`` before
+    it, with at most one 的 between ("成交的时间"); a half of the day before
+    it, at the start of a phrase ("下午时间"); or 时间 at the start of a
+    phrase, followed by 是, 在, 为 or a colon ("时间是……").
+    (Decided on 2026-11-25: none is let through unless it is on a list.)
     """
-    if any(said in text for said, named in SPOKEN_ZONES.items() if named != zone):
-        return True
     if _OTHER_ZONE_MARK.search(text) is not None:
         return True
-    same = [said for said, named in SPOKEN_ZONES.items() if named == zone]
-    for found in re.finditer("时间", text):
-        head = text[: found.start()]
-        if not head or _CHINESE.fullmatch(head[-1]) is None:
-            continue
-        if text[: found.end()].endswith(tuple(same)):
-            continue
-        if head.endswith(_NOT_ZONE_TIMES):
-            continue
+    return any(
+        not _surely_no_zone(text, found.start(), zone) for found in re.finditer("时间", text)
+    )
+
+
+def _surely_no_zone(text: str, position: int, zone: str) -> bool:
+    """Whether the 时间 at ``position`` is surely not another zone."""
+    head = text[:position]
+    for said, named in SPOKEN_ZONES.items():
+        place = said.removesuffix("时间")
+        if named == zone and head.endswith(tuple(place + way for way in _SAME_ZONE_BETWEEN)):
+            return True
+    plain = head.removesuffix("的")
+    if plain.endswith(_RELEASED_TIMES):
         return True
-    return False
+    for half in _HALF_WORDS:
+        if plain.endswith(half):
+            before = plain[: -len(half)]
+            if not before or before[-1] in _STARTS_A_PHRASE:
+                return True
+    starts = not head or head[-1] in _STARTS_A_PHRASE
+    return starts and text.startswith(("是", "在", "为", "：", ":"), position + 2)
 
 
 def _zone_before(text: str, position: int) -> tuple[str, int, int] | None:
@@ -465,7 +480,8 @@ def _zone_before(text: str, position: int) -> tuple[str, int, int] | None:
     mark = _ZONE_MARK_BEFORE.search(head)
     if mark is None:
         return None
-    if mark["named"] is not None and head[: mark.start()].endswith(_NOT_ZONE_TIMES):
+    if mark["named"] is not None:
+        # Whether a word ending in 时间 is a zone is judged for the whole sentence.
         return None
     start = mark.start() if mark["named"] is None else max(0, mark.start() - 4)
     return "", start, end
@@ -492,7 +508,8 @@ def _zone_after(text: str, position: int) -> tuple[str, int, int] | None:
     mark = _ZONE_MARK_AFTER.match(text, start)
     if mark is None:
         return None
-    if mark["named"] is not None and mark["named"][:-2].endswith(_NOT_ZONE_TIMES):
+    if mark["named"] is not None:
+        # Whether a word ending in 时间 is a zone is judged for the whole sentence.
         return None
     return "", start, mark.end()
 

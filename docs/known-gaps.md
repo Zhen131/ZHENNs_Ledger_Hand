@@ -687,19 +687,28 @@ does not reach it yet (the third part of batch 68). What it does not do:
   tidied (its other numbers still are). That is a zone in `SPOKEN_ZONES`
   that is not the ledger's ("按北京时间算，……", by Beijing time, when the
   ledger's zone is Budapest); 时区 (time zone), 东X区 or 西X区 (the zone X
-  hours east or west); a Latin name such as UTC, GMT, EST or CET; and any
-  word ending in 时间 (time) that is not the ledger's zone in the table,
-  unless the words before 时间 end in one on a short list that names a time
-  of day or of an event (下午, afternoon; 成交, filled; 这段, this stretch of).
-  Anything else ending in 时间 ("东京时间", Tokyo time; "当地时间", local
-  time) is taken as a zone, so a time is sometimes held back that need not
+  hours east or west); a Latin name such as UTC, GMT, EST, CET or JST; and
+  every 时间 (time), unless it is surely not a zone. Only these are let
+  through: the ledger's own zone as the table says it, with 的 (of), 那边的
+  or 这边的 (over there, over here) allowed between ("匈牙利的时间", Hungary's
+  time); 时间 after one word of a short list, with at most one 的 between
+  (成交, filled; 下单, ordered; 具体, exact; 这段, this stretch of; and a few
+  more, listed in `src/ledger_hand/core/spoken_text.py`); a half of the day at the start of a
+  phrase ("下午时间", afternoon time); and 时间 at the start of a phrase
+  followed by 是, 在, 为 or a colon ("时间是……", the time is). Anything else,
+  a place or not ("北京的时间", Beijing's time; "国内的时间", the time at home;
+  "我老家的时间", the time in my home town), is taken as a zone, so a time is
+  sometimes held back that need not
   be. The program does not read a zone said in words, so tidying the year
   alone would let the model copy the clock time without the zone, and the
   time would be read in the ledger's zone, hours off. Left as said, the time
   is not read and the user is asked for it, as before. The ledger's own zone
   said apart from the time ("按匈牙利时间算，……") is kept in the words, and
   the time is tidied. To take another zone, the reading of times has to
-  learn zones.
+  learn zones. A zone said with neither 时间 nor 时区 nor a Latin name
+  ("按国内算下午三点", by home reckoning three in the afternoon; "北京下午三点",
+  Beijing three in the afternoon) is not seen at all: the time is tidied and
+  read in the ledger's zone, hours off. That wording is not dealt with here.
 - **Some numbers are not tidied, and stay as said.** These are left as
   they were said, and read as before or asked about:
   a number ending in 一 that may be the start of the next word ("三十万一个",

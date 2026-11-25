@@ -124,6 +124,32 @@ EXAMPLES: tuple[tuple[str, str | None, str], ...] = (
     # More of the amount after a unit, with a gap or after letters.
     ("手续费二十块 五", None, BUDAPEST),
     ("手续费二十U五", None, BUDAPEST),
+    # 时间 after anything not on the list of released words may be a zone: times left.
+    (
+        "按北京的时间，二六年十一月二十号下午三点买了0.01个BTC，均价九万五千U",
+        "按北京的时间，二六年十一月二十号下午三点买了0.01个BTC，均价95000U",
+        BUDAPEST,
+    ),
+    ("按北京那边的时间算，二六年十一月二十号下午三点买的", None, BUDAPEST),
+    (
+        "国内的时间是二六年十一月二十号下午三点，买了两千U的ETH",
+        "国内的时间是二六年十一月二十号下午三点，买了2000U的ETH",
+        BUDAPEST,
+    ),
+    ("我老家的时间二六年十一月二十号下午三点买的", None, BUDAPEST),
+    ("公司那边的时间是二六年十一月二十号下午三点", None, BUDAPEST),
+    ("按北京下午时间三点十分买的", None, BUDAPEST),
+    ("二六年十一月二十号下午三点买的，JST", None, BUDAPEST),
+    # The ledger's own zone with 的 between, and 时间 on the list: tidied.
+    (
+        "按匈牙利的时间，二六年十一月二十号下午三点买的",
+        "按匈牙利的时间，2026年11月20号下午3点买的",
+        BUDAPEST,
+    ),
+    ("成交的时间是二六年十一月二十号下午三点", "成交的时间是2026年11月20号下午3点", BUDAPEST),
+    ("下单时间：二六年十一月二十号下午三点", "下单时间：2026年11月20号下午3点", BUDAPEST),
+    ("具体时间是二六年十一月二十号下午三点", "具体时间是2026年11月20号下午3点", BUDAPEST),
+    ("时间是二六年十一月二十号下午三点", "时间是2026年11月20号下午3点", BUDAPEST),
 )
 
 
