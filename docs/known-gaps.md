@@ -539,7 +539,7 @@ changed.
   tuned on the owner's own sentences, or a check of the price against the
   day's market price, which the fake ledger does not have.
 - **The answer to a question about the fee may not be read.** "手续费1.5
-  USDT" given as an answer was once not read, and the same question came
+  USDT" ("fee 1.5 USDT") given as an answer was once not read, and the same question came
   again; "1.5 USDT" alone was read.
 - **The question does not show the money already read.** While a trade's
   figures are asked about, the facts listed beside the question leave out
@@ -585,7 +585,7 @@ changed.
   When the unit holds the coin's name as well ("30U ETH"), the reason reads
   oddly: "its quantity was said as 30 U ETH, and U ETH is not ETH".
 - **A coin asked for after a quantity in another coin.** When the coin is
-  left empty and the quantity was said as "0.1个BTC", the program asks
+  left empty and the quantity was said as "0.1个BTC" ("0.1 BTC"), the program asks
   which coin; whatever the user answers is taken, so answering "ETH" sends
   a buy of 0.1 ETH. The reply then says the reminder that the unit is not
   the coin, even when the answer was "BTC" and the reminder no longer
@@ -640,17 +640,20 @@ changed.
   none sent a wrong one (`evals/RESULTS.md`, "2026-11-25: a cut period
   judged by the sentence just said first"). The four not done, each
   sending nothing: a month copied out of a day ("把11月3号那笔ADA的备注改成
-  补仓", the model copying "11月"), where the program asks for the date
+  补仓", "change the note of the ADA trade of 3 November", the model
+  copying "11月", "November"), where the program asks for the date
   again; the model listing the trades and asking in its own words instead
-  of calling the tool ("把10月卖出的那笔删掉"), which the system prompt's
+  of calling the tool ("把10月卖出的那笔删掉", "delete the one sold in October"), which the system prompt's
   line on listing before a change invites; an English day written in
   Chinese ("Delete the BTC sell from October 21", copied as "10月21号");
   and a time of the model's own where none was said ("把ADA那笔的平台改成
-  Binance", copied as "今天"). So about one change in four is not done the
+  Binance", "change the ADA trade's platform to Binance", copied as
+  "今天", "today"). So about one change in four is not done the
   first time, and the user is asked back or told to say it again.
 - **A time cut short is a wrong step, not a narrower lookup.** A period
   the model copied that stands cut out of a longer time in the sentence
-  just said ("9月" out of "9月13号") is not taken. For a lookup it is a
+  just said ("9月", September, out of "9月13号", 13 September) is not
+  taken. For a lookup it is a
   wrong step, handed back to the model; for a change or a deletion the
   program looks nothing up and says at once its fixed sentence asking for
   the date again. Only when the copied words are not in the sentence just
@@ -658,8 +661,8 @@ changed.
   alone counts as copied. Nothing in the user's words is looked for in its
   place, so the model has to copy the whole time. "10月6" copied out of
   "10月6号" is taken as cut too, and gets that fixed sentence. It also
-  stops one that should go through: after "9月我买的BTC", "把那笔BTC的时间改成
-  9月13号上午10点" ("change its time to 13 September, 10 a.m.") with the
+  stops one that should go through: after "9月我买的BTC" ("the BTC I bought in
+  September"), "把那笔BTC的时间改成9月13号上午10点" ("change its time to 13 September, 10 a.m.") with the
   model's "9月" is asked again, since the only "9月" in it is part of the
   new time; the user has to say it once more.
 - **A longer time the program cannot read is not seen as cut.** The check
@@ -677,13 +680,17 @@ changed.
   only trade of that month whatever day the user meant; they were made
   with a scripted model, not seen with the real one: a sentence with the
   month said alone a second time ("把9月13号那笔BTC的备注改成9月定投",
-  "9月" also in the new note); the month said alone two sentences before
-  and the day in the sentence between ("9月我买了什么", "9月13号那笔是什么",
-  "把那笔BTC删掉"); and the month and the day said in two sentences ("9月我
-  都买了什么", then "把13号那笔BTC删掉"). The same safeguard holds: the reply
+  "change the note of the BTC trade of 13 September to 'September
+  plan'", "9月" also in the new note); the month said alone two sentences before
+  and the day in the sentence between ("9月我买了什么", "what did I buy in
+  September"; "9月13号那笔是什么", "what is the one of the 13th";
+  "把那笔BTC删掉", "delete that BTC trade"); and the month and the day said in two sentences ("9月我
+  都买了什么", "what did I buy in September", then "把13号那笔BTC删掉",
+  "delete the BTC trade of the 13th"). The same safeguard holds: the reply
   and the waiting proposal show which trade.
 - **A side the model picks wrong is taken as it stands.** The side is a
-  choice from a list, so it is never refused: "把9月25号那笔ADA删掉" for a buy
+  choice from a list, so it is never refused: "把9月25号那笔ADA删掉" ("delete the ADA
+  trade of 25 September") for a buy
   was once given `sell` by the model. Then no trade matches, and the user
   is told so with the side looked for.
 - **A day copied from the new time, not from the trade's.** In
@@ -782,8 +789,8 @@ changed.
   of time", which says nothing about the price the user meant.
 - **A time said in an earlier sentence is taken.** A period counts as
   copied when it is in anything the user said in this chat. Asked on, a
-  model that copies the "10月" of the question before, where this one says
-  "9月", looks up October; the header shows which month.
+  model that copies the "10月" (October) of the question before, where this
+  one says "9月" (September), looks up October; the header shows which month.
 - **A question none of the four answers may be met with "say it another
   way".** "我11月底的资产比11月初多了多少" ("how much more did I hold at the
   end of November than at its start") may get "I could not read '11月初'

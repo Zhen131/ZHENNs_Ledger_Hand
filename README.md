@@ -328,7 +328,8 @@ for each, from "Sentences for a demo" below:
 
 It does not place orders, give advice on buying or selling, or forecast a
 price; asked to, the model answers in words and nothing is sent. It records no
-exchange of one money for another ("用美元买了500 USDT"): that is left to
+exchange of one money for another ("用美元买了500 USDT", "bought 500 USDT
+with dollars"): that is left to
 the ledger. It answers with the model `LEDGER_HAND_MODEL_NAME` names
 (`qwen2.5:7b` by default), changed in the model field of the Settings
 page for the browser tab, or in the environment before the program
