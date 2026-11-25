@@ -465,13 +465,13 @@ changed.
 - **The cloud model does not run the assistant.** The cloud plug refuses a
   call with tools before sending anything, naming `LEDGER_HAND_MODEL_PLUG`.
   Whether it should hand tools to a cloud service is a later choice.
-- **Only the fake ledger is behind the tools.** It is an invented book in
-  memory with its own way of working out cost and profit, which says
-  nothing about the real ledger's. The Assistant page, the try-out script
-  and every test reach this demo ledger, never the user's real ledger:
-  connecting the assistant to the real ledger's tools is not done yet,
-  because the ledger's own tool interface for the assistant was not in the
-  ledger yet when this round ended. A
+- **Only the fake ledger is behind the Assistant page.** It is an invented
+  book in memory with its own way of working out cost and profit, which
+  says nothing about the real ledger's. The Assistant page, the try-out
+  script and the tests of the flows reach this demo ledger, never the
+  user's real ledger. The plug for the real ledger exists
+  (`ledger/link_ledger.py`, see "The real ledger's plug" below); choosing
+  it on the page is the third part of batch 68. A
   proposal is "confirmed" only by the try-out script's `--save` or the
   page's demo buttons, which work on the demo ledger alone. The invented
   book gives ADA no market price on purpose, so its profit on paper is
@@ -499,6 +499,46 @@ changed.
   for a code the ledger has. A time is never taken in another language:
   the user writes "this year" and the model fills "今年", which is a wrong
   step.
+
+## The real ledger's plug (68B2, 2026-11-25)
+
+The plug for the real ledger (`ledger/link_ledger.py`) is built and walked
+through a real ledger page by a script with no model; the Assistant page
+does not reach it yet (the third part of batch 68). What it does not do:
+
+- **A trade with only its day is not sent, though the ledger takes one.**
+  The assistant still asks for the time of day (`LeftOut.DAY_ONLY`), as it
+  did; the ledger itself records a trade with a day alone. Whether to send
+  such trades is for the product owner to decide.
+- **A trade in another money than the asset's own is not sent.** The
+  ledger then needs the rate between the two moneys (`costRate`), which
+  the assistant does not ask for; the plug says so for that trade
+  (`HAND_NEEDS_COST_RATE`) and sends the others.
+- **A time with seconds is not sent.** The ledger takes a time to the
+  minute; the plug says so (`HAND_TIME_HAS_SECONDS`).
+- **"bought_with" keeps its old name for the model.** For a holding it now
+  holds the asset's own money, which every figure of the holding is in,
+  not the money it was bought with; the name is left for the batch that
+  changes the prompts.
+- **The sums of one asset do not split its profit.** The ledger's sums
+  cannot be narrowed to one asset, so the plug adds up what the asset's
+  trades paid and brought in itself and takes the asset's profit or loss
+  from the ledger's row for it; the ledger gives no split of that row into
+  sells and transfers, so both parts are "not worked out".
+- **After a timeout or a reload, the plug does not look for itself.** A
+  proposal the ledger did not answer in time is never sent again, and one
+  the ledger forgot is never called unsaved; in both cases the user is
+  asked to look at the ledger. Looking through the trades to guess what
+  became of it is not done (68B-R, suggestion 2).
+- **A change needs the trade listed first in the same session.** The plug
+  keeps the trades as last listed to copy back what did not change; the
+  change flow always lists first, so this holds for the assistant.
+- **Cash is never handed back.** The ledger has no tool for cash
+  balances, and the plug works none out from trades. Saying so to the
+  user is the third part of batch 68.
+- **The cost of a holding marked not exact carries a sentence of this
+  program's.** The ledger says only that it is not exact; the reason
+  shown is taken from the ledger's README (a fee paid in another asset).
 
 ## The assistant: recording a trade
 

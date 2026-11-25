@@ -54,16 +54,18 @@ assistant link (``ledger.link_client.LedgerLink``) from the settings
 ports, the variables the link is started with, and this program's version
 for the handshake. The token the link and the ledger page share is made
 here, fresh each time (``make_link_token``: 24 random bytes written as
-base64url, 32 characters), and kept only in memory. Nothing on any page
-uses the link yet; the try-out script does.
+base64url, 32 characters), and kept only in memory. ``link_ledger`` builds
+the real ledger's plug (``ledger.link_ledger.LinkLedger``) over a started
+link, with the model's name and the machine's date for "today". Nothing on
+any page uses the link yet; the try-out and walk-through scripts do.
 
 This is the only module of the package that may import ``tzlocal``, and only
 the interface may import this one. It does not draw anything or keep
 anything between uses.
 
 Names defined here: ``Parts``, ``AssemblyProblem``, ``AssemblyError``,
-``assemble``, ``read_clock``, ``machine_zone``, ``make_link_token`` and
-``ledger_link``.
+``assemble``, ``read_clock``, ``machine_zone``, ``make_link_token``,
+``ledger_link`` and ``link_ledger``.
 """
 
 from __future__ import annotations
@@ -86,6 +88,7 @@ from ledger_hand.flows.uploading import VisionModelCheck, VisionModelPresence
 from ledger_hand.ledger.fake_ledger import FakeLedger
 from ledger_hand.ledger.link_client import LedgerLink, LinkSetup
 from ledger_hand.ledger.link_failures import LinkToken
+from ledger_hand.ledger.link_ledger import LinkLedger
 from ledger_hand.llm.connect import check_plug, connect_model, connect_vision_model
 from ledger_hand.llm.ollama_identity import ask_identity
 from ledger_hand.ports import LedgerPort, ModelError, ModelErrorKind, ModelPort, StoragePort
@@ -246,6 +249,15 @@ def machine_zone() -> str | None:
 def make_link_token() -> LinkToken:
     """A fresh token for the assistant link: 24 random bytes as base64url, 32 characters."""
     return LinkToken(secrets.token_urlsafe(24))
+
+
+def link_ledger(link: LedgerLink, model_name: str) -> LinkLedger:
+    """The real ledger's plug over a started ``link``; today is the machine's date.
+
+    ``model_name`` is what the ledger writes into its change history as the
+    model behind the assistant.
+    """
+    return LinkLedger(link, model_name=model_name, today=lambda: datetime.now().date())
 
 
 def ledger_link(settings: LedgerLinkSettings | None = None) -> LedgerLink | None:

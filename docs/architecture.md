@@ -134,7 +134,11 @@ src/ledger_hand/
         failures.py           SQLite's failures as the port's kinds                   (exists)
         upgrades/             the numbered upgrade scripts, never changed once committed (exists)
             upgrade_0001.py       an empty file becomes a book of version 1           (exists)
-    ledger/               plugs for the ledger port: the fake ledger so far           (exists)
+    ledger/               plugs for the ledger port: the fake ledger and the real one (exists)
+        link_ledger.py        the real ledger's plug, through its assistant link      (exists)
+        link_client.py        starts the ledger's assistant link and talks to it      (exists)
+        link_failures.py      how the link can fail; the token, never printed         (exists)
+        link_tools.py         the eight tools this program expects of the link        (exists)
         fake_ledger.py        the fake ledger: an invented book in memory; save, reject (exists)
         invented_book.py      the invented book: assets, trades, market prices, "now"  (exists)
         moving_average.py     the fake ledger's own way of working out cost and profit (exists)
@@ -764,27 +768,49 @@ ports file.
 
 | Method | What it does |
 | --- | --- |
-| `list_assets()` | The ledger's assets: name, code, kind, identifier, and whether it can price a trade. |
-| `list_trades(TradeFilter)` | The trades within a time, of an asset, on a side, each part optional; each trade names the money it is priced in and what its fee was taken in, and a sell carries its profit or loss. |
-| `period_summary(PeriodRequest)` | The sums of a stretch of time, one set for each money, never added together. |
-| `positions()` | What is held, one holding for each asset and the money it was bought with. |
-| `propose_add`, `propose_update`, `propose_delete` | Propose to record, change or delete trades. The answer holds each trade's check (passed, or failed with a code and a sentence) and an identifier when the ledger kept the proposal. Nothing is written: a proposal waits for the person on the ledger's own page. |
-| `proposal_status(id)` | Where a kept proposal stands: pending, saved, rejected or void. |
+| `list_assets()` | The ledger's assets: name, code, kind, identifier, whether it can price a trade, and the money it is itself priced in. |
+| `list_trades(TradeFilter)` | The trades of a stretch of days (both ends counted, each trade on the day of its own offset), of an asset, on a side, each part optional; oldest first, at most `MOST_TRADES_LISTED` (2000) of the latest, and whether older ones were cut (`TradeList`). Each trade names its money, its fee's asset, its time zone, whether only its day is known, its rate between moneys, and whether it is dated after today; a sell carries its profit or loss and why it is not exact when it is not. |
+| `period_summary(PeriodRequest)` | The sums of a stretch of days: one group for each money, with its count of buys and sells, what they paid and brought in (or why that was not added up), its fees, its profit or loss with the part transfers took apart, and one row an asset. Never added across moneys. |
+| `positions()` | What is held, one holding for each asset, in the asset's own money; none sold out, and no cash. |
+| `propose_add`, `propose_update`, `propose_delete` | Propose to record, change or delete trades, with what the user said this time. Each trade is checked on its own: passed, it waits under a proposal identifier of its own; failed, it has a code and the ledger's sentence. A call may be taken in part. Nothing is written: a proposal waits for the person on the ledger's own page. |
+| `proposal_status(id)` | Where a proposal stands (`ProposalState`): pending, saved (with the trade written), rejected or void (with why). |
 
-Every failure is a `LedgerError` with one of four kinds (`LedgerErrorKind`:
-`UNREACHABLE`, `UNKNOWN_ASSET`, `NOT_FOUND`, `OTHER`), a fixed code and a
-sentence. A trade that fails the ledger's check is not a failure. No trade
-has a default money: the money it is priced in and what its fee was taken
-in are always named.
+Every failure is a `LedgerError` with one of seven kinds (`LedgerErrorKind`:
+`UNREACHABLE`, `UNKNOWN_ASSET`, `ASSET_IS_CURRENCY`, `NOT_FOUND`,
+`TIMED_OUT`, `RESULT_UNKNOWN`, `OTHER`), a fixed code and a sentence. A
+trade that fails the ledger's check is not a failure. A proposal that
+timed out is never sent again (it may have reached the ledger), and one
+the ledger forgot is never said to be unsaved. No trade has a default
+money: the money it is priced in and what its fee was taken in are always
+named. The shapes follow what the real ledger hands back (68B2,
+2026-11-25; the ledger's answers are kept in `tests/ledger/samples/`).
 
-The one plug so far is `ledger/fake_ledger.py`: an invented book in memory,
-which reads no file, no clock and no network, and with its own simple way
-of working out cost and profit (a moving average, which says nothing about
-the real ledger's). It keeps a proposal only when every trade passes, and
-offers two things outside the port, for tests, the try-out script and the
-Assistant page's demo buttons (through `flows/standing.py` only): saving
-and rejecting a proposal. `tests/ledger/test_ledger_port.py` runs the
-port's tests against every plug.
+Two plugs:
+
+- `ledger/fake_ledger.py`: an invented book in memory, which reads no
+  file, no clock and no network, with its own simple way of working out
+  cost and profit (a moving average, which says nothing about the real
+  ledger's). It answers the way the real ledger does: one proposal per
+  trade, taken in part, days counted on each trade's own clock. It offers
+  two things outside the port, for tests, the try-out script and the
+  Assistant page's demo buttons (through `flows/standing.py` only):
+  saving and rejecting a proposal. `tests/ledger/test_ledger_port.py` runs
+  the port's tests against it.
+- `ledger/link_ledger.py`: the real ledger, through its assistant link.
+  `ledger/link_client.py` starts the ledger's own `assistant-link/main.ts`
+  as a child process and speaks JSON-RPC with it; the plug turns the
+  port's shapes into the ledger's eight tools and back: assets by their
+  internal identifier, days both ends counted, every page of trades read,
+  a change sent whole with the time, platform, note and rate kept as last
+  listed, the sums of one asset added up here from the money each of its
+  trades moved. Two named tables sort every error code of the ledger
+  (`CALL_FAILURES`, `TRADE_REFUSALS`); the ledger tier checks them against
+  the ledger's README. It reads no environment variable and no clock: the
+  model's name and today's date are handed in. `tests/ledger/
+  test_link_ledger.py` runs it on the ledger's recorded answers, and
+  `scripts/walk_ledger_plug.py` walks it through a real ledger page. The
+  Assistant page still reaches the fake ledger; choosing the real one on
+  the page is the third part of batch 68.
 
 ## The assistant
 
@@ -999,10 +1025,9 @@ formatting tool.
   `LeftOut` (`flows/recorded.py`), each with its sentence in
   `flows/record_words.py`; the money a proposal is priced in moves from the
   one place in `flows/proposing.py` to the ledger's assets.
-- **The real ledger:** one more plug in `ledger/`, which must pass
-  `tests/ledger/test_ledger_port.py`. Give it a value of its own in
-  `flows/standing.py`'s `LedgerKind`, so the Assistant page shows it by name
-  and draws no demo button for it.
+- **The real ledger on the page:** the plug is `ledger/link_ledger.py`.
+  Give it a value of its own in `flows/standing.py`'s `LedgerKind`, so the
+  Assistant page shows it by name and draws no demo button for it.
 - **Something more on the Assistant page:** a new table is one more
   function in `ui/assistant_tables.py`, laid out from the result's own
   values; a new failure is one more entry in `ui/assistant_failure_words.py`.
