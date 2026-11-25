@@ -45,6 +45,7 @@ src/ledger_hand/
         arithmetic.py         the decimal contexts every calculation runs in          (exists)
         trade.py              what one trade looks like; drafts may have blanks       (exists)
         coins.py              a small table of common coins                           (exists)
+        assets.py             the asset table: what may be traded, the money to price it in (exists)
         numbers.py            reads number phrases; writes numbers for the ledger     (exists)
         time_wording.py       which known parts a time phrase is made of              (exists)
         timeparse.py          time phrases to exact moments ("now" is passed in)      (exists)
@@ -399,7 +400,7 @@ the core only.
 
 The wiring module, `wiring.py` at the top of the package, builds the parts
 the flows are handed: the model plug from the model settings, the book from
-the data settings, the coin table, a function that reads the clock, and the
+the data settings, the asset table, a function that reads the clock, and the
 machine's zone, read with tzlocal. With the local plug it also builds the
 two parts a screenshot needs: the vision model (`connect_vision_model`,
 from the same settings) and a way to ask the model server whether it has
@@ -816,6 +817,44 @@ recording's (`Said.edit_sent`). When the model goes wrong twice and its
 second try is a change, the program goes on from that call alone: a time
 or a new value that is not the user's words is said in a fixed sentence,
 and nothing is looked for.
+
+## The asset table
+
+Recording a trade keeps asking four things: which asset a word names, which
+money a word names, what becomes of an asset nobody has heard of, and which
+words may stand after a number as its unit. Every part that asks (the check
+of a draft, extraction, reading an answer, the questions, the recording
+flow) asks the asset table it is handed (`core/assets.py`), never a fixed
+list. A finished record says the money it is priced in (`TradeRecord.quote`).
+
+A word is one of four things as money to a table: exactly one money the
+table prices trades in; more than one such money, so not clear which;
+money the table does not price trades in; or not money. When a trade's
+money is not said or not clear, a table with one money takes it, and a
+table with several asks which (`Missing.QUOTE`, the cell `Cell.QUOTE`). An
+unseen asset is either confirmed on the spot or refused (`UnknownAssets`),
+an enumeration rather than a switch. The extra unit words go to the number
+reader only, never to the reading of a currency, so "2 股" is not taken for
+a money.
+
+Every caller today hands in the built-in table, `BUILT_IN_ASSETS`: the
+built-in coins, USDT the one money, every word for USDT (USD, "$", "刀",
+"美元" among them) naming it, unseen coins confirmed on the spot, no extra
+unit words. With it every output is the one the fixed USDT rules gave: the
+same questions and reasons in the same words, the same export files and the
+same words sent to every model. The reasons added for other tables
+(`COIN_IS_PRICING_MONEY`, `QUOTE_CANNOT_PRICE`, `ASSET_NOT_IN_LEDGER`,
+`FEE_ASSET_NOT_IN_LEDGER`) and the question which money never come up with
+it; a test walks the built-in table through many drafts to hold that. The
+tests make one other table, with two moneys and a share, and walk passages
+through the recording flow with it; no page or script is handed that
+table.
+
+The book and the export still keep USDT alone: the book has no column for
+the money and gives USDT to a trade read back, and the export writes USDT
+into every trade and coin card. Both refuse a trade priced in anything
+else, the book as a conflict, the export by naming the trade. The built-in
+table never makes one.
 
 ## Deliberately left out
 
