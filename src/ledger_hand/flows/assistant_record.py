@@ -10,7 +10,10 @@ arguments as given (those dropped among them), a short piece of what was
 handed back, the failures and their codes, the trades proposed, each
 trade not sent and why, the kinds of reminder said, each trade sent with
 its proposal and how it stood when sent (or why the ledger turned it
-down), how it ended, and the model and prompt versions used. Amounts are
+down), each name of an asset handed to the model to pick from the
+ledger's list when recording began (what it was, the words and the code
+the model gave, whether it was taken and why not), how it ended, and the
+model and prompt versions used. Amounts are
 written as text, each beside the money the result names. A screenshot's
 picture is never written: only that it came from a screenshot, and the
 passage made from it.
@@ -71,7 +74,10 @@ from ledger_hand.ports import LedgerError, ModelError
 # version 1 are still read as they are. Version 3 (2026-11-25) added
 # "read_as": the words tidied and each change, or null when nothing was
 # changed. Entries of versions 1 and 2 are still read as they are.
-RECORD_VERSION = 3
+# Version 4 (2026-11-25) added "asset_picks": each name of an asset handed
+# to the model to pick from the ledger's list when recording began, or an
+# empty list. Entries of versions 1 to 3 are still read as they are.
+RECORD_VERSION = 4
 
 # One thousand: an entry is a few thousand bytes, so the file stays at a few
 # megabytes and is read whole in a blink each time an entry is added; at
@@ -166,6 +172,7 @@ def entry_for(
         "failures": _failures(said),
         "trades": _trades(said),
         "left_out": _left_out(said),
+        "asset_picks": _asset_picks(said),
         "reminders": _reminders(said),
         "sent": _sent(said),
         "models": {"tools": model, "vision": vision_model if screenshot else None},
@@ -312,6 +319,26 @@ def _left_out(said: Said) -> list[dict[str, Any]]:
             "unit": trade.unit,
         }
         for trade in said.recorded.left_out
+    ]
+
+
+def _asset_picks(said: Said) -> list[dict[str, Any]]:
+    """Each name handed over to pick an asset, when recording began this time; else none.
+
+    The picks are made when recording begins; an answer to a question that
+    followed keeps none, so that each pick is kept once.
+    """
+    if said.recorded is None or said.route is Route.ANSWER:
+        return []
+    return [
+        {
+            "word": found.word,
+            "said": found.said,
+            "code": found.answered,
+            "picked": found.picked,
+            "miss": found.miss.name.lower() if found.miss is not None else None,
+        }
+        for found in said.recorded.progress.picks
     ]
 
 

@@ -19,7 +19,6 @@ import shutil
 from pathlib import Path
 
 from ledger_hand.flows.assistant_record import (
-    RECORD_VERSION,
     RecordRead,
     entry_for,
     read_record,
@@ -67,14 +66,15 @@ def test_the_current_code_reads_every_entry_of_version_three() -> None:
     assert screenshot["read_as"] is None
 
 
-def test_an_entry_made_now_has_the_names_of_the_golden_ones() -> None:
+def test_an_entry_of_version_three_keeps_every_name_an_entry_of_version_four_has() -> None:
+    # Version 4 added "asset_picks" and nothing else; the names of an entry made now
+    # are checked against version 4's golden record, in test_golden_record_v4.py.
     said, _ = typed(SHARES, [SHARES_ROW], FakeLedger())
     made = entry_for(said, words=SHARES, at=INVENTED_NOW, model="invented-model")
     entries = _read(GOLDEN).entries
 
-    assert RECORD_VERSION == 3
     for entry in entries:
-        assert list(entry) == list(made)
+        assert list(entry) == [name for name in made if name != "asset_picks"]
     assert list(entries[0]["trades"][0]) == list(made["trades"][0])
     assert list(entries[0]["sent"][0]) == list(made["sent"][0])
 
