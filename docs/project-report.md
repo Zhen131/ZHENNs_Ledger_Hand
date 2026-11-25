@@ -736,6 +736,13 @@ debug set the assistant's versions get one trade fewer whole than the
 Record page's `screen-1` and `first` (31 of 34, with 2 fields wrong and
 nothing said), and one field fewer wrong with nothing said
 (`evals/tool_results/judged-20261125T024652Z-debug-screen-1-first.jsonl`).
+That run's first line says the work tree was not clean
+(`worktree_clean: false`); which changes were not committed then is not
+recorded in the file. The final and debug sets were also run once more
+with a quantity in another unit held back, and gave the same counts, with
+nothing held back
+(`evals/tool_results/judged-20261125T042710Z-final-screen-2-first-3-hold.jsonl`,
+`evals/tool_results/judged-20261125T042134Z-debug-screen-2-first-3-hold.jsonl`).
 
 Not measured: whether the model picks the right kind of work for 95% of
 new sentences, which is to be judged on sentences the owner says in their

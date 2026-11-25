@@ -251,8 +251,10 @@ again.
 
 With the longest reply at its default, 1,024 tokens, the vision model read
 nothing off a clear, invented picture of an order; at 4,096 it read it.
-Before recording from a screenshot, on this page or on the Assistant page,
-set `LEDGER_HAND_MODEL_MAX_REPLY_TOKENS` to 4096 on the Settings page (see
+That was one picture, tried once, and does not promise that every
+screenshot is read. Before recording from a screenshot, on this page or on
+the Assistant page, try setting `LEDGER_HAND_MODEL_MAX_REPLY_TOKENS` to
+4096 on the Settings page (see
 `docs/known-gaps.md`, "A screenshot may need a longer reply to be read").
 
 The browser offers every kind of file, and the upload box shows
@@ -814,7 +816,8 @@ On the page, "Save in the demo ledger" on the proposal's card does the same.
 
 No screenshot is among them: the repository holds no picture of an order.
 To show recording from a screenshot, first set the longest reply to 4096
-on the Settings page (see "Recording from a screenshot").
+on the Settings page; one clear picture was read that way, which does not
+promise that every one will be (see "Recording from a screenshot").
 
 ## Running the checks
 
