@@ -116,7 +116,7 @@ def _tables(said: Said, number: int) -> None:
             _table(lookup_rows(lookup), table_key(number, "lookup", index), header_lines(lookup))
     recorded = said.recorded
     if recorded is not None and recorded.trades:
-        st.caption("Sent to the ledger to record:")
+        st.caption("The trades in the proposal:")
         _table(proposed_rows(recorded.numbers, recorded.trades), table_key(number, "proposed"))
     edited = said.edited
     if edited is not None and edited.before is not None and edited.sent is not None:

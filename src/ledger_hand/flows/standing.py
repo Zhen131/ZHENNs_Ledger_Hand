@@ -36,7 +36,7 @@ from ledger_hand.ports import LedgerError, LedgerPort
 class LedgerKind(enum.Enum):
     """Which kind of ledger the parts hold."""
 
-    DEMO = "the demo ledger: an invented book in memory, not your real ledger"
+    DEMO = "the demo ledger (an invented book in memory, not your real ledger)"
 
 
 @dataclass(frozen=True, kw_only=True)
