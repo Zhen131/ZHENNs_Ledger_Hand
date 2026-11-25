@@ -534,6 +534,21 @@ changed.
 - **A fee may be taken in money the ledger does not price trades in.** A fee
   in such money (a fee of "1 EUR" with the euro in the ledger) is recorded
   in it; the ledger checks the proposal.
+- **Money said where the quantity goes is not sent.** "25U买了点ETH"
+  says what was paid in all, not how many ETH. The assistant does not
+  guess it is the total: that trade is not sent and nothing is asked
+  about it, and the reply says the number and the unit read ("25 U") and
+  asks for the trade to be said again with the money as the total
+  ("... for 25 U in total"). The other trades of the same words are sent.
+  The Record page still keeps 25 as the quantity and only shows the
+  reminder that the unit is not the coin.
+- **Every reminder is said, even one of no use.** Once a proposal is sent,
+  turned down, or nothing is sent, the assistant says each reminder of
+  extraction, one line each. A normal sentence can raise one: in
+  "410美元一股" the "一" is a number no trade used, so a line saying a trade
+  may be missing follows. Which kinds are said is one list
+  (`SPOKEN_REMINDERS` in `flows/record_words.py`); taking a kind off it
+  stops it.
 - **The Record page still prices every trade in USDT.** Only the assistant
   takes its assets and its money from the ledger's list; the Record page,
   the book and the export keep the built-in coins and USDT.

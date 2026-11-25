@@ -17,6 +17,9 @@ go into every trade (``raw_text``).
 A trade is left out, and the others still sent, when:
 
 - the user said to skip it, or the flow found it cannot be recorded;
+- the flow held it back at the start, its quantity said in a unit that is
+  not the asset traded ("25U" of ETH); it is told by that unit and the
+  number as read, before any other reason it may also have;
 - only its day was said: the ledger needs a moment, and no time of day is
   made up for it;
 - the asset, the asset its fee was taken in, or the money it is priced in
@@ -45,9 +48,10 @@ from ledger_hand.core.assets import AssetTable, MoneyReading
 from ledger_hand.core.ledger_records import Asset, Pricing, TradeFacts
 from ledger_hand.core.trade import TimePrecision, TradeDraft, TradeRecord
 from ledger_hand.core.validation import Violation
+from ledger_hand.extraction.issues import Issue
 from ledger_hand.flows.progress import Progress, Stage, TradeState, TradeStatus
 from ledger_hand.flows.recorded import LeftOut, LeftOutTrade, Recorded, RecordEnding, Sent
-from ledger_hand.flows.recording import finish
+from ledger_hand.flows.recording import finish, held_other_unit
 from ledger_hand.ports import LedgerError, LedgerPort
 
 type _Numbered = tuple[int, TradeRecord]
@@ -119,21 +123,35 @@ def _flow_left_out(progress: Progress) -> tuple[tuple[LeftOutTrade, ...], tuple[
         if trade.status is TradeStatus.RECORDED and trade.record is not None:
             records.append((number, trade.record))
         elif trade.status is TradeStatus.CANNOT_RECORD:
-            left_out.append(_cannot_record(number, trade, assets))
+            left_out.append(_cannot_record(number, trade, assets, progress.issues))
         else:
             left_out.append(LeftOutTrade(number=number, why=LeftOut.SKIPPED))
     return tuple(left_out), tuple(records)
 
 
-def _cannot_record(number: int, trade: TradeState, assets: AssetTable) -> LeftOutTrade:
+def _cannot_record(
+    number: int, trade: TradeState, assets: AssetTable, issues: tuple[Issue, ...]
+) -> LeftOutTrade:
     """A trade the flow found cannot be recorded, with why; the ledger's own reasons by name.
 
     With a table made from the ledger's list, money traded as an asset, an
     asset or a fee's asset the ledger lacks, and money the ledger prices
     nothing in are told by what the user said, as the second guard below
-    would tell them. Any other reason is the flow's own words.
+    would tell them. Any other reason is the flow's own words. A trade
+    held back at the start, with no reason of the core's, is told by the
+    unit its quantity was said in, first.
     """
     draft = trade.draft
+    if trade.reason is None:
+        held = held_other_unit(number - 1, draft, issues, assets)
+        if held is not None:
+            return LeftOutTrade(
+                number=number,
+                why=LeftOut.QUANTITY_IN_OTHER_UNIT,
+                code=draft.coin,
+                quantity=draft.quantity,
+                unit=held.phrase,
+            )
     if assets.from_ledger:
         named = _ledger_reason(number, draft, trade.reason, assets)
         if named is not None:

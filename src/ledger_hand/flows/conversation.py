@@ -40,13 +40,17 @@ Once every trade is settled, the records are sent to the ledger as one
 proposal (``proposing``); nothing is confirmed here, since the user confirms
 on the ledger's own page. The program's words come from ``record_words``;
 none of them is written by the model, and no figure of a trade passes
-through it.
+through it, apart from the number of a quantity said in another unit,
+said back as it was read.
 
 The recording flow records with the asset table made from the ledger's own
 list of assets (``ledger_table``), asked for once when recording begins:
 only an asset of the ledger can be recorded, priced in money the ledger
-prices trades in. The recording flow is handed no book of its own: what
-the assistant records goes to the ledger. So there is no reminder that the same words
+prices trades in. A trade whose quantity was said in a unit that is not
+the asset traded ("25U" of ETH) is held back at the start, asked nothing
+about and not sent; the reply says why (``recording.held_other_unit``).
+The recording flow is handed no book of its own: what the assistant
+records goes to the ledger. So there is no reminder that the same words
 were saved before, and a coin the user confirms is known for that passage
 only. Its calls to the model are not counted against the step limit; the
 flow's progress keeps them apart.
@@ -241,6 +245,7 @@ def _begun(said: str, around: _Around) -> Recorded:
         tuning=around.tuning,
         screen_prompt=ASSISTANT_SCREEN_PROMPT,
         extract_prompt=ASSISTANT_EXTRACT_PROMPT,
+        hold_other_unit=True,
     )
     return _onward(progress, around.ledger, listed)
 

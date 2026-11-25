@@ -28,6 +28,7 @@ from __future__ import annotations
 import enum
 from collections.abc import Mapping
 from dataclasses import dataclass
+from decimal import Decimal
 from types import MappingProxyType
 
 from ledger_hand.core.ledger_records import TradeFacts
@@ -92,6 +93,8 @@ class LeftOut(enum.Enum):
     """What it trades is itself money of the ledger: an exchange, which the assistant leaves."""
     QUOTE_CANNOT_PRICE = "quote_cannot_price"
     """The money it is priced in is one the ledger prices no trade in."""
+    QUANTITY_IN_OTHER_UNIT = "quantity_in_other_unit"
+    """Its quantity was said in a unit that is not the asset traded ("25U" of ETH)."""
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -100,12 +103,16 @@ class LeftOutTrade:
 
     ``code`` is the asset the reason is about, when there is one;
     ``reason`` is the flow's own words for a trade that cannot be recorded.
+    For a quantity said in another unit, ``quantity`` is the number as
+    read and ``unit`` the unit as written beside it ("25" and "U").
     """
 
     number: int
     why: LeftOut
     code: str | None = None
     reason: str | None = None
+    quantity: Decimal | None = None
+    unit: str | None = None
 
 
 @dataclass(frozen=True, kw_only=True)

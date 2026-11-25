@@ -32,10 +32,10 @@ from collections.abc import Sequence
 
 from ledger_hand.core.fee_cost import fee_left_out_of_cost
 from ledger_hand.core.zones import zone_named
-from ledger_hand.extraction.issues import Issue
 from ledger_hand.extraction.screening import REASONS, Report
 from ledger_hand.flows.exporting import ExportOutcome, ExportResult
 from ledger_hand.flows.progress import Progress, Stage, TradeStatus
+from ledger_hand.flows.reminder_words import reminder_text
 from ledger_hand.flows.uploading import UploadNotRead
 from ledger_hand.ports import StorageError
 from ledger_hand.settings import ModelSettings, Variable
@@ -53,7 +53,7 @@ def after_start(progress: Progress, settings: ModelSettings) -> str:
     wrong when it failed.
     """
     lines = [f"Set aside, not recorded: {_report(report)}" for report in progress.set_aside]
-    lines += [f"Reminder: {_issue(issue)}" for issue in progress.reminders]
+    lines += [f"Reminder: {reminder_text(issue)}" for issue in progress.reminders]
     return _joined([*lines, *_where_it_stands(progress, settings)])
 
 
@@ -309,22 +309,6 @@ def _report(report: Report) -> str:
     if report.evidence is None:
         return reason
     return f"'{report.evidence}': {reason}"
-
-
-def _issue(issue: Issue) -> str:
-    where = "the passage" if issue.draft is None else f"trade {issue.draft + 1}"
-    if issue.field is not None:
-        where += f", {issue.field.value}"
-    line = f"{where}: {issue.kind.value}"
-    if issue.cause is not None:
-        line += f" ({issue.cause.value})"
-    if issue.phrase is not None:
-        line += f" '{issue.phrase}'"
-    if issue.numbers:
-        line += ": " + ", ".join(issue.numbers)
-    if issue.same_as is not None:
-        line += f": the same as trade {issue.same_as + 1}"
-    return line
 
 
 def _joined(lines: list[str]) -> str:

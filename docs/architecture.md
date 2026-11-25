@@ -178,6 +178,7 @@ src/ledger_hand/
         proposing.py          a settled passage's trades sent to the ledger as one proposal (exists)
         recorded.py           how recording through the assistant ended this time     (exists)
         record_words.py       the program's own words about that, one for each ending (exists)
+        reminder_words.py     one reminder of extraction in words, for both pages     (exists)
         saving.py             the final records kept in the book                      (exists)
         identifiers.py        a new identifier for a saved trade                      (exists)
         fingerprint.py        a passage's fingerprint, worked out in one place        (exists)
@@ -784,7 +785,15 @@ says next is the answer, and the model is not asked. Once every trade is
 settled, `flows/proposing.py` sends them to the ledger as one proposal,
 every figure as the flow gave it and the user's words with each trade; a
 trade known only to the day, or naming an asset the ledger does not have,
-is left out with its reason. The program, not the model, tells the user
+is left out with its reason. A trade whose quantity was said in a unit
+that is not the asset traded ("25U" of ETH) is held back when the flow
+starts (`recording.start`, `hold_other_unit`, which only the assistant
+turns on), asked nothing about and left out, its reply saying the number
+read and the unit; the Record page keeps the number and only reminds.
+When a proposal was sent, turned down, or nothing was sent, the reply
+also says each reminder of extraction whose kind is on
+`record_words.SPOKEN_REMINDERS`, in the Record page's own words
+(`flows/reminder_words.py`). The program, not the model, tells the user
 the question, that a proposal was sent, or why nothing was
 (`flows/record_words.py`), and every thing said carries the program's own
 word on what reached the ledger. When the model goes wrong two steps in a

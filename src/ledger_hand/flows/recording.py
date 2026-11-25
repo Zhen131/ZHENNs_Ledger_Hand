@@ -17,6 +17,10 @@ The steps, each handing back a new ``Progress``:
   the trades are extracted, and what the passage reports beside them that is
   not recorded is set aside, to be shown as a caution. Each draft is checked
   (``core.validation``); a complete one is recorded at once.
+  With ``hold_other_unit`` (the assistant's way; the Record page leaves
+  it off), a trade whose quantity carries a unit that is not the asset
+  traded ("25U" of ETH) is held back first, before any question, and
+  nothing is asked about it (``held_other_unit``).
 - Then one trade is taken up at a time, in passage order, and one field of
   it at a time, in the order ``core.followup`` fixes. The question is put
   together and worded (``questions``); a trade that cannot be recorded is
@@ -47,7 +51,8 @@ keeps them with the trades that use them (``saving``). Nothing is written
 anywhere here, and a book handed in is only read.
 
 Names defined here: ``start``, ``answer``, ``remove``, ``cancel``,
-``finish``, ``retuned``, ``tuning_from`` and ``unbegun``.
+``finish``, ``retuned``, ``tuning_from``, ``unbegun`` and
+``held_other_unit``.
 """
 
 from __future__ import annotations
@@ -56,10 +61,10 @@ import dataclasses
 from datetime import datetime
 
 from ledger_hand.asking.prompts.bookkeeper import BOOKKEEPER_PROMPT
-from ledger_hand.core.assets import BUILT_IN_ASSETS, AssetTable, UnknownAssets
+from ledger_hand.core.assets import BUILT_IN_ASSETS, AssetTable, MoneyReading, UnknownAssets
 from ledger_hand.core.book import EarlierSave
 from ledger_hand.core.followup import CannotRecord, ConfirmCoin, next_follow_up
-from ledger_hand.core.trade import OccurredTime, TradeRecord
+from ledger_hand.core.trade import OccurredTime, TradeDraft, TradeRecord
 from ledger_hand.core.validation import check_draft
 from ledger_hand.core.zones import is_zone_name
 from ledger_hand.extraction.answer_phrase import (
@@ -78,11 +83,13 @@ from ledger_hand.extraction.answer_phrase import (
     read_review_answer,
 )
 from ledger_hand.extraction.extractor import Extracted, PassageRefused, extract
+from ledger_hand.extraction.issues import Issue, IssueKind
 from ledger_hand.extraction.prompting import PromptVersion
 from ledger_hand.extraction.prompts.answer import ANSWER_PROMPT
 from ledger_hand.extraction.prompts.first import FIRST_PROMPT
 from ledger_hand.extraction.prompts.screen import SCREEN_PROMPT
 from ledger_hand.extraction.screening import Decision, Screened, screen
+from ledger_hand.extraction.unit_currency import currencies_in_unit
 from ledger_hand.flows.coin_book import with_confirmed_coins
 from ledger_hand.flows.filling import confirm, fill
 from ledger_hand.flows.fingerprint import passage_fingerprint
@@ -139,6 +146,7 @@ def start(
     book: StoragePort | None = None,
     screen_prompt: PromptVersion = SCREEN_PROMPT,
     extract_prompt: PromptVersion = FIRST_PROMPT,
+    hold_other_unit: bool = False,
 ) -> Progress:
     """Judge ``passage``, extract its trades, check them, and ask the first question.
 
@@ -151,6 +159,12 @@ def start(
     ``screen_prompt`` and ``extract_prompt`` are the prompt versions the
     passage is judged and extracted with; left out, they are the versions
     every caller used before, and the progress names the ones used.
+
+    ``hold_other_unit`` holds back, before any question, every trade whose
+    quantity was said in another unit (``held_other_unit``): it is set
+    as one that cannot be recorded, with no reason of the core's, and
+    nothing is asked about it. Only the assistant turns it on; the
+    Record page keeps the number and only reminds, as before.
     """
     if not isinstance(now, datetime) or now.utcoffset() is None:
         raise ValueError("the current moment must be a datetime that carries an offset")
@@ -177,10 +191,12 @@ def start(
     if screening.decision is Decision.NO_TRADE:
         return dataclasses.replace(progress, stage=Stage.NO_TRADE)
     progress = dataclasses.replace(progress, set_aside=screening.set_aside)
-    return _extracted(progress, model, extract_prompt)
+    return _extracted(progress, model, extract_prompt, hold=hold_other_unit)
 
 
-def _extracted(progress: Progress, model: ModelPort, prompt: PromptVersion) -> Progress:
+def _extracted(
+    progress: Progress, model: ModelPort, prompt: PromptVersion, *, hold: bool = False
+) -> Progress:
     setting = progress.setting
     extraction = extract(
         progress.passage,
@@ -198,9 +214,62 @@ def _extracted(progress: Progress, model: ModelPort, prompt: PromptVersion) -> P
         return _failed(progress, Step.EXTRACTION, extraction)
     if not extraction.drafts:
         return dataclasses.replace(progress, stage=Stage.NO_TRADE, issues=extraction.issues)
-    trades = tuple(TradeState(draft, TradeStatus.OPEN) for draft in extraction.drafts)
+    trades = tuple(
+        TradeState(
+            draft, _held_status(position, draft, extraction.issues, setting.assets, hold=hold)
+        )
+        for position, draft in enumerate(extraction.drafts)
+    )
     progress = dataclasses.replace(progress, trades=trades, issues=extraction.issues)
     return _next_question(progress, model)
+
+
+def _held_status(
+    position: int,
+    draft: TradeDraft,
+    issues: tuple[Issue, ...],
+    assets: AssetTable,
+    *,
+    hold: bool,
+) -> TradeStatus:
+    if hold and held_other_unit(position, draft, issues, assets) is not None:
+        return TradeStatus.CANNOT_RECORD
+    return TradeStatus.OPEN
+
+
+def held_other_unit(
+    position: int, draft: TradeDraft, issues: tuple[Issue, ...], assets: AssetTable
+) -> Issue | None:
+    """The reminder that the quantity of trade ``position`` was said in another unit, if held.
+
+    This function finds the reminder that the quantity carries a unit
+    that is not the asset traded, about the draft at ``position``
+    (counting from 0). It holds only when an asset was said ("25U" of
+    ETH), or when none was and the unit is money ("25U" alone). With no
+    asset said and a unit that is an asset ("0.1个BTC"), it does not
+    hold: the asset is asked about, as before. ``None`` when it does
+    not hold.
+
+    Why: the assistant sent "25U买了点ETH" as 25 ETH, total 59700 USDT,
+    while the user paid 25 USDT; the reminder was there but unsaid.
+    Found on 2026-11-25 by the assistant's acceptance run.
+    """
+    for issue in issues:
+        if issue.kind is not IssueKind.UNIT_NOT_THE_COIN or issue.draft != position:
+            continue
+        if draft.coin is not None or _is_money(issue.phrase, assets):
+            return issue
+    return None
+
+
+def _is_money(unit: str | None, assets: AssetTable) -> bool:
+    """Whether ``unit`` names a money of ``assets`` ("U", "USDT", "美元")."""
+    if unit is None:
+        return False
+    return any(
+        assets.money(word.text).reading is not MoneyReading.NOT_MONEY
+        for word in currencies_in_unit(unit, assets)
+    )
 
 
 def _failed(progress: Progress, step: Step, result: object) -> Progress:
