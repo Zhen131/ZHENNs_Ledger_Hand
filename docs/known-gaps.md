@@ -614,7 +614,7 @@ changed.
   (`SPOKEN_REMINDERS` in `flows/record_words.py`); taking a kind off it
   stops it. In English, when the time was asked for and answered
   ("15:00"), the numbers of the time left in the first words ("15", "00")
-  are said as numbers no trade used. On the Assistant page the "一" of
+  are said as numbers no trade used. On the Assistant page the "一" ("one") of
   such a line, after English words, looks like a dash. Whether to take
   that kind off the list is the owner's call: without it, a trade the
   model leaves out of a passage would go unmentioned too.
@@ -805,7 +805,7 @@ changed.
   are chosen so. Not mended: having the program find the time in the
   user's sentence itself was tried in this round and taken out again,
   because each check found words it took for a time that were none
-  ("1000个ADA", "May I", "until October"). Another way, such as tuning the
+  ("1000个ADA", "1000 ADA"; "May I"; "until October"). Another way, such as tuning the
   prompt or reading the time back to the user first, is the owner's call.
 - **Measured: 23 of 27 questions looked up right.** At the latest run of
   the twenty-seven questions (`evals/sets/asks.json`), 23 came back with
