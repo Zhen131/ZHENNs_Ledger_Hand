@@ -282,17 +282,25 @@ def _coin_symbol(spoken: str | None, assets: AssetTable, found: list[_Problem]) 
     if spoken is None or not spoken_key(spoken):
         found.append(Missing.COIN)
         return None
-    if assets.money(spoken).reading in (MoneyReading.ONE, MoneyReading.SEVERAL):
+    reading = assets.money(spoken).reading
+    if reading in (MoneyReading.ONE, MoneyReading.SEVERAL):
         found.append(
             Violation.COIN_IS_USDT
-            if assets.prices_only_in_usdt()
+            if assets.speaks_of_usdt_only()
             else Violation.COIN_IS_PRICING_MONEY
         )
+        return None
+    if assets.from_ledger and reading is MoneyReading.CANNOT_PRICE:
+        # Money of the ledger that prices nothing, traded as an asset: an
+        # exchange of money, which the assistant leaves to the ledger.
+        found.append(Violation.ASSET_NOT_IN_LEDGER)
         return None
     coin = assets.find(spoken)
     if coin is not None:
         return coin.symbol
-    if not is_symbol(spoken_key(spoken)):
+    if assets.is_shielded(spoken):
+        found.append(Violation.ASSET_NOT_IN_LEDGER)
+    elif not is_symbol(spoken_key(spoken)):
         found.append(Violation.COIN_NOT_A_SYMBOL)
     elif assets.unknown is UnknownAssets.CONFIRM_ON_THE_SPOT:
         found.append(Missing.COIN_CONFIRMATION)
@@ -314,7 +322,7 @@ def _quote(spoken: str | None, assets: AssetTable, found: list[_Problem]) -> str
         return said.code
     found.append(
         Violation.UNSUPPORTED_QUOTE
-        if assets.prices_only_in_usdt()
+        if assets.speaks_of_usdt_only()
         else Violation.QUOTE_CANNOT_PRICE
     )
     return None
@@ -472,13 +480,20 @@ def _fee_coin_symbol(draft: TradeDraft, assets: AssetTable, found: list[_Problem
         return None
     if said.reading is MoneyReading.ONE:
         return said.code
+    if assets.from_ledger and said.reading is MoneyReading.CANNOT_PRICE and said.code is not None:
+        # A fee may be taken in money of the ledger that prices no trade.
+        return said.code
     coin = assets.find(spoken)
     if coin is not None:
         return coin.symbol
     key = spoken_key(spoken)
-    if not is_symbol(key):
+    same_as_coin = draft.coin is not None and spoken_key(draft.coin) == key
+    if assets.is_shielded(spoken):
+        if not same_as_coin:
+            found.append(Violation.FEE_ASSET_NOT_IN_LEDGER)
+    elif not is_symbol(key):
         found.append(Violation.FEE_COIN_NOT_A_SYMBOL)
-    elif draft.coin is None or spoken_key(draft.coin) != key:
+    elif not same_as_coin:
         # The same unseen coin as the trade itself is confirmed once, or
         # refused once, as the trade's coin; only a different one is taken
         # up on its own.

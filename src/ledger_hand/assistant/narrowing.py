@@ -19,7 +19,10 @@ The asset, in four steps:
    not in "something"); longer names are found first, and a shorter one
    inside a longer one does not count ("比特币" is not found in "比特币现金").
    Every coin in the coin table takes part in this, so that a longer name
-   of a coin the ledger lacks still covers the shorter one.
+   of a coin the ledger lacks still covers the shorter one. Both kinds of
+   name come from one place, the names the ledger's list makes
+   (``ledger_table.names_of``), which recording uses too. Words for money
+   ("U", "刀") are not among them.
 3. The model's word names an asset of the ledger: it is used when the user
    named that asset in what they said just now, or, when they named no
    asset just now, in what they said the time before ("那上个月呢"). Any
@@ -52,8 +55,8 @@ import unicodedata
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 
-from ledger_hand.core.coins import BUILT_IN_COINS
 from ledger_hand.core.ledger_records import Asset
+from ledger_hand.core.ledger_table import names_of
 from ledger_hand.core.trade import Side
 from ledger_hand.extraction.answer_words import SIDE_WORDS
 
@@ -125,16 +128,14 @@ def _plain(text: str) -> str:
 def _forms(assets: Sequence[Asset]) -> Mapping[str, str]:
     """Every name of every known asset or coin, in plain form, to the code it names.
 
-    The ledger's own codes and names come last, so they win over the coin
-    table's where both claim one.
+    The names are those the asset table made of the ledger's list gives
+    (``ledger_table.names_of``): what the ledger's assets go by, and the
+    names that only cover. The ledger's own codes and names come last, so
+    they win over the coin table's where both claim one.
     """
     forms: dict[str, str] = {}
-    for coin in BUILT_IN_COINS:
-        for form in (coin.symbol, coin.name, *coin.aliases):
-            forms[_plain(form)] = coin.symbol
-    for asset in assets:
-        forms[_plain(asset.code)] = asset.code
-        forms[_plain(asset.name)] = asset.code
+    for form, code in names_of(assets).in_lookup_order():
+        forms[_plain(form)] = code
     return forms
 
 

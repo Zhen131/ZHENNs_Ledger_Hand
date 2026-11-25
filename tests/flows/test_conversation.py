@@ -21,7 +21,7 @@ from ledger_hand.assistant.outcome import (
     NotRunCall,
     TakenCall,
 )
-from ledger_hand.core.ledger_records import TradeFilter
+from ledger_hand.core.ledger_records import Pricing, TradeFilter
 from ledger_hand.core.proposals import ProposalStatus
 from ledger_hand.core.trade import Side
 from ledger_hand.flows.conversation import AssistantChat, Route, Said, say
@@ -42,6 +42,7 @@ from ledger_hand.ports import (
 )
 from tests.fakes.routed_model import RoutedModel
 from tests.fakes.scripted_model import Step, scripted_record
+from tests.fakes.usdt_only import usdt_only_ledger
 from tests.flows.scripted_flow import copied, row, screened, table
 
 ONE_BUY = "今天上午9:40在币安买了0.02 BTC，价格94900，手续费2 USDT"
@@ -118,7 +119,7 @@ def one_buy(**changed: str) -> tuple[list[Said], RoutedModel, FakeLedger]:
 
 
 def test_a_complete_trade_goes_to_the_ledger_as_one_pending_proposal() -> None:
-    ledger = FakeLedger()
+    ledger = usdt_only_ledger()
     before = (ledger.list_trades(TradeFilter()), ledger.positions())
 
     (said,), _, _ = one_buy(ledger=ledger)  # type: ignore[arg-type]
@@ -162,7 +163,13 @@ def test_the_trade_keeps_the_users_words_byte_for_byte() -> None:
         time="今天上午9:40",
     )
 
-    (said,), _, _ = talk(words, tools=[RECORD], screen=[SPOT], extraction=[table(model_row)])
+    (said,), _, _ = talk(
+        words,
+        tools=[RECORD],
+        screen=[SPOT],
+        extraction=[table(model_row)],
+        ledger=usdt_only_ledger(),
+    )
 
     assert said.recorded is not None
     (trade,) = said.recorded.trades
@@ -171,7 +178,7 @@ def test_the_trade_keeps_the_users_words_byte_for_byte() -> None:
 
 
 def test_every_figure_of_the_proposal_is_the_flows_record_as_it_stands() -> None:
-    (said,), _, _ = one_buy()
+    (said,), _, _ = one_buy(ledger=usdt_only_ledger())  # type: ignore[arg-type]
 
     assert said.recorded is not None
     (record,) = said.recorded.progress.records
@@ -192,7 +199,7 @@ def test_every_figure_of_the_proposal_is_the_flows_record_as_it_stands() -> None
 
 
 def test_the_tool_choosing_model_is_asked_once_and_never_again_this_turn() -> None:
-    (said,), model, _ = one_buy()
+    (said,), model, _ = one_buy(ledger=usdt_only_ledger())  # type: ignore[arg-type]
 
     assert len(model.tools.calls) == 1
     assert said.turn is not None and said.turn.ending is Ending.RECORDING
@@ -260,7 +267,7 @@ TWO_ROWS = table(
 
 
 def test_two_trades_go_as_one_proposal_in_the_order_said() -> None:
-    ledger = FakeLedger()
+    ledger = usdt_only_ledger()
     (said,), _, _ = talk(TWO, tools=[RECORD], screen=[SPOT], extraction=[TWO_ROWS], ledger=ledger)
 
     assert said.recorded is not None
@@ -270,7 +277,9 @@ def test_two_trades_go_as_one_proposal_in_the_order_said() -> None:
 
 
 def test_a_fee_taken_in_the_coin_bought_or_in_usdt_names_that_ledger_asset() -> None:
-    (said,), _, _ = talk(TWO, tools=[RECORD], screen=[SPOT], extraction=[TWO_ROWS])
+    (said,), _, _ = talk(
+        TWO, tools=[RECORD], screen=[SPOT], extraction=[TWO_ROWS], ledger=usdt_only_ledger()
+    )
 
     assert said.recorded is not None
     codes = {asset.code for asset in INVENTED_ASSETS}
@@ -281,7 +290,7 @@ def test_a_fee_taken_in_the_coin_bought_or_in_usdt_names_that_ledger_asset() -> 
 
 
 def test_two_calls_to_record_in_one_step_hand_the_words_over_once() -> None:
-    ledger = FakeLedger()
+    ledger = usdt_only_ledger()
     (said,), model, _ = talk(
         TWO,
         tools=[calls("propose_trade_add", "propose_trade_add")],
@@ -298,7 +307,7 @@ def test_two_calls_to_record_in_one_step_hand_the_words_over_once() -> None:
 
 
 def test_a_read_call_beside_a_call_to_record_is_not_run() -> None:
-    ledger = FakeLedger()
+    ledger = usdt_only_ledger()
     (said,), _, _ = talk(
         ONE_BUY,
         tools=[calls("list_assets", "propose_trade_add")],
@@ -333,7 +342,7 @@ def test_a_trade_whose_asset_is_not_in_the_ledger_is_left_out_and_the_other_sent
             time="今天上午9:40",
         ),
     )
-    ledger = FakeLedger()
+    ledger = usdt_only_ledger()
 
     (said,), _, _ = talk(words, tools=[RECORD], screen=[SPOT], extraction=[rows], ledger=ledger)
 
@@ -355,7 +364,9 @@ def test_a_trade_known_only_to_the_day_is_not_sent_and_given_no_time_of_day() ->
         ONE_BUY_ROW | {"platform": ""},
     )
 
-    (said,), _, _ = talk(words, tools=[RECORD], screen=[SPOT], extraction=[rows])
+    (said,), _, _ = talk(
+        words, tools=[RECORD], screen=[SPOT], extraction=[rows], ledger=usdt_only_ledger()
+    )
 
     assert said.recorded is not None
     assert [trade.asset for trade in said.recorded.trades] == ["BTC"]
@@ -366,16 +377,17 @@ def test_a_trade_known_only_to_the_day_is_not_sent_and_given_no_time_of_day() ->
 
 
 def test_without_usdt_in_the_ledger_nothing_is_sent() -> None:
-    assets = tuple(asset for asset in INVENTED_ASSETS if asset.code != "USDT")
+    assets = tuple(asset for asset in INVENTED_ASSETS if asset.pricing is not Pricing.CAN_PRICE)
     ledger = FakeLedger(assets=assets, trades=())
 
-    (said,), _, _ = one_buy(ledger=ledger)  # type: ignore[arg-type]
+    (said,), model, _ = one_buy(ledger=ledger)  # type: ignore[arg-type]
 
     assert said.recorded is not None
-    assert said.recorded.ending is RecordEnding.NO_QUOTE_IN_LEDGER
-    assert "it has no asset USDT" in said.reply
+    assert said.recorded.ending is RecordEnding.NO_PRICING_MONEY
+    assert "it has no currency that trades can be priced in" in said.reply
     assert said.sent is None
     assert ledger.calls == ["list_assets"]
+    assert model.screen.calls == []
 
 
 def test_selling_more_than_is_held_is_turned_down_by_the_ledger() -> None:
@@ -383,7 +395,7 @@ def test_selling_more_than_is_held_is_turned_down_by_the_ledger() -> None:
     sell = row(
         side="sell", coin="BTC", quantity="5 BTC", price="94900", fee="2 USDT", time="今天上午9:40"
     )
-    ledger = FakeLedger()
+    ledger = usdt_only_ledger()
 
     (said,), _, _ = talk(
         words, tools=[RECORD], screen=[SPOT], extraction=[table(sell)], ledger=ledger
@@ -407,7 +419,7 @@ def test_an_open_order_sends_nothing() -> None:
 
     assert said.recorded is not None
     assert said.recorded.ending is RecordEnding.STOPPED
-    assert ledger.calls == []
+    assert ledger.calls == ["list_assets"]
     assert pending(ledger) == []
     assert model.extraction.calls == []
     assert "open_order" in said.reply
@@ -433,7 +445,7 @@ NO_FEE_ROW = row(
 
 
 def test_a_missing_fee_is_asked_and_the_answer_sends_the_trade() -> None:
-    ledger = FakeLedger()
+    ledger = usdt_only_ledger()
 
     (first, second), model, _ = talk(
         NO_FEE,
@@ -467,7 +479,7 @@ def test_nothing_waits_in_the_ledger_while_a_question_waits() -> None:
 
     talk(NO_FEE, tools=[RECORD], screen=[SPOT], extraction=[table(NO_FEE_ROW)], ledger=ledger)
 
-    assert ledger.calls == []
+    assert ledger.calls == ["list_assets"]
     assert pending(ledger) == []
 
 
@@ -479,6 +491,7 @@ def test_an_answer_that_cannot_be_used_gets_the_same_question_again() -> None:
         screen=[SPOT],
         extraction=[table(NO_FEE_ROW)],
         answers=[copied("")],
+        ledger=usdt_only_ledger(),
     )
 
     assert second.route is Route.ANSWER
@@ -531,6 +544,7 @@ def test_the_chat_holds_each_call_with_its_result_and_the_answer_in_turn() -> No
         screen=[SPOT],
         extraction=[table(NO_FEE_ROW)],
         answers=[copied("0.1 USDT")],
+        ledger=usdt_only_ledger(),
     )
 
     sent = model.tools.calls[1].items
@@ -557,6 +571,7 @@ def test_a_figure_the_model_gave_the_recording_tool_never_reaches_the_model_agai
         tools=[calls("propose_trade_add", quantity="0.0299"), "Four assets."],
         screen=[SPOT],
         extraction=[table(ONE_BUY_ROW)],
+        ledger=usdt_only_ledger(),
     )
 
     assert "0.0299" not in repr(model.tools.calls[1].items)
@@ -569,7 +584,7 @@ def test_a_figure_the_model_gave_the_recording_tool_never_reaches_the_model_agai
 
 
 def test_after_two_wrong_steps_a_trade_said_is_still_recorded() -> None:
-    ledger = FakeLedger()
+    ledger = usdt_only_ledger()
 
     (said,), model, _ = talk(
         ONE_BUY,
@@ -646,6 +661,7 @@ def test_after_a_proposal_is_sent_the_next_ask_finds_a_result_after_every_call()
         tools=[RECORD, calls("get_positions"), "Four assets."],
         screen=[SPOT],
         extraction=[table(ONE_BUY_ROW)],
+        ledger=usdt_only_ledger(),
     )
 
     assert first.sent is not None

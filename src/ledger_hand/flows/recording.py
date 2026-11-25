@@ -47,7 +47,7 @@ keeps them with the trades that use them (``saving``). Nothing is written
 anywhere here, and a book handed in is only read.
 
 Names defined here: ``start``, ``answer``, ``remove``, ``cancel``,
-``finish``, ``retuned`` and ``tuning_from``.
+``finish``, ``retuned``, ``tuning_from`` and ``unbegun``.
 """
 
 from __future__ import annotations
@@ -216,6 +216,16 @@ def _with_calls(progress: Progress, step: Step, records: tuple[ReplyRecord, ...]
     if all(used != step for used, _ in prompts):
         prompts = (*prompts, (step, _PROMPT_OF[step]))
     return dataclasses.replace(progress, calls=calls, prompts=prompts)
+
+
+def unbegun(passage: str, *, now: datetime, zone: str, tuning: Tuning = DEFAULT_TUNING) -> Progress:
+    """The passage as it stands before anything was done with it: nothing judged, nothing asked.
+
+    It is for a caller that ends before the flow begins, such as the
+    assistant when the ledger cannot give its list of assets; the built-in
+    asset table stands in its setting, and nothing ever reads it.
+    """
+    return Progress(Stage.REFUSED, passage, Setting(now, zone, BUILT_IN_ASSETS, tuning))
 
 
 # --- one trade at a time ----------------------------------------------------

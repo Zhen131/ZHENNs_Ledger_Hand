@@ -51,8 +51,24 @@ _BECAUSE = {
 }
 
 
-def template_sentence(asked: AskCell | ConfirmCoin | AskWhichCell, word: str | None) -> str:
-    """The program's question for ``asked``; ``word`` is the coin word a confirmation is about."""
+# The price and the total, asked with the money the trade is priced in named,
+# or with none named while it is not known; for an asset table made from the
+# ledger's list, which may price in more than USDT.
+_ASK_IN = {
+    Cell.PRICE: "What was the price of one unit{in_money}?",
+    Cell.TOTAL: "What was the total paid or received{in_money}, without the fee?",
+}
+
+
+def template_sentence(
+    asked: AskCell | ConfirmCoin | AskWhichCell, word: str | None, money: str | None = None
+) -> str:
+    """The program's question for ``asked``; ``word`` is the coin word a confirmation is about.
+
+    ``money`` is the code of the money the trade is priced in, named when
+    the price or the total is asked; empty when it is not known, so that no
+    money is named. ``None`` keeps the built-in sentences, which name USDT.
+    """
     if isinstance(asked, ConfirmCoin):
         if asked.cell is Cell.COIN:
             return f'Is "{word}" the symbol of a coin?'
@@ -70,5 +86,7 @@ def template_sentence(asked: AskCell | ConfirmCoin | AskWhichCell, word: str | N
     if asked.because in _BECAUSE:
         return _BECAUSE[asked.because]
     if isinstance(asked.because, Missing):
+        if money is not None and asked.cell in _ASK_IN:
+            return _ASK_IN[asked.cell].format(in_money=f", in {money}" if money else "")
         return _ASK[asked.cell]
     return f"The {asked.cell.value} cannot be used ({asked.because.value}); what should it be?"

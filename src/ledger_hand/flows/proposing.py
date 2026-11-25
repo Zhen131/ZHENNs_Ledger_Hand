@@ -1,10 +1,12 @@
 """Sending the trades of a settled passage to the ledger, as one proposal to record them.
 
-``propose`` takes a passage whose every trade is settled (``recording``) and
-the ledger port. It makes the records final, sorts out the trades it cannot
-send, each with its reason, and sends the rest as one proposal; nothing is
-asked of the user again here, since the user confirms or changes a
-proposal on the ledger's own page.
+``propose`` takes a passage whose every trade is settled (``recording``),
+the ledger port and, when the caller already has it, the ledger's list of
+assets asked for at the start of the same turn. It makes the records
+final, sorts out the trades it cannot send, each with its reason, and sends
+the rest as one proposal; nothing is asked of the user again here, since
+the user confirms or changes a proposal on the ledger's own page. Without
+a list handed in, the ledger is asked for one, once.
 
 Each trade is filled from the flow's record as it stands: its moment,
 side, quantity, price, total and fee, the platform and the note. No figure
@@ -17,13 +19,19 @@ A trade is left out, and the others still sent, when:
 - the user said to skip it, or the flow found it cannot be recorded;
 - only its day was said: the ledger needs a moment, and no time of day is
   made up for it;
-- the asset, or the asset its fee was taken in, is not in the ledger, by
-  its code: the user adds it there first; the assistant never does.
+- the asset, the asset its fee was taken in, or the money it is priced in
+  is not in the ledger, by its code, or that money is one the ledger
+  prices no trade in: the user adds it there first; the assistant never
+  does. This is checked again here, against the list, as a second guard.
 
-The money the trades are priced in comes from the ledger's own list: the
-asset whose code is the extraction's one money. Without it in the ledger,
-nothing is sent. A ledger that turns the proposal down keeps nothing; a
-ledger that cannot be asked ends it with its failure.
+With an asset table made from the ledger's list, the flow already finds
+such a trade cannot be recorded; it is told here in the words above, with
+the word the user said for the asset, and money traded as an asset is said
+to be an exchange of currencies, which the assistant does not record.
+
+Each trade is priced in the money its record names. A ledger that turns
+the proposal down keeps nothing; a ledger that cannot be asked ends it with
+its failure.
 
 Names defined here: ``propose``.
 """
@@ -33,23 +41,26 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from datetime import datetime
 
-from ledger_hand.core import ledger_limits
-from ledger_hand.core.ledger_records import Asset, TradeFacts
-from ledger_hand.core.trade import TimePrecision, TradeRecord
-from ledger_hand.flows.progress import Progress, Stage, TradeStatus
+from ledger_hand.core.assets import AssetTable, MoneyReading
+from ledger_hand.core.ledger_records import Asset, Pricing, TradeFacts
+from ledger_hand.core.trade import TimePrecision, TradeDraft, TradeRecord
+from ledger_hand.core.validation import Violation
+from ledger_hand.flows.progress import Progress, Stage, TradeState, TradeStatus
 from ledger_hand.flows.recorded import LeftOut, LeftOutTrade, Recorded, RecordEnding, Sent
 from ledger_hand.flows.recording import finish
 from ledger_hand.ports import LedgerError, LedgerPort
 
-# For now only: the flow's records carry no money they are priced in, since
-# extraction knows one. Remove this once the money comes from the ledger.
-_PRICED_IN = ledger_limits.QUOTE_CURRENCY
-
 type _Numbered = tuple[int, TradeRecord]
 
 
-def propose(progress: Progress, ledger: LedgerPort) -> Recorded:
-    """Send the settled trades of ``progress`` to ``ledger`` as one proposal, as far as can be."""
+def propose(
+    progress: Progress, ledger: LedgerPort, listed: Sequence[Asset] | None = None
+) -> Recorded:
+    """Send the settled trades of ``progress`` to ``ledger`` as one proposal, as far as can be.
+
+    ``listed`` is the ledger's list of assets when the caller asked for it
+    already this turn; it is used as it is, and the ledger is not asked again.
+    """
     if progress.stage is Stage.REVIEWING:
         progress = finish(progress)
     if progress.stage is not Stage.DONE:
@@ -58,14 +69,11 @@ def propose(progress: Progress, ledger: LedgerPort) -> Recorded:
     if not records:
         return Recorded(ending=RecordEnding.NOTHING_TO_SEND, progress=progress, left_out=left_out)
     try:
-        assets = {asset.code: asset for asset in ledger.list_assets()}
+        listed = ledger.list_assets() if listed is None else listed
     except LedgerError as error:
         return Recorded(ending=RecordEnding.LEDGER_FAILED, progress=progress, failure=error)
-    if _PRICED_IN not in assets:
-        return Recorded(
-            ending=RecordEnding.NO_QUOTE_IN_LEDGER, progress=progress, missing_money=_PRICED_IN
-        )
-    numbers, trades, not_sent = _sendable(records, assets, assets[_PRICED_IN], progress.passage)
+    assets = {asset.code: asset for asset in listed}
+    numbers, trades, not_sent = _sendable(records, assets, progress.passage)
     left_out = tuple(sorted((*left_out, *not_sent), key=lambda trade: trade.number))
     if not trades:
         return Recorded(ending=RecordEnding.NOTHING_TO_SEND, progress=progress, left_out=left_out)
@@ -106,19 +114,52 @@ def _flow_left_out(progress: Progress) -> tuple[tuple[LeftOutTrade, ...], tuple[
     """The trades the flow left out, with why, and its records, each with its number."""
     left_out: list[LeftOutTrade] = []
     records: list[_Numbered] = []
+    assets = progress.setting.assets
     for number, trade in enumerate(progress.trades, start=1):
         if trade.status is TradeStatus.RECORDED and trade.record is not None:
             records.append((number, trade.record))
         elif trade.status is TradeStatus.CANNOT_RECORD:
-            reason = trade.reason.value if trade.reason is not None else None
-            left_out.append(LeftOutTrade(number=number, why=LeftOut.CANNOT_RECORD, reason=reason))
+            left_out.append(_cannot_record(number, trade, assets))
         else:
             left_out.append(LeftOutTrade(number=number, why=LeftOut.SKIPPED))
     return tuple(left_out), tuple(records)
 
 
+def _cannot_record(number: int, trade: TradeState, assets: AssetTable) -> LeftOutTrade:
+    """A trade the flow found cannot be recorded, with why; the ledger's own reasons by name.
+
+    With a table made from the ledger's list, money traded as an asset, an
+    asset or a fee's asset the ledger lacks, and money the ledger prices
+    nothing in are told by what the user said, as the second guard below
+    would tell them. Any other reason is the flow's own words.
+    """
+    draft = trade.draft
+    if assets.from_ledger:
+        named = _ledger_reason(number, draft, trade.reason, assets)
+        if named is not None:
+            return named
+    reason = trade.reason.value if trade.reason is not None else None
+    return LeftOutTrade(number=number, why=LeftOut.CANNOT_RECORD, reason=reason)
+
+
+def _ledger_reason(
+    number: int, draft: TradeDraft, reason: object, assets: AssetTable
+) -> LeftOutTrade | None:
+    coin = draft.coin
+    if coin is not None and assets.money(coin).reading is not MoneyReading.NOT_MONEY:
+        return LeftOutTrade(number=number, why=LeftOut.MONEY_TRADED, code=coin)
+    if reason is Violation.ASSET_NOT_IN_LEDGER and coin is not None:
+        return LeftOutTrade(number=number, why=LeftOut.NOT_IN_LEDGER, code=coin)
+    if reason is Violation.FEE_ASSET_NOT_IN_LEDGER and draft.fee_coin is not None:
+        return LeftOutTrade(number=number, why=LeftOut.NOT_IN_LEDGER, code=draft.fee_coin)
+    if reason is Violation.QUOTE_CANNOT_PRICE and draft.quote is not None:
+        code = assets.money(draft.quote).code or draft.quote
+        return LeftOutTrade(number=number, why=LeftOut.QUOTE_CANNOT_PRICE, code=code)
+    return None
+
+
 def _sendable(
-    records: Sequence[_Numbered], assets: Mapping[str, Asset], priced_in: Asset, said: str
+    records: Sequence[_Numbered], assets: Mapping[str, Asset], said: str
 ) -> tuple[tuple[int, ...], tuple[TradeFacts, ...], tuple[LeftOutTrade, ...]]:
     """The records that can be sent, as trades, with their numbers; the rest, with why."""
     numbers: list[int] = []
@@ -130,7 +171,7 @@ def _sendable(
             not_sent.append(why)
             continue
         numbers.append(number)
-        trades.append(_facts(record, assets, priced_in, said))
+        trades.append(_facts(record, assets, said))
     return tuple(numbers), tuple(trades), tuple(not_sent)
 
 
@@ -139,15 +180,15 @@ def _why_not(number: int, record: TradeRecord, assets: Mapping[str, Asset]) -> L
         record.occurred.value, datetime
     ):
         return LeftOutTrade(number=number, why=LeftOut.DAY_ONLY, code=record.coin)
-    for code in (record.coin, record.fee_coin):
+    for code in (record.coin, record.fee_coin, record.quote):
         if code not in assets:
             return LeftOutTrade(number=number, why=LeftOut.NOT_IN_LEDGER, code=code)
+    if assets[record.quote].pricing is not Pricing.CAN_PRICE:
+        return LeftOutTrade(number=number, why=LeftOut.QUOTE_CANNOT_PRICE, code=record.quote)
     return None
 
 
-def _facts(
-    record: TradeRecord, assets: Mapping[str, Asset], priced_in: Asset, said: str
-) -> TradeFacts:
+def _facts(record: TradeRecord, assets: Mapping[str, Asset], said: str) -> TradeFacts:
     """The record as the ledger takes it: every figure as the flow gave it."""
     moment = record.occurred.value
     if not isinstance(moment, datetime):
@@ -159,7 +200,7 @@ def _facts(
         quantity=record.quantity,
         price=record.price,
         total=record.total,
-        quote=priced_in.code,
+        quote=assets[record.quote].code,
         fee=record.fee,
         fee_asset=assets[record.fee_coin].code,
         platform=record.platform if record.platform is not None else "",

@@ -47,8 +47,8 @@ class RecordEnding(enum.Enum):
     """The ledger's check turned the proposal down: nothing waits there."""
     NOTHING_TO_SEND = "nothing_to_send"
     """Every trade was left out; each has its reason."""
-    NO_QUOTE_IN_LEDGER = "no_quote_in_ledger"
-    """The ledger has no asset for the money the trades are priced in."""
+    NO_PRICING_MONEY = "no_pricing_money"
+    """The ledger prices trades in no money at all, so nothing can be recorded."""
     CANCELLED = "cancelled"
     """The user dropped what was being recorded."""
     STOPPED = "stopped"
@@ -88,6 +88,10 @@ class LeftOut(enum.Enum):
     """Only its day was said, not the time of day; no time is made up for it."""
     NOT_IN_LEDGER = "not_in_ledger"
     """An asset it names, or its fee's, is not in the ledger."""
+    MONEY_TRADED = "money_traded"
+    """What it trades is itself money of the ledger: an exchange, which the assistant leaves."""
+    QUOTE_CANNOT_PRICE = "quote_cannot_price"
+    """The money it is priced in is one the ledger prices no trade in."""
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -119,7 +123,8 @@ class Recorded:
     ``trades`` are the trades proposed, in the order said, and ``numbers``
     the number of each in what was said; ``checks`` are the ledger's checks
     of them when it turned the proposal down. ``missing_money`` is the code
-    of the money the trades are priced in, when the ledger has no such asset.
+    of a money the ledger lacks, for a caller that names one; recording
+    what the user said to the assistant leaves it empty.
     """
 
     ending: RecordEnding

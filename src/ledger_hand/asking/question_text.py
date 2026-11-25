@@ -20,7 +20,9 @@ sentence (``templates``) is used instead when:
   holding more than one;
 - the sentence brings in something that is not among the facts: a run of
   digits, a word the coin table knows, or a piece of Chinese writing that
-  the facts do not hold.
+  the facts do not hold; and, when the caller names the words for money,
+  a word for money the facts do not name (so that a question about a
+  trade priced in USD never asks for USDT).
 
 The model is asked once; it is never asked again for the same question.
 
@@ -94,6 +96,10 @@ class QuestionFacts:
     about the field, when there are some. ``notes`` are the program's lines
     shown beside the question; ``choices`` the answers to choose from, when
     there are some. ``word`` is the coin word a confirmation is about.
+    ``money`` is the code of the money the trade is priced in, given to the
+    model and named in the program's sentence for a price or a total; empty
+    when it is not known; ``None`` with the built-in asset table, whose
+    sentences name USDT.
     """
 
     trade: int
@@ -104,6 +110,7 @@ class QuestionFacts:
     notes: tuple[str, ...] = ()
     choices: tuple[str, ...] = ()
     word: str | None = None
+    money: str | None = None
 
 
 @dataclass(frozen=True)
@@ -147,6 +154,8 @@ def facts_text(facts: QuestionFacts) -> str:
     lines.append(f"Why: {asked.because.value}")
     if facts.known:
         lines.append("Known: " + "; ".join(f"{name}: {value}" for name, value in facts.known))
+    if facts.money:
+        lines.append(f"Priced in: {facts.money}")
     if facts.quoted is not None:
         lines.append(f"The passage says: {facts.quoted!r}")
     lines.extend(f"Note: {note}" for note in facts.notes)
@@ -161,8 +170,14 @@ def write_question(
     *,
     prompt: BookkeeperPrompt = BOOKKEEPER_PROMPT,
     parameters: ModelParameters | None = None,
+    money_words: frozenset[str] = frozenset(),
 ) -> WrittenQuestion:
-    """The question for ``facts``: the model's sentence when it will do, else the program's."""
+    """The question for ``facts``: the model's sentence when it will do, else the program's.
+
+    ``money_words`` are the words for money, in lookup form, that the
+    model's sentence may not bring in when the facts do not hold them; the
+    built-in asset table hands in none.
+    """
     label = label_of(facts)
     given = facts_text(facts)
     messages = (Message(Role.SYSTEM, prompt.instructions), Message(Role.USER, given))
@@ -176,7 +191,7 @@ def write_question(
         return _program_s(facts, label, Fallback.REPLY_UNREADABLE, calls)
     if not _is_one_question(sentence):
         return _program_s(facts, label, Fallback.NOT_ONE_QUESTION, calls)
-    if _adds_facts(sentence, given, coins):
+    if _adds_facts(sentence, given, coins) or _adds_money(sentence, given, money_words):
         return _program_s(facts, label, Fallback.ADDS_FACTS, calls)
     return WrittenQuestion(label, sentence, Writer.MODEL, None, calls)
 
@@ -184,7 +199,7 @@ def write_question(
 def _program_s(
     facts: QuestionFacts, label: str, why: Fallback, calls: tuple[ReplyRecord, ...]
 ) -> WrittenQuestion:
-    sentence = template_sentence(facts.asked, facts.word)
+    sentence = template_sentence(facts.asked, facts.word, facts.money)
     return WrittenQuestion(label, sentence, Writer.PROGRAM, why, calls)
 
 
@@ -224,3 +239,14 @@ def _adds_facts(sentence: str, given: str, coins: CoinTable) -> bool:
         if coin is not None and word.casefold() not in folded and coin.symbol not in given:
             return True
     return False
+
+
+def _adds_money(sentence: str, given: str, money_words: frozenset[str]) -> bool:
+    """Whether the sentence names, as a whole word, money the facts do not name."""
+    if not money_words:
+        return False
+    named = {word.upper() for word in _LETTERS_AND_DIGITS.findall(given)}
+    return any(
+        word.upper() in money_words and word.upper() not in named
+        for word in _LETTERS_AND_DIGITS.findall(sentence)
+    )

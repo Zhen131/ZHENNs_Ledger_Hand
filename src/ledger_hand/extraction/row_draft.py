@@ -55,7 +55,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from decimal import Decimal
 
-from ledger_hand.core.assets import AssetTable
+from ledger_hand.core.assets import AssetTable, MoneyReading
 from ledger_hand.core.coins import spoken_key
 from ledger_hand.core.numbers import NotANumber, Recognised, Unsure, read_number
 from ledger_hand.core.timeparse import TimeRecognised, TwoCandidates, read_time
@@ -228,6 +228,27 @@ def _use_unit(name: Field, unit: str, work: _Row, allowed: tuple[str, ...]) -> N
     wanted = None if current is None else word_identity(current, assets)
     if any(word.identity != wanted for word in named):
         work.note(mismatch, name, phrase=unit)
+        if assets.from_ledger and target is Field.PRICE_CURRENCY and current is not None:
+            _two_moneys_said(current, named[0].text, work)
+
+
+def _two_moneys_said(current: str, other: str, work: _Row) -> None:
+    """The price and the total name two different moneys: no money is chosen for the user.
+
+    With a table made from the ledger's list, one of the two never stands
+    for the other. When either is money the ledger prices nothing in, the
+    trade keeps that word, and cannot be recorded; when both may price,
+    the word is taken out, and the user is asked which money it was.
+    """
+    assets = work.around.assets
+    readings = {word: assets.money(word).reading for word in (current, other)}
+    if MoneyReading.NOT_MONEY in readings.values():
+        return
+    cannot = [word for word, reading in readings.items() if reading is MoneyReading.CANNOT_PRICE]
+    if cannot:
+        work.texts[Field.PRICE_CURRENCY] = cannot[0]
+    else:
+        del work.texts[Field.PRICE_CURRENCY]
 
 
 def _time(work: _Row) -> OccurredTime | None:

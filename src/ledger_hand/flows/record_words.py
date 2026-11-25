@@ -37,9 +37,9 @@ ENDING_WORDS: Mapping[RecordEnding, str] = MappingProxyType(
             "The ledger turned this down, so nothing waits there for you to confirm."
         ),
         RecordEnding.NOTHING_TO_SEND: "Nothing was sent to the ledger.",
-        RecordEnding.NO_QUOTE_IN_LEDGER: (
-            "Nothing was sent to the ledger: it has no asset {code}, the money these trades "
-            "are priced in. Please add it in the ledger first."
+        RecordEnding.NO_PRICING_MONEY: (
+            "Nothing was sent to the ledger: it has no currency that trades can be priced in. "
+            "Please add one in the ledger first."
         ),
         RecordEnding.CANCELLED: "Dropped, as you said: nothing was sent to the ledger.",
         RecordEnding.STOPPED: (
@@ -73,6 +73,14 @@ LEFT_OUT_WORDS: Mapping[LeftOut, str] = MappingProxyType(
         LeftOut.NOT_IN_LEDGER: (
             "Trade {number} was not sent: the ledger has no asset {code} yet. "
             "Please add it in the ledger first."
+        ),
+        LeftOut.MONEY_TRADED: (
+            "Trade {number} was not sent: {code} is a currency in the ledger, and the "
+            "assistant does not record an exchange of currencies. Please record it in the "
+            "ledger itself."
+        ),
+        LeftOut.QUOTE_CANNOT_PRICE: (
+            "Trade {number} was not sent: the ledger does not price trades in {code}."
         ),
     }
 )

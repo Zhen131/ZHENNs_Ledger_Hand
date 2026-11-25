@@ -103,16 +103,35 @@ class AssetTable:
     take as a number's unit. No word may name both an asset and a money, and
     no extra unit word may be a word for money. A table never changes;
     confirming an asset gives back a new one.
+
+    ``from_ledger`` marks a table made from the ledger's own list
+    (``ledger_table``); such a table never speaks the older words that name
+    USDT. ``shields`` are the names, in lookup form, of coins the table
+    lacks but the built-in coin table knows: such a name is never an asset,
+    and recording says the asset is not in the ledger.
+
+    A table whose unknown assets may be confirmed on the spot holds no
+    money that trades cannot be priced in: confirming such money as a new
+    asset could never be done, so the table is refused when it is made.
     """
 
     coins: CoinTable
     moneys: tuple[Money, ...]
     unknown: UnknownAssets
     extra_units: tuple[str, ...]
+    from_ledger: bool = False
+    shields: frozenset[str] = frozenset()
 
     def __post_init__(self) -> None:
         if not self.pricing_codes:
             raise ValueError("an asset table prices trades in at least one money")
+        if self.unknown is UnknownAssets.CONFIRM_ON_THE_SPOT and any(
+            money.use is MoneyUse.CANNOT_PRICE for money in self.moneys
+        ):
+            raise ValueError(
+                "a table whose unknown assets may be confirmed holds no money it cannot price in:"
+                " such money, said as the asset traded, could never be confirmed"
+            )
         codes = [money.code for money in self.moneys]
         if len(set(codes)) != len(codes):
             raise ValueError(f"a money code is used twice: {codes}")
@@ -139,10 +158,23 @@ class AssetTable:
         """Whether USDT is the one money this table prices trades in.
 
         The older reasons a trade cannot be recorded name USDT in their own
-        words, so they are said only for such a table; another table is
-        given the reasons that name no money.
+        words, so they are said only for such a table, and only when it is
+        not made from the ledger's list (``speaks_of_usdt_only``); another
+        table is given the reasons that name no money.
         """
         return self.pricing_codes == (QUOTE_CURRENCY,)
+
+    def speaks_of_usdt_only(self) -> bool:
+        """Whether the older words that name USDT are said: USDT prices alone, as built in.
+
+        A table made from the ledger's list says the words that name no
+        money, even when USDT is the one money it prices in.
+        """
+        return self.prices_only_in_usdt() and not self.from_ledger
+
+    def is_shielded(self, spoken: str) -> bool:
+        """Whether ``spoken`` names a coin the built-in table knows and this table lacks."""
+        return spoken_key(spoken) in self.shields
 
     def find(self, spoken: str) -> Coin | None:
         """The asset ``spoken`` names, or ``None`` when the table does not know it."""

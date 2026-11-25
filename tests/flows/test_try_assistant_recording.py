@@ -19,6 +19,7 @@ from ledger_hand.ports import ToolCall, ToolReply
 from scripts import try_assistant
 from tests.fakes.routed_model import RoutedModel
 from tests.fakes.scripted_model import scripted_record
+from tests.fakes.usdt_only import usdt_only_ledger
 from tests.flows.scripted_flow import copied, row, screened, table
 
 NO_FEE = "今天上午9:40在币安买了0.02 BTC，价格94900"
@@ -54,7 +55,7 @@ def run(arguments: list[str], model: RoutedModel, ledger: FakeLedger) -> tuple[i
 
 
 def test_a_question_then_its_answer_sends_one_trade_and_save_adds_it() -> None:
-    ledger = FakeLedger()
+    ledger = usdt_only_ledger()
 
     status, printed = run(
         ["--save", NO_FEE, "手续费 0.1 USDT"],
@@ -80,7 +81,7 @@ def test_a_question_then_its_answer_sends_one_trade_and_save_adds_it() -> None:
 
 
 def test_reject_leaves_the_book_as_it_was() -> None:
-    ledger = FakeLedger()
+    ledger = usdt_only_ledger()
 
     status, printed = run(
         ["--reject", NO_FEE, "手续费 0.1 USDT"],

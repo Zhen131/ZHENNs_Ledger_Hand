@@ -42,8 +42,11 @@ on the ledger's own page. The program's words come from ``record_words``;
 none of them is written by the model, and no figure of a trade passes
 through it.
 
-The recording flow is handed no book of its own: what the assistant
-records goes to the ledger. So there is no reminder that the same words
+The recording flow records with the asset table made from the ledger's own
+list of assets (``ledger_table``), asked for once when recording begins:
+only an asset of the ledger can be recorded, priced in money the ledger
+prices trades in. The recording flow is handed no book of its own: what
+the assistant records goes to the ledger. So there is no reminder that the same words
 were saved before, and a coin the user confirms is known for that passage
 only. Its calls to the model are not counted against the step limit; the
 flow's progress keeps them apart.
@@ -62,7 +65,8 @@ from datetime import datetime
 from ledger_hand.assistant.edit_calls import EDIT_TOOLS
 from ledger_hand.assistant.edit_words import not_done_words
 from ledger_hand.assistant.outcome import Chat, Ending, TakenCall, TurnResult
-from ledger_hand.core.assets import BUILT_IN_ASSETS
+from ledger_hand.core.ledger_records import Asset
+from ledger_hand.core.ledger_table import table_of
 from ledger_hand.flows import editing, recording
 from ledger_hand.flows.assisting import close_editing, close_recording, first_edit, take_turn
 from ledger_hand.flows.editing import Edited, EditEnding, EditSent, EditWaiting
@@ -76,7 +80,7 @@ from ledger_hand.flows.recorded import (
     RecordEnding,
     Sent,
 )
-from ledger_hand.ports import LedgerPort, Message, ModelPort, Role, ToolCall
+from ledger_hand.ports import LedgerError, LedgerPort, Message, ModelPort, Role, ToolCall
 
 # After a takeover, only this ending means it could not be done at all.
 _NOT_A_TRADE = frozenset({RecordEnding.NO_TRADE})
@@ -200,22 +204,44 @@ def say(
 
 
 def _begun(said: str, around: _Around) -> Recorded:
-    """What the user said, word for word, handed to the recording flow; no book is handed in."""
+    """What the user said, word for word, handed to the recording flow; no book is handed in.
+
+    The ledger's list of assets is asked for first, once, and made into the
+    asset table the flow records with; the proposal at the end of this turn
+    uses the same list. When the ledger cannot be asked, or prices trades
+    in no money at all, it ends there, and the model is asked nothing.
+    """
+    try:
+        listed = around.ledger.list_assets()
+    except LedgerError as error:
+        unbegun = recording.unbegun(said, now=around.now, zone=around.zone, tuning=around.tuning)
+        return Recorded(ending=RecordEnding.LEDGER_FAILED, progress=unbegun, failure=error)
+    table = table_of(listed)
+    if table is None:
+        unbegun = recording.unbegun(said, now=around.now, zone=around.zone, tuning=around.tuning)
+        return Recorded(ending=RecordEnding.NO_PRICING_MONEY, progress=unbegun)
     progress = recording.start(
         said,
         around.model,
         now=around.now,
         zone=around.zone,
-        assets=BUILT_IN_ASSETS,
+        assets=table,
         tuning=around.tuning,
     )
-    return _onward(progress, around.ledger)
+    return _onward(progress, around.ledger, listed)
 
 
-def _onward(progress: Progress, ledger: LedgerPort) -> Recorded:
-    """Settled trades go to the ledger; anything else ends where the flow stands."""
+def _onward(
+    progress: Progress, ledger: LedgerPort, listed: tuple[Asset, ...] | None = None
+) -> Recorded:
+    """Settled trades go to the ledger; anything else ends where the flow stands.
+
+    ``listed`` is the ledger's list of assets when it was asked for this
+    turn; otherwise the proposal asks for it again, as it may have changed
+    while a question waited.
+    """
     if progress.stage in SETTLED_STAGES:
-        return propose(progress, ledger)
+        return propose(progress, ledger, listed)
     return Recorded(ending=STAGE_ENDINGS[progress.stage], progress=progress)
 
 

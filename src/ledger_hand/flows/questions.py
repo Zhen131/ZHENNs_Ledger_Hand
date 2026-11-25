@@ -16,6 +16,10 @@ read), and the notes shown beside the question:
   with the built-in table the note names USDT, as it always has;
 - when the currency the trade was priced in is asked, the codes it may be
   answered with;
+- with a table made from the ledger's list, a price or a total is asked
+  in the money the trade is priced in, named in the facts and in the
+  program's sentence; it is always settled before (the currency is asked
+  first), and a sentence of the model's that names other money is not used;
 - for the cells one problem lies between, their values now, and how to say
   which one is wrong;
 - for a coin to confirm, that the answer is yes or no; for the fee, that
@@ -33,7 +37,7 @@ Names defined here: ``make_question``.
 from __future__ import annotations
 
 from ledger_hand.asking.question_text import QuestionFacts, write_question
-from ledger_hand.core.assets import MoneyReading
+from ledger_hand.core.assets import AssetTable, MoneyReading
 from ledger_hand.core.followup import AskCell, AskWhichCell, Cell, ConfirmCoin, value_of
 from ledger_hand.core.numbers import write_number
 from ledger_hand.core.timeparse import write_time
@@ -101,6 +105,7 @@ def make_question(
     choices = tuple(
         f"{number}: {_shown_time(moment)}" for number, moment in enumerate(candidates, 1)
     )
+    assets = setting.assets
     facts = QuestionFacts(
         trade=position + 1,
         trades=trades,
@@ -110,10 +115,15 @@ def make_question(
         notes=_notes(asked, draft, quoted, setting, candidates),
         choices=choices,
         word=_word(asked, draft),
+        money=_money(asked, draft, assets) if assets.from_ledger else None,
     )
     tuning = setting.tuning
     written = write_question(
-        facts, model, setting.assets.coins, parameters=tuning.question_parameters
+        facts,
+        model,
+        assets.coins,
+        parameters=tuning.question_parameters,
+        money_words=_money_words(assets) if assets.from_ledger else frozenset(),
     )
     question = Question(
         trade=position,
@@ -195,7 +205,7 @@ def _notes(
     if quoted is not None:
         notes.append(f"The passage says: {quoted!r}.")
         if _prices_in_a_coin(asked, quoted, draft, setting):
-            notes.append(USDT_ONLY if setting.assets.prices_only_in_usdt() else PRICEABLE_ONLY)
+            notes.append(USDT_ONLY if setting.assets.speaks_of_usdt_only() else PRICEABLE_ONLY)
     if isinstance(asked, AskWhichCell):
         now = ", ".join(f"{cell.value} {_value_or_blank(draft, cell)}" for cell in asked.cells)
         notes.append(f"Now: {now}.")
@@ -213,6 +223,23 @@ def _notes(
         notes.append(TWICE)
     notes.append(SKIP_OR_CANCEL)
     return tuple(notes)
+
+
+def _money(asked: Asked, draft: TradeDraft, assets: AssetTable) -> str | None:
+    """The code of the money a price or a total is asked in; empty when not settled yet."""
+    if not isinstance(asked, AskCell) or asked.cell not in (Cell.PRICE, Cell.TOTAL):
+        return None
+    said = assets.money(draft.quote) if draft.quote is not None else None
+    if said is not None and said.reading is MoneyReading.ONE and said.code is not None:
+        return said.code
+    if said is None or said.reading is MoneyReading.SEVERAL:
+        return assets.sole_pricing_code or ""
+    return ""
+
+
+def _money_words(assets: AssetTable) -> frozenset[str]:
+    """Every word for money of the table, in lookup form."""
+    return frozenset(key for money in assets.moneys for key in money.spoken_keys())
 
 
 def _value_or_blank(draft: TradeDraft, cell: Cell) -> str:

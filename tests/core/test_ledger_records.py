@@ -44,8 +44,8 @@ NEW_PARTS = (
     PACKAGE / "flows" / "record_words.py",
     PACKAGE / "flows" / "proposing.py",
 )
-# The one place a new part may name it, for now: the money a proposal is priced in.
-OLD_MONEY_ALLOWED = {PACKAGE / "flows" / "proposing.py": 1}
+# No new part may name it any more.
+OLD_MONEY_ALLOWED: dict[Path, int] = {}
 WHEN = datetime(2026, 10, 6, 11, 48, tzinfo=timezone.utc)
 
 

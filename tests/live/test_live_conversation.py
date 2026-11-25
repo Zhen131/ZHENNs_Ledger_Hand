@@ -26,6 +26,7 @@ from ledger_hand.ledger.invented_book import INVENTED_NOW, INVENTED_ZONE
 from ledger_hand.llm.local import connect_local_model
 from ledger_hand.settings import load_assistant_steps, load_model_settings
 from scripts.try_assistant import show_said
+from tests.fakes.usdt_only import usdt_only_ledger
 
 pytestmark = pytest.mark.live_model
 
@@ -52,7 +53,7 @@ def said_once(words: str, ledger: FakeLedger) -> Said:
 
 
 def test_a_trade_told_in_full_reaches_the_ledger_as_one_proposal_waiting() -> None:
-    ledger = FakeLedger()
+    ledger = usdt_only_ledger()
 
     said = said_once(TOLD, ledger)
 
