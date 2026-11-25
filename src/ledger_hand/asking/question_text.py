@@ -22,7 +22,16 @@ sentence (``templates``) is used instead when:
   digits, a word the coin table knows, or a piece of Chinese writing that
   the facts do not hold; and, when the caller names the words for money,
   a word for money the facts do not name (so that a question about a
-  trade priced in USD never asks for USDT).
+  trade priced in USD never asks for USDT);
+- with the ledger's own asset table, the sentence calls the asset by a
+  word that does not fit it: "coin" for a share or for an asset not
+  recognised yet, or "币" at all (``Fallback.WRONG_ASSET_WORD``).
+
+With the ledger's own table (``QuestionFacts.asset`` set), the label and
+the facts name the asset cells "asset" and "fee asset", the reasons are
+given in the ledger's table's words (``core.asset_words``), and the facts
+say what the asset traded is called. With the built-in table nothing here
+changes.
 
 The model is asked once; it is never asked again for the same question.
 
@@ -40,6 +49,7 @@ from dataclasses import dataclass
 
 from ledger_hand.asking.prompts.bookkeeper import BOOKKEEPER_PROMPT, BookkeeperPrompt
 from ledger_hand.asking.templates import template_sentence
+from ledger_hand.core.asset_words import AssetWord, cell_name, problem_words
 from ledger_hand.core.coins import CoinTable
 from ledger_hand.core.followup import AskCell, AskWhichCell, ConfirmCoin
 from ledger_hand.ports import (
@@ -68,7 +78,10 @@ QUESTION_TABLE = {
 _DIGITS = re.compile(r"\d+")
 _LETTERS_AND_DIGITS = re.compile(r"[A-Za-z0-9]+")
 _CHINESE = re.compile(r"[㐀-鿿]+")
+_COIN_WORD = re.compile(r"\bcoins?\b", re.IGNORECASE)
+_COIN_HANZI = "币"
 _QUESTION_MARKS = "?？"
+_ARTICLE = {AssetWord.SHARE: "a", AssetWord.COIN: "a", AssetWord.ASSET: "an"}
 
 
 class Writer(enum.Enum):
@@ -85,6 +98,7 @@ class Fallback(enum.Enum):
     REPLY_UNREADABLE = "the model's reply was not the agreed shape"
     NOT_ONE_QUESTION = "the model did not write one plain question"
     ADDS_FACTS = "the model's sentence holds something that is not among the facts"
+    WRONG_ASSET_WORD = "the model's sentence calls the asset by a word that does not fit it"
 
 
 @dataclass(frozen=True)
@@ -99,7 +113,9 @@ class QuestionFacts:
     ``money`` is the code of the money the trade is priced in, given to the
     model and named in the program's sentence for a price or a total; empty
     when it is not known; ``None`` with the built-in asset table, whose
-    sentences name USDT.
+    sentences name USDT. ``asset`` is what the ledger's own table calls
+    the trade's asset (a share, a coin, an asset); ``None`` with the
+    built-in table.
     """
 
     trade: int
@@ -111,6 +127,7 @@ class QuestionFacts:
     choices: tuple[str, ...] = ()
     word: str | None = None
     money: str | None = None
+    asset: AssetWord | None = None
 
 
 @dataclass(frozen=True)
@@ -137,21 +154,25 @@ def label_of(facts: QuestionFacts) -> str:
     elif isinstance(asked, ConfirmCoin):
         about = f"is {facts.word!r} a coin?"
     else:
-        about = asked.cell.value
+        about = cell_name(asked.cell, ledger=facts.asset is not None)
     return f"[Trade {facts.trade} of {facts.trades}: {about}]"
 
 
 def facts_text(facts: QuestionFacts) -> str:
     """The facts as the model is given them, one per line."""
     asked = facts.asked
+    ledger = facts.asset is not None
     lines = [f"Trade: {facts.trade} of {facts.trades}"]
     if isinstance(asked, AskWhichCell):
-        lines.append(f"Ask: which one of {', '.join(c.value for c in asked.cells)} is wrong")
+        named = ", ".join(cell_name(cell, ledger=ledger) for cell in asked.cells)
+        lines.append(f"Ask: which one of {named} is wrong")
     elif isinstance(asked, ConfirmCoin):
         lines.append(f"Ask: whether {facts.word!r} is the symbol of a coin")
     else:
-        lines.append(f"Ask for: the {asked.cell.value}")
-    lines.append(f"Why: {asked.because.value}")
+        lines.append(f"Ask for: the {cell_name(asked.cell, ledger=ledger)}")
+    lines.append(f"Why: {problem_words(asked.because, ledger=ledger)}")
+    if facts.asset is not None:
+        lines.append(f"The asset traded is called: {_ARTICLE[facts.asset]} {facts.asset.value}")
     if facts.known:
         lines.append("Known: " + "; ".join(f"{name}: {value}" for name, value in facts.known))
     if facts.money:
@@ -193,13 +214,15 @@ def write_question(
         return _program_s(facts, label, Fallback.NOT_ONE_QUESTION, calls)
     if _adds_facts(sentence, given, coins) or _adds_money(sentence, given, money_words):
         return _program_s(facts, label, Fallback.ADDS_FACTS, calls)
+    if _wrong_asset_word(sentence, facts.asset):
+        return _program_s(facts, label, Fallback.WRONG_ASSET_WORD, calls)
     return WrittenQuestion(label, sentence, Writer.MODEL, None, calls)
 
 
 def _program_s(
     facts: QuestionFacts, label: str, why: Fallback, calls: tuple[ReplyRecord, ...]
 ) -> WrittenQuestion:
-    sentence = template_sentence(facts.asked, facts.word, facts.money)
+    sentence = template_sentence(facts.asked, facts.word, facts.money, facts.asset)
     return WrittenQuestion(label, sentence, Writer.PROGRAM, why, calls)
 
 
@@ -250,3 +273,12 @@ def _adds_money(sentence: str, given: str, money_words: frozenset[str]) -> bool:
         word.upper() in money_words and word.upper() not in named
         for word in _LETTERS_AND_DIGITS.findall(sentence)
     )
+
+
+def _wrong_asset_word(sentence: str, asset: AssetWord | None) -> bool:
+    """Whether, with the ledger's table, the sentence says "币", or "coin" of a non-coin."""
+    if asset is None:
+        return False
+    if _COIN_HANZI in sentence:
+        return True
+    return asset is not AssetWord.COIN and _COIN_WORD.search(sentence) is not None

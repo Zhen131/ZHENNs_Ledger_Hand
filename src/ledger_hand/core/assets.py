@@ -108,7 +108,10 @@ class AssetTable:
     (``ledger_table``); such a table never speaks the older words that name
     USDT. ``shields`` are the names, in lookup form, of coins the table
     lacks but the built-in coin table knows: such a name is never an asset,
-    and recording says the asset is not in the ledger.
+    and recording says the asset is not in the ledger. ``kinds`` gives the
+    kind of each asset of a table made from the ledger's list, by its code
+    ("stock", "crypto"), so that a question calls a share a share; the
+    built-in table holds none.
 
     A table whose unknown assets may be confirmed on the spot holds no
     money that trades cannot be priced in: confirming such money as a new
@@ -121,6 +124,7 @@ class AssetTable:
     extra_units: tuple[str, ...]
     from_ledger: bool = False
     shields: frozenset[str] = frozenset()
+    kinds: tuple[tuple[str, str], ...] = ()
 
     def __post_init__(self) -> None:
         if not self.pricing_codes:
@@ -175,6 +179,10 @@ class AssetTable:
     def is_shielded(self, spoken: str) -> bool:
         """Whether ``spoken`` names a coin the built-in table knows and this table lacks."""
         return spoken_key(spoken) in self.shields
+
+    def kind_of(self, code: str) -> str | None:
+        """The kind of the asset ``code`` names in the ledger ("stock", "crypto"), if known."""
+        return next((kind for known, kind in self.kinds if known == code), None)
 
     def find(self, spoken: str) -> Coin | None:
         """The asset ``spoken`` names, or ``None`` when the table does not know it."""

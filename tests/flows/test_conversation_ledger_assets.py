@@ -182,7 +182,7 @@ def test_a_fee_in_dao_with_two_moneys_asks_what_the_fee_was_paid_in() -> None:
     (said,) = talk(words, rows=[model_row], ledger=FakeLedger())
 
     assert said.recorded is not None and said.recorded.ending is RecordEnding.ASKING
-    assert said.reply.startswith("[Trade 1 of 1: fee coin]")
+    assert said.reply.startswith("[Trade 1 of 1: fee asset]")
 
 
 # --- one money is never taken for another ---------------------------------------------

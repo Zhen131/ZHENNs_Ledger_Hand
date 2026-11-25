@@ -184,7 +184,10 @@ def _left_out(trade: LeftOutTrade) -> str:
 
 def _reminders(recorded: Recorded) -> list[str]:
     """One line for each reminder to say, once recording ended with a proposal or none."""
-    return [f"Reminder: {reminder_text(issue)}" for issue in spoken_reminders(recorded)]
+    ledger = recorded.progress.setting.assets.from_ledger
+    return [
+        f"Reminder: {reminder_text(issue, ledger=ledger)}" for issue in spoken_reminders(recorded)
+    ]
 
 
 def spoken_reminders(recorded: Recorded) -> tuple[Issue, ...]:

@@ -29,7 +29,9 @@ The table (``table_of``):
 - an asset the ledger lacks cannot be recorded: the user adds it there
   first (``UnknownAssets.REFUSE``);
 - with a stock in the ledger, "股", "share" and "shares" may stand after a
-  number as its unit.
+  number as its unit;
+- each asset traded keeps its kind ("stock", "crypto"), so that the words
+  said to the user call a share a share and a coin a coin.
 
 An asset that cannot go into the table is left out of it, and the rest are
 kept: a code that cannot be written as a ledger symbol (such as "BRK.B"),
@@ -193,6 +195,7 @@ def table_of(assets: Sequence[Asset]) -> AssetTable | None:
         extra_units=SHARE_UNITS if stocks else (),
         from_ledger=True,
         shields=shields,
+        kinds=tuple((coin.symbol, _kind(coin.symbol, assets)) for coin in coins),
     )
 
 
@@ -224,6 +227,11 @@ def _coin(asset: Asset, names: AssetNames) -> Coin | None:
         return Coin(symbol=asset.code, name=asset.name, aliases=aliases)
     except ValueError:
         return None
+
+
+def _kind(code: str, assets: Sequence[Asset]) -> str:
+    """The kind of the asset ``code`` names: its own kind's word; one code names one asset here."""
+    return next(asset.kind.value for asset in assets if asset.code == code)
 
 
 def _codes(coins: Sequence[Coin]) -> frozenset[str]:

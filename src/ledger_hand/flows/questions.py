@@ -16,6 +16,12 @@ read), and the notes shown beside the question:
   with the built-in table the note names USDT, as it always has;
 - when the currency the trade was priced in is asked, the codes it may be
   answered with;
+- with a table made from the ledger's list, when the asset is asked, that
+  it is answered with its code as the ledger lists it, and that an asset
+  the ledger lacks is added there first (``ADD_IN_LEDGER_FIRST``); the
+  cells and the reasons are named as the ledger's table names them, and
+  the asset by what it is (``core.asset_words``): a share, a coin, or an
+  asset while it is not recognised;
 - with a table made from the ledger's list, a price or a total is asked
   in the money the trade is priced in, named in the facts and in the
   program's sentence; it is always settled before (the currency is asked
@@ -37,6 +43,7 @@ Names defined here: ``make_question``.
 from __future__ import annotations
 
 from ledger_hand.asking.question_text import QuestionFacts, write_question
+from ledger_hand.core.asset_words import cell_name, word_for
 from ledger_hand.core.assets import AssetTable, MoneyReading
 from ledger_hand.core.followup import AskCell, AskWhichCell, Cell, ConfirmCoin, value_of
 from ledger_hand.core.numbers import write_number
@@ -85,6 +92,10 @@ PRICEABLE_ONLY = (
     "Only trades priced in a currency the ledger prices trades in are recorded; "
     "the passage may price this one in something else."
 )
+ADD_IN_LEDGER_FIRST = (
+    "Answer with the asset's code as the ledger lists it. If the ledger does not have "
+    "this asset yet, please add it there first; meanwhile you may skip this trade."
+)
 TWICE = "The clocks showed that time twice that day: answer 1 or 2, or say the time again."
 
 
@@ -110,12 +121,13 @@ def make_question(
         trade=position + 1,
         trades=trades,
         asked=asked,
-        known=_known(draft),
+        known=_known(draft, ledger=assets.from_ledger),
         quoted=quoted,
         notes=_notes(asked, draft, quoted, setting, candidates),
         choices=choices,
         word=_word(asked, draft),
         money=_money(asked, draft, assets) if assets.from_ledger else None,
+        asset=word_for(assets, draft.coin),
     )
     tuning = setting.tuning
     written = write_question(
@@ -153,9 +165,9 @@ def _shown_time(moment: OccurredTime) -> str:
     return f"{write_time(moment)} ({moment.precision.value})"
 
 
-def _known(draft: TradeDraft) -> tuple[tuple[str, str], ...]:
+def _known(draft: TradeDraft, *, ledger: bool) -> tuple[tuple[str, str], ...]:
     return tuple(
-        (cell.value, shown_value(value))
+        (cell_name(cell, ledger=ledger), shown_value(value))
         for cell in _KNOWN
         if (value := value_of(draft, cell)) is not None
     )
@@ -207,7 +219,11 @@ def _notes(
         if _prices_in_a_coin(asked, quoted, draft, setting):
             notes.append(USDT_ONLY if setting.assets.speaks_of_usdt_only() else PRICEABLE_ONLY)
     if isinstance(asked, AskWhichCell):
-        now = ", ".join(f"{cell.value} {_value_or_blank(draft, cell)}" for cell in asked.cells)
+        ledger = setting.assets.from_ledger
+        now = ", ".join(
+            f"{cell_name(cell, ledger=ledger)} {_value_or_blank(draft, cell)}"
+            for cell in asked.cells
+        )
         notes.append(f"Now: {now}.")
         notes.append(
             "Answer with the one that is wrong and its right value (such as 'price <value>'), "
@@ -219,6 +235,8 @@ def _notes(
         notes.append("Answer 'none' if there was no fee.")
     if isinstance(asked, AskCell) and asked.cell is Cell.QUOTE:
         notes.append(f"Answer with one of: {', '.join(setting.assets.pricing_codes)}.")
+    if setting.assets.from_ledger and isinstance(asked, AskCell) and asked.cell is Cell.COIN:
+        notes.append(ADD_IN_LEDGER_FIRST)
     if candidates:
         notes.append(TWICE)
     notes.append(SKIP_OR_CANCEL)

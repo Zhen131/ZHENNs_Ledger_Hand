@@ -52,6 +52,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from datetime import datetime
 
+from ledger_hand.core.asset_words import problem_words
 from ledger_hand.core.assets import AssetTable, MoneyReading
 from ledger_hand.core.ledger_records import Asset, Pricing, TradeFacts
 from ledger_hand.core.ledger_table import SameCode, same_code_words, same_codes
@@ -178,7 +179,9 @@ def _cannot_record(
         named = _ledger_reason(number, draft, trade.reason, assets)
         if named is not None:
             return named
-    reason = trade.reason.value if trade.reason is not None else None
+    reason = (
+        problem_words(trade.reason, ledger=assets.from_ledger) if trade.reason is not None else None
+    )
     return LeftOutTrade(number=number, why=LeftOut.CANNOT_RECORD, reason=reason)
 
 

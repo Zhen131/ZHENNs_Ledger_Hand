@@ -181,7 +181,7 @@ def test_with_no_asset_said_a_unit_that_is_an_asset_is_asked_about_as_before() -
     recorded = said.recorded
     assert recorded is not None and recorded.ending is RecordEnding.ASKING
     assert recorded.progress.trades[0].status is TradeStatus.OPEN
-    assert said.reply.startswith("[Trade 1 of 1: coin]")
+    assert said.reply.startswith("[Trade 1 of 1: asset]")
 
 
 def test_a_trade_in_another_unit_that_is_also_money_traded_is_told_by_the_unit() -> None:

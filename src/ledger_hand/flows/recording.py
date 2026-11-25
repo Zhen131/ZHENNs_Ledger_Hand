@@ -414,16 +414,25 @@ def _answered(
     return _next_question(progress, model)
 
 
-def _reason(outcome: NotRead) -> str:
+# The reasons an answer was not used whose words say "coin", for the ledger's own table.
+_LEDGER_ANSWER_WORDS = {
+    AnswerProblem.UNIT_NOT_THE_COIN: "the quantity names an asset other than the trade's",
+}
+
+
+def _reason(outcome: NotRead, *, ledger: bool = False) -> str:
     reason = outcome.problem.value
+    if ledger:
+        reason = _LEDGER_ANSWER_WORDS.get(outcome.problem, reason)
     if outcome.cause is not None:
         reason += f" ({outcome.cause.value})"
     return reason
 
 
 def _asked_again(progress: Progress, question: Question, outcome: NotRead) -> Progress:
+    ledger = progress.setting.assets.from_ledger
     again = dataclasses.replace(
-        question, again=_reason(outcome), model_failure=_model_failure(outcome)
+        question, again=_reason(outcome, ledger=ledger), model_failure=_model_failure(outcome)
     )
     return dataclasses.replace(progress, question=again)
 
