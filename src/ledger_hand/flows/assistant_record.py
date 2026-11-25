@@ -3,7 +3,8 @@
 Each time the assistant has dealt with one thing said (typed, an answer,
 or a screenshot's text), one entry is added to the end of a plain text
 file in the data folder (``settings.DataPlaces.assistant_record``): what
-was said, which way it went, each tool the model asked for with its
+was said, which way it went, who wrote the reply (and the question in
+it, when one was asked), each tool the model asked for with its
 arguments as given (those dropped among them), a short piece of what was
 handed back, the failures and their codes, the trades proposed, each
 trade not sent and why, the kinds of reminder said, the proposals sent
@@ -149,6 +150,7 @@ def entry_for(
         "from_screenshot": screenshot,
         "route": said.route.name.lower(),
         "words_by": said.words_by.name.lower(),
+        "question_by": _question_by(said),
         "reply": said.reply,
         "endings": _endings(said),
         "steps": _steps(said),
@@ -160,6 +162,12 @@ def entry_for(
         "models": {"tools": model, "vision": vision_model if screenshot else None},
         "prompts": _prompts(said),
     }
+
+
+def _question_by(said: Said) -> str | None:
+    """Who wrote the sentence of the question asked, when one was: the model or the program."""
+    question = said.recorded.question if said.recorded is not None else None
+    return question.writer.name.lower() if question is not None else None
 
 
 def _endings(said: Said) -> dict[str, str | None]:
