@@ -68,7 +68,7 @@ from ledger_hand.assistant.edit_words import not_done_words
 from ledger_hand.assistant.outcome import Chat, Ending, TakenCall, TurnResult
 from ledger_hand.core.ledger_records import Asset
 from ledger_hand.core.ledger_table import table_of
-from ledger_hand.extraction.prompts.first import FIRST_PROMPT
+from ledger_hand.extraction.prompts.first2 import FIRST_PROMPT_2
 from ledger_hand.extraction.prompts.screen2 import SCREEN_PROMPT_2
 from ledger_hand.flows import editing, recording
 from ledger_hand.flows.assisting import close_editing, close_recording, first_edit, take_turn
@@ -86,11 +86,12 @@ from ledger_hand.flows.recorded import (
 from ledger_hand.ports import LedgerError, LedgerPort, Message, ModelPort, Role, ToolCall
 
 # The prompt versions the assistant judges and extracts what the user said
-# with. The record page keeps the first ones. The first judging version read
-# some sentences about a share bought with dollars as no trade at all, so
-# the assistant judges with the second (measured on 2026-11-25).
+# with. The record page keeps the first ones. Measured on 2026-11-25 on
+# sentences about a share bought with dollars, the first judging version
+# read some as no trade at all, and the first extraction version put gaps
+# into phrases; the assistant uses the second version of each.
 ASSISTANT_SCREEN_PROMPT = SCREEN_PROMPT_2
-ASSISTANT_EXTRACT_PROMPT = FIRST_PROMPT
+ASSISTANT_EXTRACT_PROMPT = FIRST_PROMPT_2
 
 # After a takeover, only this ending means it could not be done at all.
 _NOT_A_TRADE = frozenset({RecordEnding.NO_TRADE})

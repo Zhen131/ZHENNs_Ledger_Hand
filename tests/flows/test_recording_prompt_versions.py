@@ -3,13 +3,14 @@
 Left out, they are the versions every caller used before: the model is sent
 the same messages, and the progress names the same versions. Chosen, the
 model gets the chosen version's words, and the progress names it. The
-assistant judges with the second version and extracts with the first.
+assistant judges and extracts with the second versions.
 Every passage and reply is invented.
 """
 
 from __future__ import annotations
 
 from ledger_hand.extraction.prompts.first import FIRST_PROMPT
+from ledger_hand.extraction.prompts.first2 import FIRST_PROMPT_2
 from ledger_hand.extraction.prompts.screen import SCREEN_PROMPT
 from ledger_hand.extraction.prompts.screen2 import SCREEN_PROMPT_2
 from ledger_hand.flows.conversation import ASSISTANT_EXTRACT_PROMPT, ASSISTANT_SCREEN_PROMPT
@@ -63,6 +64,6 @@ def test_a_chosen_judging_version_is_the_one_sent_and_named() -> None:
     assert progress.prompts[0] == (Step.SCREENING, "screen-2")
 
 
-def test_the_assistant_judges_with_the_second_version_and_extracts_with_the_first() -> None:
+def test_the_assistant_judges_and_extracts_with_the_second_versions() -> None:
     assert ASSISTANT_SCREEN_PROMPT is SCREEN_PROMPT_2
-    assert ASSISTANT_EXTRACT_PROMPT is FIRST_PROMPT
+    assert ASSISTANT_EXTRACT_PROMPT is FIRST_PROMPT_2
