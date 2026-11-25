@@ -1,0 +1,141 @@
+{
+  "about": "The sentences for a demo, each said once in a chat of its own to the whole assistant, with the fake ledger and its invented book behind it, and what each must come to. Every figure, platform and date is invented. No sentence names a time relative to now: the try-out script and the tests take the invented book's fixed moment as now, the Assistant page the machine's clock, so only dates and clock times written in full give the same result in both. README.md, 'Sentences for a demo', lists the same sentences, word for word.",
+  "sentences": [
+    {
+      "id": "record-coin",
+      "kind": "record",
+      "said": "Bought 0.004 BTC at 63250 USDT on OKX on 20 November 2026 at 14:20, fee 0.25 USDT.",
+      "expect": {
+        "trades": [
+          {
+            "side": "buy",
+            "asset": "BTC",
+            "quantity": "0.004",
+            "price": "63250",
+            "total": "253",
+            "quote": "USDT",
+            "fee": "0.25",
+            "fee_asset": "USDT",
+            "occurred": "2026-11-20T14:20:00+01:00",
+            "platform": "OKX"
+          }
+        ],
+        "reminder_line": false
+      },
+      "shows": "One trade sent to the ledger, waiting there: a buy of 0.004 BTC at 63250 USDT, total 253 USDT, fee 0.25 USDT, on 20 November 2026 at 14:20, OKX. No reminder line."
+    },
+    {
+      "id": "record-share",
+      "kind": "record",
+      "said": "Bought 2 MSFT at 410 USD each on IBKR on 18 November 2026 at 15:30, fee 1 USD.",
+      "expect": {
+        "trades": [
+          {
+            "side": "buy",
+            "asset": "MSFT",
+            "quantity": "2",
+            "price": "410",
+            "total": "820",
+            "quote": "USD",
+            "fee": "1",
+            "fee_asset": "USD",
+            "occurred": "2026-11-18T15:30:00+01:00",
+            "platform": "IBKR"
+          }
+        ],
+        "reminder_line": false
+      },
+      "shows": "One trade sent to the ledger, waiting there: a buy of 2 MSFT at 410 USD, total 820 USD, fee 1 USD, on 18 November 2026 at 15:30, IBKR. No reminder line."
+    },
+    {
+      "id": "record-sell",
+      "kind": "record",
+      "said": "Sold 0.1 ETH at 2690 USDT on Binance on 22 November 2026 at 17:05, fee 0.27 USDT.",
+      "expect": {
+        "trades": [
+          {
+            "side": "sell",
+            "asset": "ETH",
+            "quantity": "0.1",
+            "price": "2690",
+            "total": "269",
+            "quote": "USDT",
+            "fee": "0.27",
+            "fee_asset": "USDT",
+            "occurred": "2026-11-22T17:05:00+01:00",
+            "platform": "Binance"
+          }
+        ],
+        "reminder_line": false
+      },
+      "shows": "One trade sent to the ledger, waiting there: a sell of 0.1 ETH at 2690 USDT, total 269 USDT, fee 0.27 USDT, on 22 November 2026 at 17:05, Binance. No reminder line."
+    },
+    {
+      "id": "record-held-back",
+      "kind": "held_back",
+      "said": "Bought 30 USDT of ADA at 0.31 on OKX on 21 November 2026 at 16:40, fee 0.",
+      "expect": {
+        "reply_holds": "its quantity was said as",
+        "reminder_line": false
+      },
+      "shows": "Nothing sent: the money was said where the quantity goes, and the reply says so and asks for the trade again with the money as the total. No reminder line."
+    },
+    {
+      "id": "ask-day",
+      "kind": "ask",
+      "said": "Which trades did I make on 6 October 2026?",
+      "expect": {
+        "tool": "list_trades",
+        "time": "Time: 2026-10-06",
+        "asset": "Asset: all assets",
+        "side": "Side: buys and sells",
+        "rows": 2
+      },
+      "shows": "A table of the trades of 6 October 2026, all assets, buys and sells: 2 rows, a BTC buy and an ETH buy."
+    },
+    {
+      "id": "ask-assets",
+      "kind": "ask",
+      "said": "Which assets does my ledger have?",
+      "expect": {
+        "tool": "list_assets",
+        "rows": 6
+      },
+      "shows": "A table of the ledger's assets: 6 rows, USDT, USD, BTC, ETH, ADA and MSFT."
+    },
+    {
+      "id": "ask-holdings",
+      "kind": "ask",
+      "said": "Which coins and shares am I holding at the moment?",
+      "expect": {
+        "tool": "get_positions",
+        "rows": 4
+      },
+      "shows": "A table of what is held: 4 rows, ADA, BTC, ETH and MSFT, each with its cost and its profit or loss on paper (not worked out for ADA, which has no market price)."
+    },
+    {
+      "id": "change-platform",
+      "kind": "change",
+      "said": "Change the platform of the ADA buy on 25 September 2026 to Binance.",
+      "expect": {
+        "edit": "change",
+        "trade": "t-03",
+        "field": "platform",
+        "value": "Binance",
+        "reminder_line": false
+      },
+      "shows": "A change sent to the ledger, waiting there: the ADA buy of 25 September 2026, its platform from OKX to Binance, shown before and after."
+    },
+    {
+      "id": "delete-sell",
+      "kind": "change",
+      "said": "Delete the MSFT sell on 12 November 2026.",
+      "expect": {
+        "edit": "delete",
+        "trade": "t-10",
+        "reminder_line": false
+      },
+      "shows": "A deletion sent to the ledger, waiting there: the sell of 1 MSFT on 12 November 2026."
+    }
+  ]
+}
