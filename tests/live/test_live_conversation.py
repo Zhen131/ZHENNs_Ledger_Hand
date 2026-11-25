@@ -59,7 +59,7 @@ def test_a_trade_told_in_full_reaches_the_ledger_as_one_proposal_waiting() -> No
 
     assert said.sent is not None, f"nothing was sent: {said.reply}"
     assert said.sent.trades == 1
-    assert ledger.proposal_status(said.sent.proposal) is ProposalStatus.PENDING
+    assert ledger.proposal_status(said.sent.proposal).status is ProposalStatus.PENDING
 
 
 def test_a_question_about_one_day_comes_back_as_a_table_of_that_day() -> None:
