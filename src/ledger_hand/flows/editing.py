@@ -131,7 +131,8 @@ class EditRequest:
 
     ``said`` is the user's sentence that asked for it, word for word: the
     proposal carries it to the ledger, even when a later answer (a number,
-    which amount follows) settles which trade.
+    which amount follows) settles which trade. On the assistant's way it is
+    the sentence as said, before it was tidied (``raw_text``).
     """
 
     kind: EditKind
@@ -202,16 +203,30 @@ class _Around:
 
 
 def start(
-    call: EditCall, ledger: LedgerPort, user_said: Sequence[str], *, now: datetime, zone: str
+    call: EditCall,
+    ledger: LedgerPort,
+    user_said: Sequence[str],
+    *,
+    now: datetime,
+    zone: str,
+    raw_text: str | None = None,
 ) -> Edited:
-    """Find the trade ``call`` names and propose its change or deletion, or say why not."""
+    """Find the trade ``call`` names and propose its change or deletion, or say why not.
+
+    ``user_said`` holds the words the call is checked against, tidied on the
+    assistant's way; ``raw_text`` is the last of them as the user said it,
+    when tidying changed it, and goes to the ledger in its place.
+    """
     try:
-        return _started(call, _Around(ledger, now, zone), user_said)
+        return _started(call, _Around(ledger, now, zone), user_said, raw_text)
     except LedgerError as error:
         return _failed(error)
 
 
-def _started(call: EditCall, around: _Around, user_said: Sequence[str]) -> Edited:
+def _started(
+    call: EditCall, around: _Around, user_said: Sequence[str], raw_text: str | None = None
+) -> Edited:
+    said = raw_text if raw_text is not None else user_said[-1]
     conditions = find_conditions(
         call.period,
         call.asset,
@@ -225,7 +240,7 @@ def _started(call: EditCall, around: _Around, user_said: Sequence[str]) -> Edite
         return Edited(ending=EditEnding.TOLD, reply=conditions.words)
     if conditions.period is None and conditions.asset is None and conditions.side is None:
         return Edited(ending=EditEnding.NO_CONDITIONS, reply=edit_words.NO_CONDITIONS)
-    request = EditRequest(kind=EditKind.DELETE, said=user_said[-1])
+    request = EditRequest(kind=EditKind.DELETE, said=said)
     if call.tool is ToolName.PROPOSE_TRADE_UPDATE:
         assert call.field is not None and call.new_value is not None
         value = read_new_value(
@@ -239,7 +254,7 @@ def _started(call: EditCall, around: _Around, user_said: Sequence[str]) -> Edite
             return Edited(ending=EditEnding.TOLD, reply=value.words)
         request = EditRequest(
             kind=EditKind.CHANGE,
-            said=user_said[-1],
+            said=said,
             field=call.field,
             words=call.new_value,
             value=value,
@@ -433,18 +448,30 @@ def _failed(error: LedgerError) -> Edited:
 
 
 def begun(
-    call: ToolCall, ledger: LedgerPort, user_said: Sequence[str], *, now: datetime, zone: str
+    call: ToolCall,
+    ledger: LedgerPort,
+    user_said: Sequence[str],
+    *,
+    now: datetime,
+    zone: str,
+    raw_text: str | None = None,
 ) -> Edited:
     """A call taken by the turn, gone on with; a period cut out of a longer time says the
     fixed words and looks nothing up."""
     verdict = judge_edit_at(call, user_said, now=now, zone=zone)
     if not isinstance(verdict, EditCall):
         return Edited(ending=EditEnding.TOLD, reply=edit_words.PERIOD_AGAIN)
-    return start(verdict, ledger, user_said, now=now, zone=zone)
+    return start(verdict, ledger, user_said, now=now, zone=zone, raw_text=raw_text)
 
 
 def taken_over(
-    call: ToolCall, ledger: LedgerPort, user_said: Sequence[str], *, now: datetime, zone: str
+    call: ToolCall,
+    ledger: LedgerPort,
+    user_said: Sequence[str],
+    *,
+    now: datetime,
+    zone: str,
+    raw_text: str | None = None,
 ) -> Edited | None:
     """After two wrong steps, the last a change or a deletion: go on from that call alone.
 
@@ -453,7 +480,7 @@ def taken_over(
     """
     verdict = judge_edit_at(call, user_said, now=now, zone=zone)
     if isinstance(verdict, EditCall):
-        return start(verdict, ledger, user_said, now=now, zone=zone)
+        return start(verdict, ledger, user_said, now=now, zone=zone, raw_text=raw_text)
     parts = wrong_parts(call, user_said, now=now, zone=zone)
     if parts.period_wrong:
         return Edited(ending=EditEnding.TOLD, reply=edit_words.PERIOD_AGAIN)

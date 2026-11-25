@@ -61,7 +61,8 @@ time said in Chinese are written in digits, without changing what they
 are. From then on the words tidied are what was said: the model sees
 them, the flow reads them, and the chat keeps them. The words as they
 were said go to the ledger as each trade's own record of them
-(``Progress.raw_text``), and ``Said.read_as`` holds both, with each change.
+(``Progress.raw_text``), and with each change or deletion asked for
+(``editing``, ``raw_text``); ``Said.read_as`` holds both, with each change.
 (Decided on 2026-11-25: the program tidies, so the model never reads a
 number or a time it might change.)
 
@@ -462,7 +463,12 @@ def _edit_begun(turn: TurnResult, said: str, around: _Around) -> Said:
     """The model's change or deletion, gone on with by the program."""
     taken = next(call for call in turn.steps[-1].calls if isinstance(call, TakenCall))
     edited = editing.begun(
-        taken.call, around.ledger, turn.chat.user_said, now=around.now, zone=around.zone
+        taken.call,
+        around.ledger,
+        turn.chat.user_said,
+        now=around.now,
+        zone=around.zone,
+        raw_text=around.raw_text,
     )
     left = [
         (
@@ -502,7 +508,9 @@ def _edit_answered(state: AssistantChat, waiting: EditWaiting, said: str, around
 def _edit_taken_over(turn: TurnResult, call: ToolCall, around: _Around) -> Said:
     """Two wrong steps, the last a change or a deletion: the program goes on from that call."""
     user_said = turn.chat.user_said
-    edited = editing.taken_over(call, around.ledger, user_said, now=around.now, zone=around.zone)
+    edited = editing.taken_over(
+        call, around.ledger, user_said, now=around.now, zone=around.zone, raw_text=around.raw_text
+    )
     if edited is None:
         return Said(
             route=Route.TAKEOVER, reply=turn.reply, state=AssistantChat(chat=turn.chat), turn=turn
