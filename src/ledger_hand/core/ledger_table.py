@@ -58,7 +58,7 @@ This module reads no clock and asks nothing of the ledger: the list is
 handed in.
 
 Names defined here: ``MONEY_WORDS``, ``VAGUE_MONEY_WORDS``,
-``VAGUE_MONEY_CODES``, ``SHARE_UNITS``, ``AssetNames``,
+``VAGUE_MONEY_CODES``, ``MONEY_NICKNAMES``, ``SHARE_UNITS``, ``AssetNames``,
 ``SameCode``, ``same_codes``, ``same_code_words``, ``names_of`` and
 ``table_of``.
 """
@@ -132,6 +132,26 @@ VAGUE_MONEY_WORDS: tuple[str, ...] = (
 
 # The two moneys a vague word may mean.
 VAGUE_MONEY_CODES = frozenset({_USDT, _USD})
+
+# The words the question about cash (``cash_words``) takes for "a money",
+# in the order it has always had them, each with the codes it may name. That
+# question only tells a money from other words and never which money it is,
+# so the vague words here name both USDT and USD, as in the rule above.
+# Recording reads ``MONEY_WORDS`` and ``VAGUE_MONEY_WORDS``, never this list.
+MONEY_NICKNAMES: tuple[tuple[str, frozenset[str]], ...] = (
+    ("U", frozenset({_USDT})),
+    ("USDT", frozenset({_USDT})),
+    ("Tether", frozenset({_USDT})),
+    ("泰达币", frozenset({_USDT})),
+    ("USD", frozenset({_USD})),
+    ("$", VAGUE_MONEY_CODES),
+    ("dollar", frozenset({_USD})),
+    ("dollars", frozenset({_USD})),
+    ("美元", frozenset({_USD})),
+    ("美金", VAGUE_MONEY_CODES),
+    ("刀", VAGUE_MONEY_CODES),
+    ("美刀", VAGUE_MONEY_CODES),
+)
 
 # The words that may stand after a number of shares, read with a stock in the ledger.
 SHARE_UNITS = ("股", "share", "shares")

@@ -24,6 +24,7 @@ from ledger_hand.core.assets import (
 from ledger_hand.core.coins import BUILT_IN_TABLE
 from ledger_hand.core.ledger_records import Asset, AssetKind, Pricing
 from ledger_hand.core.ledger_table import (
+    MONEY_NICKNAMES,
     MONEY_WORDS,
     SHARE_UNITS,
     VAGUE_MONEY_WORDS,
@@ -257,3 +258,25 @@ def test_a_table_that_confirms_assets_holds_no_money_it_cannot_price_in() -> Non
             unknown=UnknownAssets.CONFIRM_ON_THE_SPOT,
             extra_units=(),
         )
+
+
+def test_the_cash_question_s_words_for_money_stay_as_they_were() -> None:
+    # The question about cash takes these words for "a money", in this order;
+    # the rule for vague words must not change which words it catches.
+    assert [word for word, _ in MONEY_NICKNAMES] == [
+        "U",
+        "USDT",
+        "Tether",
+        "泰达币",
+        "USD",
+        "$",
+        "dollar",
+        "dollars",
+        "美元",
+        "美金",
+        "刀",
+        "美刀",
+    ]
+    for word in VAGUE_MONEY_WORDS:
+        named = dict(MONEY_NICKNAMES).get(word)
+        assert named is None or named == frozenset({"USDT", "USD"})
