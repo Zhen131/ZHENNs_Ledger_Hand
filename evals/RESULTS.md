@@ -9685,3 +9685,71 @@ not ("谷歌" as Apple). Results, in `evals/tool_results/`:
 `run-20261125T183806Z-stock_names-asset-pick-3-whole-practice.jsonl`,
 `run-20261125T184313Z-stock_names-asset-pick-1-direct-locked.jsonl`,
 `run-20261125T184335Z-stock_names-asset-pick-1-whole-locked.jsonl`.
+
+## 2026-11-25: the ledger port reshaped to the real ledger's answers, `qwen2.5:7b`
+
+**What changed.** The ledger port was reshaped to what the real ledger hands
+back (a proposal for each trade, a holding in the asset's own money, the
+sums with each group's counts and fees, a time with its zone), and the real
+ledger's plug was written. The fake ledger, which every measure here uses,
+was reshaped with it. The sets, the gold answers, the rulers, the prompts
+and the tools' words did not change.
+
+The runs: `qwen2.5:7b` (fingerprint `845dbda0ea48`), Ollama 0.34.3,
+temperature 0, the settings' other defaults, the fake ledger's invented
+book, at commit `4b56c48`, the tree clean, each with the ruler of its
+section above (`.venv/bin/python -m evals.tool_run`, `evals.ask_run`,
+`evals.edit_run`, `evals.stock_run`, `evals.judged_run`). The numbers
+before are the last committed runs of each measure.
+
+| Measure | Before | Now | Results now |
+| --- | --- | --- | --- |
+| First step, 19 sentences | 19 of 19 (`run-20261125T003833Z-tools-assistant-4.jsonl`, `4d03cba`) | 19 of 19 | `run-20261125T151130Z-tools-assistant-4.jsonl` |
+| Asking the ledger, 27 questions | 23 of 27, nothing narrower or off (`run-20261125T003433Z-asks-assistant-4.jsonl`, `4d03cba`) | 23 of 27, nothing narrower or off; Q6, A13, A15, A18 not right | `run-20261125T151300Z-asks-assistant-4.jsonl` |
+| Changes and deletions, 17 sentences | 13 of 17, nothing silently wrong (`run-20261125T003304Z-edits-assistant-4.jsonl`, `4d03cba`) | 13 of 17, nothing silently wrong; N4, N8, N9, N10 not done | `run-20261125T151652Z-edits-assistant-4.jsonl` |
+| Shares bought with dollars, 18 sentences | 16 of 18, nothing silently wrong (`run-20261125T025648Z-stocks-assistant-4.jsonl`, `d405ba1`) | 16 of 18, nothing silently wrong; K14, K15 not done | `run-20261125T151836Z-stocks-assistant-4.jsonl` |
+| Debug set through the start of recording, `screen-2`, `first-3` (30 sentences, 34 trades) | 30 whole right, 1 wrong unsaid (d23) (`judged-20261125T030146Z-debug-screen-2-first-3.jsonl`, `d405ba1`) | 30 whole right, 1 wrong unsaid (d23), no gold trade judged away | `judged-20261125T152222Z-debug-screen-2-first-3.jsonl` |
+
+**Result.** No measure is worse. The five results files were committed
+later, with the batch that came next.
+
+## 2026-11-25: a question about cash answered by the program, `qwen2.5:7b`
+
+**What changed.** A question about cash ("我还有多少USDT", "What is my cash
+balance?") is caught from the user's own words before the model is asked
+(`core/cash_words.py`, `flows/cash_question.py`), and answered with the
+program's fixed words: the assistant cannot look up cash yet, the ledger's
+home page shows it, and no figure is worked out from the trades. The
+prompts and the tools' words did not change.
+
+**The sentences.** `evals/sets/cash.json`, written and committed
+(`171eb41`) before any run: eight questions about cash named for the catch
+(C1 to C8) and sixteen sentences near them that must not be caught
+(P1 to P16, half Chinese, half English: recording with money said, what
+was spent or got back, a coin held, a profit, "rebalance"). The ruler
+(`evals/cash_run.py`) says each once, in a chat of its own, to the whole
+assistant against the invented book, and writes down the way it went: the
+route, how the turn ended, the tools of each step, how a recording ended.
+`--compare` says whether each of P1 to P16 went the same way in two runs.
+Same model, server and parameters as above.
+
+| Run | Commit | Results |
+| --- | --- | --- |
+| before the catch | `171eb41` (the program as at `4b56c48`) | `run-20261125T165944Z-cash-assistant-4.jsonl` |
+| with the catch | `1a03c3f` | `run-20261125T170800Z-cash-assistant-4.jsonl` |
+
+**Result.** With the catch, C1 to C8 are all caught and answered with the
+fixed words; the model is not asked. P1 to P16 each went the same way in
+both runs (`--compare`: every one the same); none was caught. Before the
+catch, C1 and C2 were answered by laying out the holdings, and the model
+wrote their costs in USDT and USD beside them as if they were what is
+held in that money; C4 and C5 went to the holdings, C3 to the list of
+trades, C7 and C8 ended in two wrong steps, and C6 asked which currency. No sentence
+of any other set, nor any demo sentence, is caught
+(`tests/evals/test_cash_set.py`, no model).
+
+The other two measures at `1a03c3f`: first step right on 19 of 19
+(`run-20261125T170942Z-tools-assistant-4.jsonl`); the twenty-seven right
+on 23 of 27, nothing narrower or off, Q6, A13, A15 and A18 not right, as
+at `4b56c48` (`run-20261125T171041Z-asks-assistant-4.jsonl`). No sentence
+of either went another way in its verdict.
