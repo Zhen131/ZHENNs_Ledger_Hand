@@ -13,7 +13,8 @@ choose the cloud plug (the assistant runs on the local plug only), the
 page says so in one fixed sentence and greys the input out; nothing is
 sent. Under the chat is the screenshot area, the Record page's own, with
 keys and a screenshot of this page's (``screenshot_panel.draw_panel``):
-greyed out while a question waits for its answer.
+greyed out while a question waits for its answer, and with a refused step
+limit, as the chat input is, so that no screenshot is read for nothing.
 
 New chat forgets this chat; a question left unanswered is dropped with it.
 The chat lasts as long as the browser tab and is never written to disk.
@@ -103,7 +104,7 @@ def main() -> None:
             args=(INPUT_KEY,),
             disabled=stop is not None,
         )
-        busy = waiting or parts.ledger is None
+        busy = waiting or parts.ledger is None or parts.steps_refused is not None
         screenshot_panel.draw_panel(parts, PANEL, busy=busy)
     with side:
         st.button(

@@ -9,7 +9,9 @@ them (``settings.ABOUT``). The key shows only whether there is one.
 Under the table, the settings but the key can be changed (``settings_form``)
 for this browser tab only; reopening the page or restarting the program goes
 back to the environment and the defaults. The data folder is shown and
-cannot be changed here.
+cannot be changed here. Under it, the assistant's record on this machine:
+where the file is, what it holds, how many entries, and a button to clear
+it (``record_panel``).
 
 When the parts cannot be built (a setting in the environment refused, or a
 machine zone without a name), the page still opens: it says why, and shows
@@ -31,7 +33,7 @@ from ledger_hand.settings import (
     ModelSettings,
     Variable,
 )
-from ledger_hand.ui import sayings, session, settings_form
+from ledger_hand.ui import record_panel, sayings, session, settings_form
 from ledger_hand.ui.setting_text import plug_in_use, shown
 from ledger_hand.wiring import AssemblyError
 
@@ -73,6 +75,7 @@ def main() -> None:
     _table(parts.settings)
     settings_form.draw(parts.settings)
     _data_folder(parts.places)
+    record_panel.draw(parts.places)
 
 
 def _table(settings: ModelSettings | None) -> None:

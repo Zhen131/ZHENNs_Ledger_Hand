@@ -21,9 +21,18 @@ decides how a thing said is taken: ``conversation.say`` does.
   read, as the person left it, and the note to
   ``conversation.say_from_reading``.
 
+Each time the flows hand back what came of a thing said, typed, answered
+or from a screenshot, one entry is added to the assistant's record on
+this machine (``assistant_record.keep``), at the same moment as was handed
+to the flows; the exchange keeps whether it was, or why not, for the page
+to say. A record that cannot be added to never stops what was said from
+being done. Parts without a data folder keep no record, and the page says
+so.
+
 Nothing is handed to the flows while the parts hold no ledger, choose the
 cloud plug, or carry a refused step limit: the page then shows why and
-greys the input out, and a control used anyway does nothing.
+greys the input out, and a control used anyway does nothing. With a
+refused step limit no screenshot is read either.
 
 Names defined here: ``usable``, ``take_typed``, ``take_text``,
 ``start_new_chat``, ``save_in_demo``, ``reject_in_demo``,
@@ -33,7 +42,10 @@ Names defined here: ``usable``, ``take_typed``, ``take_text``,
 
 from __future__ import annotations
 
-from ledger_hand.flows.conversation import Said, ScreenshotText, say, say_from_reading
+from datetime import datetime
+
+from ledger_hand.flows.assistant_record import Kept, NotKept, entry_for, keep
+from ledger_hand.flows.conversation import Route, Said, ScreenshotText, say, say_from_reading
 from ledger_hand.flows.standing import DemoDone, DemoOutcome, demo_reject, demo_save
 from ledger_hand.flows.uploading import UploadNotRead, read_upload
 from ledger_hand.settings import Plug
@@ -74,23 +86,38 @@ def take_text(text: str) -> None:
     if session.reading(ASSISTANT_SPOT) is not None:
         assistant_session.add_exchange(words=text, note=sayings.screenshot_waiting())
         return
+    now = parts.clock()
     said = say(
         assistant_session.chat(),
         text,
         model=parts.model,
         ledger=parts.ledger,
-        now=parts.clock(),
+        now=now,
         zone=parts.zone,
         max_steps=parts.assistant_steps,
         tuning=parts.tuning,
     )
-    _kept(text, said)
+    _kept(text, said, now)
 
 
-def _kept(words: str, said: Said) -> None:
+def _recorded(words: str, said: Said, now: datetime) -> Kept | NotKept:
+    """Add what came of ``words`` to the assistant's record, where the parts keep it."""
+    parts = session.parts()
+    entry = entry_for(
+        said,
+        words=words,
+        at=now,
+        model=parts.settings.model,
+        vision_model=parts.settings.vision_model if said.route is Route.SCREENSHOT else None,
+    )
+    return keep(parts.places.assistant_record if parts.places is not None else None, entry)
+
+
+def _kept(words: str, said: Said, now: datetime) -> None:
     """Keep what came of ``words``, and a card for the proposal it sent, if it sent one."""
     assistant_session.keep_chat(said.state)
-    exchange = assistant_session.add_exchange(words=words, said=said)
+    kept = _recorded(words, said, now)
+    exchange = assistant_session.add_exchange(words=words, said=said, kept=kept)
     if said.sent is not None:
         trades = said.sent.trades
         holds = f"{trades} trade{'s' if trades != 1 else ''} to record"
@@ -138,6 +165,8 @@ def take_screenshot(key: str, read_key: str, note_key: str) -> None:
     if data is None or waiting or session.reading(ASSISTANT_SPOT) is not None:
         return
     parts = session.parts()
+    if parts.steps_refused is not None:
+        return
     outcome = read_upload(
         data, parts.settings, vision_model=parts.vision_model, check=parts.vision_check
     )
@@ -173,18 +202,19 @@ def continue_screenshot(read_key: str, note_key: str) -> None:
         text=session.box_text(Box.READ, ASSISTANT_SPOT),
         note=session.box_text(Box.NOTE, ASSISTANT_SPOT),
     )
+    now = parts.clock()
     said = say_from_reading(
         state,
         shot,
         model=parts.model,
         ledger=parts.ledger,
-        now=parts.clock(),
+        now=now,
         zone=parts.zone,
         tuning=parts.tuning,
     )
     session.keep_reading(None, ASSISTANT_SPOT)
     _fill_boxes(read_key, note_key, "")
-    _kept(said.recorded.progress.passage if said.recorded is not None else "", said)
+    _kept(said.recorded.progress.passage if said.recorded is not None else "", said, now)
 
 
 def drop_screenshot(read_key: str, note_key: str) -> None:

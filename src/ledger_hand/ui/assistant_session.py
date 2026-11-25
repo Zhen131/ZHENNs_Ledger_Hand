@@ -8,8 +8,9 @@ open and never on disk:
 - the chat as the flows hand it back (``conversation.AssistantChat``): what
   the model is shown the next time, and what waits for the user's answer;
 - every exchange so far (``Exchange``): what the person said and what came
-  of it (``conversation.Said``), or a note the page said by itself, such
-  as a screenshot read or not read;
+  of it (``conversation.Said``), and whether it was kept in the assistant's
+  record on this machine (``flows.assistant_record``), or a note the page
+  said by itself, such as a screenshot read or not read;
 - one card for every proposal sent in this chat (``Card``): its identifier,
   which exchange sent it and what it holds. Where it stands is not kept:
   the page asks the ledger each time it is drawn.
@@ -29,6 +30,7 @@ from dataclasses import dataclass
 
 import streamlit as st
 
+from ledger_hand.flows.assistant_record import Kept, NotKept
 from ledger_hand.flows.conversation import AssistantChat, Said
 
 _CHAT_KEY = "ledger_hand.assistant.chat"
@@ -49,7 +51,8 @@ class Exchange:
 
     ``words`` are the person's, ``None`` for a note the page said by itself;
     ``said`` is what the flows handed back, when anything was handed to
-    them; ``note`` the page's own words otherwise.
+    them; ``note`` the page's own words otherwise. ``kept`` says whether
+    what came of it was added to the assistant's record, or why not.
     """
 
     number: int
@@ -57,6 +60,7 @@ class Exchange:
     said: Said | None = None
     note: str | None = None
     tone: NoteTone = NoteTone.NEWS
+    kept: Kept | NotKept | None = None
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -90,9 +94,12 @@ def add_exchange(
     said: Said | None = None,
     note: str | None = None,
     tone: NoteTone = NoteTone.NEWS,
+    kept: Kept | NotKept | None = None,
 ) -> Exchange:
     """Add one exchange, numbered after the last, and give it back."""
-    added = Exchange(number=len(exchanges()) + 1, words=words, said=said, note=note, tone=tone)
+    added = Exchange(
+        number=len(exchanges()) + 1, words=words, said=said, note=note, tone=tone, kept=kept
+    )
     st.session_state[_EXCHANGES_KEY] = (*exchanges(), added)
     return added
 

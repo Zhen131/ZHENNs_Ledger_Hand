@@ -14,13 +14,17 @@ reply as the flows put it, as plain text. Under the reply:
   number, each amount that may follow. Pressing one says that answer, as if
   typed (``assistant_turns.take_text``);
 - the line on what reached the ledger (``assistant_how.sent_line``);
-- "How this was done", closed until opened (``assistant_how.how_lines``).
+- "How this was done", closed until opened (``assistant_how.how_lines``);
+- when the reply was not kept in the assistant's record, why, under the
+  key ``record_key`` (``assistant_record_words.not_kept_words``): a missing
+  data folder as a plain line, any other reason as a warning, never an
+  error box, since what was said was done.
 
 A note the page said by itself (a screenshot read, dropped or not read, a
 demo button that did nothing) is shown alone, a failure in an error box.
 
 Names defined here: ``exchange_key``, ``table_key``, ``choice_key``,
-``how_key`` and ``draw``.
+``how_key``, ``record_key`` and ``draw``.
 """
 
 from __future__ import annotations
@@ -30,11 +34,13 @@ from collections.abc import Sequence
 import streamlit as st
 
 from ledger_hand.assistant.lookups import header_lines
+from ledger_hand.flows.assistant_record import NotKept, RecordProblem
 from ledger_hand.flows.conversation import Said
 from ledger_hand.flows.editing import Choosing, Picking
 from ledger_hand.ui import assistant_session, assistant_turns
 from ledger_hand.ui.assistant_failure_words import failure_lines
 from ledger_hand.ui.assistant_how import how_lines, sent_line, words_by_line
+from ledger_hand.ui.assistant_record_words import not_kept_words
 from ledger_hand.ui.assistant_session import Exchange, NoteTone
 from ledger_hand.ui.assistant_tables import (
     change_rows,
@@ -64,6 +70,11 @@ def choice_key(number: int, index: int) -> str:
 def how_key(number: int) -> str:
     """The key of the container that holds how exchange ``number`` was done."""
     return f"assistant_how_{number}"
+
+
+def record_key(number: int) -> str:
+    """The key of the container that says exchange ``number`` was not kept in the record."""
+    return f"assistant_record_{number}"
 
 
 def draw(parts: Parts, exchanges: Sequence[Exchange]) -> None:
@@ -98,6 +109,18 @@ def _reply(parts: Parts, exchange: Exchange, *, latest: bool) -> None:
     with st.expander("How this was done"), st.container(key=how_key(number)):
         for line in how_lines(said, parts.assistant_steps):
             st.text(line)
+    _not_kept(exchange)
+
+
+def _not_kept(exchange: Exchange) -> None:
+    kept = exchange.kept
+    if not isinstance(kept, NotKept):
+        return
+    with st.container(key=record_key(exchange.number)):
+        if kept.problem is RecordProblem.NO_DATA_FOLDER:
+            st.caption(not_kept_words(kept))
+        else:
+            st.warning(not_kept_words(kept))
 
 
 def _table(rows: list[dict[str, str]], key: str, header: Sequence[str] = ()) -> None:
