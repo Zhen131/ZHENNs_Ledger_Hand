@@ -42,6 +42,9 @@ class IssueKind(enum.Enum):
     )
     UNIT_NOT_THE_FEE_CURRENCY = "the fee carries a unit other than the currency of the fee"
     UNIT_NAMES_SEVERAL = "the unit names more than one currency, so it is not used"
+    MONEY_NOT_CLEAR = (
+        "a vague word for money stands where the trade names other money too; asked, not guessed"
+    )
     EMPTY_ROW = "the model gave a row with every field empty; it was left out"
     SAME_AS_ANOTHER = "the model gave the same row twice; the passage may mention it only once"
     NUMBERS_LEFT_OVER = "numbers in the passage that no trade used; a trade may be missing"

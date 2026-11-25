@@ -64,6 +64,7 @@ from ledger_hand.extraction.issues import Issue, IssueKind
 from ledger_hand.extraction.passage import Passage, Piece, PieceMiss
 from ledger_hand.extraction.reply_parser import ReplyRow
 from ledger_hand.extraction.reply_table import Field
+from ledger_hand.extraction.row_moneys import says_vague_money, settle_moneys
 from ledger_hand.extraction.unit_currency import currencies_in_unit, word_identity
 
 _MISSES = {
@@ -112,11 +113,16 @@ def draft_from_row(row: ReplyRow, position: int, around: Surroundings) -> RowDra
     work.texts = {name: piece.text for name, piece in pieces.items()}
     allowed = _allowed_words(work.texts)
     units = _read_units(allowed, around.assets)
+    said = _units_said(work.texts, units)
+    vague = says_vague_money(said, work.texts, around.assets, allowed)
     amounts: dict[Field, Decimal | None] = {}
     for name in _NUMBER_FIELDS:
         amounts[name], unit = _number(name, work, units)
-        if unit is not None:
+        if unit is not None and (not vague or name is Field.QUANTITY):
             _use_unit(name, unit, work, allowed)
+    if vague:
+        for kind, at, phrase in settle_moneys(said, work.texts, around.assets, allowed):
+            work.note(kind, at, phrase=phrase)
     draft = TradeDraft(
         side=row.side,
         coin=_coin(work.texts.get(Field.COIN), around.assets),
@@ -141,12 +147,25 @@ def _allowed_words(texts: Mapping[Field, str]) -> tuple[str, ...]:
 
 
 def _read_units(allowed: tuple[str, ...], assets: AssetTable) -> tuple[str, ...]:
-    """The unit words the number reader is given: ``allowed``, then the table's own unit words.
+    """The unit words the number reader is given: ``allowed``, the table's unit words, money.
 
-    The table's words go to the reader only; they name no currency, so they
-    are never handed on to the reading of a unit.
+    The table's unit words ("股") go to the reader only; they name no
+    currency, so they are never handed on to the reading of a unit. The
+    words for money of a table made from the ledger's list come last
+    ("欧元", "bucks"); the built-in table has none.
     """
-    return (*allowed, *assets.extra_units)
+    return (*allowed, *assets.extra_units, *assets.money_units)
+
+
+def _units_said(texts: Mapping[Field, str], units: tuple[str, ...]) -> dict[Field, str]:
+    """The unit written with each number field, read without a note; the order of the fields."""
+    said: dict[Field, str] = {}
+    for name in _NUMBER_FIELDS:
+        text = texts.get(name)
+        reading = read_number(text, extra_units=units) if text is not None else None
+        if isinstance(reading, Recognised) and reading.unit is not None:
+            said[name] = reading.unit
+    return said
 
 
 def _pieces(cells: Mapping[Field, str], work: _Row) -> dict[Field, Piece]:
