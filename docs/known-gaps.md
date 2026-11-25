@@ -467,7 +467,20 @@ changed.
   Whether it should hand tools to a cloud service is a later choice.
 - **Only the fake ledger is behind the tools.** It is an invented book in
   memory with its own way of working out cost and profit, which says
-  nothing about the real ledger's.
+  nothing about the real ledger's. The Assistant page, the try-out script
+  and every test reach this demo ledger, never the user's real ledger:
+  connecting the assistant to the real ledger's tools is not done yet. A
+  proposal is "confirmed" only by the try-out script's `--save` or the
+  page's demo buttons, which work on the demo ledger alone. The invented
+  book gives ADA no market price on purpose, so its profit on paper is
+  always "not worked out".
+- **The line of 95% for choosing what to do is not measured.** Whether
+  the model picks the right kind of work (record, ask, change or delete,
+  or nothing) for at least 95% of new sentences is to be judged on
+  sentences the owner says in their own way, which nobody has looked at
+  while writing the prompts. Those sentences have not been written yet, so
+  this line has no number. The nineteen sentences of the first step were
+  seen while the prompt was written; they are not that test.
 - **The model fills the recording tool with arguments it does not take.**
   Measured on the nineteen sentences, the model asks for the right tool
   first every time, but on every trade it records it also hands over the
@@ -508,7 +521,29 @@ changed.
   make up a time of day, the program leaves that trade out and asks the user
   to say it again with the time it was made; the other trades of the same
   words are sent. Whether the ledger's tools will take a trade known only
-  to the day is for when the real ledger is connected.
+  to the day is for when the real ledger is connected. Such a trade is
+  still asked about first like any other: "昨天买了 0.5 ETH，价格 2700"
+  ("bought 0.5 ETH yesterday at 2700") asks for the fee, and only once it
+  is answered is the user told that the trade lacks its time and is not
+  sent, so that answer was given for nothing.
+- **Figures copied into the wrong field, with nothing to say.** When the
+  model copies an amount into another field and the figures still agree
+  with each other, the program has no reminder to give, and the trade is
+  sent wrong. Seen with the real model: "今天上午11点在币安0.01个BTC 花了
+  950U，手续费0" ("0.01 BTC on Binance for 950 U in all, fee 0") was sent
+  as a price of 950 and a total of 9.5 USDT; "今天下午3点在OKX买了0.5 ETH的
+  BTC，价格95000U，手续费0" ("bought BTC worth 0.5 ETH") was sent as a buy of
+  0.5 ETH. Nothing in the reply warns of it. It waits in the ledger as a
+  proposal, which shows the quantity, the price and the total: look at
+  the three before confirming. Mending it needs the extraction prompt
+  tuned on the owner's own sentences, or a check of the price against the
+  day's market price, which the fake ledger does not have.
+- **The answer to a question about the fee may not be read.** "手续费1.5
+  USDT" given as an answer was once not read, and the same question came
+  again; "1.5 USDT" alone was read.
+- **The question does not show the money already read.** While a trade's
+  figures are asked about, the facts listed beside the question leave out
+  the money the trade is priced in, even when it was read from the words.
 - **One more question when the ledger prices in two moneys.** The money a
   trade is priced in is the ledger's: with USDT and USD both pricing
   trades, a price said with no money ("价格94900") is asked about ("Which
@@ -541,14 +576,30 @@ changed.
   asks for the trade to be said again with the money as the total
   ("... for 25 U in total"). The other trades of the same words are sent.
   The Record page still keeps 25 as the quantity and only shows the
-  reminder that the unit is not the coin.
+  reminder that the unit is not the coin. Said again as the reply asks,
+  in English ("... for 100 USDT in total"), the trade goes through; in
+  Chinese, "今天下午3点在OKX买了ETH，一共花了25U，2388一个，手续费0" ("25 U
+  in all, 2388 each") was answered with a question for the quantity
+  instead of the quantity worked out from the total and the price, and
+  "不知道多少个" ("I don't know how many") could not be read as an answer.
+  When the unit holds the coin's name as well ("30U ETH"), the reason reads
+  oddly: "its quantity was said as 30 U ETH, and U ETH is not ETH".
+- **A coin asked for after a quantity in another coin.** When the coin is
+  left empty and the quantity was said as "0.1个BTC", the program asks
+  which coin; whatever the user answers is taken, so answering "ETH" sends
+  a buy of 0.1 ETH. The reply then says the reminder that the unit is not
+  the coin, even when the answer was "BTC" and the reminder no longer
+  holds.
 - **Every reminder is said, even one of no use.** Once a proposal is sent,
   turned down, or nothing is sent, the assistant says each reminder of
   extraction, one line each. A normal sentence can raise one: in
   "410美元一股" the "一" is a number no trade used, so a line saying a trade
   may be missing follows. Which kinds are said is one list
   (`SPOKEN_REMINDERS` in `flows/record_words.py`); taking a kind off it
-  stops it.
+  stops it. In English, when the time was asked for and answered
+  ("15:00"), the numbers of the time left in the first words ("15", "00")
+  are said as numbers no trade used. On the Assistant page the "一" of
+  such a line, after English words, looks like a dash.
 - **The Record page still prices every trade in USDT.** Only the assistant
   takes its assets and its money from the ledger's list; the Record page,
   the book and the export keep the built-in coins and USDT.
@@ -583,11 +634,34 @@ changed.
   call only ("删掉10月6号和10月21号那两笔BTC" gives one call, for 10月6号;
   "数量改成0.0081，成交价改成62000" one call, for the quantity), and then
   nothing is said about the other one.
+- **Measured: 13 of 17 done right, none done wrong.** On the set of
+  changes and deletions (`evals/sets/edits.json`), at the latest run, 13
+  of 17 sentences ended with the right proposal or the right refusal and
+  none sent a wrong one (`evals/RESULTS.md`, "2026-11-25: a cut period
+  judged by the sentence just said first"). The four not done, each
+  sending nothing: a month copied out of a day ("把11月3号那笔ADA的备注改成
+  补仓", the model copying "11月"), where the program asks for the date
+  again; the model listing the trades and asking in its own words instead
+  of calling the tool ("把10月卖出的那笔删掉"), which the system prompt's
+  line on listing before a change invites; an English day written in
+  Chinese ("Delete the BTC sell from October 21", copied as "10月21号");
+  and a time of the model's own where none was said ("把ADA那笔的平台改成
+  Binance", copied as "今天"). So about one change in four is not done the
+  first time, and the user is asked back or told to say it again.
 - **A time cut short is a wrong step, not a narrower lookup.** A period
-  the model copied that stands, wherever it is in what the user said, cut
-  out of a longer time ("9月" out of "9月13号") is taken for a wrong step,
-  for a lookup and for a change alike. Nothing in the user's words is
-  looked for in its place, so the model has to copy the whole time.
+  the model copied that stands cut out of a longer time in the sentence
+  just said ("9月" out of "9月13号") is not taken. For a lookup it is a
+  wrong step, handed back to the model; for a change or a deletion the
+  program looks nothing up and says at once its fixed sentence asking for
+  the date again. Only when the copied words are not in the sentence just
+  said are the sentences before looked at, and there a period that stands
+  alone counts as copied. Nothing in the user's words is looked for in its
+  place, so the model has to copy the whole time. "10月6" copied out of
+  "10月6号" is taken as cut too, and gets that fixed sentence. It also
+  stops one that should go through: after "9月我买的BTC", "把那笔BTC的时间改成
+  9月13号上午10点" ("change its time to 13 September, 10 a.m.") with the
+  model's "9月" is asked again, since the only "9月" in it is part of the
+  new time; the user has to say it once more.
 - **A longer time the program cannot read is not seen as cut.** The check
   stretches the copied words and reads the stretch as a time; when the
   longer words are ones it cannot read ("11月下旬", "10月初", "9月底"), no
@@ -598,7 +672,20 @@ changed.
   and figures, and so does the proposal waiting in the ledger, which does
   nothing until the user confirms it on the ledger's own page. Telling
   these words apart would need a list of words such as "下旬", "月初",
-  "月底", one word at a time, and is not built.
+  "月底", one word at a time, and is not built. Three more ways of saying
+  it can let a month the model copies stand, and send the change for the
+  only trade of that month whatever day the user meant; they were made
+  with a scripted model, not seen with the real one: a sentence with the
+  month said alone a second time ("把9月13号那笔BTC的备注改成9月定投",
+  "9月" also in the new note); the month said alone two sentences before
+  and the day in the sentence between ("9月我买了什么", "9月13号那笔是什么",
+  "把那笔BTC删掉"); and the month and the day said in two sentences ("9月我
+  都买了什么", then "把13号那笔BTC删掉"). The same safeguard holds: the reply
+  and the waiting proposal show which trade.
+- **A side the model picks wrong is taken as it stands.** The side is a
+  choice from a list, so it is never refused: "把9月25号那笔ADA删掉" for a buy
+  was once given `sell` by the model. Then no trade matches, and the user
+  is told so with the side looked for.
 - **A day copied from the new time, not from the trade's.** In
   "把9月13号那笔BTC的时间改成9月12号上午10点" the model may copy "9月12号",
   the day of the new time, as the day of the trade to find. The words are
@@ -666,8 +753,46 @@ changed.
   what the model is handed back holds the user's sentence and asks for the
   time in the user's language. When the model writes it wrongly again, or
   answers in words instead, the turn ends with a sentence and no table.
-  "Oct 1 to Oct 15" and "September" go the same way. With no time from the
-  model the lookup covers all time.
+  "Oct 1 to Oct 15" and "September" go the same way, and so did "Which
+  trades did I make on 6 October 2026?", whose day the model wrote as
+  "6十月2026". The sentence it ends with may be the program's own "I can
+  only answer from your ledger ...", which reads as if the question were
+  not about the ledger at all; or the model may pass on to the user the
+  words it was handed ("Copy the time from your question exactly as it is
+  written there ..."). With no time from the model the lookup covers all
+  time. Asked in English, a question with no time, or with the time in
+  Chinese, is the way to get a table; the demo sentences in the README
+  are chosen so.
+- **Measured: 23 of 27 questions looked up right.** At the latest run of
+  the twenty-seven questions (`evals/sets/asks.json`), 23 came back with
+  the right table, and none with a table narrower than asked or off
+  (`evals/RESULTS.md`, "2026-11-25: a cut period judged by the sentence
+  just said first"). The four with no table: two English times the model
+  translated ("How much did I spend on ETH this year?", "How much profit
+  did I make in September?"), and two where the model asked back in words
+  instead of calling a tool ("去年我交易了几笔", "how many trades last
+  year"; "今天我买了什么", "what did I buy today"). On eleven more questions
+  written to try times and numbers (`evals/sets/asks_times.json`), 2 of 11
+  came back with a table at their last run, none narrower or off
+  (`evals/RESULTS.md`, "2026-11-24: after taking the finding of a time in
+  the sentence out"): most of them name no time but hold a price or a
+  quantity, which the model copied as the time or answered in words.
+- **A price copied as the time is said as a time not read.** "Which ETH
+  did I buy at 2010 USDT?" got "I could not read '2010 USDT' as a stretch
+  of time", which says nothing about the price the user meant.
+- **A time said in an earlier sentence is taken.** A period counts as
+  copied when it is in anything the user said in this chat. Asked on, a
+  model that copies the "10月" of the question before, where this one says
+  "9月", looks up October; the header shows which month.
+- **A question none of the four answers may be met with "say it another
+  way".** "我11月底的资产比11月初多了多少" ("how much more did I hold at the
+  end of November than at its start") may get "I could not read '11月初'
+  ..., please say it another way", which suggests that other words would
+  get an answer; none would.
+- **A tool's name written out as the answer.** Now and then the model
+  writes a tool's name, or "call list_trades with ...", as its reply
+  instead of calling it. Under the default prompt this was seen once in
+  nineteen sentences; the user then sees that line and nothing done.
 - **A word the model copies as a time is taken as one.** When the model
   copies a word of the user's as the time and the program can read it, the
   table is narrowed by it and the header shows the days. In "我一月一次定投
@@ -685,7 +810,8 @@ changed.
   number it writes must be in the table, the ledger's answer or what the
   user said, or the program's words "Here is what the ledger returned."
   are shown instead. Words longer than 300 characters are not shown
-  either.
+  either. A numbered list counts too: the "1" of "1." is a number not in
+  the table, so a list the model writes is often replaced by those words.
 - **A loss written as a gain is not caught.** The check looks at the
   numbers only: not at a sign before them, and not at words such as
   "赚", "亏", "profit" or "loss". So "你赚了 12.5 USDT" passes beside a
@@ -710,7 +836,9 @@ changed.
   browser tab is open; only the assistant's record (below) keeps what was
   said on disk, and the page cannot be filled again from it. A new tab, a restart
   or New chat starts from nothing; the proposals already sent stay in the
-  ledger.
+  ledger. On the demo ledger they then wait unseen, and saving another
+  proposal can make them void; pressing New chat several times in a demo
+  leaves several such proposals behind.
 - **A proposal is confirmed only on the ledger's own page.** The page shows
   where each proposal of its chat stands, asked of the ledger each time it
   is drawn, but it cannot save or reject a proposal in a real ledger, and
@@ -729,6 +857,29 @@ changed.
 - **What a tool handed back is cut short under "How this was done".** Each
   result is shown as one line of at most 160 characters with how long it is
   in all; the tables above it show what the ledger found in full.
+- **How many times the model was asked is not exact.** The count under a
+  reply leaves out a call to word a question that failed (the program's
+  own question is used then), and for a screenshot it counts the reading
+  of the picture with the recording's calls.
+- **Words that can be read two ways.** After "Save in the demo ledger",
+  the chat line still says the proposal was sent "waiting for you to
+  confirm", which was so when it was sent, while its card beside it says
+  saved. A card names a trade by the demo ledger's own number ("delete of
+  trade t-03"), not by its day and asset. In the sums of a stretch of time,
+  the fees' line stands in the column of realized profit or loss, under a
+  money, so it can look like a second line of that money. The question for
+  the money a trade is priced in has no buttons for USDT and USD; the answer
+  is typed.
+- **The English is not checked by a native speaker.** Every sentence the
+  program says, on the pages and in the scripts, was written by this
+  project; none has been read by a native speaker of English.
+- **A screenshot may need a longer reply to be read.** With the longest
+  reply at its default, 1,024 tokens, the vision model read nothing off a
+  clear, invented picture of an order, on the Record page and the Assistant
+  page alike, also with thinking off; at 4,096 it read it. Before
+  recording from a screenshot, set `LEDGER_HAND_MODEL_MAX_REPLY_TOKENS` to
+  4096 on the Settings page. The same setting is used for every call, so
+  the default was not raised for this.
 
 ## The assistant's record
 
@@ -747,6 +898,11 @@ changed.
 - **It cannot be looked through on a page.** The Settings page shows where
   the file is and how many entries it holds, and clears it; reading the
   entries means opening the file.
+- **A last entry with no line end is dropped.** The program writes each
+  entry with its line end in one write, so an entry with none is taken for
+  a line cut off half-way and cut off before the next entry, even when it
+  is whole. That happens only when a write is cut off at the very end, or
+  when the file was edited by hand; the entry is then lost without a word.
 - **The record says how a proposal stood when it was sent, not after.**
   Each entry keeps the proposals sent as waiting; whether one was later
   saved or rejected is the ledger's to say.
