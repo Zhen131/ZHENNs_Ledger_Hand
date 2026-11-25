@@ -49,6 +49,11 @@ only an asset of the ledger can be recorded, priced in money the ledger
 prices trades in. A trade whose quantity was said in a unit that is not
 the asset traded ("25U" of ETH) is held back at the start, asked nothing
 about and not sent; the reply says why (``recording.held_other_unit``).
+The name of an asset the table does not find, and that cannot be written
+as a code ("微软"), is first handed to the model to pick from the
+ledger's list (``recording.start``, ``pick_assets``); an asset taken is
+said in the reply that begins the recording and in the one that ends it,
+with that the model matched it (``record_words``).
 The recording flow is handed no book of its own: what the assistant
 records goes to the ledger. So there is no reminder that the same words
 were saved before, and a coin the user confirms is known for that passage
@@ -288,7 +293,7 @@ def _said(state: AssistantChat, said: str, around: _Around, max_steps: int) -> S
         return _edit_begun(turn, said, around)
     if turn.ending is Ending.RECORDING:
         recorded = _begun(said, around)
-        reply = reply_for(recorded)
+        reply = reply_for(recorded, begun=True)
         closed = close_recording(turn, recorded.ending.value, reply, _proposals(recorded))
         state = AssistantChat(chat=closed.chat, recording=_waiting(recorded))
         return Said(route=Route.MODEL, reply=reply, state=state, turn=closed, recorded=recorded)
@@ -320,7 +325,7 @@ def say_from_reading(
     around = _Around(model, ledger, now, zone, tuning)
     recorded = _begun("", around, shot)
     passage = recorded.progress.passage
-    reply = reply_for(recorded)
+    reply = reply_for(recorded, begun=True)
     chat = _with_words(state.chat, (Message(Role.USER, passage), Message(Role.ASSISTANT, reply)))
     chat = _with_proposal(chat, recorded)
     return Said(
@@ -358,13 +363,15 @@ def _begun(said: str, around: _Around, shot: ScreenshotText | None = None) -> Re
 def _start(said: str, around: _Around, table: AssetTable, shot: ScreenshotText | None) -> Progress:
     """The recording flow begun the assistant's way, for words typed and a screenshot alike.
 
-    The prompt versions and the holding back are named here once, so the
-    two ways cannot drift apart.
+    The prompt versions, the holding back and the picking of an asset from
+    the ledger's list are named here once, so the two ways cannot drift
+    apart.
     """
     assistant_way = {
         "screen_prompt": ASSISTANT_SCREEN_PROMPT,
         "extract_prompt": ASSISTANT_EXTRACT_PROMPT,
         "hold_other_unit": True,
+        "pick_assets": True,
     }
     if shot is None:
         progress = recording.start(
@@ -427,7 +434,7 @@ def _taken_over(turn: TurnResult, said: str, around: _Around) -> Said:
         return Said(
             route=Route.TAKEOVER, reply=turn.reply, state=state, turn=turn, recorded=recorded
         )
-    reply = reply_for(recorded)
+    reply = reply_for(recorded, begun=True)
     # The model's apology for its wrong steps gives way to the program's words.
     kept = Chat(items=turn.chat.items[:-1], proposals=turn.chat.proposals)
     chat = _with_proposal(_with_words(kept, (Message(Role.ASSISTANT, reply),)), recorded)

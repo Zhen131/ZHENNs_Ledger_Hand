@@ -14,6 +14,11 @@ last one scripted fails the test.
 
 A call with tools takes its reply from a list of its own, ``tools``, too.
 
+Picking an asset from the ledger's list takes its replies from ``picks``;
+with none scripted left, it fails as the model being unreachable, so the
+trade goes on as if nothing had been picked, as it did before the step
+was there.
+
 Names defined here: ``RoutedModel``.
 """
 
@@ -23,6 +28,7 @@ from collections.abc import Iterable, Sequence
 
 from ledger_hand.asking.question_text import QUESTION_TABLE
 from ledger_hand.extraction.answer_table import ANSWER_TABLE
+from ledger_hand.extraction.asset_picking import PICK_TABLE
 from ledger_hand.extraction.reply_table import REPLY_TABLE
 from ledger_hand.extraction.screen_table import SCREEN_TABLE
 from ledger_hand.ports import (
@@ -52,6 +58,7 @@ class RoutedModel:
         answers: Iterable[Step] = (),
         pictures: Iterable[Step] = (),
         tools: Iterable[Step] = (),
+        picks: Iterable[Step] = (),
     ) -> None:
         self.screen = ScriptedModel(screen)
         self.extraction = ScriptedModel(extraction)
@@ -59,6 +66,7 @@ class RoutedModel:
         self.answers = ScriptedModel(answers)
         self.pictures = ScriptedModel(pictures)
         self.tools = ScriptedModel(tools)
+        self.picks = ScriptedModel(picks)
         # The parameters of every attempt to word a question, scripted or not.
         self.question_parameters: list[ModelParameters | None] = []
 
@@ -74,6 +82,7 @@ class RoutedModel:
             id(REPLY_TABLE): self.extraction,
             id(QUESTION_TABLE): self.questions,
             id(ANSWER_TABLE): self.answers,
+            id(PICK_TABLE): self.picks,
         }
         scripted = routes.get(id(reply_schema))
         if scripted is None:
@@ -82,6 +91,8 @@ class RoutedModel:
             self.question_parameters.append(parameters)
             if scripted.steps_left == 0:
                 raise ModelError(ModelErrorKind.UNREACHABLE, "no question is scripted")
+        if scripted is self.picks and scripted.steps_left == 0:
+            raise ModelError(ModelErrorKind.UNREACHABLE, "no pick is scripted")
         return scripted.chat(messages, reply_schema=reply_schema, parameters=parameters)
 
     def chat_with_pictures(

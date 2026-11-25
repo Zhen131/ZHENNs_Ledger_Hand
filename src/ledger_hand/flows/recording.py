@@ -21,6 +21,13 @@ The steps, each handing back a new ``Progress``:
   it off), a trade whose quantity carries a unit that is not the asset
   traded ("25U" of ETH) is held back first, before any question, and
   nothing is asked about it (``held_other_unit``).
+  With ``pick_assets`` (the assistant's way too), the name of an asset the
+  ledger's own table does not find, and that cannot be written as a code,
+  is first handed to the model to pick from the ledger's list
+  (``extraction.asset_picking``), once for each name however many trades
+  say it; an asset taken stands in the trade's cell, and a miss leaves the
+  trade as it was. The calls are kept as ``Step.ASSET_PICK`` and each
+  outcome in ``Progress.picks``. Left off, nothing is sent that was not.
 - Then one trade is taken up at a time, in passage order, and one field of
   it at a time, in the order ``core.followup`` fixes. The question is put
   together and worded (``questions``); a trade that cannot be recorded is
@@ -63,6 +70,7 @@ from datetime import datetime
 from ledger_hand.asking.prompts.bookkeeper import BOOKKEEPER_PROMPT
 from ledger_hand.core.assets import BUILT_IN_ASSETS, AssetTable, MoneyReading, UnknownAssets
 from ledger_hand.core.book import EarlierSave
+from ledger_hand.core.coins import spoken_key
 from ledger_hand.core.followup import CannotRecord, ConfirmCoin, next_follow_up
 from ledger_hand.core.trade import OccurredTime, TradeDraft, TradeRecord
 from ledger_hand.core.validation import check_draft
@@ -82,10 +90,17 @@ from ledger_hand.extraction.answer_phrase import (
     read_answer,
     read_review_answer,
 )
+from ledger_hand.extraction.asset_picking import (
+    PICK_REPLY_TOKENS,
+    AssetPick,
+    pick_asset,
+    should_pick,
+)
 from ledger_hand.extraction.extractor import Extracted, PassageRefused, extract
 from ledger_hand.extraction.issues import Issue, IssueKind
 from ledger_hand.extraction.prompting import PromptVersion
 from ledger_hand.extraction.prompts.answer import ANSWER_PROMPT
+from ledger_hand.extraction.prompts.asset_pick import ASSET_PICK_PROMPT
 from ledger_hand.extraction.prompts.first import FIRST_PROMPT
 from ledger_hand.extraction.prompts.screen import SCREEN_PROMPT
 from ledger_hand.extraction.screening import Decision, Screened, screen
@@ -109,13 +124,19 @@ from ledger_hand.flows.progress import (
 )
 from ledger_hand.flows.questions import make_question
 from ledger_hand.ports import ModelErrorKind, ModelParameters, ModelPort, ReplyRecord, StoragePort
-from ledger_hand.settings import ModelSettings
+from ledger_hand.settings import (
+    DEFAULT_CONTEXT_TOKENS,
+    DEFAULT_TIMEOUT_SECONDS,
+    DEFAULT_TOP_P,
+    ModelSettings,
+)
 
 _PROMPT_OF = {
     Step.SCREENING: SCREEN_PROMPT.name,
     Step.EXTRACTION: FIRST_PROMPT.name,
     Step.QUESTION: BOOKKEEPER_PROMPT.name,
     Step.ANSWER: ANSWER_PROMPT.name,
+    Step.ASSET_PICK: ASSET_PICK_PROMPT.name,
 }
 
 
@@ -147,6 +168,7 @@ def start(
     screen_prompt: PromptVersion = SCREEN_PROMPT,
     extract_prompt: PromptVersion = FIRST_PROMPT,
     hold_other_unit: bool = False,
+    pick_assets: bool = False,
 ) -> Progress:
     """Judge ``passage``, extract its trades, check them, and ask the first question.
 
@@ -165,6 +187,11 @@ def start(
     as one that cannot be recorded, with no reason of the core's, and
     nothing is asked about it. Only the assistant turns it on; the
     Record page keeps the number and only reminds, as before.
+
+    ``pick_assets`` hands each name of an asset the ledger's own table
+    does not find to the model, to pick from the ledger's list, before any
+    question (``extraction.asset_picking``). Only the assistant turns it
+    on; with the built-in table it never asks.
     """
     if not isinstance(now, datetime) or now.utcoffset() is None:
         raise ValueError("the current moment must be a datetime that carries an offset")
@@ -191,11 +218,16 @@ def start(
     if screening.decision is Decision.NO_TRADE:
         return dataclasses.replace(progress, stage=Stage.NO_TRADE)
     progress = dataclasses.replace(progress, set_aside=screening.set_aside)
-    return _extracted(progress, model, extract_prompt, hold=hold_other_unit)
+    return _extracted(progress, model, extract_prompt, hold=hold_other_unit, pick=pick_assets)
 
 
 def _extracted(
-    progress: Progress, model: ModelPort, prompt: PromptVersion, *, hold: bool = False
+    progress: Progress,
+    model: ModelPort,
+    prompt: PromptVersion,
+    *,
+    hold: bool = False,
+    pick: bool = False,
 ) -> Progress:
     setting = progress.setting
     extraction = extract(
@@ -214,14 +246,62 @@ def _extracted(
         return _failed(progress, Step.EXTRACTION, extraction)
     if not extraction.drafts:
         return dataclasses.replace(progress, stage=Stage.NO_TRADE, issues=extraction.issues)
+    drafts = extraction.drafts
+    if pick:
+        drafts, picks = _picked(drafts, setting, model)
+        for found in picks:
+            progress = _with_calls(progress, Step.ASSET_PICK, found.calls, found.prompt)
+        progress = dataclasses.replace(progress, picks=picks)
     trades = tuple(
         TradeState(
             draft, _held_status(position, draft, extraction.issues, setting.assets, hold=hold)
         )
-        for position, draft in enumerate(extraction.drafts)
+        for position, draft in enumerate(drafts)
     )
     progress = dataclasses.replace(progress, trades=trades, issues=extraction.issues)
     return _next_question(progress, model)
+
+
+def _picked(
+    drafts: tuple[TradeDraft, ...], setting: Setting, model: ModelPort
+) -> tuple[tuple[TradeDraft, ...], tuple[AssetPick, ...]]:
+    """The drafts with each asset picked from the ledger's list in, and what came of each name.
+
+    A name said in several trades is handed over once, and its outcome
+    serves them all.
+    """
+    assets = setting.assets
+    found: dict[str, AssetPick] = {}
+    picked: list[TradeDraft] = []
+    for draft in drafts:
+        word = draft.coin
+        if word is None or not should_pick(word, assets):
+            picked.append(draft)
+            continue
+        key = spoken_key(word)
+        if key not in found:
+            found[key] = pick_asset(word, assets, model, parameters=_pick_parameters(setting))
+        code = found[key].code
+        picked.append(draft if code is None else dataclasses.replace(draft, coin=code))
+    return tuple(picked), tuple(found.values())
+
+
+def _pick_parameters(setting: Setting) -> ModelParameters:
+    """How the model is called to pick an asset: at temperature 0, with a short reply.
+
+    Why temperature 0, whatever the settings say for questions: the same
+    words then pick the same asset each time, so a measure of it holds
+    (decided on 2026-11-25). The rest follows the settings, as for a
+    question, or the settings' defaults when none were handed in.
+    """
+    base = setting.tuning.question_parameters
+    return ModelParameters(
+        temperature=0.0,
+        top_p=base.top_p if base is not None else DEFAULT_TOP_P,
+        max_reply_tokens=PICK_REPLY_TOKENS,
+        context_tokens=base.context_tokens if base is not None else DEFAULT_CONTEXT_TOKENS,
+        timeout_seconds=base.timeout_seconds if base is not None else DEFAULT_TIMEOUT_SECONDS,
+    )
 
 
 def _held_status(

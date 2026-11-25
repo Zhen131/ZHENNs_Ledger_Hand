@@ -103,12 +103,13 @@ def start_from_reading(
     screen_prompt: PromptVersion = SCREEN_PROMPT,
     extract_prompt: PromptVersion = FIRST_PROMPT,
     hold_other_unit: bool = False,
+    pick_assets: bool = False,
 ) -> Progress:
     """Start the passage joined from ``reading`` (or ``text``) and ``note``, with ``model``.
 
     ``text`` is the text to use, when the person changed what was read.
-    ``screen_prompt``, ``extract_prompt`` and ``hold_other_unit`` go to
-    ``recording.start`` as they are. Raises ``ValueError`` for a reading
+    ``screen_prompt``, ``extract_prompt``, ``hold_other_unit`` and
+    ``pick_assets`` go to ``recording.start`` as they are. Raises ``ValueError`` for a reading
     that was not made, and as ``recording.start`` does for the moment and
     the zone.
     """
@@ -128,6 +129,7 @@ def start_from_reading(
         screen_prompt=screen_prompt,
         extract_prompt=extract_prompt,
         hold_other_unit=hold_other_unit,
+        pick_assets=pick_assets,
     )
     return dataclasses.replace(
         progress,

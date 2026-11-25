@@ -26,8 +26,15 @@ said in another unit, said back as the number read and its unit.
 ``spoken_reminders`` gives the reminders said, as they are, so that a
 caller that keeps them (the assistant's record) keeps the same ones.
 
+Each asset the model picked from the ledger's list for a name the program
+did not know is said in one line (``PICKED_WORDS``): the words said, the
+code, the ledger's name for it, and that the model matched it. It is said
+in the reply that begins the recording (``begun``) and in the one that
+ends it, once when they are the same reply; not in the replies between.
+
 Names defined here: ``ENDING_WORDS``, ``LEFT_OUT_WORDS``,
-``SPOKEN_REMINDERS``, ``reply_for`` and ``spoken_reminders``.
+``SPOKEN_REMINDERS``, ``PICKED_WORDS``, ``reply_for`` and
+``spoken_reminders``.
 """
 
 from __future__ import annotations
@@ -114,6 +121,13 @@ LEFT_OUT_WORDS: Mapping[LeftOut, str] = MappingProxyType(
     }
 )
 
+# The line for an asset the model picked from the ledger's list: the user's
+# words, the code and the ledger's name; the model matched it, so it is said.
+PICKED_WORDS = (
+    'Took "{said}" as {code} ({name}) from the ledger\'s list of assets. '
+    "The model matched it, not the program, so please check it before you confirm."
+)
+
 # The kinds of reminder the assistant says once recording ends: every kind
 # the Record page says, for now. Take a kind off this list to stop saying
 # it, for example the numbers no trade used, which a share's "一股" raises.
@@ -132,16 +146,37 @@ _SAYS_REMINDERS = frozenset(
 )
 
 
-def reply_for(recorded: Recorded) -> str:
-    """What the program tells the user about ``recorded``."""
+def reply_for(recorded: Recorded, *, begun: bool = False) -> str:
+    """What the program tells the user about ``recorded``.
+
+    ``begun`` says this is the reply that begins the recording; the assets
+    picked from the ledger's list are said then, and once it ends.
+    """
     first = ENDING_WORDS[recorded.ending].format(
         question=_question(recorded), code=recorded.missing_money or "", reason=_reason(recorded)
     )
-    lines = [first, *(_left_out(trade) for trade in recorded.left_out)]
+    lines = [first]
+    if begun or recorded.ending is not RecordEnding.ASKING:
+        lines.extend(_picked(recorded))
+    lines.extend(_left_out(trade) for trade in recorded.left_out)
     lines.extend(_waiting(recorded))
     lines.extend(_turned_down(recorded))
     lines.extend(_reminders(recorded))
     return "\n".join(lines)
+
+
+def _picked(recorded: Recorded) -> list[str]:
+    """One line for each asset the model picked from the ledger's list."""
+    progress = recorded.progress
+    lines: list[str] = []
+    for found in progress.picks:
+        if found.code is None:
+            continue
+        coin = progress.setting.assets.find(found.code)
+        name = coin.name if coin is not None else found.code
+        said = (found.said or found.word).strip()
+        lines.append(PICKED_WORDS.format(said=said, code=found.code, name=name))
+    return lines
 
 
 def _question(recorded: Recorded) -> str:

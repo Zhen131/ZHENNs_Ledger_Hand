@@ -30,6 +30,7 @@ from ledger_hand.core.assets import AssetTable
 from ledger_hand.core.book import EarlierSave
 from ledger_hand.core.followup import AskCell, AskWhichCell, ConfirmCoin, Problem
 from ledger_hand.core.trade import OccurredTime, TradeDraft, TradeRecord
+from ledger_hand.extraction.asset_picking import AssetPick
 from ledger_hand.extraction.extractor import DEFAULT_ASKS_AGAIN, PassageProblem
 from ledger_hand.extraction.issues import Issue, IssueKind
 from ledger_hand.extraction.screening import Report
@@ -74,6 +75,7 @@ class Step(enum.Enum):
     EXTRACTION = "extracting the trades"
     QUESTION = "wording a question"
     ANSWER = "reading an answer"
+    ASSET_PICK = "picking the asset from the ledger's list"
 
 
 # The issues of extraction that are reminders to keep in mind, rather than a
@@ -207,6 +209,10 @@ class Progress:
     ``raw_text`` holds the passage, tidied on the assistant's way; the
     trades sent to the ledger carry this one when it is there. Every step
     after the start carries it on.
+
+    ``picks`` holds what came of each name of an asset handed to the model
+    to pick from the ledger's list at the start (the assistant's way), one
+    for each name, in the order first met; empty when none was.
     """
 
     stage: Stage
@@ -224,6 +230,7 @@ class Progress:
     calls: tuple[Call, ...] = ()
     seen_before: tuple[EarlierSave, ...] = ()
     raw_text: str | None = None
+    picks: tuple[AssetPick, ...] = ()
 
     @property
     def records(self) -> tuple[TradeRecord, ...]:
