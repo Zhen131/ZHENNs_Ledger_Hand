@@ -5,11 +5,13 @@
 It starts the ledger's own assistant link (``assistant-link/main.ts``) with
 the program's link client, on a free port of 127.0.0.1, asks it for its
 tools, and compares them with the table this program was built against
-(``ledger_hand.ledger.link_tools.EXPECTED_TOOLS``): each of the eight names
-this program uses is there, and for each the fields it requires, at the top
-and inside the one trade. A tool the ledger has and this program does not
-use is no failure; it is listed ("the ledger has, this program does not
-use: ..."). No ledger page is needed and none is connected;
+(``ledger_hand.ledger.link_tools``): each of the eight tools this program
+uses is there; every field the ledger requires of one, this program sends;
+every field this program sends, the tool takes (at the top and inside the
+one trade). A tool the ledger has and this program does not use is no
+failure; it is listed ("the ledger has, this program does not use: ...").
+Nor is a field the ledger no longer requires that this program still
+sends; it is listed too. No ledger page is needed and none is connected;
 nothing is proposed or read from any ledger. It also reads the error table
 of the ledger's ``assistant-link/README.md`` and checks that every code is on
 one of the real ledger plug's two tables
@@ -43,7 +45,13 @@ from pathlib import Path
 from ledger_hand.ledger.link_client import LedgerLink
 from ledger_hand.ledger.link_failures import LedgerLinkError
 from ledger_hand.ledger.link_ledger import codes_on_no_table
-from ledger_hand.ledger.link_tools import EXPECTED_TOOLS, differences, required_fields, unused
+from ledger_hand.ledger.link_tools import (
+    EXPECTED_TOOLS,
+    differences,
+    no_longer_required,
+    required_fields,
+    unused,
+)
 from ledger_hand.settings import LEDGER_DIRECTORY_VARIABLE, load_ledger_link_settings
 from ledger_hand.wiring import ledger_link
 
@@ -128,10 +136,12 @@ def check(ledger: Path, environ: Mapping[str, str]) -> Outcome:
     for difference in found:
         print(f"  DIFFERENT: {difference}")
     if not found:
-        print("each tool this program uses is there, every required field as expected")
+        print("each tool this program uses is there; it sends every required field, all taken")
     extra = unused(tools)
     if extra:
         print(f"the ledger has, this program does not use: {', '.join(extra)}")
+    for line in no_longer_required(tools):
+        print(f"the ledger no longer requires, this program still sends: {line}")
     unsorted = codes_on_no_table(
         (ledger / "assistant-link" / "README.md").read_text(encoding="utf-8")
     )
