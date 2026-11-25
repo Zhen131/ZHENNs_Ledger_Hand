@@ -9484,3 +9484,23 @@ The other two measures at `3f1f776`: first step right on 19 of 19
 (`run-20261125T000114Z-tools-assistant-4.jsonl`); the twenty-seven right on
 23 of 27, nothing narrower or off, Q1 to Q5 right and Q6 not
 (`run-20261124T235711Z-asks-assistant-4.jsonl`).
+
+## 2026-11-25: a cut period judged by the sentence just said first, `qwen2.5:7b`
+
+**What changed.** Two changes to telling a period cut out of a longer time,
+at `4d03cba`: where the copied words stand in the sentence just said is all
+that counts, and only when they are not there is what was said before
+looked at ("9月" said alone before no longer makes "9月" out of "9月13号"
+a fair copy); and a stretch never ends inside a run of digits or a word
+("October" in "October 2026" is not stretched to "October 2"). The
+sentences, gold answers, rulers, prompt and tools' words did not change.
+The line of 80% for changes and deletions is now reported as it comes,
+not a pass line.
+
+- Changes and deletions (`run-20261125T003304Z-edits-assistant-4.jsonl`):
+  right on 13 of 17; nothing silently wrong; E1 to E3 right. N4, N8, N9
+  and N10 not done, as at `3f1f776`.
+- The twenty-seven (`run-20261125T003433Z-asks-assistant-4.jsonl`): right
+  on 23 of 27; nothing narrower or off; Q1 to Q5 right, Q6 not.
+- First step (`run-20261125T003833Z-tools-assistant-4.jsonl`): right on 19
+  of 19.
