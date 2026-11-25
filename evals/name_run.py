@@ -69,6 +69,7 @@ from ledger_hand.core.ledger_table import table_of
 from ledger_hand.extraction.asset_picking import PickMiss, pick_asset, should_pick
 from ledger_hand.extraction.prompts.asset_pick import ASSET_PICK_PROMPT, AssetPickPrompt
 from ledger_hand.extraction.prompts.asset_pick2 import ASSET_PICK_PROMPT_2
+from ledger_hand.extraction.prompts.asset_pick3 import ASSET_PICK_PROMPT_3
 from ledger_hand.flows import conversation
 from ledger_hand.flows.conversation import AssistantChat, Said, say
 from ledger_hand.flows.progress import Tuning
@@ -80,7 +81,7 @@ from ledger_hand.settings import SettingsError, load_assistant_steps, load_model
 
 # The prompt versions that may be measured, by name.
 PROMPTS: dict[str, AssetPickPrompt] = {
-    prompt.name: prompt for prompt in (ASSET_PICK_PROMPT, ASSET_PICK_PROMPT_2)
+    prompt.name: prompt for prompt in (ASSET_PICK_PROMPT, ASSET_PICK_PROMPT_2, ASSET_PICK_PROMPT_3)
 }
 
 # Another session may hold the model; three minutes lets it finish. Set on
