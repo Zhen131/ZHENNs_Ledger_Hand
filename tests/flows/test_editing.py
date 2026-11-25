@@ -631,3 +631,37 @@ def test_a_month_said_as_a_month_still_finds_its_trades() -> None:
 
     assert said.edited is not None
     assert said.edited.ending is EditEnding.PICKING
+
+
+@pytest.mark.parametrize(
+    ("before", "sentence", "month", "asset"),
+    [
+        ("9月我都买了什么", "把9月13号那笔BTC删掉", "9月", "BTC"),
+        ("11月我买了什么", "把11月4号那笔ADA删掉", "11月", "ADA"),
+    ],
+)
+def test_a_month_said_before_does_not_make_a_cut_day_a_fair_copy(
+    before: str, sentence: str, month: str, asset: str
+) -> None:
+    steps: list[Step] = [
+        calls(("list_trades", {"period": month})),
+        "Here they are.",
+        delete(period=month, asset=asset),
+    ]
+    (_, said), _, ledger = talk(before, sentence, steps=steps)
+
+    assert said.reply == edit_words.PERIOD_AGAIN
+    assert said.edit_sent is None
+    assert proposed(ledger) == []
+
+
+def test_a_month_said_before_still_finds_the_trade_when_this_sentence_names_no_time() -> None:
+    steps: list[Step] = [
+        calls(("list_trades", {"period": "9月", "asset": "ADA"})),
+        "One ADA buy.",
+        delete(period="9月", asset="ADA"),
+    ]
+    (_, said), _, _ = talk("9月我买的ADA", "把那笔ADA删掉", steps=steps)
+
+    assert said.edit_sent is not None
+    assert said.edit_sent.trade == "t-03"

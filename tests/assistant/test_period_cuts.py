@@ -49,8 +49,25 @@ def test_words_found_once_on_their_own_are_a_fair_copy() -> None:
     assert not cut("9月", "9月13号那笔和9月的那些都看看")
 
 
-def test_words_found_on_their_own_in_an_earlier_sentence_are_a_fair_copy() -> None:
-    assert not cut("9月", "9月我买了什么", "把9月13号那笔删掉")
+def test_only_the_sentence_just_said_counts_when_the_words_are_in_it() -> None:
+    assert cut("9月", "9月我都买了什么", "把9月13号那笔BTC删掉")
+    assert cut("11月", "11月我买了什么", "把11月4号那笔ADA删掉")
+
+
+def test_words_said_only_before_on_their_own_are_a_fair_copy() -> None:
+    assert not cut("9月", "9月我都买了什么", "把那笔BTC删掉")
+
+
+@pytest.mark.parametrize(
+    ("words", "said"),
+    [("October", "What did I buy in October 2026?"), ("Oct", "What did I buy in Oct 2026?")],
+)
+def test_a_stretch_never_ends_inside_a_number_or_a_word(words: str, said: str) -> None:
+    assert not cut(words, said)
+
+
+def test_a_month_before_its_day_in_english_is_still_cut() -> None:
+    assert cut("October", "Delete the BTC sell from October 21")
 
 
 def test_words_found_nowhere_are_left_to_the_copy_check() -> None:

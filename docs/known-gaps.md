@@ -536,6 +536,23 @@ changed.
   out of a longer time ("9月" out of "9月13号") is taken for a wrong step,
   for a lookup and for a change alike. Nothing in the user's words is
   looked for in its place, so the model has to copy the whole time.
+- **A longer time the program cannot read is not seen as cut.** The check
+  stretches the copied words and reads the stretch as a time; when the
+  longer words are ones it cannot read ("11月下旬", "10月初", "9月底"), no
+  stretch reads, and a month the model copied out of them ("11月") is
+  taken as it stands. "把11月下旬那笔ADA删掉" with the model's "11月" then
+  finds the only ADA trade of November, on 3 November, and proposes to
+  delete it. The user sees which trade: the program's reply shows its day
+  and figures, and so does the proposal waiting in the ledger, which does
+  nothing until the user confirms it on the ledger's own page. Telling
+  these words apart would need a list of words such as "下旬", "月初",
+  "月底", one word at a time, and is not built.
+- **A day copied from the new time, not from the trade's.** In
+  "把9月13号那笔BTC的时间改成9月12号上午10点" the model may copy "9月12号",
+  the day of the new time, as the day of the trade to find. The words are
+  the user's and are taken; the trade of 12 September is found and the
+  change proposed for it. Again the reply and the waiting proposal show
+  which trade, and nothing changes until the user confirms it.
 - **Changing the subject while a question waits.** While the program waits
   for which trade, or which amount follows, whatever the user says next is
   read as the answer. A question about the holdings at that moment is not

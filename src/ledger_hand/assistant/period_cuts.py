@@ -12,7 +12,11 @@ a stretch of time (``core.time_range.read_period``). When some stretch
 reads as days other than the copied words do (or the copied words read as
 none at all), the words stand there cut out of a longer time. Only when
 they stand so everywhere they are found is the period cut
-(``is_cut``); words found once on their own are a fair copy. "10月" in
+(``is_cut``); words found once on their own are a fair copy. Where they
+stand in what the user said just now is all that counts; only when they
+are not there is what the user said before looked at, as for an asset
+(``narrowing``). A stretch never ends inside a run of digits or a word,
+so "October" in "October 2026" is not stretched to "October 2". "10月" in
 "10月份" or "今年10月" reads as the same days stretched, and is not cut.
 
 This only looks around the words the model copied. When the model gives
@@ -49,38 +53,70 @@ def _days(text: str, now: datetime, zone: str) -> tuple[object, object] | None:
     return (reading.first_day, reading.last_day) if isinstance(reading, Period) else None
 
 
+def _inside(text: str, at: int) -> bool:
+    """Whether ``at`` falls inside a run of digits or a word of Latin letters."""
+    if at <= 0 or at >= len(text):
+        return False
+    before, after = text[at - 1], text[at]
+    return (before.isdigit() and after.isdigit()) or (
+        before.isascii() and after.isascii() and before.isalpha() and after.isalpha()
+    )
+
+
 def _cut_here(said: str, start: int, end: int, own: object, now: datetime, zone: str) -> bool:
-    """Whether the words at ``start:end`` of ``said`` stand cut out of a longer time."""
+    """Whether the words at ``start:end`` of ``said`` stand cut out of a longer time.
+
+    A stretch never ends inside a run of digits or a word: "October 2026"
+    is not read as "October 2".
+    """
     for left in range(MOST_STRETCHED + 1):
         if start - left < 0:
             break
+        if _inside(said, start - left):
+            continue
         for right in range(MOST_STRETCHED + 1):
             if (left, right) == (0, 0):
                 continue
             if end + right > len(said):
                 break
+            if _inside(said, end + right):
+                continue
             days = _days(said[start - left : end + right], now, zone)
             if days is not None and days != own:
                 return True
     return False
 
 
+def _places(words: str, said: str) -> list[int]:
+    """Where ``words`` start in ``said``."""
+    places = []
+    start = said.find(words)
+    while start != -1:
+        places.append(start)
+        start = said.find(words, start + 1)
+    return places
+
+
 def is_cut(words: str, user_said: Sequence[str], now: datetime, zone: str) -> bool:
-    """Whether the period ``words`` stands, wherever it is found, cut out of a longer time."""
+    """Whether the period ``words`` stands cut out of a longer time.
+
+    Where it stands in what the user said just now is all that counts;
+    only when it is nowhere in that is what they said before looked at.
+    It is cut when it stands cut wherever it is looked at.
+    """
     piece = _plain(words)
-    if not piece:
+    if not piece or not user_said:
         return False
     own = _days(piece, now, zone)
-    found = False
-    for said in user_said:
-        text = _plain(said)
-        start = text.find(piece)
-        while start != -1:
-            found = True
-            if not _cut_here(text, start, start + len(piece), own, now, zone):
-                return False
-            start = text.find(piece, start + 1)
-    return found
+    texts = [_plain(said) for said in user_said]
+    now_text = texts[-1]
+    looked = [(now_text, _places(piece, now_text))]
+    if not looked[0][1]:
+        looked = [(text, _places(piece, text)) for text in texts[:-1]]
+    places = [(text, start) for text, starts in looked for start in starts]
+    if not places:
+        return False
+    return all(_cut_here(text, start, start + len(piece), own, now, zone) for text, start in places)
 
 
 def cut_misstep(words: str) -> Misstep:

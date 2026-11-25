@@ -505,7 +505,10 @@ recorded one ("1.500", which may be one thousand five hundred, is not
 taken); a time only with the day and the time of day ("9月24号20:37"); a
 number with a unit only when the unit is what that part is in now ("0.3U"
 for a fee taken in BTC changes nothing). A value the trade already has
-changes nothing. One change or deletion is done at a time. The ledger
+changes nothing. One change or deletion is done at a time. Say the trade's
+time in full ("9月13号那笔", not only "9月"): a time the model copies as only
+part of what you said, such as the month of a day, is not looked up, and
+you are asked to say it again with the date. The ledger
 checks each proposal; one it turns down, such as deleting a buy that a later
 sell rests on, waits nowhere, and the program gives the ledger's reason.
 
