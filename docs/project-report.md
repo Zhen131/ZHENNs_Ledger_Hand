@@ -92,6 +92,22 @@ person types or clicks; neither decides anything itself. A screenshot
 uploaded in the interface is first read out as text, which the person sees
 and can change, and then takes the same path as a typed passage.
 
+**The assistant.** A third page, Assistant, and the script
+`scripts/try_assistant.py` keep the ledger by talking. The model is handed
+eight tools (list the assets, list the trades, sum a stretch of time, the
+holdings, propose to record, change or delete trades, and where a
+proposal stands) and picks one; every argument is a choice from a list or
+the user's own words copied, and the program judges each call before it
+runs it (`src/ledger_hand/flows/assisting.py`,
+`src/ledger_hand/assistant/judging.py`). Recording goes through steps 1 to 5
+above; a question is answered with a table the
+program lays out from what the ledger returned; a change or a deletion is
+found by the program, never picked by the model. Nothing is written: each
+proposal waits in the ledger to be confirmed there. The ledger behind it
+today is a demo ledger, an invented book in memory
+(`src/ledger_hand/ledger/fake_ledger.py`); connecting the real ledger is
+not done (section 8).
+
 **Why the model only copies.** The baseline run shows the reason
 (`evals/RESULTS.md`, "2026-10-05: baseline"): asked to copy the time of an
 English passage, the model twice wrote it in Chinese (`yesterday` as
@@ -335,7 +351,11 @@ the debug set, and the rule picked it; on the kept-back set it got 18 / 22,
 below the 22 / 22 of `first`, so it did not pass and the product still
 extracts with `first`. With thinking off, `qwen3-vl:8b` got 0 / 34 on the
 debug set where it got 3 / 34 with nothing sent, every reply empty, so the
-plug still sends nothing about thinking by default.
+plug still sends nothing about thinking by default. The assistant, at its
+latest runs: the first step right on 19 / 19, 23 / 27 questions looked up
+right, 13 / 17 changes and deletions done right and 16 / 18 sentences
+recording a share done right, none of the last two sending a wrong
+proposal ("The assistant, measured", below).
 
 ### The yardstick
 
@@ -686,6 +706,44 @@ for `{"trades": [...]}`, while its own table puts `steps` first. In the
 main run nothing was asked again; with 256 tokens the three cut-off passages
 were.
 
+### The assistant, measured
+
+The assistant (section 2) has rulers of its own, each with its sentences
+and gold answers committed before its first run, each run with
+`qwen2.5:7b` at temperature 0, the demo ledger and the invented book's
+fixed moment. None of these sentences is a hidden test: all were seen
+while the prompts were written. The numbers below are those of the latest
+run of each, at the end of the round; earlier runs, and every change
+between them, are in `evals/RESULTS.md`. "Silently wrong" is a proposal
+sent that is not the gold one.
+
+| Ruler | Sentences | Done right | Silently wrong | Not done right | Source |
+| --- | --- | --- | --- | --- | --- |
+| The first step: which tool the model asks for first | 19 (`evals/sets/tools.json`) | 19 | not counted: only the tool's name is judged | none | `evals/tool_results/run-20261125T003833Z-tools-assistant-4.jsonl`; `evals/RESULTS.md`, "2026-11-25: a cut period judged by the sentence just said first" |
+| Asking the ledger, to the end | 27 (`evals/sets/asks.json`) | 23 | 0 tables narrower or off | Q6 and A13, an English time the model wrote in Chinese; A15 and A18, the model asked back in words; each with no table | `evals/tool_results/run-20261125T003433Z-asks-assistant-4.jsonl`; the same section |
+| Asking, with numbers and times that are easy to mistake | 11 (`evals/sets/asks_times.json`) | 2 | 0 tables narrower or off | T1 to T6 and T9 to T11, each with no table | `evals/tool_results/run-20261124T220740Z-asks_times-assistant-4.jsonl`; `evals/RESULTS.md`, "2026-11-24: after taking the finding of a time in the sentence out" |
+| Changing and deleting one trade | 17 (`evals/sets/edits.json`) | 13 | 0 | N4, a month copied out of a day; N8, the model listed the trades and asked in words; N9, an English day written in Chinese; N10, a time of the model's own; each sent nothing | `evals/tool_results/run-20261125T003304Z-edits-assistant-4.jsonl`; `evals/RESULTS.md`, "2026-11-25: a cut period judged by the sentence just said first" |
+| Recording a share bought with dollars | 18 (`evals/sets/stocks.json`) | 16 | 0 | K14 and K15, open orders the model answered in words, sending nothing without saying why | `evals/tool_results/run-20261125T041238Z-stocks-assistant-4.jsonl`, its last line; the same 16 and 0 with the prompt versions picked, in `evals/RESULTS.md`, "2026-11-25: recording a share bought with dollars, with the ledger's own assets, `qwen2.5:7b`" |
+| The seven recording sentences, through the try-out script | 7 (R1 to R7 of `evals/sets/tools.json`) | no gold answer; R1, R3 and R4 sent as said | not judged | R2 and R5 ask which money (the demo ledger prices in USDT and USD); R6, an open order, the model answered itself; R7 not sent, its quantity said in money, with the reason | `evals/tool_results/record-20261125T041523Z-seven-through-the-assistant.txt` |
+| The final set, through the start of recording with the assistant's prompt versions | 20 sentences, 22 trades (`evals/sets/final.json`) | 22 trades whole | 0 fields wrong with nothing said | none | `evals/tool_results/judged-20261125T042503Z-final-screen-2-first-3.jsonl`, its last line |
+| The debug set, the same way | 30 sentences, 34 trades (`evals/sets/debug.json`) | 30 trades whole | 1 field wrong with nothing said, in d23 | d05, d09, d11 and one trade of d23 | `evals/tool_results/judged-20261125T041721Z-debug-screen-2-first-3.jsonl`, its last line |
+
+What did not pass its own line: on the twenty-seven questions, "Q1 to Q6
+all right" (Q6 is not); on the eleven, 80% right; on the changes and
+deletions, 80% right, which since the cut periods is reported as it comes
+rather than held as a line (`evals/RESULTS.md`, the same sections). On the
+debug set the assistant's versions get one trade fewer whole than the
+Record page's `screen-1` and `first` (31 of 34, with 2 fields wrong and
+nothing said), and one field fewer wrong with nothing said
+(`evals/tool_results/judged-20261125T024652Z-debug-screen-1-first.jsonl`).
+
+Not measured: whether the model picks the right kind of work for 95% of
+new sentences, which is to be judged on sentences the owner says in their
+own way, not written yet; how the assistant does with the real ledger,
+which is not connected. The sentences for a demo in the README are
+checked by `tests/live/test_live_demo_sentences.py`; that they come out
+the same again shows nothing about other words for the same thing.
+
 ## 7. Design decisions
 
 **In short:** the model is a replaceable part behind a narrow port, kept
@@ -696,7 +754,7 @@ confirmation, and every file written carries its version.
 | Decision | Why | Where |
 | --- | --- | --- |
 | A model on this machine by default, a cloud service one setting away | Trades are personal financial data: by default nothing typed leaves the machine, nothing is paid and no key is needed. Setting an address or a key never switches to a cloud service; only `LEDGER_HAND_MODEL_PLUG` does, and off this machine it insists on https and a key. | `src/ledger_hand/settings.py`, `src/ledger_hand/llm/connect.py` |
-| Two ports and no more: the model and the storage | The rest of the program only says "ask the model" or "save a trade". A plug (Ollama, a cloud service, SQLite, a stand-in for tests) is replaced without touching the rest, and a third port would be a design decision, not an edit. | `src/ledger_hand/ports.py`, `src/ledger_hand/llm/`, `src/ledger_hand/storage/`, `tests/fakes/` |
+| Three ports and no more: the model, the storage and the ledger | The rest of the program only says "ask the model", "save a trade" or "propose to the ledger". A plug (Ollama, a cloud service, SQLite, the demo ledger, a stand-in for tests) is replaced without touching the rest, and a fourth port would be a design decision, not an edit. | `src/ledger_hand/ports.py`, `src/ledger_hand/llm/`, `src/ledger_hand/storage/`, `src/ledger_hand/ledger/`, `tests/fakes/` |
 | The model only copies; the program converts and checks | A model miscalculates and invents (section 2). Its reply is untrusted input: every phrase must be found in the passage, every number and time is converted by tested rules, and the reply is held to a JSON schema and still read against it. | `src/ledger_hand/core/`, `src/ledger_hand/extraction/` |
 | Ask, never guess; preview before saving | A guessed value is a silent error in a ledger. A missing fee, an unknown coin or amounts that disagree become questions; only Save writes; a trade can be left out after seeing it, and price and total sit side by side so a total put as the price shows. | `src/ledger_hand/core/followup.py`, `src/ledger_hand/ui/preview.py` |
 | Incremental export, named so, with a warning | The ledger's present import replaces the whole ledger, so a file of a few new trades must never be taken for a full backup: its name carries `incremental`, and a red line beside Export says not to import it yet. A file is written whole under a temporary name and never replaces another; trades are marked only after it is written. | `src/ledger_hand/export/file_name.py`, `src/ledger_hand/ui/export_panel.py`, `src/ledger_hand/flows/export_file.py` |
@@ -737,6 +795,11 @@ rough edges are known and listed, each with why it stands.
 | The experiment tools measure local models only | They ask Ollama for the model's fingerprint, so a model on a cloud service cannot be measured with them; with the cloud plug set they refuse to start, before anything is sent, and say why (`docs/known-gaps.md`). |
 | A model failure while reading an answer is said by its kind only | The page says the kind in plain words and asks the question again, but not by status code or wait, so a refused key or a rate limit's wait is said there in the kind's general sentence. The command line still prints the kind's code word, such as `(timed_out)` (`docs/known-gaps.md`). |
 | A model setting refused in the environment cannot be corrected on the Settings page | The page opens and names the setting and its rule; the environment has to be corrected and the program started again (`docs/known-gaps.md`). |
+| The assistant reaches the demo ledger only | The real ledger's tools are not connected yet; the page, the script and the tests use an invented book in memory, and "confirming" a proposal is tried with the demo buttons or `--save` (`docs/known-gaps.md`, "The assistant: what is not there yet"). |
+| Choosing what to do is not measured on new sentences | The line of 95% is to be judged on sentences the owner says in their own way, not written yet; every sentence measured so far was seen while the prompts were written ("The assistant, measured"). |
+| An English question with a time in it often gets no table | The model writes the time in Chinese, which is not the user's words, so nothing is looked up; two of the four questions not right are of this kind (`docs/known-gaps.md`). |
+| About one change or deletion in four is not done the first time | 13 of 17, none sent wrong; the rest ask back or ask for the date again ("The assistant, measured"; `docs/known-gaps.md`). |
+| Figures copied into the wrong field can be sent with no warning | When the copied figures still agree with each other the program has nothing to say ("0.01个BTC 花了950U" sent as a price of 950); the proposal waits to be confirmed, showing quantity, price and total (`docs/known-gaps.md`). |
 
 ## 9. Requirements map
 
@@ -746,7 +809,7 @@ section of the README or of this report, a test.
 
 | Requirement | Where | Status |
 | --- | --- | --- |
-| A working application with a frontend | Streamlit interface, two pages (Record, Settings): [`src/ledger_hand/ui/app.py`](../src/ledger_hand/ui/app.py); how to start it: README, "Starting the interface"; run headless in tests: [`tests/ui/`](../tests/ui/); against the real model: [`tests/live/test_live_page.py`](../tests/live/test_live_page.py) | Done |
+| A working application with a frontend | Streamlit interface, three pages (Record, Settings, Assistant): [`src/ledger_hand/ui/app.py`](../src/ledger_hand/ui/app.py); how to start it: README, "Starting the interface"; run headless in tests: [`tests/ui/`](../tests/ui/); against the real model: [`tests/live/test_live_page.py`](../tests/live/test_live_page.py) | Done |
 | API usage | The model's HTTP chat API, called with httpx: local Ollama [`src/ledger_hand/llm/ollama.py`](../src/ledger_hand/llm/ollama.py) (the default), OpenAI-style cloud endpoint [`src/ledger_hand/llm/cloud.py`](../src/ledger_hand/llm/cloud.py); behind the port in [`src/ledger_hand/ports.py`](../src/ledger_hand/ports.py); one real call checked in [`tests/live/test_live_model.py`](../tests/live/test_live_model.py) | Done |
 | Solves a real-world problem | Recording one's own trades in a ledger from plain sentences: section 1; README, "What this is" | Done |
 | Substantive processing, not just question and answer | Seven steps, three with the model: section 2; [`src/ledger_hand/flows/recording.py`](../src/ledger_hand/flows/recording.py). From a screenshot, one more step before them, the vision model reading it out as text: [`src/ledger_hand/flows/screenshot.py`](../src/ledger_hand/flows/screenshot.py) | Done |
