@@ -3,7 +3,8 @@
 Streamlit runs the page from the top on every click and every message;
 ``st.session_state`` is all that lasts from one run to the next, for as long
 as the browser tab is open. This module is the only one that touches it,
-and it keeps:
+apart from ``assistant_session``, which keeps the assistant page's chat and
+cards, and it keeps:
 
 - the parts the flows are handed (``wiring.Parts``), built the first time
   they are needed, unless something put them there first (the tests put in
@@ -33,6 +34,16 @@ and it keeps:
 - the round of the upload box: the box takes a new key each round, which is
   how it is emptied, as Streamlit lets no program empty it.
 
+The last three are kept apart for each page that takes a screenshot
+(``Spot``): the Record page's (``RECORD_SPOT``, the one used when none is
+named) and the assistant page's (``ASSISTANT_SPOT``), so a screenshot read
+on one page is never seen on the other.
+
+When the parts are built again after a change on the settings page, the
+ledger of the parts kept is carried over into the new ones, when both are
+of the same kind: the demo ledger keeps what it holds in memory, so
+proposals sent and saved before the change are still there after it.
+
 The bytes of a file just uploaded are read here (``uploaded``) and never
 kept: Streamlit holds the file itself in memory until the browser tab is
 closed, and writes it nowhere; emptying the upload box does not let go of
@@ -42,7 +53,8 @@ It decides nothing about them; it only keeps them. Nothing here is written
 to disk.
 
 Names defined here: ``Speaker``, ``Line``, ``Tone``, ``Note``, ``Place``,
-``Box``, ``Builder``, ``PARTS_KEY``, ``BUILDER_KEY``, ``parts``,
+``Box``, ``Spot``, ``RECORD_SPOT``, ``ASSISTANT_SPOT``, ``Builder``,
+``PARTS_KEY``, ``BUILDER_KEY``, ``parts``,
 ``rebuild``, ``changes``, ``progress``, ``keep``, ``chat``, ``say``,
 ``typed``, ``note``, ``keep_note``, ``offer``, ``put``, ``reading``,
 ``keep_reading``, ``box_text``, ``keep_box_text``, ``upload_round``,
@@ -53,7 +65,7 @@ from __future__ import annotations
 
 import enum
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from types import MappingProxyType
 
 import streamlit as st
@@ -124,6 +136,23 @@ class Box(enum.Enum):
     NOTE = "note"
 
 
+@dataclass(frozen=True)
+class Spot:
+    """Where one page keeps its screenshot: the reading, the boxes' text, the upload round."""
+
+    reading: str
+    box: str
+    round: str
+
+
+RECORD_SPOT = Spot(reading=_READING_KEY, box=_BOX_KEY, round=_ROUND_KEY)
+ASSISTANT_SPOT = Spot(
+    reading="ledger_hand.assistant.screenshot.reading",
+    box="ledger_hand.assistant.screenshot.{box}",
+    round="ledger_hand.assistant.screenshot.round",
+)
+
+
 def parts() -> Parts:
     """The parts kept, built the first time with the changes kept; raises ``AssemblyError``."""
     kept = st.session_state.get(PARTS_KEY)
@@ -141,6 +170,10 @@ def rebuild(wanted: Mapping[Variable, str]) -> Parts:
     kept stay as they were.
     """
     built = _builder()(MappingProxyType(dict(wanted)))
+    kept = st.session_state.get(PARTS_KEY)
+    same_kind = isinstance(kept, Parts) and kept.ledger_kind is built.ledger_kind
+    if same_kind and isinstance(kept, Parts) and kept.ledger is not None:
+        built = replace(built, ledger=kept.ledger)
     st.session_state[PARTS_KEY] = built
     st.session_state[_CHANGES_KEY] = dict(wanted)
     return built
@@ -207,37 +240,37 @@ def put(key: str, text: str) -> None:
     st.session_state[key] = text
 
 
-def reading() -> PictureRead | None:
+def reading(spot: Spot = RECORD_SPOT) -> PictureRead | None:
     """The screenshot read and waiting to be checked, or ``None`` when there is none."""
-    kept = st.session_state.get(_READING_KEY)
+    kept = st.session_state.get(spot.reading)
     return kept if isinstance(kept, PictureRead) else None
 
 
-def keep_reading(current: PictureRead | None) -> None:
+def keep_reading(current: PictureRead | None, spot: Spot = RECORD_SPOT) -> None:
     """Keep ``current`` as the screenshot read and waiting; ``None`` when there is none."""
-    st.session_state[_READING_KEY] = current
+    st.session_state[spot.reading] = current
 
 
-def box_text(box: Box) -> str:
+def box_text(box: Box, spot: Spot = RECORD_SPOT) -> str:
     """The text kept for ``box``; empty when there is none."""
-    kept = st.session_state.get(_BOX_KEY.format(box=box.value))
+    kept = st.session_state.get(spot.box.format(box=box.value))
     return kept if isinstance(kept, str) else ""
 
 
-def keep_box_text(box: Box, text: str) -> None:
+def keep_box_text(box: Box, text: str, spot: Spot = RECORD_SPOT) -> None:
     """Keep ``text`` as what ``box`` holds."""
-    st.session_state[_BOX_KEY.format(box=box.value)] = text
+    st.session_state[spot.box.format(box=box.value)] = text
 
 
-def upload_round() -> int:
+def upload_round(spot: Spot = RECORD_SPOT) -> int:
     """How many times the upload box was emptied in this browser tab."""
-    kept = st.session_state.get(_ROUND_KEY)
+    kept = st.session_state.get(spot.round)
     return kept if isinstance(kept, int) else 0
 
 
-def next_upload_round() -> None:
+def next_upload_round(spot: Spot = RECORD_SPOT) -> None:
     """Empty the upload box: it is drawn again under a key of its own."""
-    st.session_state[_ROUND_KEY] = upload_round() + 1
+    st.session_state[spot.round] = upload_round(spot) + 1
 
 
 def uploaded(key: str) -> bytes | None:

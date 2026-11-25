@@ -20,6 +20,14 @@ place of the model's: a model that is not in the server's list is
 ``ModelError``. The cloud plug sends no pictures, so with it both are
 ``None``; so are they for parts handed in without them.
 
+For the assistant page, the parts hold the ledger the assistant reaches
+(``ledger``: the demo ledger, ``ledger.fake_ledger.FakeLedger``, a new one
+each time the parts are built), which kind of ledger it is
+(``ledger_kind``, ``flows.standing.LedgerKind``), and how many times the
+assistant may ask the model in one turn (``assistant_steps``, from
+``settings.load_assistant_steps``). Parts handed in without a ledger hold
+``None`` for both, and the page then sends nothing.
+
 The interface's settings page hands in the changes made on it (variable to
 text). The model settings are read from the environment first, then the
 changes are put in with ``settings.apply_changes``, which reads and checks
@@ -61,17 +69,21 @@ from ledger_hand.core.assets import BUILT_IN_ASSETS, AssetTable
 from ledger_hand.core.zones import is_zone_name
 from ledger_hand.flows.progress import Tuning
 from ledger_hand.flows.recording import tuning_from
+from ledger_hand.flows.standing import LedgerKind
 from ledger_hand.flows.uploading import VisionModelCheck, VisionModelPresence
+from ledger_hand.ledger.fake_ledger import FakeLedger
 from ledger_hand.llm.connect import check_plug, connect_model, connect_vision_model
 from ledger_hand.llm.ollama_identity import ask_identity
-from ledger_hand.ports import ModelError, ModelErrorKind, ModelPort, StoragePort
+from ledger_hand.ports import LedgerPort, ModelError, ModelErrorKind, ModelPort, StoragePort
 from ledger_hand.settings import (
+    DEFAULT_ASSISTANT_STEPS,
     DataPlaces,
     ModelSettings,
     Plug,
     SettingsError,
     Variable,
     apply_changes,
+    load_assistant_steps,
     load_data_places,
     load_model_settings,
 )
@@ -92,7 +104,10 @@ class Parts:
     parts handed in without a data folder, which then offer no export.
     ``vision_model`` reads a screenshot and ``vision_check`` asks the server
     whether it has the model that does; both are ``None`` for the cloud plug,
-    and for parts handed in without them.
+    and for parts handed in without them. ``ledger`` is the ledger the
+    assistant reaches and ``ledger_kind`` which kind it is, both ``None``
+    for parts handed in without one; ``assistant_steps`` is how many times
+    the assistant may ask the model in one turn.
     """
 
     model: ModelPort
@@ -105,6 +120,9 @@ class Parts:
     places: DataPlaces | None = None
     vision_model: ModelPort | None = None
     vision_check: VisionModelCheck | None = None
+    ledger: LedgerPort | None = None
+    ledger_kind: LedgerKind | None = None
+    assistant_steps: int = DEFAULT_ASSISTANT_STEPS
 
 
 class AssemblyProblem(enum.Enum):
@@ -133,6 +151,7 @@ def assemble(changes: Mapping[Variable, str] | None = None) -> Parts:
     try:
         read = load_model_settings()
         places = load_data_places()
+        steps = load_assistant_steps()
         check_plug(read)
     except SettingsError as error:
         raise AssemblyError(AssemblyProblem.SETTING_REFUSED, str(error)) from error
@@ -156,6 +175,9 @@ def assemble(changes: Mapping[Variable, str] | None = None) -> Parts:
         places=places,
         vision_model=connect_vision_model(settings) if local else None,
         vision_check=_vision_model_check(settings) if local else None,
+        ledger=FakeLedger(),
+        ledger_kind=LedgerKind.DEMO,
+        assistant_steps=steps,
     )
 
 

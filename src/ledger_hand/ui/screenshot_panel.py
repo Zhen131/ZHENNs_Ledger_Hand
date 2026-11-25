@@ -22,17 +22,25 @@ typed, so that going to the settings page and back leaves them as they
 were. Nothing here says anything in a caption or an error box: what goes
 wrong is said in the chat, and what each control does is in its help.
 
+The same area is drawn on the assistant page (``draw_panel``), with keys,
+a place to keep its screenshot (``session.Spot``) and controls' actions of
+its own (``Panel``), so that the two pages never share a screenshot; the
+Record page's ``draw`` hands in its own, as they always were.
+
 Names defined here: ``READ_KEY``, ``NOTE_KEY``, ``CONTINUE_KEY``,
-``DROP_KEY``, ``upload_key`` and ``draw``.
+``DROP_KEY``, ``Panel``, ``upload_key``, ``draw`` and ``draw_panel``.
 """
 
 from __future__ import annotations
+
+from collections.abc import Callable
+from dataclasses import dataclass
 
 import streamlit as st
 
 from ledger_hand.settings import ModelSettings, Plug, Variable
 from ledger_hand.ui import session, turns
-from ledger_hand.ui.session import Box
+from ledger_hand.ui.session import RECORD_SPOT, Box, Spot
 from ledger_hand.wiring import Parts
 
 READ_KEY = "screenshot_read"
@@ -43,6 +51,43 @@ _UPLOAD_KEY = "screenshot_upload_{round}"
 _NOTE_EXAMPLE = "For example: fee 0.2 USDT, bought on OKX"
 
 
+@dataclass(frozen=True, kw_only=True)
+class Panel:
+    """One page's screenshot area: where it keeps the screenshot, its keys, its actions.
+
+    ``upload`` is the upload box's key with ``{round}`` in it. ``take`` is
+    handed the upload box's key and the two boxes' keys; ``keep`` a box and
+    its key; ``go_on`` and ``drop`` the two boxes' keys.
+    """
+
+    spot: Spot
+    read: str
+    note: str
+    go_on_key: str
+    drop_key: str
+    upload: str
+    note_example: str
+    take: Callable[[str, str, str], None]
+    keep: Callable[[Box, str], None]
+    go_on: Callable[[str, str], None]
+    drop: Callable[[str, str], None]
+
+
+_RECORD_PANEL = Panel(
+    spot=RECORD_SPOT,
+    read=READ_KEY,
+    note=NOTE_KEY,
+    go_on_key=CONTINUE_KEY,
+    drop_key=DROP_KEY,
+    upload=_UPLOAD_KEY,
+    note_example=_NOTE_EXAMPLE,
+    take=turns.take_screenshot,
+    keep=turns.keep_box,
+    go_on=turns.continue_screenshot,
+    drop=turns.drop_screenshot,
+)
+
+
 def upload_key(round_number: int) -> str:
     """The key of the upload box in round ``round_number`` (counting from 0)."""
     return _UPLOAD_KEY.format(round=round_number)
@@ -50,51 +95,56 @@ def upload_key(round_number: int) -> str:
 
 def draw(parts: Parts) -> None:
     """Show the upload box and, while a screenshot read waits, its two boxes and the two buttons."""
+    draw_panel(parts, _RECORD_PANEL, busy=session.progress() is not None)
+
+
+def draw_panel(parts: Parts, panel: Panel, *, busy: bool) -> None:
+    """Show ``panel``'s upload box, greyed out while ``busy``, and a screenshot read that waits."""
     if parts.vision_model is None and parts.settings.plug is Plug.LOCAL:
         return
-    key = upload_key(session.upload_round())
-    waiting = session.reading() is not None
+    key = panel.upload.format(round=session.upload_round(panel.spot))
+    waiting = session.reading(panel.spot) is not None
     st.file_uploader(
         "Or record from a screenshot of an order (PNG or JPEG)",
         key=key,
-        on_change=turns.take_screenshot,
-        args=(key, READ_KEY, NOTE_KEY),
-        disabled=session.progress() is not None or waiting,
+        on_change=panel.take,
+        args=(key, panel.read, panel.note),
+        disabled=busy or waiting,
         help=_upload_help(parts.settings),
     )
     if not waiting:
         return
-    session.offer(READ_KEY, session.box_text(Box.READ))
-    session.offer(NOTE_KEY, session.box_text(Box.NOTE))
+    session.offer(panel.read, session.box_text(Box.READ, panel.spot))
+    session.offer(panel.note, session.box_text(Box.NOTE, panel.spot))
     st.text_area(
         "Text read off the screenshot",
-        key=READ_KEY,
-        on_change=turns.keep_box,
-        args=(Box.READ, READ_KEY),
+        key=panel.read,
+        on_change=panel.keep,
+        args=(Box.READ, panel.read),
         help="As the vision model read it. Put right what is wrong before you press Continue.",
     )
     st.text_area(
         "Note",
-        key=NOTE_KEY,
-        on_change=turns.keep_box,
-        args=(Box.NOTE, NOTE_KEY),
-        placeholder=_NOTE_EXAMPLE,
+        key=panel.note,
+        on_change=panel.keep,
+        args=(Box.NOTE, panel.note),
+        placeholder=panel.note_example,
         help="What the screen leaves out, such as a fee or the platform; recorded after the text.",
     )
     with st.container(horizontal=True):
         st.button(
             "Continue",
-            key=CONTINUE_KEY,
+            key=panel.go_on_key,
             type="primary",
-            on_click=turns.continue_screenshot,
-            args=(READ_KEY, NOTE_KEY),
+            on_click=panel.go_on,
+            args=(panel.read, panel.note),
             help="Records the text read and the note as one passage, as if typed.",
         )
         st.button(
             "Drop the screenshot",
-            key=DROP_KEY,
-            on_click=turns.drop_screenshot,
-            args=(READ_KEY, NOTE_KEY),
+            key=panel.drop_key,
+            on_click=panel.drop,
+            args=(panel.read, panel.note),
             help="Drops what was read; nothing is recorded.",
         )
 
