@@ -732,9 +732,27 @@ share and US dollars in the ledger,
 "今天15:30在IBKR买了2股MSFT，410美元一股，手续费1美元" sends one trade of
 MSFT priced in USD, its fee taken in USD.
 When the ledger prices trades in more than one money, a price said with no
-money ("价格94900"), or in "刀", is asked about first ("Which currency was
-this trade priced in?"), and one money is never taken for another: "U" is
-USDT, "美元" is the US dollar. An asset the ledger lacks ("TSLA", or
+money ("价格94900") is asked about first ("Which currency was this trade
+priced in?"), and one money is never taken for another: "U" is USDT,
+"美元" is the US dollar.
+
+"美金", "刀", "美刀", "$" and "bucks" are vague: each may mean USDT or the
+US dollar. Such a word follows the money the same trade names outright on
+its own price, total or fee ("花了30美金买ETH，成交均价2400 USDT" is a trade in
+USDT, asked nothing); what the rest of the words say ("账户里还剩500 USDT",
+another trade) does not count. When the trade names neither, the money of
+the asset's last trade in the ledger is taken, and the reply says it is a
+guess ("Trade 1: no currency was said, so it is priced in USDT, the
+currency of the last ETH trade in the ledger. This is a guess; check it
+before you confirm."). When the ledger has no trade of the asset, cannot be
+asked, or the asset's last day of trades used both moneys, the user is
+asked. A word that names one money ("欧元", "EUR", "人民币", "福林") counts
+only when the ledger has that money: "价格2200欧元" with no euro in the
+ledger is not sent, and the reply says the ledger has no currency EUR yet.
+An answer whose money is not the trade's ("2400美元" for a trade in USDT)
+is not filled in: the user is asked which money it is. The words are two
+lists in `core/ledger_table.py` (`MONEY_WORDS`, `VAGUE_MONEY_WORDS`); a
+word is added there in one line. An asset the ledger lacks ("TSLA", or
 "狗狗币" with no DOGE in it) is not sent, and the user is asked to add it in
 the ledger first; money bought with money ("用美元买了500 USDT") is an
 exchange, which the assistant leaves to the ledger. The Record page keeps

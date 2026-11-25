@@ -1030,8 +1030,8 @@ The assistant hands in the table the ledger's own list of assets makes
 (`flows/conversation.py`); the proposal at the end of that turn uses the
 same list. Its money is every asset of the kind "cash" and every asset the
 ledger prices trades in, each going by its code, its name and the
-nicknames of `MONEY_NICKNAMES` that point to its code ("刀" to both USDT
-and USD); its assets are the ledger's others, each by its code and name and
+words of `MONEY_WORDS` that point to its code ("U" to USDT, "美元" to USD,
+"欧元" to EUR); its assets are the ledger's others, each by its code and name and
 the built-in coin table's other names for that code; an asset the ledger
 lacks is refused; with a share in the ledger, "股" and "shares" are read
 after a number. Such a table never speaks the older words that name USDT
@@ -1044,7 +1044,53 @@ user, and money traded as an asset is said to be an exchange, which the
 assistant does not record. A ledger that prices trades in no money ends it
 before the model is asked anything. Asking the ledger and changing a trade
 find assets by the same names (`names_of`), at the time they always did,
-and do not use the money's nicknames. The table also keeps each asset's
+and do not use the words for money.
+
+Vague words for money and money the ledger lacks (the product owner's rule
+of 2026-11-25). `VAGUE_MONEY_WORDS` ("美金", "刀", "美刀", "$", "buck",
+"bucks") may each mean USDT or USD: the table reads them as
+`MoneyReading.VAGUE`, never as one money, whatever the ledger has
+(`AssetTable.vague_words`). A word of `MONEY_WORDS` whose money the ledger
+lacks names no money of the table, but `AssetTable.missing_money` says
+which it is (`absent_moneys`), so that a trade in it is told the ledger
+has no such currency yet (`LeftOut.MONEY_NOT_IN_LEDGER`,
+`FEE_MONEY_NOT_IN_LEDGER`). Every word of the two lists goes to the number
+reader as a unit it may read (`money_units`), so "60000欧元" and "30 bucks"
+are read; the built-in table hands none. Which money a vague word means
+is settled in three places, in order:
+
+1. Extraction (`extraction/row_moneys.py`), for one row: only the units
+   written with the row's own price, total and fee count as naming a
+   money outright, never the two currency cells (the model may copy them
+   from anywhere) nor the rest of the passage, nor a fee taken in a coin.
+   Naming exactly one of USDT and USD, the row's vague words take it.
+   Naming both, or another money beside a vague word, the vague cell is
+   kept and marked `IssueKind.MONEY_NOT_CLEAR`, so that it is asked.
+   Naming neither, the vague word stays in its cell.
+2. The recording flow, before a trade is checked (`flows/guessing.py`):
+   a cell still vague, not so marked, of an asset of the ledger, takes the
+   money of the asset's last trade (`flows/last_money.py`): the latest day
+   of its trades not after now, compared by day since the real ledger may
+   know a trade only to the day; one money that day, and that money USDT
+   or USD and pricing trades now. The cell is marked `Inferred.QUOTE` or
+   `Inferred.FEE_COIN` on the draft, with the trade it came from
+   (`InferredFrom`), and the check copies both to the record. The flow
+   never touches the ledger: the conversation hands it one function
+   (`last_money_of`) at `recording.start`, `recording.answer` and
+   `screenshot.start_from_reading`; without one nothing is guessed. Each
+   asset is asked about once in a passage (`Progress.last_moneys`).
+3. Otherwise the check finds the money missing (`Missing.QUOTE`,
+   `Missing.FEE_COIN`), and the user is asked.
+
+The reply says each guessed money in fixed words (`record_words`,
+`GUESSED_WORDS`), and the try-out script prints where each money came
+from. The marks are not sent to the ledger (`TradeFacts` has no field for
+them) and not kept in the assistant's record. An answer with a table made
+from the ledger's list goes through `filling.fill_from_ledger`: a money
+named outright that is not the trade's own is not filled in, and the user
+is asked which it is (`Progress.clash`, `MoneyClash`, `settle_clash`); a
+money said outright takes the guess mark away. With the built-in table,
+`fill` is used as before. The table also keeps each asset's
 kind (`AssetTable.kinds`), so that, with it, what the user is asked calls
 the asset by what it is (`core/asset_words.py`): a share, a coin, or an
 asset while it is not recognised, and the fee's asset the "fee asset";

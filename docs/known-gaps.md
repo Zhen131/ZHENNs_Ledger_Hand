@@ -680,10 +680,14 @@ tools handed to the model and is left for a batch of its own. Until then:
   once that the ledger has no such asset and asks the user to add it,
   even when the ledger holds PEP under "PepsiCo"; adding it as told would
   make a second asset for the same company.
-- **A name with more after it than "的", "股票", "公司" and the like is
-  not taken.** When the model picks out a name and words are left around
-  it that are not on the short list of filler words ("微软A股" leaves "A股"),
-  nothing is taken, and the program asks which asset it was.
+- **Words left around a picked name are checked only when the model
+  leaves them out.** When the model picks out a name and words are left
+  around it that are not on the short list of filler words ("的",
+  "股票", "公司" and the like), nothing is taken, and the program asks
+  which asset it was. When the model copies the whole of what was said
+  instead, nothing is left to check: with the step turned on,
+  "2股微软A股" was sent as 2 MSFT on 2026-11-25, the model having picked
+  out "微软A股" whole.
 - **How well names are picked was measured on one set.** The names set
   (`evals/sets/stock_names.json`) and its results are in
   `evals/RESULTS.md`; names said otherwise may fare otherwise.
@@ -732,28 +736,53 @@ tools handed to the model and is left for a batch of its own. Until then:
   the money the trade is priced in, even when it was read from the words.
   They are left out so that the facts handed to the model that words the
   question stay as they were for the Record page.
-- **One more question when the ledger prices in two moneys.** The money a
-  trade is priced in is the ledger's: with USDT and USD both pricing
-  trades, a price said with no money ("价格94900") is asked about ("Which
-  currency was this trade priced in?") before anything is sent, and so is a
-  price in "刀" or "美刀", which may mean either, and a price and a total in
-  two different moneys ("90000U", "900美元"). With one money to price in,
-  nothing more is asked. Which words name which money is a small table in
-  `core/ledger_table.py` (`MONEY_NICKNAMES`), settled for now until the
-  owner agrees: "U", "Tether" and "泰达币" are USDT; "$", "dollar", "美元"
-  and "美金" are USD; "刀" and "美刀" are either. Changing and deleting a
-  trade do not use that table: there "U" and "刀" are not read as a money.
+- **Vague words for money: what the rule does not cover.** "美金", "刀",
+  "美刀", "$", "buck" and "bucks" may each mean USDT or USD. Such a word
+  follows the money the same trade names outright on its own price, total
+  or fee; otherwise it is the money of the asset's last trade in the
+  ledger, marked as a guess; otherwise the user is asked. Left as it is:
+  - only the trade's own price, total and fee count: a money said
+    elsewhere in the words ("账户里还剩500 USDT", another trade, the
+    model's copy in the currency cells) is not followed, even when the
+    user meant it;
+  - days are compared, not moments: when the asset's latest day of trades
+    used both moneys, the user is asked, whichever came last;
+  - a price said with no word for money at all ("价格2400") is asked about
+    as before when the ledger prices in two moneys; the last trade is not
+    used for it;
+  - changing and deleting a trade, and asking the ledger, do not use the
+    lists of words for money: there "U" and "刀" are not read as a money;
+  - a guess is said in the reply only; the proposal sent to the ledger
+    carries no mark of it, and the assistant's record does not keep it;
+  - the question asked while a guessed trade still lacks a figure names
+    the guessed money ("in USDT?") without saying it is a guess;
+  - with the real ledger: a trade's time may be known only to the day,
+    which is why days are compared; and one code may name both a coin and
+    a share, so the trades should be asked for by the asset's identifier,
+    not its code, once the real ledger is connected;
+  - a trade paid in euros for a share priced in US dollars ("花了0.46欧
+    ……一股81.13美金") cannot be recorded yet: with no euro in the ledger it
+    is not sent; with one, the user is asked which money it was in.
+- **One more question when the ledger prices in two moneys.** With USDT
+  and USD both pricing trades, a price said with no money ("价格94900") is
+  asked about ("Which currency was this trade priced in?") before anything
+  is sent, and so are a price and a total in two different moneys
+  ("90000U", "900美元"). With one money to price in, nothing more is asked
+  for a price with no money; a vague word is still never read as that
+  money by itself.
 - **A share whose code has a point in it cannot be recorded.** A code such
   as "BRK.B" cannot be written as a symbol by the rules this program keeps,
   so the asset is left out of the table, and a trade of it is not sent.
   The same holds for an asset whose code or name is also a word for money,
   such as a share whose code is "U": it is left out, and the rest kept.
-- **Money written after a number is read for USDT and USD only.** The
-  number reader knows the words for those two ("410美元", "100U"). Another
-  money the ledger has, written right after a number ("60000欧元"), is not
-  read: the price is left empty and asked for, never taken as USDT or USD.
-  With one money to price in, the question names that money ("in USDT"),
-  so the user is told which money the answer is taken in.
+- **Money written after a number is read only for the words on the two
+  lists.** The words of `MONEY_WORDS` and `VAGUE_MONEY_WORDS` in
+  `core/ledger_table.py` are read after a number ("410美元", "100U",
+  "60000欧元", "30 bucks"). A money written another way ("60000块",
+  "¥60000", "5000 Ft") is not read: the price is left empty and asked
+  for, never taken as USDT or USD. "块", "元" and "¥" are left off on
+  purpose, since each is said of more than one money. A money the ledger
+  lacks is read and the trade is not sent, with the reason.
 - **A fee may be taken in money the ledger does not price trades in.** A fee
   in such money (a fee of "1 EUR" with the euro in the ledger) is recorded
   in it; the ledger checks the proposal.
