@@ -24,8 +24,8 @@ at all. The rules of a trade are in ``validation``. Record identifiers,
 creation times and the export format are not handled here.
 
 Names defined here: ``Side``, ``TimePrecision``, ``Amount``, ``OccurredTime``,
-``TradeDraft`` and ``TradeRecord``. ``NOT_ZONE_NAMES`` comes from ``zones``
-and is named here as well.
+``Inferred``, ``InferredFrom``, ``TradeDraft`` and ``TradeRecord``.
+``NOT_ZONE_NAMES`` comes from ``zones`` and is named here as well.
 """
 
 from __future__ import annotations
@@ -136,6 +136,38 @@ def _require_nothing_finer(moment: datetime, precision: TimePrecision) -> None:
         raise ValueError(f"{moment.isoformat()} is finer than {precision.value} precision")
 
 
+class Inferred(enum.Enum):
+    """A money of the trade the program guessed, since only a vague word was said for it.
+
+    The guess is the money of the asset's last trade in the ledger, and
+    the user is told it is a guess.
+    """
+
+    QUOTE = "the money the trade is priced in"
+    FEE_COIN = "the money the fee was taken in"
+
+
+@dataclass(frozen=True, kw_only=True)
+class InferredFrom:
+    """The ledger's trade a guessed money was taken from.
+
+    ``trade_id`` is the ledger's identifier of it, ``occurred`` its time,
+    ``money`` the code of the money it used and ``asset`` its asset's
+    code. Example: trade "trade-7" of ETH on 2026-08-03, priced in USDT.
+    """
+
+    trade_id: str
+    occurred: datetime
+    money: str
+    asset: str
+
+
+def _require_guess_and_source(inferred: frozenset[Inferred], source: InferredFrom | None) -> None:
+    """A guessed money comes with the trade it was taken from, and only then."""
+    if bool(inferred) != (source is not None):
+        raise ValueError("a guessed money and the trade it came from go together")
+
+
 _NUMBER_FIELDS = ("quantity", "price", "total", "fee")
 
 
@@ -162,8 +194,11 @@ class TradeDraft:
     note: str | None = None
     raw_text: str | None = None
     derived: frozenset[Amount] = frozenset()
+    inferred: frozenset[Inferred] = frozenset()
+    inferred_from: InferredFrom | None = None
 
     def __post_init__(self) -> None:
+        _require_guess_and_source(self.inferred, self.inferred_from)
         for name in _NUMBER_FIELDS:
             number = getattr(self, name)
             if number is None:
@@ -193,7 +228,8 @@ class TradeRecord:
     is priced in, one the asset table prices trades in; it has no default,
     so every record says it. ``fee_coin`` is a ledger symbol or the code of a
     money. ``derived`` names the one amount the program calculated from the
-    other two, or is ``None`` when the user gave all three.
+    other two, or is ``None`` when the user gave all three. ``inferred``
+    and ``inferred_from`` are the draft's, as they were.
     """
 
     side: Side
@@ -209,3 +245,8 @@ class TradeRecord:
     raw_text: str
     platform: str | None = None
     note: str | None = None
+    inferred: frozenset[Inferred] = frozenset()
+    inferred_from: InferredFrom | None = None
+
+    def __post_init__(self) -> None:
+        _require_guess_and_source(self.inferred, self.inferred_from)

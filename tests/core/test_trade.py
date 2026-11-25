@@ -266,7 +266,11 @@ def test_occurred_time_cannot_be_changed() -> None:
 def test_every_field_of_a_draft_may_be_blank() -> None:
     draft = TradeDraft()
 
-    blank = [field.name for field in dataclasses.fields(draft) if field.name != "derived"]
+    blank = [
+        field.name
+        for field in dataclasses.fields(draft)
+        if field.name not in ("derived", "inferred")
+    ]
     assert [getattr(draft, name) for name in blank] == [None] * len(blank)
     assert draft.derived == frozenset()
 
@@ -286,6 +290,8 @@ def test_draft_fields_are_the_ones_later_steps_rely_on() -> None:
         "note",
         "raw_text",
         "derived",
+        "inferred",
+        "inferred_from",
     ]
 
 
