@@ -4,10 +4,14 @@ Recording a trade keeps asking four things, and every one of them is asked
 of the asset table handed in, never of a fixed list:
 
 - which asset a word names ("比特币", "BTC", "msft"), or none;
-- which money a word names ("U", "美元", "$", "刀"), in one of four ways:
+- which money a word names ("U", "美元", "$", "刀"), in one of five ways:
   exactly one money the table prices trades in; more than one such money,
   so it is not clear which; money, but not one the table prices trades in;
-  or not money at all;
+  a vague word that may mean USDT or the US dollar, which the table never
+  reads as either by itself (``VAGUE``); or not money at all. A word for
+  a money the ledger does not have ("欧元" with no euro in the ledger) is
+  not money to the table, but the table can say which money it names
+  (``missing_money``);
 - what becomes of an asset the table does not know: the user may confirm
   it on the spot, or it cannot be recorded (``UnknownAssets``);
 - which more words may stand after a number as its unit ("股", "shares"),
@@ -51,6 +55,7 @@ class MoneyReading(enum.Enum):
     ONE = "exactly one money the table prices trades in"
     SEVERAL = "more than one money the table prices trades in"
     CANNOT_PRICE = "money the table does not price trades in"
+    VAGUE = "a vague word that may mean USDT or the US dollar; never read as one by itself"
     NOT_MONEY = "not money"
 
 
@@ -113,6 +118,16 @@ class AssetTable:
     ("stock", "crypto"), so that a question calls a share a share; the
     built-in table holds none.
 
+    Three more fields are filled only for a table made from the ledger's
+    list. ``vague_words`` are the vague words for money ("美金", "刀",
+    "$"), in lookup form: each may mean USDT or the US dollar, and the
+    table never reads one as either (``MoneyReading.VAGUE``); which one
+    is meant is worked out from the trade, or asked. ``absent_moneys``
+    pairs each word for a money the ledger does not have with that
+    money's code ("欧元" and EUR, with no euro in the ledger).
+    ``money_units`` are the words for money the number reader is given
+    on top of its own, so that "60000欧元" and "30 bucks" are read.
+
     A table whose unknown assets may be confirmed on the spot holds no
     money that trades cannot be priced in: confirming such money as a new
     asset could never be done, so the table is refused when it is made.
@@ -125,6 +140,9 @@ class AssetTable:
     from_ledger: bool = False
     shields: frozenset[str] = frozenset()
     kinds: tuple[tuple[str, str], ...] = ()
+    vague_words: frozenset[str] = frozenset()
+    absent_moneys: tuple[tuple[str, str], ...] = ()
+    money_units: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         if not self.pricing_codes:
@@ -140,6 +158,7 @@ class AssetTable:
         if len(set(codes)) != len(codes):
             raise ValueError(f"a money code is used twice: {codes}")
         money_keys = {key for money in self.moneys for key in money.spoken_keys()}
+        money_keys |= self.vague_words | {key for key, _ in self.absent_moneys}
         for key in sorted(money_keys):
             if self.coins.find(key) is not None:
                 raise ValueError(f"{key!r} names both an asset and a money")
@@ -193,6 +212,8 @@ class AssetTable:
         key = spoken_key(spoken)
         if not key:
             return MoneyFound(MoneyReading.NOT_MONEY)
+        if key in self.vague_words:
+            return MoneyFound(MoneyReading.VAGUE)
         named = [money for money in self.moneys if key in money.spoken_keys()]
         pricing = [money.code for money in named if money.use is MoneyUse.CAN_PRICE]
         if len(pricing) == 1:
@@ -203,6 +224,17 @@ class AssetTable:
             code = named[0].code if len(named) == 1 else None
             return MoneyFound(MoneyReading.CANNOT_PRICE, code)
         return MoneyFound(MoneyReading.NOT_MONEY)
+
+    def missing_money(self, spoken: str) -> str | None:
+        """The code of the money ``spoken`` names when the ledger lacks it; else ``None``.
+
+        Example: "欧元" gives EUR when the ledger has no euro, and
+        ``None`` when it has one (then ``money`` reads the word).
+        """
+        if self.money(spoken).reading is not MoneyReading.NOT_MONEY:
+            return None
+        key = spoken_key(spoken)
+        return next((code for word, code in self.absent_moneys if word == key), None)
 
     def with_confirmed(self, spoken: str) -> AssetTable:
         """A table that also knows the asset the user confirmed.

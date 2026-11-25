@@ -16,8 +16,12 @@ The rules:
   ledger symbol, and cannot be a money the table prices trades in.
 - The trade is priced in one money the table prices trades in. When no word
   for it was said, or the word names more than one such money, a table
-  with only one takes that one, and a table with several asks which. A word
-  for any other money, or for no money, means the trade cannot be recorded.
+  with only one takes that one, and a table with several asks which. A
+  vague word for money ("美金", "刀", which may mean USDT or the US
+  dollar) is always asked about, however many moneys the table has: it is
+  never read as one by itself. A word for any other money, or for no
+  money, means the trade cannot be recorded; so does a word for a money
+  the ledger lacks ("欧元" with no euro), told as such by the caller.
 - Of quantity, price and total, at least two must be stated. The third is
   calculated and marked as calculated. If all three are stated, quantity times
   price may differ from the total by no more than the tolerance, and all three
@@ -31,9 +35,10 @@ The rules:
   fit the ledger, and the three amounts must still agree.
 - The fee must be stated, even when it is zero, and cannot be negative. A fee
   above zero needs its coin: a money the table prices trades in, or an asset
-  the table knows. A word naming more than one such money counts as no
-  word. A fee of zero is always recorded in the money the trade is priced
-  in.
+  the table knows. A word naming more than one such money, or a vague
+  word for money, counts as no word. A word for a money the ledger lacks
+  means the trade cannot be recorded. A fee of zero is always recorded in
+  the money the trade is priced in.
 - On a buy, a fee paid in the coin being bought must be smaller than the
   quantity.
 - The time cannot be in the future: a moment may be at most ``future_grace``
@@ -43,6 +48,8 @@ The rules:
   had offsets with seconds in them before the 1970s, such as ``+01:16:20`` in
   Budapest in 1890, and the ledger's way of writing a time cannot hold one.
   A time known only to the day carries no offset and is not affected.
+- Which of the trade's moneys the program guessed (``TradeDraft.inferred``)
+  is copied to the record as it is, with the trade the guess came from.
 - The original text cannot be empty; it, the note and the platform have the
   ledger's length limits. The platform is recorded without surrounding
   whitespace, and a platform of whitespace alone counts as not given.
@@ -265,6 +272,8 @@ def check_draft(
         raw_text=raw_text,
         platform=platform,
         note=note,
+        inferred=draft.inferred,
+        inferred_from=draft.inferred_from,
     )
 
 
@@ -283,7 +292,7 @@ def _coin_symbol(spoken: str | None, assets: AssetTable, found: list[_Problem]) 
         found.append(Missing.COIN)
         return None
     reading = assets.money(spoken).reading
-    if reading in (MoneyReading.ONE, MoneyReading.SEVERAL):
+    if reading in (MoneyReading.ONE, MoneyReading.SEVERAL, MoneyReading.VAGUE):
         found.append(
             Violation.COIN_IS_USDT
             if assets.speaks_of_usdt_only()
@@ -312,6 +321,11 @@ def _coin_symbol(spoken: str | None, assets: AssetTable, found: list[_Problem]) 
 def _quote(spoken: str | None, assets: AssetTable, found: list[_Problem]) -> str | None:
     """The code of the money the trade is priced in, or ``None`` with the problem noted."""
     said = assets.money(spoken) if spoken is not None and spoken_key(spoken) else None
+    if said is not None and said.reading is MoneyReading.VAGUE:
+        # A vague word is never read as one money, even when the table has
+        # one: the program works it out from the trade, or asks.
+        found.append(Missing.QUOTE)
+        return None
     if said is None or said.reading is MoneyReading.SEVERAL:
         # Not said, or not clear which: a table with one money needs no answer.
         sole = assets.sole_pricing_code
@@ -474,7 +488,8 @@ def _fee(
 def _fee_coin_symbol(draft: TradeDraft, assets: AssetTable, found: list[_Problem]) -> str | None:
     spoken = draft.fee_coin
     said = None if spoken is None or not spoken_key(spoken) else assets.money(spoken)
-    if spoken is None or said is None or said.reading is MoneyReading.SEVERAL:
+    unclear = (MoneyReading.SEVERAL, MoneyReading.VAGUE)
+    if spoken is None or said is None or said.reading in unclear:
         # Not said, or not clear which money: asked as the fee's coin.
         found.append(Missing.FEE_COIN)
         return None
@@ -483,6 +498,10 @@ def _fee_coin_symbol(draft: TradeDraft, assets: AssetTable, found: list[_Problem
     if assets.from_ledger and said.reading is MoneyReading.CANNOT_PRICE and said.code is not None:
         # A fee may be taken in money of the ledger that prices no trade.
         return said.code
+    if assets.missing_money(spoken) is not None:
+        # Money the ledger lacks ("欧元" with no euro): told as such by the caller.
+        found.append(Violation.FEE_ASSET_NOT_IN_LEDGER)
+        return None
     coin = assets.find(spoken)
     if coin is not None:
         return coin.symbol

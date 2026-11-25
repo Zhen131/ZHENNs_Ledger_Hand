@@ -13,6 +13,7 @@ import dataclasses
 import pytest
 
 from ledger_hand.core.assets import (
+    BUILT_IN_ASSETS,
     AssetTable,
     Money,
     MoneyFound,
@@ -22,7 +23,13 @@ from ledger_hand.core.assets import (
 )
 from ledger_hand.core.coins import BUILT_IN_TABLE
 from ledger_hand.core.ledger_records import Asset, AssetKind, Pricing
-from ledger_hand.core.ledger_table import MONEY_NICKNAMES, SHARE_UNITS, names_of, table_of
+from ledger_hand.core.ledger_table import (
+    MONEY_WORDS,
+    SHARE_UNITS,
+    VAGUE_MONEY_WORDS,
+    names_of,
+    table_of,
+)
 from ledger_hand.ledger.invented_book import INVENTED_ASSETS
 from tests.fakes.usdt_only import USDT_ONLY_ASSETS
 
@@ -56,13 +63,13 @@ def test_the_invented_book_prices_in_usdt_and_usd_and_trades_its_other_assets() 
         ("Tether", MoneyFound(MoneyReading.ONE, "USDT")),
         ("泰达币", MoneyFound(MoneyReading.ONE, "USDT")),
         ("USD", MoneyFound(MoneyReading.ONE, "USD")),
-        ("$", MoneyFound(MoneyReading.ONE, "USD")),
+        ("$", MoneyFound(MoneyReading.VAGUE)),
         ("dollars", MoneyFound(MoneyReading.ONE, "USD")),
         ("美元", MoneyFound(MoneyReading.ONE, "USD")),
-        ("美金", MoneyFound(MoneyReading.ONE, "USD")),
+        ("美金", MoneyFound(MoneyReading.VAGUE)),
         ("US dollar", MoneyFound(MoneyReading.ONE, "USD")),
-        ("刀", MoneyFound(MoneyReading.SEVERAL)),
-        ("美刀", MoneyFound(MoneyReading.SEVERAL)),
+        ("刀", MoneyFound(MoneyReading.VAGUE)),
+        ("美刀", MoneyFound(MoneyReading.VAGUE)),
         ("BTC", MoneyFound(MoneyReading.NOT_MONEY)),
     ],
 )
@@ -75,8 +82,8 @@ def test_with_usd_pricing_nothing_dollars_name_no_money_to_price_in_and_dao_is_u
 
     assert table.pricing_codes == ("USDT",)
     assert table.money("美元") == MoneyFound(MoneyReading.CANNOT_PRICE, "USD")
-    assert table.money("$") == MoneyFound(MoneyReading.CANNOT_PRICE, "USD")
-    assert table.money("刀") == MoneyFound(MoneyReading.ONE, "USDT")
+    assert table.money("$") == MoneyFound(MoneyReading.VAGUE)
+    assert table.money("刀") == MoneyFound(MoneyReading.VAGUE)
     assert table.money("U") == MoneyFound(MoneyReading.ONE, "USDT")
     assert not table.speaks_of_usdt_only()
 
@@ -85,16 +92,88 @@ def test_a_word_for_a_money_the_ledger_lacks_names_no_money() -> None:
     table = made(tuple(one for one in INVENTED_ASSETS if one.code != "USD"))
 
     assert table.money("美元").reading is MoneyReading.NOT_MONEY
-    assert table.money("刀") == MoneyFound(MoneyReading.ONE, "USDT")
+    assert table.money("刀") == MoneyFound(MoneyReading.VAGUE)
 
 
 def test_usd_is_never_usdt_and_usdt_never_usd() -> None:
     table = made(INVENTED_ASSETS)
-    usdt_words = {word for word, codes in MONEY_NICKNAMES if codes == frozenset({"USDT"})}
-    usd_words = {word for word, codes in MONEY_NICKNAMES if codes == frozenset({"USD"})}
+    usdt_words = {word for word, code in MONEY_WORDS if code == "USDT"}
+    usd_words = {word for word, code in MONEY_WORDS if code == "USD"}
 
     assert all(table.money(word).code == "USDT" for word in usdt_words)
     assert all(table.money(word).code == "USD" for word in usd_words)
+
+
+# Every kind of ledger a vague word is read against: both moneys pricing,
+# only USDT, only USD, no USD at all, and with a euro that prices trades.
+_LEDGERS = {
+    "both": INVENTED_ASSETS,
+    "usdt only": USDT_ONLY_ASSETS,
+    "usd only": tuple(
+        dataclasses.replace(one, pricing=Pricing.CANNOT_PRICE) if one.code == "USDT" else one
+        for one in INVENTED_ASSETS
+    ),
+    "no usd": tuple(one for one in INVENTED_ASSETS if one.code != "USD"),
+    "with euro": (
+        *INVENTED_ASSETS,
+        asset("EUR", "Euro", AssetKind.CASH, Pricing.CAN_PRICE),
+    ),
+}
+
+
+@pytest.mark.parametrize("ledger", sorted(_LEDGERS))
+@pytest.mark.parametrize("word", [*VAGUE_MONEY_WORDS, " 美金 ", "BUCKS", "＄"])
+def test_a_vague_word_is_never_read_as_one_money_whatever_the_ledger_has(
+    word: str, ledger: str
+) -> None:
+    table = made(_LEDGERS[ledger])
+
+    assert table.money(word) == MoneyFound(MoneyReading.VAGUE)
+    assert table.money(word).code is None
+    assert table.missing_money(word) is None
+
+
+def test_the_vague_words_are_the_ones_the_rule_names() -> None:
+    assert set(VAGUE_MONEY_WORDS) == {"美金", "刀", "美刀", "$", "buck", "bucks"}
+    assert not {word for word, _ in MONEY_WORDS} & set(VAGUE_MONEY_WORDS)
+
+
+@pytest.mark.parametrize("word", ["EUR", "euro", "Euros", "€", "欧元", "欧"])
+def test_a_word_for_the_euro_names_a_money_the_ledger_lacks_until_it_has_one(word: str) -> None:
+    lacking = made(INVENTED_ASSETS)
+    having = made(_LEDGERS["with euro"])
+
+    assert lacking.money(word).reading is MoneyReading.NOT_MONEY
+    assert lacking.missing_money(word) == "EUR"
+    assert having.money(word) == MoneyFound(MoneyReading.ONE, "EUR")
+    assert having.missing_money(word) is None
+
+
+@pytest.mark.parametrize(
+    ("word", "code"),
+    [("人民币", "CNY"), ("RMB", "CNY"), ("福林", "HUF"), ("forints", "HUF"), ("美元", "USD")],
+)
+def test_other_words_name_a_money_the_ledger_lacks(word: str, code: str) -> None:
+    table = made(_LEDGERS["no usd"])
+
+    assert table.money(word).reading is MoneyReading.NOT_MONEY
+    assert table.missing_money(word) == code
+
+
+@pytest.mark.parametrize("word", ["块", "元", "¥", "Ft", "镑", "欧易", "BTC"])
+def test_words_left_off_the_lists_name_no_money(word: str) -> None:
+    table = made(INVENTED_ASSETS)
+
+    assert table.money(word).reading is MoneyReading.NOT_MONEY
+    assert table.missing_money(word) is None
+
+
+def test_the_number_reader_is_given_every_word_for_money_and_the_built_in_table_none() -> None:
+    table = made(INVENTED_ASSETS)
+
+    assert set(table.money_units) == {word for word, _ in MONEY_WORDS} | set(VAGUE_MONEY_WORDS)
+    assert BUILT_IN_ASSETS.money_units == ()
+    assert BUILT_IN_ASSETS.vague_words == frozenset()
 
 
 def test_the_built_in_names_count_only_for_a_code_the_ledger_has() -> None:

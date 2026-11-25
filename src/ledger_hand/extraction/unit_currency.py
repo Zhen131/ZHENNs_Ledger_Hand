@@ -13,7 +13,10 @@ What a word names is its ``identity``:
   (with the built-in table, ``USDT`` for "U", "刀", "美元" and the rest);
 - for a word naming money the table does not price trades in, that money's
   code when it names one, else the word itself in lookup form; the same for
-  a word naming more than one money the table prices trades in;
+  a word naming more than one money the table prices trades in, and for a
+  vague word for money ("美金", "刀");
+- the code of a money the ledger lacks, for a word naming it ("欧元" is
+  ``EUR`` with no euro in the ledger), so that the trade is told so;
 - the asset's symbol for a name in the table ("比特币" and "BTC" are both
   ``BTC``);
 - for a word allowed for this one call (the trade's own coin or fee coin,
@@ -67,6 +70,9 @@ def _identity(word: str, assets: AssetTable, allowed_keys: frozenset[str]) -> st
     money = assets.money(word)
     if money.reading is not MoneyReading.NOT_MONEY:
         return money.code or spoken_key(word)
+    missing = assets.missing_money(word)
+    if missing is not None:
+        return missing
     coin = assets.find(word)
     if coin is not None:
         return coin.symbol

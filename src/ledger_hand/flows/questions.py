@@ -268,13 +268,14 @@ def _value_or_blank(draft: TradeDraft, cell: Cell) -> str:
 def _prices_in_a_coin(asked: Asked, quoted: str, draft: TradeDraft, setting: Setting) -> bool:
     """Whether a price or total is asked and the passage's words for it name no pricing money.
 
-    A word naming one money the table prices in, or several such, does not
-    count; anything else named (a coin, other money) does.
+    A word naming one money the table prices in, or several such, or a
+    vague word for money ("刀"), does not count; anything else named (a
+    coin, other money) does.
     """
     if not isinstance(asked, AskCell) or asked.cell not in (Cell.PRICE, Cell.TOTAL):
         return False
     allowed = tuple(word for word in (draft.coin, draft.fee_coin) if word is not None)
     assets = setting.assets
     named = currencies_in_unit(quoted, assets, allowed)
-    pricing = (MoneyReading.ONE, MoneyReading.SEVERAL)
+    pricing = (MoneyReading.ONE, MoneyReading.SEVERAL, MoneyReading.VAGUE)
     return any(assets.money(word.text).reading not in pricing for word in named)

@@ -24,7 +24,14 @@ The table (``table_of``):
 - the money: every asset of the kind "cash", and every asset the ledger
   prices trades in; those the ledger prices trades in are the money a
   trade may be priced in. Each goes by its code, its name and the
-  nicknames of ``MONEY_NICKNAMES`` that point to its code;
+  words of ``MONEY_WORDS`` that point to its code;
+- the vague words for money (``VAGUE_MONEY_WORDS``) name no one money:
+  the table reads each as vague, whatever money the ledger has;
+- a word of ``MONEY_WORDS`` whose money the ledger lacks is kept apart,
+  with that money's code, so that the trade is told as one in a money
+  the ledger does not have yet;
+- every word of the two lists is handed to the number reader as a unit
+  it may read ("60000欧元", "30 bucks");
 - the assets traded: every other asset, by its names as above;
 - an asset the ledger lacks cannot be recorded: the user adds it there
   first (``UnknownAssets.REFUSE``);
@@ -50,7 +57,8 @@ all: nothing could be recorded then.
 This module reads no clock and asks nothing of the ledger: the list is
 handed in.
 
-Names defined here: ``MONEY_NICKNAMES``, ``SHARE_UNITS``, ``AssetNames``,
+Names defined here: ``MONEY_WORDS``, ``VAGUE_MONEY_WORDS``,
+``VAGUE_MONEY_CODES``, ``SHARE_UNITS``, ``AssetNames``,
 ``SameCode``, ``same_codes``, ``same_code_words``, ``names_of`` and
 ``table_of``.
 """
@@ -68,28 +76,62 @@ from ledger_hand.core.ledger_records import Asset, AssetKind, Pricing
 _USDT = "USDT"
 _USD = "USD"
 
-# What people call a money, and the code of each money it may mean. A word
-# names a money only when that money is in the ledger; one that may mean
-# both USDT and USD names both, and is asked about when both price trades.
-# (Settled for now on 2026-11-24, until the product owner agrees.)
-MONEY_NICKNAMES: tuple[tuple[str, frozenset[str]], ...] = (
+# The words that name exactly one money, each with that money's code. A
+# word names its money only when the ledger's list has it; otherwise it is
+# a word for a money the ledger lacks, and a trade priced in it is not sent.
+# To take another word, add a line. (Settled on 2026-11-25.)
+MONEY_WORDS: tuple[tuple[str, str], ...] = (
     # Traders write "U" for USDT ("100U").
-    ("U", frozenset({_USDT})),
-    ("USDT", frozenset({_USDT})),
+    ("U", _USDT),
+    ("USDT", _USDT),
     # The name of the company behind USDT, in English and in Chinese.
-    ("Tether", frozenset({_USDT})),
-    ("泰达币", frozenset({_USDT})),
-    ("USD", frozenset({_USD})),
-    ("$", frozenset({_USD})),
-    ("dollar", frozenset({_USD})),
-    ("dollars", frozenset({_USD})),
-    # "美元" and "美金" are the US dollar itself; never taken for USDT.
-    ("美元", frozenset({_USD})),
-    ("美金", frozenset({_USD})),
-    # Spoken Chinese uses "刀" and "美刀" for the dollar and for USDT alike.
-    ("刀", frozenset({_USDT, _USD})),
-    ("美刀", frozenset({_USDT, _USD})),
+    ("Tether", _USDT),
+    ("泰达币", _USDT),
+    # "dollar(s)" and "美元" name the US dollar itself, never USDT.
+    ("USD", _USD),
+    ("dollar", _USD),
+    ("dollars", _USD),
+    ("美元", _USD),
+    # The euro. "欧" is how the product owner says it ("0.46 欧"); it is a
+    # word of its own, so a platform such as "欧易" never reads as a euro.
+    ("EUR", "EUR"),
+    ("euro", "EUR"),
+    ("euros", "EUR"),
+    ("€", "EUR"),
+    ("欧元", "EUR"),
+    ("欧", "EUR"),
+    # The Chinese yuan. "块", "元" and "¥" are left out: each is also said
+    # of other moneys (the US dollar, the Hong Kong dollar, the yen).
+    ("CNY", "CNY"),
+    ("RMB", "CNY"),
+    ("人民币", "CNY"),
+    # The Hungarian forint, since the product owner lives in Hungary.
+    ("HUF", "HUF"),
+    ("forint", "HUF"),
+    ("forints", "HUF"),
+    ("福林", "HUF"),
 )
+
+# The vague words for money: each may mean USDT or the US dollar, and is
+# never read as either by itself. Which is meant follows the money the same
+# trade names outright, then the money of the asset's last trade in the
+# ledger (marked as a guess); otherwise the user is asked.
+# (The product owner's rule of 2026-11-25.)
+VAGUE_MONEY_WORDS: tuple[str, ...] = (
+    # Named as vague in the product owner's rule.
+    "美金",
+    # Spoken Chinese uses "刀" and "美刀" for the dollar and for USDT alike.
+    "刀",
+    "美刀",
+    # Traders write "$" for USDT as often as for the dollar.
+    "$",
+    # Spoken English, as vague as "刀".
+    "buck",
+    "bucks",
+)
+
+# The two moneys a vague word may mean.
+VAGUE_MONEY_CODES = frozenset({_USDT, _USD})
 
 # The words that may stand after a number of shares, read with a stock in the ledger.
 SHARE_UNITS = ("股", "share", "shares")
@@ -175,7 +217,10 @@ def table_of(assets: Sequence[Asset]) -> AssetTable | None:
     moneys = _moneys(assets)
     if not any(money.use is MoneyUse.CAN_PRICE for money in moneys):
         return None
+    vague = frozenset(spoken_key(word) for word in VAGUE_MONEY_WORDS)
+    absent = _absent(moneys)
     taken = {key for money in moneys for key in money.spoken_keys()} | set(USDT_WORDS)
+    taken |= vague | {key for key, _ in absent}
     shared = {same.code for same in same_codes(assets)}
     coins: list[Coin] = []
     for asset in assets:
@@ -196,6 +241,9 @@ def table_of(assets: Sequence[Asset]) -> AssetTable | None:
         from_ledger=True,
         shields=shields,
         kinds=tuple((coin.symbol, _kind(coin.symbol, assets)) for coin in coins),
+        vague_words=vague,
+        absent_moneys=absent,
+        money_units=(*(word for word, _ in MONEY_WORDS), *VAGUE_MONEY_WORDS),
     )
 
 
@@ -211,10 +259,16 @@ def _moneys(assets: Sequence[Asset]) -> tuple[Money, ...]:
             continue
         if any(money.code == code for money in moneys):
             continue
-        nicknames = tuple(word for word, codes in MONEY_NICKNAMES if code in codes)
+        nicknames = tuple(word for word, named in MONEY_WORDS if named == code)
         use = MoneyUse.CAN_PRICE if asset.pricing is Pricing.CAN_PRICE else MoneyUse.CANNOT_PRICE
         moneys.append(Money(code, (asset.name, *nicknames), use))
     return tuple(moneys)
+
+
+def _absent(moneys: Sequence[Money]) -> tuple[tuple[str, str], ...]:
+    """Each word of ``MONEY_WORDS`` whose money is not among ``moneys``, in lookup form."""
+    had = {money.code for money in moneys}
+    return tuple((spoken_key(word), code) for word, code in MONEY_WORDS if code not in had)
 
 
 def _coin(asset: Asset, names: AssetNames) -> Coin | None:

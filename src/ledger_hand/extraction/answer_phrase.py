@@ -235,8 +235,12 @@ class AnswerSetting:
 
     @property
     def unit_words(self) -> tuple[str, ...]:
-        """The words a number may carry as its unit: the coin words, then the table's own."""
-        return (*self.coin_words, *self.assets.extra_units)
+        """The words a number may carry as its unit: the coin words, the table's own, money.
+
+        The words for money are those of a table made from the ledger's
+        list ("欧元", "bucks"); the built-in table has none.
+        """
+        return (*self.coin_words, *self.assets.extra_units, *self.assets.money_units)
 
 
 type _Read = Callable[[str], Outcome | None]
@@ -360,7 +364,7 @@ def _read_coin(text: str, cell: Cell, setting: AnswerSetting) -> Outcome | None:
     if money.reading is MoneyReading.ONE:
         return Filled(cell, money.code)
     key = spoken_key(text)
-    if money.reading is MoneyReading.SEVERAL:
+    if money.reading in (MoneyReading.SEVERAL, MoneyReading.VAGUE):
         # As the traded coin it is refused whichever money it is; as the
         # fee's coin it has to be said again.
         if cell is Cell.COIN:
@@ -377,15 +381,18 @@ def _read_coin(text: str, cell: Cell, setting: AnswerSetting) -> Outcome | None:
 def _read_quote(text: str, setting: AnswerSetting) -> Outcome | None:
     """The money a trade was priced in, by the asset table; a word for other money is kept.
 
-    Money the table does not price trades in goes into the draft as it was
-    said, so that the check of the draft says the trade cannot be recorded.
+    Money the table does not price trades in, and money the ledger lacks
+    ("欧元" with no euro), go into the draft as said, so that the check of
+    the draft says the trade cannot be recorded. A vague word ("美金",
+    "刀") is not taken: the same question is asked again.
     """
-    money = setting.assets.money(text)
+    assets = setting.assets
+    money = assets.money(text)
     if money.reading is MoneyReading.ONE:
         return Filled(Cell.QUOTE, money.code)
-    if money.reading is MoneyReading.SEVERAL:
+    if money.reading in (MoneyReading.SEVERAL, MoneyReading.VAGUE):
         return NotRead(AnswerProblem.MONEY_NAMES_SEVERAL)
-    if money.reading is MoneyReading.CANNOT_PRICE:
+    if money.reading is MoneyReading.CANNOT_PRICE or assets.missing_money(text) is not None:
         return Filled(Cell.QUOTE, text.strip())
     return None
 
