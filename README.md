@@ -750,13 +750,7 @@ marked assumed. When quantity, price and total all said do not agree, the
 quantity and the price are sent as said, the total left empty (the ledger
 turns down a trade whose every cell is given and whose figures do not
 agree), all three marked suspicious with the three figures, and the reply
-says the program does not guess which is wrong. When the program works
-out the third of quantity, price and total and the figure only rounds to a
-number the user said that no cell used ("总额150" said, 150.00078 worked
-out), the number said is kept in its place, still marked "worked out by
-the program", with a reason that gives both, and it is no longer named
-among the numbers left over (`LEDGER_HAND_SAID_NUMBER_GAP`, see
-"Settings"); with two such numbers, or none, nothing changes. The reply names the cells
+says the program does not guess which is wrong. The reply names the cells
 sent empty ("Trade 1 was sent with empty fields: fee, feeAssetId. ... fill
 them in on the ledger's own page before you save it."), carries what the
 ledger found in the cells given in its own words, and never says nothing
@@ -1637,17 +1631,6 @@ shown on the settings page. The Assistant page and
 `scripts/try_assistant.py` read it when they start; a value it refuses
 stops the Assistant page alone, which says why.
 
-
-### How close a figure worked out must be to a number said
-
-| Variable | Default | What it sets | Why this default |
-| --- | --- | --- | --- |
-| `LEDGER_HAND_SAID_NUMBER_GAP` | `0.0001` | How close, as a part of the number said, a figure the program worked out must be to a number the user said and no cell used, for the number said to be kept in its place; a number above 0 and at most `0.01`. The figure must also round to the number said at its places. | One ten-thousandth was chosen on 2026-11-26 by the session that hands out the work, with no source behind it; the product owner may change it. The bound of one hundredth is taken for now and waits for a reason. |
-
-Like the price gap, it is not a model setting and is not on the settings
-page; the Assistant page and `scripts/try_assistant.py` read it when they
-start, and a value it refuses stops the Assistant page alone, naming the
-variable.
 ### Variables the scripts read
 
 | Variable | Default | What it sets | Why this default |

@@ -67,7 +67,6 @@ src/ledger_hand/
         marks.py              the marks on a trade's cells: worked out, assumed, suspicious (exists)
         trade_card.py         a trade proposed with cells left empty, and its marks as sent (exists)
         card_record.py        a card's cells kept, left empty or doubted; why a cell is doubted (exists)
-        said_numbers.py       a figure worked out put back to the number said it rounds to (exists)
     ports.py              the three ports: model, storage and ledger                  (exists)
     extraction/           a passage of text to drafts                                 (exists)
         extractor.py          the entry point: one passage in, drafts and issues out  (exists)
@@ -976,17 +975,6 @@ saved (`TradeCheck.ready`), its empty cells and what the ledger found in
 the cells given (`LedgerProblem`), said back in the ledger's own words.
 The fake ledger checks cards and marks by the ledger's rules; the real
 plug sends `allowUnfinished`, `fieldMarks` and `null` for an empty cell.
-
-A figure worked out put back to the number said (2026-11-26). On the
-assistant's way (`Setting.said_gap`, from `LEDGER_HAND_SAID_NUMBER_GAP`),
-once a trade is a record or a card, `flows/recording.py` (`_said_kept`)
-hands its figure worked out and the passage's numbers no cell used (the
-reminder `NUMBERS_LEFT_OVER`) to `core/said_numbers.py`, `said_instead`, a
-pure function: exactly one number the figure rounds to at its places, and
-within the gap as a part of it, is kept in its place, when the three
-figures still agree here and in the ledger; the number is taken off the
-reminder and noted (`Progress.said_numbers`), and the worked out mark
-says both (`marks_from`'s `worked_reason`). The Record page keeps none.
 
 A trade whose quantity was said in a unit
 that is not the asset traded ("25U" of ETH) is held back when the flow
