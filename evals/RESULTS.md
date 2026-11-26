@@ -10009,9 +10009,13 @@ and the first tool is right no fewer times on `tools.json`.
 | Recording | hidden, three tiers | ③ 1, ① 17 and ①a 2 | ③ 1, ① 17 and ①a 2 |
 
 N8 ("把10月卖出的那笔删掉"), where `assistant-4` listed the trades and asked in
-words, is done with `assistant-5`. One practice sentence of `r80` (R80-23, a
-payment in euros, not enabled) could not reach the model twice after
-`assistant-5` and was not measured; less than a tenth, so the run stands.
+words, is done with `assistant-5`. One practice sentence of `r80` (R80-23, a payment in euros, not enabled)
+was answered with an empty reply twice under `assistant-5`, and was not
+measured; less than a tenth, so the run stands. (Corrected 2026-11-26: it
+was written here as not reaching the model. The model was reached; the
+ruler took a reply that came back empty, with no tool called, for a model
+it could not reach. It now counts such a sentence as not sent, ⑤, with the
+reason in its line.)
 
 `assistant-5` met every line. The gate that pins how the question and
 change measures run the older sets (`tests/evals/test_old_sets_unchanged.py`)

@@ -31,9 +31,11 @@ cells empty (①b where the gold has them none); a suspicious or assumed
 mark on its card is a mark of the cell's own; and once the ledger takes
 cards, only the asset and buy or sell are rightly asked by default, as
 the flow's own setting shows (``Progress.setting.unfinished``). When the
-model cannot be reached, the sentence is said again once, after a wait
-(three minutes, for another process to let the model go); twice
-unreachable, it is not measured. When
+model cannot be reached (a call that failed or timed out, not a reply
+that came back empty or out of shape, which is not sent, ⑤, with why),
+the sentence is said again once, after a wait (three minutes, for
+another process to let the model go); twice unreachable, it is not
+measured. When
 more than a tenth of a file's sentences are not measured, the run says so
 and should be run again.
 
@@ -96,7 +98,7 @@ from ledger_hand.flows.progress import Progress, Question, Tuning
 from ledger_hand.flows.record_words import SPOKEN_REMINDERS, spoken_reminders
 from ledger_hand.flows.recorded import MarkedTrade, Recorded, RecordEnding
 from ledger_hand.flows.recording import tuning_from
-from ledger_hand.ports import LedgerPort, ModelError, ModelPort
+from ledger_hand.ports import LedgerPort, ModelError, ModelErrorKind, ModelPort
 from ledger_hand.settings import SettingsError, load_assistant_steps, load_model_settings
 
 # How long to wait before saying a sentence again when the model could not be reached.
@@ -280,19 +282,34 @@ def _waiting(question: Question, progress: Progress, zone: str) -> Waiting:
     )
 
 
+# A reply that came back, but empty or out of shape: the model was reached.
+_REACHED = frozenset({ModelErrorKind.MALFORMED_REPLY})
+
+
 def _unreachable(said: Said) -> bool:
-    """Whether the model could not be asked: a failed call, not a reply that could not be read."""
+    """Whether the model could not be asked: a call that failed or timed out.
+
+    A reply that came back empty or out of shape (``MALFORMED_REPLY``) is
+    not: the sentence was measured and not sent (⑤), with why
+    (``_reasons``). (Corrected 2026-11-26: it was taken as not reached.)
+    """
     turn = said.turn
     if turn is not None and turn.ending is TurnEnding.MODEL_FAILED:
-        return True
+        failure = turn.failure
+        return not (isinstance(failure, ModelError) and failure.kind in _REACHED)
     recorded = said.recorded
     if recorded is None:
         return False
-    failure = recorded.progress.failure
-    if recorded.ending is RecordEnding.MODEL_FAILED and failure is not None:
-        return failure.error is not None
+    failure_of = recorded.progress.failure
+    if recorded.ending is RecordEnding.MODEL_FAILED and failure_of is not None:
+        error = failure_of.error
+        return error is not None and error.kind not in _REACHED
     question = recorded.question
-    return question is not None and question.model_failure is not None
+    return (
+        question is not None
+        and question.model_failure is not None
+        and question.model_failure not in _REACHED
+    )
 
 
 def _reasons(said: Said) -> frozenset[str]:
@@ -300,6 +317,9 @@ def _reasons(said: Said) -> frozenset[str]:
     if recorded is None:
         if said.turn is None:
             return frozenset({f"not recorded ({said.route.name.lower()})"})
+        failure = said.turn.failure
+        if isinstance(failure, ModelError):
+            return frozenset({f"not recorded ({said.turn.ending.value}: {failure.kind.value})"})
         return frozenset({f"not recorded ({said.turn.ending.value})"})
     if recorded.ending is RecordEnding.NOTHING_TO_SEND:
         return frozenset(left.why.value for left in recorded.left_out)

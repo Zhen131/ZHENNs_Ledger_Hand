@@ -713,3 +713,24 @@ def test_once_cards_are_taken_only_the_asset_and_side_are_rightly_asked_by_defau
         # Before cards were taken, a question about the fee no one said was rightly asked.
         (asked_before,) = judge(sentence, before, "Europe/Budapest")
         assert asked_before.ending is Ending.ASKED_OK
+
+
+# --- a reply that came back empty is measured, not "not reached" ------------------------------
+
+
+def test_a_reply_that_came_back_empty_is_not_sent_with_why_not_unmeasured(tmp_path: Path) -> None:
+    empty = ModelError(ModelErrorKind.MALFORMED_REPLY, "the reply was empty")
+    spoken = one_set(tmp_path, SOL, [gold_trade()])
+    scripted = model(SOL, tools=[empty, empty])
+    waits: list[int] = []
+
+    rows = spoken_run.run(
+        spoken, ports(scripted), tmp_path / "out.jsonl", wait=lambda: waits.append(1)
+    )
+
+    assert waits == []
+    (result,) = rows[0].results
+    assert result.ending is Ending.NOT_SENT
+    lines = [json.loads(one) for one in (tmp_path / "out.jsonl").read_text("utf-8").splitlines()]
+    (line,) = [one for one in lines if "reasons" in one]
+    assert any("malformed_reply" in reason for reason in line["reasons"]), line
