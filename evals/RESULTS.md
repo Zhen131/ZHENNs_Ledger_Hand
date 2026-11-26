@@ -10193,3 +10193,30 @@ asked about. Asking is gone from all three tiers except where the asset
 or the side has to be asked; the share did not move, because a trade
 sent with an empty cell counts as ②, not ①. The lines are not met with
 `qwen2.5:7b`; comparing other local models is left to the owner.
+
+## 2026-11-26: cash balances asked and money moved said, `qwen2.5:7b`
+
+`evals/sets/cash/cash-balances.json`, said to the whole assistant
+(`assistant-5`) against the demo ledger with cash, each sentence once in a
+chat of its own, by `.venv/bin/python -m evals.cash_balances_run`.
+
+| Run | Balances asked laid out a table | Money moved read as the set says | Near ones read as neither | Trouble |
+| --- | --- | --- | --- | --- |
+| first, before the ruler's rework | 22 of 22 | 13 of 13 | 45 of 45 | 17, each read by hand: a figure of the holdings or the sums, none a cash figure |
+| after both reworks | 22 of 22 | 12 of 13 | 45 of 45 | 0 |
+
+The trouble line of the first run counted every figure the model wrote
+that the user never said, tables or not; the ruler now judges each figure
+against the tables of its turn, and a figure said as cash against the cash
+balance of its money (`evals/cash_figures.py`). In the second run M10
+("Got a 2.1 USD dividend from KO today") names KO, which the demo ledger
+holds, so it goes to the model since the rework of the first reading; the
+model wrote "propose_trade_add" as words, nothing was sent, and the reply
+ended with both lines (the dividend recorded by hand; the trade not
+recorded either). `evals.cash_run --compare` against the run of the
+starting commit: every sentence, `must_pass` and the rest, went the same
+way.
+
+Results: `run-20261126T085039Z-cash-balances-all-assistant-5.jsonl` (first),
+`run-20261126T095934Z-cash-balances-all-assistant-5.jsonl` (after), kept
+outside the repository.
