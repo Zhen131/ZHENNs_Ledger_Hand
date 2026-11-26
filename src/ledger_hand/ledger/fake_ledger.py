@@ -76,6 +76,18 @@ USDT: 191942 USDT. So a trade saved on the demo ledger shows in the
 balances next asked for. They are counted up to the later of its market
 prices' day and its latest trade's day.
 
+A trade paid in another money than the one its asset is priced in needs
+its rate (``cost_rate``), as the real ledger's check has it
+(``tradeValidatorConsistency.ts``, 2026-11-26): for an asset whose own
+money the book names (``Asset.price_currency``), a trade paid in another
+money with no rate, or in that very money with one, is turned down as
+``CURRENCY_MISMATCH``, and a rate of 0 or below as
+``VALUE_MUST_BE_POSITIVE``. A card with an empty cell is still taken, the
+mismatch said as what its cells show. An asset whose own money the book
+does not name is not checked: every book written before names none, so
+nothing it took before is turned down now. Its trades are listed with the
+rate they were sent with, so a rate can be compared with the last one.
+
 ``failure``, when given, is raised by every call of the port, so that a test
 can see what becomes of a ledger that fails; ``market_failure`` is raised
 by the call for market prices alone. ``calls`` names every call of
@@ -150,6 +162,8 @@ _HOLDINGS_CODE = "INSUFFICIENT_HOLDINGS"
 _MISMATCH_CODE = "TOTAL_VALUE_MISMATCH"
 _MISMATCH_WORDS = "The total is not quantity times price."
 _UNFINISHED_CODE = "PROPOSAL_UNFINISHED"
+_CURRENCY_MISMATCH = "CURRENCY_MISMATCH"
+_NOT_POSITIVE = "VALUE_MUST_BE_POSITIVE"
 # The ledger's FIELD_MARK_REASON_MAX_LENGTH, in UTF-16 units.
 _REASON_MOST = 256
 _FIELDS = frozenset(field.value for field in Field)
@@ -455,6 +469,9 @@ class FakeLedger:
             return _failed_check(
                 "cannot_price", f"{facts.quote} cannot be the money a trade is priced in."
             )
+        rate = _rate_refusal(codes[facts.asset], facts.quote, facts.cost_rate)
+        if rate is not None:
+            return _failed_check(*rate)
         if replay(book).oversold:
             return _failed_check(_OVERSOLD_CODE, _OVERSOLD_WORDS)
         return None
@@ -552,6 +569,13 @@ class FakeLedger:
                 message=_MISMATCH_WORDS,
                 field="totalValue",
             )
+        asset = next(one for one in self._assets if one.code == card.asset)
+        rate = _rate_refusal(asset, card.quote, card.cost_rate) if card.quote is not None else None
+        if rate is not None:
+            field = "costRate" if rate[0] == _NOT_POSITIVE else "quoteAssetId"
+            return LedgerProblem(
+                code=rate[0], category="check-failed", message=rate[1], field=field
+            )
         if (
             card.occurred is None
             or quantity is None
@@ -605,6 +629,34 @@ class FakeLedger:
         assert facts is not None
         changed = tuple((key, facts if key == target else old) for key, old in book)
         return None if self._failed(facts, changed) is not None else (changed, target)
+
+
+def _rate_refusal(asset: Asset, quote: str, rate: Decimal | None) -> tuple[str, str] | None:
+    """Why a trade of ``asset`` paid in ``quote`` with ``rate`` is turned down, or ``None``.
+
+    Only an asset whose own money is named is checked, as the ledger checks
+    it: paid in another money it needs a rate, paid in its own money it
+    takes none, and a rate is above 0. Example: KO, priced in USD, paid in
+    EUR with no rate: ``CURRENCY_MISMATCH``.
+    """
+    own = asset.price_currency
+    if own is None:
+        return None
+    if rate is not None and rate <= 0:
+        return _NOT_POSITIVE, "costRate must be a decimal greater than 0"
+    if quote != own and rate is None:
+        return (
+            _CURRENCY_MISMATCH,
+            f"quoteAssetId must be a currency; it must match {asset.code} quote currency "
+            "unless costRate is given",
+        )
+    if quote == own and rate is not None:
+        return (
+            _CURRENCY_MISMATCH,
+            f"costRate is only allowed when the trade currency differs from {asset.code} "
+            "quote currency",
+        )
+    return None
 
 
 def _moved_by(opening: Mapping[str, Decimal], book: Book) -> dict[str, Decimal]:
