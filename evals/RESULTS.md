@@ -10095,3 +10095,43 @@ silently wrong (`run-20261126T050434Z-stocks-assistant-5.jsonl`). K6 and
 K7 are right: each sent buy 2 MSFT at 410 USD, fee 1 USD, its day alone,
 IBKR. K14 and K15, open orders the model answered in words, are not done,
 as before.
+
+## 2026-11-26: cards with empty cells; the practice halves, three tiers, `qwen2.5:7b`
+
+The ledger takes a trade with cells left empty (`allowUnfinished`), and the
+exam book now does too (`evals/exam_book.py`), so the assistant asks only
+which asset and buy or sell, and a vague word for money the ledger cannot
+settle; every other gap is sent on a card, the cell empty (①b where the
+gold has it none), a cell said but wrong in itself left empty and marked
+suspicious, three figures that do not agree sent with the total empty and
+all three marked. The ruler follows in three ways: a card's suspicious or
+assumed mark, and a cell sent empty, is a cell's own mark; only the asset
+and buy or sell are rightly asked by default once cards are taken (read
+from the flow's own setting); a reply that came back empty is ⑤, not "not
+measured". The practice halves only, at the commit that sends cards
+(`d2c588c`), against the practice rows of the baseline after `assistant-5`
+above (`spoken-20261126T022723Z-…`, `…T023118Z-…`, `…T023710Z-…`). The
+hidden halves are not measured here.
+
+| Tier | Half | ① | ①a | ①b | ② (code) | ③ (code) | ④ rightly | ④ not rightly | ④ not its turn | ⑤ | ① share (of) | Results |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| r100 | practice, before | 6 | 0 | 0 | 0 | 0 | 2 | 3 | 0 | 1 | 60.0% (10) | `spoken-20261126T022723Z-spoken-r100-practice-first-3-assistant-5.jsonl` |
+| r100 | practice, cards | 6 | 0 | 1 | 1 (0) | 1 (1) | 2 | 0 | 0 | 1 | 60.0% (10) | `spoken-20261126T061115Z-spoken-r100-practice-first-3-assistant-5.jsonl` |
+| r80 | practice, before | 4 | 0 | 0 | 0 | 1 | 2 | 4 | 2 | 0 | 36.4% (11) | `spoken-20261126T023118Z-spoken-r80-practice-first-3-assistant-5.jsonl` |
+| r80 | practice, cards | 4 | 0 | 1 | 6 (5) | 1 (0) | 1 | 0 | 0 | 0 | 36.4% (11) | `spoken-20261126T061421Z-spoken-r80-practice-first-3-assistant-5.jsonl` |
+| r70 | practice, before | 9 | 3 | 0 | 0 | 1 | 1 | 0 | 0 | 0 | 92.3% (13) | `spoken-20261126T023710Z-spoken-r70-practice-first-3-assistant-5.jsonl` |
+| r70 | practice, cards | 9 | 3 | 1 | 0 | 1 | 0 | 0 | 0 | 0 | 92.3% (13) | `spoken-20261126T061731Z-spoken-r70-practice-first-3-assistant-5.jsonl` |
+
+The new ③ is R100-09 ("应该是花了100美金买了0.2754311股…我相当于是买了
+0.2314547"): asked about the fee before, it is now sent, the quantity
+worked out from 100 and 432.05 as 0.23145469 where 0.2314547 was said, a
+figure worked out being no mark (the reply's reminder of the numbers no
+trade used names 0.2314547). The other ③s are those of before (R80-07,
+R70-05). The ②s are cells said but sent empty, the fee ("没有手续费",
+"手续费呢是零" not copied) or a time not copied (R80-03, R80-11), and the
+total of R100-03 left empty for not agreeing. Before the ruler counted a
+cell sent empty as a mark, the same sentences gave ③ 2, 6 and 1 (r100,
+r80, r70; `spoken-20261126T060136Z-…`, `…T060510Z-…`, `…T060745Z-…`).
+R80-23, a payment in euros not enabled, came back empty again and is
+counted ⑤ (not enabled: something else), not "not measured".
+
