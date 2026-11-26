@@ -39,7 +39,8 @@ three keys the ledger takes.
 
 Names defined here: ``MarkKind``, ``Field``, ``REASON_MOST``,
 ``reason_length``, ``cut_reason``, ``FieldMark``, ``TradeMarks``,
-``FAR_REASON_START``, ``marks_for`` and ``as_sent``.
+``FAR_REASON_START``, ``marks_for``, ``far_reason``, ``fields_sent`` and
+``as_sent``.
 """
 
 from __future__ import annotations
@@ -50,6 +51,7 @@ from dataclasses import dataclass
 from decimal import Decimal
 
 from ledger_hand.core.ledger_limits import text_length
+from ledger_hand.core.ledger_records import TradeFacts
 from ledger_hand.core.price_check import PriceCheck, PriceVerdict
 from ledger_hand.core.trade import Amount, Inferred, InferredFrom, TradeRecord
 
@@ -271,6 +273,21 @@ def _stronger(one: FieldMark, other: FieldMark) -> FieldMark:
         return one
     dropped = cut_reason(other.reason, room)
     return FieldMark(one.field, one.kind, f"{dropped}{_JOIN}{own}" if own else dropped)
+
+
+def fields_sent(facts: TradeFacts) -> frozenset[Field]:
+    """The cells of ``facts`` that are sent with a value: a day alone sends no time of day,
+    and an empty platform or note, or no rate, is sent as none."""
+    given = set(Field) - {Field.PLATFORM, Field.NOTE, Field.COST_RATE}
+    if facts.date_only:
+        given -= _TIME_OF_DAY
+    if facts.platform:
+        given.add(Field.PLATFORM)
+    if facts.note:
+        given.add(Field.NOTE)
+    if facts.cost_rate is not None:
+        given.add(Field.COST_RATE)
+    return frozenset(given)
 
 
 def as_sent(marks: TradeMarks, sent: frozenset[Field]) -> tuple[dict[str, str | None], ...]:
