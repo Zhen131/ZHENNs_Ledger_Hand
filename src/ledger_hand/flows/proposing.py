@@ -75,6 +75,10 @@ the ledger's market price of the asset, in that same money. Either one far
 marks the rate suspicious, and the trade is sent all the same; what came of
 it goes back with the proposal (``MarkedTrade.rate``), for the words said.
 
+A trade whose fee is taken in a money other than the one it was paid in
+(paid in USD, fee in EUR) has its fee's money marked suspicious: nothing
+else changes (2026-11-26).
+
 Each trade is priced in the money its record names. The ledger checks each
 trade on its own: those it takes wait there, each as a proposal of its
 own, and those it turns down are told with its reason; it may take all,
@@ -114,7 +118,13 @@ from ledger_hand.core.ledger_records import (
     TradeFilter,
 )
 from ledger_hand.core.ledger_table import SameCode, same_code_words, same_codes
-from ledger_hand.core.marks import fields_sent, marks_for, sent_marks
+from ledger_hand.core.marks import (
+    fee_money_mark,
+    fields_sent,
+    marks_for,
+    sent_marks,
+    with_mark,
+)
 from ledger_hand.core.price_check import PriceCheck, check_price, no_price, not_asked
 from ledger_hand.core.trade import TradeDraft, TradeRecord
 from ledger_hand.core.trade_card import TradeCard, card_of
@@ -293,6 +303,9 @@ def _marked(
             marks = card_marks(record, check, asset_name=name)
         else:
             marks = marks_for(record, check, asset_name=name)
+        fee_money = _fee_money_apart(record, assets)
+        if fee_money is not None:
+            marks = with_mark(marks, fee_money_mark(fee_money, record.quote or ""))
         note = rates.get(number)
         if note is not None:
             note = dataclasses.replace(
@@ -301,6 +314,21 @@ def _marked(
             marks = with_rate_marks(marks, note, record.coin)
         marked.append(MarkedTrade(marks=marks, price=check, rate=note))
     return tuple(marked)
+
+
+def _fee_money_apart(record: _Sendable, assets: Mapping[str, Asset]) -> str | None:
+    """The fee's money when it is a money other than the one the trade was paid in, or ``None``.
+
+    A fee taken in the asset traded, or a fee or trade whose money is empty,
+    is not one. Example: paid in USD, fee in EUR: "EUR".
+    """
+    fee, paid = record.fee_coin, record.quote
+    if fee is None or paid is None or fee == paid or fee == record.coin:
+        return None
+    asset = assets.get(fee)
+    if asset is None or not (asset.kind is AssetKind.CASH or asset.pricing is Pricing.CAN_PRICE):
+        return None
+    return fee
 
 
 def _said_check(

@@ -50,6 +50,9 @@ and that a price said in the money paid was not used, when it did not agree.
 Its price, in the money paid, is not said to be not compared with the market
 price in another money: the price said was compared instead. (2026-11-26.)
 
+A trade waiting whose fee's money is not the money it was paid in gets a
+line saying its fee's money is marked suspicious, and why (``DOUBT_WORDS``).
+
 Each trade sent whose price was compared with the ledger's market price
 and found far from it, or could not be compared, gets one line after
 those (``PRICE_WORDS``, one for each ``PriceVerdict``, ``None`` where
@@ -96,7 +99,7 @@ from types import MappingProxyType
 
 from ledger_hand.core.card_record import Doubt
 from ledger_hand.core.cost_rate import RateNote, written
-from ledger_hand.core.marks import FAR_REASON_START
+from ledger_hand.core.marks import FAR_REASON_START, FEE_MONEY_REASON_START, Field, MarkKind
 from ledger_hand.core.price_check import PriceCheck, PriceVerdict
 from ledger_hand.core.proposals import CheckOutcome, TradeCheck
 from ledger_hand.core.trade import Inferred, Side
@@ -364,7 +367,14 @@ def reply_for(recorded: Recorded, *, begun: bool = False) -> str:
     first = ENDING_WORDS[recorded.ending].format(
         question=_question(recorded), code=recorded.missing_money or "", reason=_reason(recorded)
     )
-    lines = [first, *_guessed(recorded), *_rated(recorded), *_priced(recorded), *_cards(recorded)]
+    lines = [
+        first,
+        *_guessed(recorded),
+        *_rated(recorded),
+        *_fee_money(recorded),
+        *_priced(recorded),
+        *_cards(recorded),
+    ]
     if begun or recorded.ending is not RecordEnding.ASKING:
         lines.extend(_picked(recorded))
     lines.extend(_left_out(trade) for trade in recorded.left_out)
@@ -502,6 +512,21 @@ def _rated(recorded: Recorded) -> list[str]:
         note = recorded.marked[place].rate
         if note is not None:
             lines.extend(rate_lines(number, recorded.trades[place].asset, note))
+    return lines
+
+
+def _fee_money(recorded: Recorded) -> list[str]:
+    """One line for each trade waiting whose fee's money is not the money it was paid in."""
+    if len(recorded.marked) != len(recorded.numbers):
+        return []
+    lines: list[str] = []
+    for place, number in _waiting_trades(recorded):
+        mark = recorded.marked[place].marks.on(Field.FEE_ASSET_ID)
+        if mark is None or mark.kind is not MarkKind.SUSPICIOUS or mark.reason is None:
+            continue
+        if FEE_MONEY_REASON_START not in mark.reason:
+            continue
+        lines.append(DOUBT_WORDS.format(number=number, field=mark.field.value, reason=mark.reason))
     return lines
 
 

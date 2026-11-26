@@ -47,7 +47,8 @@ three keys the ledger takes (``SentMark``, ``sent_marks``).
 Names defined here: ``MarkKind``, ``Field``, ``REASON_MOST``,
 ``reason_length``, ``cut_reason``, ``FieldMark``, ``TradeMarks``,
 ``FAR_REASON_START``, ``marks_for``, ``marks_from``, ``far_reason``,
-``fields_sent``, ``SentMark``, ``sent_marks`` and ``as_sent``.
+``fields_sent``, ``SentMark``, ``sent_marks``, ``as_sent``,
+``FEE_MONEY_REASON_START``, ``fee_money_mark`` and ``with_mark``.
 """
 
 from __future__ import annotations
@@ -340,6 +341,34 @@ def _both_suspicious(own: FieldMark, far: FieldMark) -> FieldMark:
     return FieldMark(
         own.field, MarkKind.SUSPICIOUS, f"{first}{_JOIN}{cut_reason(far.reason, room)}"
     )
+
+
+# The start of the reason on a fee's money that is not the money the trade was paid in.
+FEE_MONEY_REASON_START = "the fee is in"
+
+
+def fee_money_mark(fee_money: str, paid: str) -> FieldMark:
+    """The suspicious mark on a fee taken in one money while the trade is paid in another.
+
+    Example: a fee in EUR on a trade recorded as paid in USD: "the fee is
+    in EUR, but this trade is recorded as paid in USD; check which money
+    you paid in". Only marked, nothing changed (decided by the session
+    that hands out the work, 2026-11-26, on the review of 87D2).
+    """
+    return FieldMark(
+        Field.FEE_ASSET_ID,
+        MarkKind.SUSPICIOUS,
+        cut_reason(
+            f"{FEE_MONEY_REASON_START} {fee_money}, but this trade is recorded as paid in "
+            f"{paid}; check which money you paid in"
+        ),
+    )
+
+
+def with_mark(marks: TradeMarks, mark: FieldMark) -> TradeMarks:
+    """``marks`` with ``mark`` added, one mark a cell as ever: the stronger kept, the other's
+    reason put first (two suspicious ones joined)."""
+    return TradeMarks(marks=_one_a_cell((*marks.marks, mark)), empty=marks.empty)
 
 
 class _Sendable(Protocol):
