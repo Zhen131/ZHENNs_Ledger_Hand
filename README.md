@@ -20,10 +20,12 @@ hands over a file. A third page, Assistant, is a chat that records, asks
 about, changes and deletes trades through the ledger's tools (see "The
 assistant page"). It only proposes: a proposal waits in the ledger until
 it is confirmed there, and once the real ledger is connected that is done
-on the ledger's own page. The real ledger is not connected yet: today the
-assistant reaches a demo ledger, an invented book in memory, and
-confirming is tried with `scripts/try_assistant.py --save` or with the
-demo buttons on the Assistant page, which work on the demo ledger alone.
+on the ledger's own page. A new tab of the Assistant page reaches a demo
+ledger, an invented book in memory, where confirming is tried with
+`scripts/try_assistant.py --save` or with the demo buttons on the
+Assistant page, which work on the demo ledger alone; the page can be
+switched to your own ledger page instead (see "Connecting the assistant to
+your ledger"), which has been walked through by hand once.
 
 **Do not import an export file into the ledger yet.** The ledger's present
 import replaces the whole ledger with what the file holds, which would leave
@@ -108,22 +110,29 @@ does not do yet:
   hand the model eight tools: it picks one, and the program judges the
   call, asks the ledger, lays out the tables, records through the same
   recording flow and finds the trade to change. It records a trade
-  (shares priced in US dollars among them), answers four kinds of
-  question, changes or deletes one trade, and records a screenshot's text;
-  every proposal waits in the ledger to be confirmed. Behind it is the
-  demo ledger, never the real one. Measured with `qwen2.5:7b` at the latest
+  (shares priced in US dollars among them, and shares paid for in euros),
+  answers four kinds of question, changes or deletes one trade, and
+  records a screenshot's text; the program itself lays out the ledger's
+  cash balances when asked, and says that a deposit, a withdrawal, an
+  exchange or a dividend is to be recorded in the ledger by hand. Every
+  proposal waits in the ledger to be confirmed. Behind it is the demo
+  ledger in a new tab, the script and every measure; the page can reach
+  your own ledger page instead. Measured with `qwen2.5:7b` at the latest
   runs: the first step right on 19 of 19 sentences, 23 of 27 questions
-  looked up right, 13 of 17 changes and deletions done right with none
+  looked up right, 14 of 17 changes and deletions done right with none
   done wrong, and 16 of 18 sentences recording a share done right with
   none recorded wrong (see "Sentences for a demo" and
   `docs/project-report.md`, section 6).
 - **Not done yet.** Measuring how well real screenshots are read: none has
-  been read yet. Connecting the assistant to the real ledger's tools: it
-  reaches the demo ledger only. Tuning the assistant on sentences the
-  owner says in their own way, and judging on them whether it picks the
-  right kind of work for 95% of new sentences: those sentences have not
-  been written, so that line is not measured. Known limits are in
-  `docs/known-gaps.md`.
+  been read yet. Measuring the assistant against the real ledger: the page
+  reaches your ledger page, but that was walked through by hand once, and
+  the changes to its plug since (market prices, a day alone, cells left
+  empty and marks, cash balances, rates) were tried only against written
+  samples. The exam said the owner's way (`evals/sets/spoken/`) is written
+  and measured, and two of its lines are not met with `qwen2.5:7b` (see
+  "The exam said the owner's way" and `docs/known-gaps.md`, "What you will
+  meet"); comparing other local models is left to the owner. Known limits
+  are in `docs/known-gaps.md`.
 
 How each part works is described in "How it works, part by part" below.
 
@@ -331,6 +340,12 @@ for each, from "Sentences for a demo" below:
 - change or delete one trade: "Delete the MSFT sell on 12 November 2026.";
 - record from a screenshot of an order, uploaded under the chat (below).
 
+Two more are answered by the program itself, before the model is asked: a
+question about cash ("我还有多少USDT") gets the ledger's cash balances,
+and money moved that the assistant does not record ("我入金了500 USDT")
+gets a sentence saying to record it in the ledger by hand (see "Trying
+the assistant by hand").
+
 It does not place orders, give advice on buying or selling, or forecast a
 price; asked to, the model answers in words and nothing is sent. It records no
 exchange of one money for another ("用美元买了500 USDT", "bought 500 USDT
@@ -493,11 +508,16 @@ handed back and any failure codes, the trades proposed with their amounts
 and money, each trade not sent and why, the kinds of reminder said, the
 proposals sent and how they stood, and the model and prompt versions
 used, and for each trade proposed its marks, what came of comparing its
-price with the market price, and the cells sent empty ("marks"). The most
-recent 1,000 entries are kept; older ones are dropped. The record is now
-at version 6: version 3 added "read_as", version 4 "asset_picks", version
-5 "ledger" and version 6 "marks". Entries of versions 1 to 5, written
-before, are still read as they are, and a file may hold all six.
+price with the market price, and the cells sent empty ("marks"), the
+money moved said that is recorded by hand ("manual"), what the ledger
+said of its cash when it was asked ("cash"), and for each trade paid in
+another money than its asset's own, the rate sent and what it was
+compared with ("rates"). The most recent 1,000 entries are kept; older
+ones are dropped. The record is now at version 8: version 3 added
+"read_as", version 4 "asset_picks", version 5 "ledger", version 6
+"marks", version 7 "manual" and "cash", and version 8 "rates". Entries of
+versions 1 to 7, written before, are still read as they are, and a file
+may hold all eight.
 
 **The file is plain text, not encrypted: it holds what you said to the
 assistant, word for word, with its numbers.** It stays on this computer;
@@ -767,7 +787,10 @@ a day after today, a fee not below the quantity bought in the same coin, a
 platform longer than the ledger takes) is left empty and marked
 suspicious with what was said and why; a quantity said in money ("用25U买了
 点ETH") is taken as the total spent, the quantity and price left empty, and
-marked assumed. When quantity, price and total all said do not agree, the
+marked assumed; with a price said as well ("Bought 30 USDT of ADA at
+0.31"), the quantity is worked out from the two and marked worked out, the
+total then carries no mark, and the reply keeps the reminder that the
+quantity was said in a unit that is not the asset. When quantity, price and total all said do not agree, the
 quantity and the price are sent as said, the total left empty (the ledger
 turns down a trade whose every cell is given and whose figures do not
 agree), all three marked suspicious with the three figures, and the reply
@@ -1422,7 +1445,7 @@ wording is a new version.
 | `read-1` (`extraction/prompts/read.py`) | Reading a screenshot out as text, before extraction: each value with the label the screen gives it, as it stands | No example at all (zero-shot) |
 | `bookkeeper-1` (`asking/prompts/bookkeeper.py`) | Wording a follow-up question | A role (persona): a meticulous bookkeeper who asks for one thing at a time |
 | `spoken-1`, `spoken-2`, `spoken-3` (`extraction/prompts/spoken1.py`, `spoken2.py`, `spoken3.py`) | Extraction of words with a Chinese character in them, for experiments only | A changed content: `first-3`'s instructions and examples, then rules and examples written the way the owner speaks, already tidied (`spoken1_examples.py` and after); the version is chosen by whether the words hold a Chinese character (`extraction/prompt_language.py`), English keeping `first-3`. None was picked: the assistant extracts with `first-3` |
-| `assistant-5` (`assistant/prompts/assistant_fifth.py`) | The assistant's system prompt, for experiments only | A changed content: `assistant-4` with its rule on finding a trade to change said as the tools say (call the tool straight away). It met the rule it was held to and is the default the assistant turns with (`evals/RESULTS.md`) |
+| `assistant-5` (`assistant/prompts/assistant_fifth.py`) | The assistant's system prompt, the default since 2026-11-26 | A changed content: `assistant-4` with its rule on finding a trade to change said as the tools say (call the tool straight away). It met the rule it was held to and is the default the assistant turns with (`evals/RESULTS.md`) |
 
 `zero_shot`, `persona`, `stepwise` and `price_total` each differ from
 `first` in that one thing only, and a test checks it. `second` differs from
@@ -2216,7 +2239,7 @@ check and the hygiene scan).
 | `docs/known-gaps.md` | Known limits of the program as it stands, each with what it affects and, where a choice is needed, waiting for the project owner. |
 | `docs/project-report.md` | The project described for a reader new to it: the problem, the steps, the prompt techniques, the parameters, the error handling, the experiments, the design decisions, the known limitations, and the course's checklist mapped onto the repository. `tests/test_project_report_paths.py` checks that every path it names is in the repository. |
 | `tests/storage/golden/` | The golden book of version 1, a SQLite file, and its text dump. Never edited once committed; a new version of the book gets one of its own. |
-| `tests/flows/golden/` | The golden assistant's record of version 1: four invented entries. Never edited once committed; a new version of the record gets one of its own. |
+| `tests/flows/golden/` | The golden assistant's records of versions 1 to 8 (`assistant-record-v1.jsonl` to `assistant-record-v8.jsonl`), invented entries. Never edited once committed; a new version of the record gets one of its own. |
 | `data/` | Not in Git. The data folder by default: the book (`ledger-hand-book.sqlite3`), the export files (`exports/`) and the assistant's record (`assistant-record.jsonl`). Created when first written to. |
 | `.venv/` | Not in Git. The local Python environment. |
 
