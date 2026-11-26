@@ -297,7 +297,11 @@ def _picked(
                 word, assets, model, prompt=prompt, parameters=_pick_parameters(setting)
             )
         code = found[key].code
-        picked.append(draft if code is None else dataclasses.replace(draft, coin=code))
+        if code is None:
+            picked.append(draft)
+            continue
+        words = (found[key].said or word).strip()
+        picked.append(dataclasses.replace(draft, coin=code, picked=words))
     return tuple(picked), tuple(found.values())
 
 

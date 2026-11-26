@@ -178,7 +178,9 @@ class TradeDraft:
     ``coin``, ``quote`` and ``fee_coin`` hold the words as they were said; the
     asset table turns them into symbols and codes when the draft is checked. ``quote`` is
     the word used for the pricing currency, if one was said. ``derived`` names
-    the amounts the program filled in by calculation.
+    the amounts the program filled in by calculation. ``picked`` holds the
+    user's words for the asset when the model matched them to ``coin`` from
+    the ledger's list ("微软" for MSFT), and is ``None`` otherwise.
     """
 
     side: Side | None = None
@@ -196,6 +198,7 @@ class TradeDraft:
     derived: frozenset[Amount] = frozenset()
     inferred: frozenset[Inferred] = frozenset()
     inferred_from: InferredFrom | None = None
+    picked: str | None = None
 
     def __post_init__(self) -> None:
         _require_guess_and_source(self.inferred, self.inferred_from)
@@ -228,8 +231,8 @@ class TradeRecord:
     is priced in, one the asset table prices trades in; it has no default,
     so every record says it. ``fee_coin`` is a ledger symbol or the code of a
     money. ``derived`` names the one amount the program calculated from the
-    other two, or is ``None`` when the user gave all three. ``inferred``
-    and ``inferred_from`` are the draft's, as they were.
+    other two, or is ``None`` when the user gave all three. ``inferred``,
+    ``inferred_from`` and ``picked`` are the draft's, as they were.
     """
 
     side: Side
@@ -247,6 +250,7 @@ class TradeRecord:
     note: str | None = None
     inferred: frozenset[Inferred] = frozenset()
     inferred_from: InferredFrom | None = None
+    picked: str | None = None
 
     def __post_init__(self) -> None:
         _require_guess_and_source(self.inferred, self.inferred_from)

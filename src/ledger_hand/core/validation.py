@@ -274,6 +274,7 @@ def check_draft(
         note=note,
         inferred=draft.inferred,
         inferred_from=draft.inferred_from,
+        picked=draft.picked,
     )
 
 

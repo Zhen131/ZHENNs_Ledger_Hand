@@ -260,6 +260,9 @@ def with_value(
     if value is not None and not isinstance(value, expected):
         raise TypeError(f"the {cell.value} holds {expected.__name__}, not {type(value).__name__}")
     changes: dict[str, Any] = {_FIELD_OF[cell]: value}
+    if cell is Cell.COIN:
+        # An asset said again is the user's own, no longer one the model matched.
+        changes["picked"] = None
     return dataclasses.replace(draft, **changes)
 
 
