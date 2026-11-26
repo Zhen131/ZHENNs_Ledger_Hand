@@ -8,7 +8,9 @@ answer, written before any run:
 
 - ``send``: the trades that must reach the ledger as one proposal, in the
   order said: every figure as text, every asset and money by its ledger
-  code, the moment in the set's zone, and the platform;
+  code, the moment in the set's zone (or the day alone, ``YYYY-MM-DD``,
+  for a trade said with its day only, which must be sent with no time of
+  day), and the platform;
 - ``ask``: nothing may be sent; the program must ask about the cell named
   (``fee``, ``pricing currency`` and so on);
 - ``refuse``: nothing may be sent; the passage is stopped, or every trade
@@ -41,9 +43,10 @@ from __future__ import annotations
 
 import enum
 import json
+import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 from pathlib import Path
 
@@ -56,6 +59,8 @@ ASK = "ask"
 REFUSE = "refuse"
 BOOKS = frozenset({"invented", "usdt_only"})
 _EXPECTS = frozenset({SEND, ASK, REFUSE})
+# A gold time written as a day alone: the trade is sent with no time of day.
+_DAY_ALONE = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}")
 
 
 @dataclass(frozen=True)
@@ -70,11 +75,15 @@ class GoldTrade:
     quote: str
     fee: Decimal
     fee_asset: str
-    occurred: datetime
+    occurred: datetime | date
     platform: str
 
     def matches(self, facts: TradeFacts) -> bool:
-        """Whether the trade sent is this one, field for field."""
+        """Whether the trade sent is this one, field for field.
+
+        A gold time that is a day alone matches only a trade sent with its
+        day alone, on that day: a trade sent with a time of day is wrong.
+        """
         return (
             facts.side.value == self.side
             and facts.asset == self.asset
@@ -84,9 +93,15 @@ class GoldTrade:
             and facts.quote == self.quote
             and facts.fee == self.fee
             and facts.fee_asset == self.fee_asset
-            and facts.occurred == self.occurred
+            and _same_time(facts, self.occurred)
             and facts.platform == self.platform
         )
+
+
+def _same_time(facts: TradeFacts, gold: datetime | date) -> bool:
+    if isinstance(gold, datetime):
+        return not facts.date_only and facts.occurred == gold
+    return facts.date_only and facts.day == gold
 
 
 @dataclass(frozen=True)
@@ -114,9 +129,13 @@ class StockSet:
 
 
 def _trade(data: Mapping[str, str]) -> GoldTrade:
-    occurred = datetime.fromisoformat(data["occurred"])
-    if occurred.utcoffset() is None:
-        raise ValueError("a gold moment carries its offset")
+    occurred: datetime | date
+    if _DAY_ALONE.fullmatch(data["occurred"]):
+        occurred = date.fromisoformat(data["occurred"])
+    else:
+        occurred = datetime.fromisoformat(data["occurred"])
+        if occurred.utcoffset() is None:
+            raise ValueError("a gold moment carries its offset")
     return GoldTrade(
         side=data["side"],
         asset=data["asset"],

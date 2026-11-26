@@ -92,9 +92,20 @@
       "kind": "no_time_of_day",
       "text": "昨天在IBKR买了2股MSFT，410美元一股，手续费1美元",
       "gold": {
-        "expect": "refuse",
-        "why": [
-          "day_only"
+        "expect": "send",
+        "trades": [
+          {
+            "side": "buy",
+            "asset": "MSFT",
+            "quantity": "2",
+            "price": "410",
+            "total": "820",
+            "quote": "USD",
+            "fee": "1",
+            "fee_asset": "USD",
+            "occurred": "2026-11-23",
+            "platform": "IBKR"
+          }
         ]
       }
     },
@@ -103,9 +114,20 @@
       "kind": "no_time_of_day",
       "text": "Bought 2 MSFT shares yesterday at 410 USD each on IBKR, fee 1 USD.",
       "gold": {
-        "expect": "refuse",
-        "why": [
-          "day_only"
+        "expect": "send",
+        "trades": [
+          {
+            "side": "buy",
+            "asset": "MSFT",
+            "quantity": "2",
+            "price": "410",
+            "total": "820",
+            "quote": "USD",
+            "fee": "1",
+            "fee_asset": "USD",
+            "occurred": "2026-11-23",
+            "platform": "IBKR"
+          }
         ]
       }
     },
