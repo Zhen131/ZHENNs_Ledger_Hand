@@ -741,6 +741,20 @@ tools handed to the model and is left for a batch of its own. Until then:
   (`MONEY_NOT_CLEAR`), or when the asset's last trade used USDT or the US
   dollar but that money prices nothing in the ledger now. Neither is in
   the rules for cards, and both are still asked, as decided on 2026-11-26.
+- **A figure worked out a hair off the one said keeps the figure worked
+  out.** When the user says a number the model does not copy, and the
+  program works that cell out from the other two (a total of 150 said,
+  150.00078 worked out), the card shows the figure worked out, marked
+  "worked out by the program", not the number said. Putting the number
+  said back was tried on 2026-11-26 and withdrawn: picked from every
+  number no cell used, it could move a time, a fee or another trade's
+  number into the cell, and it took that number off the reminder that a
+  trade may be missing.
+- **Buy or sell the model filled in itself is sent unmarked.** When the
+  words say neither buy nor sell ("今天上午10点0.1个ETH，成交价2700 USDT，
+  手续费0", invented), the model sometimes fills in buy, and the card is
+  sent with `type` buy and no mark on it. The program asks buy or sell
+  only when the model left it empty.
 - **A cell the model wrote that is not in the words is left empty, unmarked.**
   On a card, a figure or a time the model wrote that is not a piece of what
   was said, or that could not be read as a number, is left empty with no
