@@ -36,7 +36,9 @@ see. Each item's detail stays in the section it points to.
 - **Euros and dollars both said as the total, with no FX fee, are
   recorded in dollars, unmarked.** "128欧元（约139美元）" may be sent as
   paid 139 USD, so the ledger would take dollars, not euros; at most a
-  reminder names 128 as a number not used ("The assistant: trades paid in
+  reminder names 128 as a number not used. The share price said with
+  "每股" instead of "一股" was sent in dollars the same way, its fee in
+  euros marked suspicious ("The assistant: trades paid in
   another money", "Euros and dollars both said as the total").
 - **A share said by its Chinese name is asked about.** "微软", "可口可乐"
   get "which asset was it?", to be answered with the code ("MSFT"): the
@@ -903,7 +905,12 @@ price said in the asset's own money (`flows/paid_apart.py`,
   ("the fee is in EUR, but this trade is recorded as paid in USD"), and the
   reply says so; nothing is changed or asked. With no fee in euros ("128欧元
   （约139美元）" and no FX fee), there is no mark at all: at most a reminder
-  that a number of what was said was not used (128).
+  that a number of what was said was not used (128). The same was seen with
+  the share price said with "每股" (each share) instead of "一股":
+  "2026年11月20号15点30分在IBKR花了128欧元买了2股 KO，每股69.5美元，换汇费0.19欧元"
+  (invented) was sent, five times of five on 2026-11-26, as 2 KO at 69.5
+  USD, total 139 USD, its fee's money marked suspicious, and the reminder
+  naming 128; with "一股" it went the euro way each time.
 - **A rate of 0 in the ledger stops the sentence.** An earlier trade whose
   rate is 0 is taken as the reference, and comparing with it raises an
   error, so what was said ends in a failure. The real ledger keeps no rate
