@@ -126,9 +126,11 @@ def test_an_entry_made_now_has_the_names_of_the_golden_ones() -> None:
     made = [entry_now(words, said) for words, said in made_now()]
     entries = _read(GOLDEN).entries
 
-    assert RECORD_VERSION == 6
+    # Version 7 added "manual" and "cash" and nothing else; the names of an entry
+    # made now are checked against version 7's golden record, in test_golden_record_v7.py.
+    assert RECORD_VERSION == 7
     for entry, now in zip(entries, made, strict=True):
-        assert list(entry) == list(now)
+        assert list(entry) == [name for name in now if name not in ("manual", "cash")]
         assert list(entry["marks"][0]) == list(now["marks"][0])  # type: ignore[index]
         assert list(entry["marks"][0]["price_check"]) == list(now["marks"][0]["price_check"])  # type: ignore[index]
     assert entries[0]["marks"] == made[0]["marks"]

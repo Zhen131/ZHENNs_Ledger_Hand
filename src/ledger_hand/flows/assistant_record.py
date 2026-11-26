@@ -15,7 +15,9 @@ down), each name of an asset handed to the model to pick from the
 ledger's list when recording began (what it was, the words and the code
 the model gave, whether it was taken and why not), each trade proposed
 with its marks, what came of comparing its price with the market price
-and its cells sent empty, how it ended, and the
+and its cells sent empty, how it ended, the money moved said that the
+assistant does not record, what the ledger said of its cash (its balances
+as laid out, or that it has no tool for them), and the
 model and prompt versions used. Amounts are
 written as text, each beside the money the result names. A screenshot's
 picture is never written: only that it came from a screenshot, and the
@@ -94,7 +96,14 @@ from ledger_hand.ports import LedgerError, ModelError
 # since cards with empty cells are sent, 2026-11-26, with no new version: a
 # trade's cell sent empty is null in "trades", and its name is in "empty").
 # Entries of versions 1 to 5 are still read as they are.
-RECORD_VERSION = 6
+# Version 7 (2026-11-26) added "manual": the money moved said that the
+# assistant does not record (its kinds, and whether a trade was spoken of
+# beside it), or null; and "cash": what the ledger said of its cash when it
+# was asked this time (whether it has a tool for cash balances, why it
+# could not be asked, the money named, and the balances laid out, each
+# beside its money), or null. Entries of versions 1 to 6 are still read as
+# they are.
+RECORD_VERSION = 7
 
 # One thousand: an entry is a few thousand bytes, so the file stays at a few
 # megabytes and is read whole in a blink each time an entry is added; at
@@ -201,6 +210,8 @@ def entry_for(
         "reminders": _reminders(said),
         "sent": _sent(said),
         "marks": _marks(said),
+        "manual": _manual(said),
+        "cash": _cash(said),
         "models": {"tools": model, "vision": vision_model if screenshot else None},
         "prompts": _prompts(said),
     }
@@ -290,6 +301,8 @@ def _failures(said: Said) -> list[dict[str, str]]:
             found.append(failure.error)
     if said.edited is not None and said.edited.failure is not None:
         found.append(said.edited.failure)
+    if said.cash_seen is not None and said.cash_seen.failure is not None:
+        found.append(said.cash_seen.failure)
     return [_failure(error) for error in found]
 
 
@@ -431,6 +444,36 @@ def _marks(said: Said) -> list[dict[str, Any]]:
         }
         for number, marked in zip(recorded.numbers, recorded.marked, strict=True)
     ]
+
+
+def _manual(said: Said) -> dict[str, Any] | None:
+    """The money moved said that the assistant does not record, or ``None``."""
+    manual = said.manual
+    if manual is None:
+        return None
+    return {"kinds": [kind.name.lower() for kind in manual.kinds], "with_trade": manual.with_trade}
+
+
+def _cash(said: Said) -> dict[str, Any] | None:
+    """What the ledger said of its cash this time, or ``None`` when it was not asked.
+
+    The balances are kept only when they were laid out as the answer, each
+    beside its money, as the ledger gave them.
+    """
+    seen = said.cash_seen
+    if seen is None:
+        return None
+    shown = seen.balances if seen.shown else None
+    return {
+        "tool": seen.tool,
+        "failure": seen.failure.code if seen.failure is not None else None,
+        "named": seen.named,
+        "day": shown.day.isoformat() if shown is not None else None,
+        "balances": [
+            {"code": row.code, "name": row.name, "balance": _amount(row.balance)}
+            for row in (shown.balances if shown is not None else ())
+        ],
+    }
 
 
 def _price_check(check: PriceCheck) -> dict[str, Any]:
