@@ -97,10 +97,10 @@ def test_every_sentence_in_a_code_span_or_a_command_is_one_of_the_files() -> Non
             assert quoted in said, quoted
 
 
-def test_the_file_holds_between_eight_and_ten_sentences_of_every_kind() -> None:
+def test_the_file_holds_between_eight_and_sixteen_sentences_of_every_kind() -> None:
     sentences = json.loads(SENTENCES_FILE.read_text(encoding="utf-8"))["sentences"]
     kinds = [sentence["kind"] for sentence in sentences]
-    assert 8 <= len(sentences) <= 10
+    assert 8 <= len(sentences) <= 16
     assert kinds.count("record") + kinds.count("held_back") >= 3
     assert kinds.count("held_back") <= 1
     assert kinds.count("ask") >= 3

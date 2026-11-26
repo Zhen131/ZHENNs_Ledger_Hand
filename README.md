@@ -1126,10 +1126,11 @@ traded, have none either. Every figure is invented.
 
 ## Sentences for a demo
 
-These sentences show the assistant at work, one of each kind, on the
-Assistant page or with `scripts/try_assistant.py`. Each is said on its own,
-in a new chat, to the demo ledger as it starts (the demo book; see "The
-demo book" below); under each is what it gets.
+These sentences show the assistant at work on the Assistant page or with
+`scripts/try_assistant.py`. Each is said on its own, in a new chat, to the
+demo ledger as both start it (the demo book with its cash and a euro,
+taking cards with cells left empty; see "The demo book" above); under each
+is what it gets.
 Every figure, platform and date is invented. None names a time relative to
 now ("yesterday", "this month"): the try-out script takes the invented
 book's moment, 24 November 2026, 23:55 in Budapest, as now, and the page
@@ -1139,16 +1140,23 @@ often not looked up today (the model writes the time in Chinese; see
 `docs/known-gaps.md`), so in a demo, say the questions as they are listed
 here.
 
-They were run at temperature 0, five runs on one machine, with
-`qwen2.5:7b`, and each got what is written under it every time. That shows
-the same sentence comes out the same again; it does not show that other
-words for the same thing would. The live tier says each of them once more
-(`tests/live/test_live_demo_sentences.py`, against
-`tests/live/demo_sentences.json`), and a quick test keeps this list and
-that file the same, word for word. Three of them (the MSFT trades, the
-assets and the holdings) were written for the invented book and gained
-rows with the demo book; those three were said once more against it, not
-five times.
+They were run at temperature 0 on one machine, with `qwen2.5:7b`. The
+first nine were run five times each when they were written, three of them
+(the MSFT trades, the assets and the holdings) against the invented book
+before the demo book; the last five (Chinese number words tidied, a vague
+word for money guessed, a price far from the market price, a fee not
+said, a share paid for in euros) were run five times each on 2026-11-26
+against the demo ledger as it is now. Each got what is written under it
+every time. That shows the same sentence comes out the same again; it
+does not show that other words for the same thing would. The live tier
+says each of them once more (`tests/live/test_live_demo_sentences.py`,
+against `tests/live/demo_sentences.json`), with the same demo ledger, and
+a quick test keeps this list and that file the same, word for word. Since
+the ledger now takes cards, the fourth sentence, money said where the
+quantity goes, is sent with the money as the total instead of being held
+back, and the assets list EUR as well. A question about cash and money
+moved that is recorded by hand are shown in "Trying the assistant by
+hand"; they are not on this list.
 
 1. `Bought 0.004 BTC at 63250 USDT on OKX on 20 November 2026 at 14:20, fee 0.25 USDT.`
    Gets: One trade sent to the ledger, waiting there: a buy of 0.004 BTC at 63250 USDT, total 253 USDT, fee 0.25 USDT, on 20 November 2026 at 14:20, OKX. No reminder line.
@@ -1157,7 +1165,7 @@ five times.
 3. `Sold 0.1 ETH at 2690 USDT on Binance on 22 November 2026 at 17:05, fee 0.27 USDT.`
    Gets: One trade sent to the ledger, waiting there: a sell of 0.1 ETH at 2690 USDT, total 269 USDT, fee 0.27 USDT, on 22 November 2026 at 17:05, Binance. No reminder line.
 4. `Bought 30 USDT of ADA at 0.31 on OKX on 21 November 2026 at 16:40, fee 0.`
-   Gets: Nothing sent: the money was said where the quantity goes, and the reply says so and asks for the trade again with the money as the total. No reminder line.
+   Gets: One trade sent to the ledger, waiting there: the 30 USDT said where the quantity goes taken as the total, a buy of ADA at 0.31 USDT, its quantity worked out as 96.77419355 and marked worked out by the program, fee 0 USDT, on 21 November 2026 at 16:40, OKX. A reminder line says the quantity was said in a unit that is not the asset.
 5. `Show me my MSFT trades.`
    Gets: A table of every MSFT trade, all time, buys and sells: 3 rows, the buys of 12 August and 2 October 2026 and the sell of 12 November 2026. The header also says it was not narrowed to buys: the model asks for buys, and the program widens it, since the question names no side.
 6. `Which assets does my ledger have?`
@@ -1168,6 +1176,16 @@ five times.
    Gets: A change sent to the ledger, waiting there: the ADA buy of 25 September 2026, its platform from OKX to Binance, shown before and after.
 9. `Delete the MSFT sell on 12 November 2026.`
    Gets: A deletion sent to the ledger, waiting there: the sell of 1 MSFT on 12 November 2026.
+10. `二零二六年十一月二十号下午两点二十分在OKX买了零点零零五个BTC，成交价六万三千五百 USDT，手续费零点三 USDT`
+   Gets: Read as 2026年11月20号下午2点20分在OKX买了0.005个BTC，成交价63500 USDT，手续费0.3 USDT first, then one trade sent to the ledger, waiting there: a buy of 0.005 BTC at 63500 USDT, total 317.5 USDT worked out by the program, fee 0.3 USDT, on 20 November 2026 at 14:20, OKX. No reminder line.
+11. `2026年11月19号15点10分在IBKR买了2股 MSFT，每股410刀，手续费1刀`
+   Gets: One trade sent to the ledger, waiting there: a buy of 2 MSFT at 410 USD, total 820 USD, fee 1 USD, on 19 November 2026 at 15:10, IBKR. "刀" names no money of its own, so the money used and the fee's money are taken from the last MSFT trade in the ledger (12 November 2026, USD), each marked assumed by the program, and the reply says it is a guess. No reminder line.
+12. `2026年11月20号14点20分在OKX买了0.01个BTC，成交价6400 USDT，手续费0.1 USDT`
+   Gets: One trade sent to the ledger, waiting there: a buy of 0.01 BTC at 6400 USDT, total 64 USDT, fee 0.1 USDT, on 20 November 2026 at 14:20, OKX. The price is about 10 times lower than the ledger's market price of BTC, 64880 USDT on 24 November 2026, so it is marked suspicious, and the reply says so. No reminder line.
+13. `2026年11月21号10点15分在Binance买了0.5个ETH，成交价2650 USDT`
+   Gets: One trade sent to the ledger, waiting there with its fee empty: a buy of 0.5 ETH at 2650 USDT, total 1325 USDT, on 21 November 2026 at 10:15, Binance. No fee was said, so nothing is asked: the fee and its money are sent empty, and the reply names them, to be filled in on the ledger's page before saving. A reminder line says 10点15分 was read on a 24-hour clock.
+14. `2026年11月20号15点30分在IBKR花了128欧元买了2股 KO，一股69.5美元，换汇费0.19欧元`
+   Gets: One trade sent to the ledger, waiting there, paid in euros for a share priced in US dollars: a buy of 2 KO at 64 EUR (worked out as 128 ÷ 2), total 128 EUR, the FX fee 0.19 EUR as its fee, on 20 November 2026 at 15:30, IBKR, with the rate 1.0859375 USD for 1 EUR worked out from the 69.5 USD a share said (2 × 69.5 ÷ 128). The reply says the euro amount is taken without the FX fee, and that the rate was compared with none, the ledger having no earlier trade paid in euros. A reminder line names a number no trade used (一).
 
 With the try-out script, `--save` before a sentence saves what it sent in
 the demo ledger, as confirming would on the ledger's page:
@@ -1341,7 +1359,9 @@ The assistant is checked there too, with the demo ledger and the invented
 book's moment: what is held now, one trade told in full, one day's trades,
 and each of the sentences for a demo (`tests/live/test_live_demo_sentences.py`,
 see "Sentences for a demo"), each held to what `tests/live/demo_sentences.json`
-says it must come to.
+says it must come to. The sentences for a demo are said to the demo ledger
+as the Assistant page and the try-out script start it: with its cash and a
+euro, taking cards with cells left empty.
 
 To see what happens when no model server is running, do not stop the one you
 have: point the address at a port nothing listens on instead, for example

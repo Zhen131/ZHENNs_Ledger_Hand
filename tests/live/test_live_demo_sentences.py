@@ -6,8 +6,9 @@ live`` runs it with the settings read from the environment. Each sentence of
 whole assistant, with a new fake ledger and the invented book's fixed moment
 as now, and what came of it is held to what the file says it must come to:
 
-- a trade recorded: the trades sent, every figure, the money, the time and
-  the platform;
+- a trade recorded: the trades sent, every figure (``null`` for a cell sent
+  empty), the money, the time and the platform; where the file says so, the
+  rate, the cells sent empty and the mark on each cell;
 - money said where the quantity goes: nothing sent, and the reply says why;
 - a question: the tool of the last table, its header's time, asset and side,
   how many rows it has and which trades or assets they are;
@@ -35,7 +36,7 @@ import pytest
 from ledger_hand.assistant.lookups import Lookup, header_lines, lookup_lines
 from ledger_hand.flows.conversation import AssistantChat, Said, say
 from ledger_hand.flows.recording import tuning_from
-from ledger_hand.ledger.demo_book import demo_ledger
+from ledger_hand.ledger.demo_euro import demo_ledger_with_euro
 from ledger_hand.ledger.invented_book import INVENTED_NOW, INVENTED_ZONE
 from ledger_hand.llm.local import connect_local_model
 from ledger_hand.settings import load_assistant_steps, load_model_settings
@@ -56,7 +57,7 @@ def said_once(words: str) -> Said:
         AssistantChat(),
         words,
         model=connect_local_model(settings),
-        ledger=demo_ledger(),
+        ledger=demo_ledger_with_euro().taking_cards(),
         now=INVENTED_NOW,
         zone=INVENTED_ZONE,
         max_steps=load_assistant_steps(),
@@ -77,11 +78,25 @@ def check_recorded(said: Said, expect: dict[str, Any]) -> None:
         assert trade.side.value == gold["side"]
         assert trade.asset == gold["asset"]
         for part in ("quantity", "price", "total", "fee"):
-            assert getattr(trade, part) == Decimal(gold[part]), part
+            assert getattr(trade, part) == amount(gold[part]), part
         assert trade.quote == gold["quote"]
         assert trade.fee_asset == gold["fee_asset"]
         assert trade.occurred == datetime.fromisoformat(gold["occurred"])
         assert trade.platform == gold["platform"]
+        if "cost_rate" in gold:
+            assert trade.cost_rate == amount(gold["cost_rate"]), "cost_rate"
+    if "marked" in expect:
+        assert len(said.recorded.marked) == len(expect["marked"])
+        for marked, gold_marks in zip(said.recorded.marked, expect["marked"], strict=True):
+            empty = sorted(field.value for field in marked.marks.empty)
+            assert empty == sorted(gold_marks["empty"]), f"empty: {empty}"
+            marks = {mark.field.value: mark.kind.value for mark in marked.marks.marks}
+            assert marks == gold_marks["marks"], f"marks: {marks}"
+
+
+def amount(gold: str | None) -> Decimal | None:
+    """A figure of the file as a number; ``None`` for a cell sent empty."""
+    return None if gold is None else Decimal(gold)
 
 
 def check_held_back(said: Said, expect: dict[str, Any]) -> None:

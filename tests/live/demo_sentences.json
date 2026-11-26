@@ -1,5 +1,5 @@
 {
-  "about": "The sentences for a demo, each said once in a chat of its own to the whole assistant, with the fake ledger and its demo book behind it (the invented book with seven more assets and nine buys in August 2026), and what each must come to. Every figure, platform and date is invented. No sentence names a time relative to now: the try-out script and the tests take the invented book's fixed moment as now, the Assistant page the machine's clock, so only dates and clock times written in full give the same result in both. README.md, 'Sentences for a demo', lists the same sentences, word for word.",
+  "about": "The sentences for a demo, each said once in a chat of its own to the whole assistant, with the fake ledger and its demo book behind it as the Assistant page and the try-out script start it (the invented book with seven more assets and nine buys in August 2026, its cash, a euro, and cards with cells left empty taken), and what each must come to. Every figure, platform and date is invented. No sentence names a time relative to now: the try-out script and the tests take the invented book's fixed moment as now, the Assistant page the machine's clock, so only dates and clock times written in full give the same result in both. README.md, 'Sentences for a demo', lists the same sentences, word for word.",
   "sentences": [
     {
       "id": "record-coin",
@@ -71,14 +71,35 @@
       "shows": "One trade sent to the ledger, waiting there: a sell of 0.1 ETH at 2690 USDT, total 269 USDT, fee 0.27 USDT, on 22 November 2026 at 17:05, Binance. No reminder line."
     },
     {
-      "id": "record-held-back",
-      "kind": "held_back",
+      "id": "record-money-as-total",
+      "kind": "record",
       "said": "Bought 30 USDT of ADA at 0.31 on OKX on 21 November 2026 at 16:40, fee 0.",
       "expect": {
-        "reply_holds": "its quantity was said as",
-        "reminder_line": false
+        "trades": [
+          {
+            "side": "buy",
+            "asset": "ADA",
+            "quantity": "96.77419355",
+            "price": "0.31",
+            "total": "30",
+            "quote": "USDT",
+            "fee": "0",
+            "fee_asset": "USDT",
+            "occurred": "2026-11-21T16:40:00+01:00",
+            "platform": "OKX"
+          }
+        ],
+        "marked": [
+          {
+            "empty": [],
+            "marks": {
+              "quantity": "computed"
+            }
+          }
+        ],
+        "reminder_line": true
       },
-      "shows": "Nothing sent: the money was said where the quantity goes, and the reply says so and asks for the trade again with the money as the total. No reminder line."
+      "shows": "One trade sent to the ledger, waiting there: the 30 USDT said where the quantity goes taken as the total, a buy of ADA at 0.31 USDT, its quantity worked out as 96.77419355 and marked worked out by the program, fee 0 USDT, on 21 November 2026 at 16:40, OKX. A reminder line says the quantity was said in a unit that is not the asset."
     },
     {
       "id": "ask-share",
@@ -104,7 +125,7 @@
       "said": "Which assets does my ledger have?",
       "expect": {
         "tool": "list_assets",
-        "rows": 13,
+        "rows": 14,
         "items": [
           "USDT",
           "USD",
@@ -118,7 +139,8 @@
           "AAPL",
           "NVDA",
           "PEP",
-          "DOT"
+          "DOT",
+          "EUR"
         ]
       },
       "shows": "A table of the ledger's assets: 14 rows, USDT, USD, BTC, ETH, ADA, MSFT, SOL, INTC, KO, AAPL, NVDA, PEP, DOT and EUR."
@@ -167,6 +189,169 @@
         "reminder_line": false
       },
       "shows": "A deletion sent to the ledger, waiting there: the sell of 1 MSFT on 12 November 2026."
+    },
+    {
+      "id": "record-spoken",
+      "kind": "record",
+      "said": "二零二六年十一月二十号下午两点二十分在OKX买了零点零零五个BTC，成交价六万三千五百 USDT，手续费零点三 USDT",
+      "expect": {
+        "trades": [
+          {
+            "side": "buy",
+            "asset": "BTC",
+            "quantity": "0.005",
+            "price": "63500",
+            "total": "317.5",
+            "quote": "USDT",
+            "fee": "0.3",
+            "fee_asset": "USDT",
+            "occurred": "2026-11-20T14:20:00+01:00",
+            "platform": "OKX"
+          }
+        ],
+        "marked": [
+          {
+            "empty": [],
+            "marks": {
+              "totalValue": "computed"
+            }
+          }
+        ],
+        "reminder_line": false
+      },
+      "shows": "Read as 2026年11月20号下午2点20分在OKX买了0.005个BTC，成交价63500 USDT，手续费0.3 USDT first, then one trade sent to the ledger, waiting there: a buy of 0.005 BTC at 63500 USDT, total 317.5 USDT worked out by the program, fee 0.3 USDT, on 20 November 2026 at 14:20, OKX. No reminder line."
+    },
+    {
+      "id": "record-vague-money",
+      "kind": "record",
+      "said": "2026年11月19号15点10分在IBKR买了2股 MSFT，每股410刀，手续费1刀",
+      "expect": {
+        "trades": [
+          {
+            "side": "buy",
+            "asset": "MSFT",
+            "quantity": "2",
+            "price": "410",
+            "total": "820",
+            "quote": "USD",
+            "fee": "1",
+            "fee_asset": "USD",
+            "occurred": "2026-11-19T15:10:00+01:00",
+            "platform": "IBKR"
+          }
+        ],
+        "marked": [
+          {
+            "empty": [],
+            "marks": {
+              "totalValue": "computed",
+              "quoteAssetId": "inferred",
+              "feeAssetId": "inferred"
+            }
+          }
+        ],
+        "reminder_line": false
+      },
+      "shows": "One trade sent to the ledger, waiting there: a buy of 2 MSFT at 410 USD, total 820 USD, fee 1 USD, on 19 November 2026 at 15:10, IBKR. \"刀\" names no money of its own, so the money used and the fee's money are taken from the last MSFT trade in the ledger (12 November 2026, USD), each marked assumed by the program, and the reply says it is a guess. No reminder line."
+    },
+    {
+      "id": "record-far-price",
+      "kind": "record",
+      "said": "2026年11月20号14点20分在OKX买了0.01个BTC，成交价6400 USDT，手续费0.1 USDT",
+      "expect": {
+        "trades": [
+          {
+            "side": "buy",
+            "asset": "BTC",
+            "quantity": "0.01",
+            "price": "6400",
+            "total": "64",
+            "quote": "USDT",
+            "fee": "0.1",
+            "fee_asset": "USDT",
+            "occurred": "2026-11-20T14:20:00+01:00",
+            "platform": "OKX"
+          }
+        ],
+        "marked": [
+          {
+            "empty": [],
+            "marks": {
+              "price": "suspicious",
+              "totalValue": "computed"
+            }
+          }
+        ],
+        "reminder_line": false
+      },
+      "shows": "One trade sent to the ledger, waiting there: a buy of 0.01 BTC at 6400 USDT, total 64 USDT, fee 0.1 USDT, on 20 November 2026 at 14:20, OKX. The price is about 10 times lower than the ledger's market price of BTC, 64880 USDT on 24 November 2026, so it is marked suspicious, and the reply says so. No reminder line."
+    },
+    {
+      "id": "record-no-fee",
+      "kind": "record",
+      "said": "2026年11月21号10点15分在Binance买了0.5个ETH，成交价2650 USDT",
+      "expect": {
+        "trades": [
+          {
+            "side": "buy",
+            "asset": "ETH",
+            "quantity": "0.5",
+            "price": "2650",
+            "total": "1325",
+            "quote": "USDT",
+            "fee": null,
+            "fee_asset": null,
+            "occurred": "2026-11-21T10:15:00+01:00",
+            "platform": "Binance"
+          }
+        ],
+        "marked": [
+          {
+            "empty": [
+              "fee",
+              "feeAssetId"
+            ],
+            "marks": {
+              "totalValue": "computed"
+            }
+          }
+        ],
+        "reminder_line": true
+      },
+      "shows": "One trade sent to the ledger, waiting there with its fee empty: a buy of 0.5 ETH at 2650 USDT, total 1325 USDT, on 21 November 2026 at 10:15, Binance. No fee was said, so nothing is asked: the fee and its money are sent empty, and the reply names them, to be filled in on the ledger's page before saving. A reminder line says 10点15分 was read on a 24-hour clock."
+    },
+    {
+      "id": "record-euro",
+      "kind": "record",
+      "said": "2026年11月20号15点30分在IBKR花了128欧元买了2股 KO，一股69.5美元，换汇费0.19欧元",
+      "expect": {
+        "trades": [
+          {
+            "side": "buy",
+            "asset": "KO",
+            "quantity": "2",
+            "price": "64",
+            "total": "128",
+            "quote": "EUR",
+            "fee": "0.19",
+            "fee_asset": "EUR",
+            "occurred": "2026-11-20T15:30:00+01:00",
+            "platform": "IBKR",
+            "cost_rate": "1.0859375"
+          }
+        ],
+        "marked": [
+          {
+            "empty": [],
+            "marks": {
+              "price": "computed",
+              "costRate": "computed"
+            }
+          }
+        ],
+        "reminder_line": true
+      },
+      "shows": "One trade sent to the ledger, waiting there, paid in euros for a share priced in US dollars: a buy of 2 KO at 64 EUR (worked out as 128 ÷ 2), total 128 EUR, the FX fee 0.19 EUR as its fee, on 20 November 2026 at 15:30, IBKR, with the rate 1.0859375 USD for 1 EUR worked out from the 69.5 USD a share said (2 × 69.5 ÷ 128). The reply says the euro amount is taken without the FX fee, and that the rate was compared with none, the ledger having no earlier trade paid in euros. A reminder line names a number no trade used (一)."
     }
   ]
 }
