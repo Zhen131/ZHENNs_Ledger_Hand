@@ -60,6 +60,22 @@ assumed mark on an empty cell turns that card down alone. Saving a card
 with an empty cell is refused, saying which cells, so no path writes an
 unfinished trade into the book.
 
+Its cash balances (``cash_balances``) are one of three kinds, chosen when
+it is made (decided on 2026-11-26). By default it has no tool to read them,
+as an older ledger has none: asked, it raises ``NO_CASH_TOOL`` and names no
+call, so that every test written before then keeps the calls it counts.
+Handed ``cash``, it hands back those balances as they are, as the real
+ledger hands its own: one row for each cash asset of its list, in that
+list's order, 0 for one not named; trades change nothing. Handed
+``opening_cash``, each balance is that opening amount moved by every trade
+in the book, the ledger's way (its ``tradeCashImpact.ts``): a buy takes
+its total and a fee paid in the same money out, a sell brings its total
+in less such a fee; a fee paid in any other asset moves no cash. For
+example, 250000 USDT, then a buy of 1 BTC for 58000 USDT with a fee of 58
+USDT: 191942 USDT. So a trade saved on the demo ledger shows in the
+balances next asked for. They are counted up to the later of its market
+prices' day and its latest trade's day.
+
 ``failure``, when given, is raised by every call of the port, so that a test
 can see what becomes of a ledger that fails; ``market_failure`` is raised
 by the call for market prices alone. ``calls`` names every call of
@@ -83,7 +99,11 @@ from decimal import Decimal
 from ledger_hand.core.ledger_limits import text_length
 from ledger_hand.core.ledger_records import (
     MOST_TRADES_LISTED,
+    NO_CASH_TOOL,
     Asset,
+    AssetKind,
+    CashBalance,
+    CashBalances,
     LedgerTrade,
     MarketPrice,
     MoneyAmount,
@@ -105,6 +125,7 @@ from ledger_hand.core.proposals import (
     ProposalStatus,
     TradeCheck,
 )
+from ledger_hand.core.trade import Side
 from ledger_hand.core.trade_card import TradeCard
 from ledger_hand.core.validation import amounts_agree
 from ledger_hand.ledger.fake_sums import period_summary, positions
@@ -166,7 +187,17 @@ class FakeLedger:
         prices_on: date | None = _INVENTED_DAY,
         market_failure: LedgerError | None = None,
         takes_unfinished: bool = False,
+        cash: Mapping[str, Decimal] | None = None,
+        opening_cash: Mapping[str, Decimal] | None = None,
     ) -> None:
+        if cash is not None and opening_cash is not None:
+            raise ValueError("cash balances are given as they are, or as opening amounts, not both")
+        held = {asset.code for asset in assets if asset.kind is AssetKind.CASH}
+        for code in (*(cash or {}), *(opening_cash or {})):
+            if code not in held:
+                raise ValueError(f"{code} is not a cash asset of this ledger")
+        self._cash = dict(cash) if cash is not None else None
+        self._opening_cash = dict(opening_cash) if opening_cash is not None else None
         self._takes_unfinished = takes_unfinished
         self._assets = tuple(assets)
         self._trades: Book = tuple(trades)
@@ -227,6 +258,30 @@ class FakeLedger:
             )
             for (asset, money), amount in sorted(self._prices.items())
         )
+
+    def cash_balances(self) -> CashBalances:
+        if self._cash is None and self._opening_cash is None:
+            # A ledger with no such tool: not a call it answered, so not named.
+            raise LedgerError(
+                LedgerErrorKind.OTHER, NO_CASH_TOOL, "This ledger has no tool for cash balances."
+            )
+        self._called("cash_balances")
+        if self._cash is not None:
+            amounts = self._cash
+        else:
+            assert self._opening_cash is not None
+            amounts = _moved_by(self._opening_cash, self._trades)
+        rows = tuple(
+            CashBalance(
+                code=asset.code, name=asset.name, balance=amounts.get(asset.code, Decimal(0))
+            )
+            for asset in self._assets
+            if asset.kind is AssetKind.CASH
+        )
+        days = [facts.day for _, facts in self._trades]
+        if self._prices_on is not None:
+            days.append(self._prices_on)
+        return CashBalances(day=max(days, default=_INVENTED_DAY), balances=rows)
 
     def propose_add(self, trades: tuple[TradeFacts, ...], said: str) -> ProposalResult:
         self._called("propose_add", said)
@@ -550,6 +605,21 @@ class FakeLedger:
         assert facts is not None
         changed = tuple((key, facts if key == target else old) for key, old in book)
         return None if self._failed(facts, changed) is not None else (changed, target)
+
+
+def _moved_by(opening: Mapping[str, Decimal], book: Book) -> dict[str, Decimal]:
+    """Each opening amount moved by every trade of ``book``, the ledger's way.
+
+    A buy takes its total out of the money it used, and its fee when paid
+    in that same money; a sell brings its total in, less such a fee. A fee
+    paid in any other asset moves no cash.
+    """
+    moved = dict(opening)
+    for _, facts in book:
+        fee = facts.fee if facts.fee_asset == facts.quote else Decimal(0)
+        change = -(facts.total + fee) if facts.side is Side.BUY else facts.total - fee
+        moved[facts.quote] = moved.get(facts.quote, Decimal(0)) + change
+    return moved
 
 
 def _whole_call_refusal(cards: tuple[TradeCard, ...]) -> str | None:

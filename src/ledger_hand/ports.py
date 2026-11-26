@@ -34,7 +34,9 @@ carry moments, so they are declared in ``core.book`` and only named here.
 
 The ledger itself, the one the person keeps their trades in, is reached
 through a ``LedgerPort``: list its assets and trades, sum a stretch of time
-up, say what is held and at what market price, and propose to record,
+up, say what is held and at what market price, say how much of each cash
+money it holds (a ledger with no tool for that says so with its own code,
+``NO_CASH_TOOL``), and propose to record,
 change or delete trades. A
 proposal writes nothing: it waits in the ledger for the person to save or
 reject it there, one proposal for each trade. A ledger that takes a trade
@@ -79,6 +81,7 @@ from ledger_hand.core.book import (
 )
 from ledger_hand.core.ledger_records import (
     Asset,
+    CashBalances,
     MarketPrice,
     PeriodRequest,
     PeriodSummary,
@@ -622,6 +625,16 @@ class LedgerPort(Protocol):
 
         Only read. An asset with a market price in two moneys has one for
         each; a code two assets share has none, since neither is picked.
+        """
+        ...
+
+    def cash_balances(self) -> CashBalances:
+        """How much of each cash money the ledger holds today, one row a money, as it says.
+
+        Only read. A ledger with no tool for it (an older one) raises
+        ``LedgerError`` with the code ``NO_CASH_TOOL`` (kind ``OTHER``),
+        so that "this ledger cannot" is told apart from "it could not be
+        asked this time". Nothing is ever worked out from the trades.
         """
         ...
 

@@ -31,6 +31,11 @@ the ledger; samples in ``tests/ledger/samples/``, 2026-11-25).
   reason it could not be worked out (``Figure`` is either).
 - ``MarketPrice``: the ledger's market price of one asset, in one money,
   and the day it is for.
+- ``CashBalance`` and ``CashBalances``: how much of each cash money the
+  ledger holds, counted up to one day, one row a money, as the ledger
+  hands them back; ``NO_CASH_TOOL`` is the code of the failure of a ledger
+  that has no tool to read them (an older ledger), told apart from a
+  ledger that could not be asked this time.
 
 Money of two kinds is never added together: a sum or a holding is always
 given for one money, named beside it. Amounts are exact decimals, never
@@ -41,7 +46,8 @@ it is never to be shown as midnight.
 Names defined here: ``AssetKind``, ``Pricing``, ``Asset``, ``MoneyAmount``,
 ``NotWorkedOut``, ``Figure``, ``TradeFacts``, ``LedgerTrade``, ``TradeFilter``,
 ``PeriodRequest``, ``AssetRealized``, ``CurrencyTotals``, ``PeriodSummary``,
-``Position``, ``MarketPrice``, ``MOST_TRADES_LISTED`` and ``TradeList``.
+``Position``, ``MarketPrice``, ``MOST_TRADES_LISTED``, ``TradeList``,
+``CashBalance``, ``CashBalances`` and ``NO_CASH_TOOL``.
 """
 
 from __future__ import annotations
@@ -497,3 +503,50 @@ class TradeList:
         ):
             raise TypeError("a list of trades holds a tuple of LedgerTrade values")
         _require_flag("whether older trades were left out", self.cut)
+
+
+# The code of the failure a ledger with no tool to read its cash balances
+# gives (its link answers "UNKNOWN_TOOL"): this ledger cannot, which is not
+# the same as a ledger that could not be asked this time.
+NO_CASH_TOOL = "NO_CASH_TOOL"
+
+
+@dataclass(frozen=True)
+class CashBalance:
+    """How much of one cash money the ledger holds, in that money: 0 or below too.
+
+    ``code`` and ``name`` are the money's own, as the ledger lists them.
+    Example: USDT, "Tether", 1200.5; or USD, "US dollar", -30.
+    """
+
+    code: str
+    name: str
+    balance: Decimal
+
+    def __post_init__(self) -> None:
+        _require_text("a cash money's code", self.code)
+        _require_text("a cash money's name", self.name)
+        _require_signed("a cash balance", self.balance)
+
+
+@dataclass(frozen=True)
+class CashBalances:
+    """Every cash money's balance, counted up to ``day`` (that day included).
+
+    One row a money, those at 0 included, in the ledger's own order. Rows of
+    two moneys are never added together nor converted: each is in its own
+    money. The ledger hands no deposit, withdrawal or exchange back.
+    """
+
+    day: date
+    balances: tuple[CashBalance, ...]
+
+    def __post_init__(self) -> None:
+        _require_day("the day cash balances are counted to", self.day)
+        if not isinstance(self.balances, tuple) or not all(
+            isinstance(row, CashBalance) for row in self.balances
+        ):
+            raise TypeError("cash balances are a tuple of CashBalance values")
+        codes = [row.code for row in self.balances]
+        if len(set(codes)) != len(codes):
+            raise ValueError("one money has one balance, not two")
