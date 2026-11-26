@@ -112,6 +112,7 @@ from ledger_hand.ports import LedgerPort, ModelError, ModelErrorKind, ModelPort,
 from ledger_hand.settings import (
     DEFAULT_ASSISTANT_STEPS,
     DEFAULT_PRICE_GAP_TIMES,
+    DEFAULT_RATE_GAP_PERCENT,
     LEDGER_DIRECTORY_VARIABLE,
     AssistantLedger,
     DataPlaces,
@@ -127,6 +128,7 @@ from ledger_hand.settings import (
     load_ledger_link_settings,
     load_model_settings,
     load_price_gap_times,
+    load_rate_gap_percent,
 )
 from ledger_hand.storage.sqlite_store import SqliteStore
 
@@ -153,7 +155,10 @@ class Parts:
     nothing and says why; the other pages do not use it). ``price_gap`` is
     how many times apart a price and the market price are far, and
     ``price_gap_refused`` why that setting was refused, when it was (the
-    assistant page then sends nothing and says why). ``first_ledger``
+    assistant page then sends nothing and says why). ``rate_gap`` and
+    ``rate_gap_refused`` are the same for how far apart, in a hundred, the
+    rate of a trade paid in another money and the last such rate are.
+    ``first_ledger``
     is which ledger a new tab of the assistant page reaches first, and
     ``first_ledger_refused`` why the setting was refused, when it was.
     """
@@ -174,6 +179,8 @@ class Parts:
     steps_refused: str | None = None
     price_gap: Decimal = DEFAULT_PRICE_GAP_TIMES
     price_gap_refused: str | None = None
+    rate_gap: Decimal = DEFAULT_RATE_GAP_PERCENT
+    rate_gap_refused: str | None = None
     first_ledger: AssistantLedger = AssistantLedger.DEMO
     first_ledger_refused: str | None = None
 
@@ -218,6 +225,7 @@ def assemble(changes: Mapping[Variable, str] | None = None) -> Parts:
     local = settings.plug is Plug.LOCAL
     steps, steps_refused = _steps()
     gap, gap_refused = _price_gap()
+    rate_gap, rate_gap_refused = _rate_gap()
     first, first_refused = _first_ledger()
     return Parts(
         model=model,
@@ -238,6 +246,8 @@ def assemble(changes: Mapping[Variable, str] | None = None) -> Parts:
         steps_refused=steps_refused,
         price_gap=gap,
         price_gap_refused=gap_refused,
+        rate_gap=rate_gap,
+        rate_gap_refused=rate_gap_refused,
         first_ledger=first,
         first_ledger_refused=first_refused,
     )
@@ -272,6 +282,17 @@ def _price_gap() -> tuple[Decimal, str | None]:
         return load_price_gap_times(), None
     except SettingsError as error:
         return DEFAULT_PRICE_GAP_TIMES, str(error)
+
+
+def _rate_gap() -> tuple[Decimal, str | None]:
+    """How far apart, in a hundred, a rate is far, or the default and why it was refused.
+
+    Like a refused price gap, it stops only the assistant page, which says why.
+    """
+    try:
+        return load_rate_gap_percent(), None
+    except SettingsError as error:
+        return DEFAULT_RATE_GAP_PERCENT, str(error)
 
 
 def _vision_model_check(settings: ModelSettings) -> VisionModelCheck:

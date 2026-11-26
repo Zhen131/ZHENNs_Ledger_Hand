@@ -47,6 +47,7 @@ from ledger_hand.ports import LedgerError, LedgerErrorKind, ModelError, ModelErr
 from ledger_hand.settings import (
     ASSISTANT_STEPS_VARIABLE,
     PRICE_GAP_TIMES_VARIABLE,
+    RATE_GAP_PERCENT_VARIABLE,
     ModelSettings,
     Plug,
     Variable,
@@ -63,6 +64,7 @@ class Stop(enum.Enum):
     CLOUD_PLUG = "the cloud plug is set, and the assistant runs on the local plug only"
     STEPS_REFUSED = "the setting of how many steps the assistant may take was refused"
     PRICE_GAP_REFUSED = "the setting of how far a price may be from the market price was refused"
+    RATE_GAP_REFUSED = "the setting of how far a rate between two moneys may be was refused"
 
 
 # {steps} is how many times the model may be asked in one turn.
@@ -94,6 +96,11 @@ STOPS: Mapping[Stop, str] = MappingProxyType(
         Stop.PRICE_GAP_REFUSED: (
             "The assistant cannot start: {detail}. Correct "
             f"{PRICE_GAP_TIMES_VARIABLE}, or remove it to use its default, then start the "
+            "program again. Nothing typed here is sent."
+        ),
+        Stop.RATE_GAP_REFUSED: (
+            "The assistant cannot start: {detail}. Correct "
+            f"{RATE_GAP_PERCENT_VARIABLE}, or remove it to use its default, then start the "
             "program again. Nothing typed here is sent."
         ),
     }

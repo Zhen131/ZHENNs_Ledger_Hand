@@ -38,6 +38,18 @@ the ending's sentence (``GUESSED_WORDS``): which money, from which asset's
 last trade, and that it is a guess to check. The words are fixed here,
 never the model's. (Decided on 2026-11-25.)
 
+Each trade sent that was paid in another money than the one its asset is
+priced in gets its own lines after those of guessed moneys (``RATE_WORDS``,
+``WITHOUT_FX_FEE``, ``RATE_GUESS_WORDS``, ``NO_REFERENCE_WORDS``,
+``FAR_RATE_WORDS``, ``SAID_FAR_WORDS``, ``DROPPED_WORDS``): the two moneys,
+the rate and the price said it was worked out from; always, that the amount
+paid is taken without any FX fee, which is the fee; that the money of the
+price said is a guess, when it was guessed; that no earlier such trade was
+there to compare the rate with, or that the rate or the price said is far;
+and that a price said in the money paid was not used, when it did not agree.
+Its price, in the money paid, is not said to be not compared with the market
+price in another money: the price said was compared instead. (2026-11-26.)
+
 Each trade sent whose price was compared with the ledger's market price
 and found far from it, or could not be compared, gets one line after
 those (``PRICE_WORDS``, one for each ``PriceVerdict``, ``None`` where
@@ -67,7 +79,9 @@ carries no mark when nothing was compared, and the user should not take
 it as checked.
 
 Names defined here: ``ENDING_WORDS``, ``LEFT_OUT_WORDS``,
-``SPOKEN_REMINDERS``, ``PICKED_WORDS``, ``GUESSED_WORDS``, ``PRICE_WORDS``,
+``SPOKEN_REMINDERS``, ``PICKED_WORDS``, ``GUESSED_WORDS``, ``RATE_WORDS``,
+``WITHOUT_FX_FEE``, ``RATE_GUESS_WORDS``, ``NO_REFERENCE_WORDS``, ``FAR_RATE_WORDS``,
+``SAID_FAR_WORDS``, ``DROPPED_WORDS``, ``rate_lines``, ``PRICE_WORDS``,
 ``NOT_CHECKED_WORDS``, ``EMPTY_WORDS``, ``LEDGER_PROBLEM_WORDS``,
 ``NOT_CHECKED_YET_WORDS``, ``SELL_NOT_CHECKED_WORDS``, ``DISAGREE_WORDS``,
 ``DOUBT_WORDS``, ``reply_for``, ``price_line``, ``price_check_words``,
@@ -81,6 +95,7 @@ from decimal import Decimal
 from types import MappingProxyType
 
 from ledger_hand.core.card_record import Doubt
+from ledger_hand.core.cost_rate import RateNote, written
 from ledger_hand.core.marks import FAR_REASON_START
 from ledger_hand.core.price_check import PriceCheck, PriceVerdict
 from ledger_hand.core.proposals import CheckOutcome, TradeCheck
@@ -203,6 +218,39 @@ GUESSED_WORDS: Mapping[frozenset[Inferred], str] = MappingProxyType(
     }
 )
 
+# The lines for a trade paid in another money than its asset's own. The keywords
+# tests look for: "without any FX fee", "This is a guess", "was not compared
+# with one", "is far from".
+RATE_WORDS = (
+    "Trade {number}: paid in {paid}; {asset} is priced in {money}, so the rate {rate} "
+    "({money} for 1 {paid}) was worked out from the {said} {money} {each} you said."
+)
+WITHOUT_FX_FEE = (
+    "The {paid} amount is taken as the money for the {things} alone, without any FX fee; "
+    "the FX fee is recorded as the fee."
+)
+RATE_GUESS_WORDS = (
+    "Trade {number}: the price you said was taken as {money}, the currency of the last "
+    "{asset} trade in the ledger. This is a guess; check it before you confirm."
+)
+NO_REFERENCE_WORDS = (
+    "Trade {number}: the ledger has no earlier trade paid in {paid} for an asset priced in "
+    "{money}, so the rate {rate} was not compared with one."
+)
+FAR_RATE_WORDS = (
+    "Trade {number}: the rate {rate} is far from {reference}, the rate of the {paid} trade "
+    "on {day}. It is marked suspicious; check the {paid} amount before you confirm."
+)
+SAID_FAR_WORDS = (
+    "Trade {number}: the {said} {money} {each} you said is far from the market price of "
+    "{asset} in the ledger, {market} {money}{day} (about {times} times {way}). The rate is "
+    "marked suspicious; check it before you confirm."
+)
+DROPPED_WORDS = (
+    "Trade {number}: the {dropped} {paid} {each} you said was not used: the price is the "
+    "total ÷ the quantity."
+)
+
 # The line for a trade sent whose price was compared with the ledger's market
 # price, or could not be; None where nothing is said. "far from the market
 # price" and "not compared with the market price" are the words to look for.
@@ -316,7 +364,7 @@ def reply_for(recorded: Recorded, *, begun: bool = False) -> str:
     first = ENDING_WORDS[recorded.ending].format(
         question=_question(recorded), code=recorded.missing_money or "", reason=_reason(recorded)
     )
-    lines = [first, *_guessed(recorded), *_priced(recorded), *_cards(recorded)]
+    lines = [first, *_guessed(recorded), *_rated(recorded), *_priced(recorded), *_cards(recorded)]
     if begun or recorded.ending is not RecordEnding.ASKING:
         lines.extend(_picked(recorded))
     lines.extend(_left_out(trade) for trade in recorded.left_out)
@@ -445,13 +493,72 @@ def _waiting_trades(recorded: Recorded) -> list[tuple[int, int]]:
     ]
 
 
+def _rated(recorded: Recorded) -> list[str]:
+    """The lines for each trade waiting that was paid in another money than its asset's own."""
+    if len(recorded.marked) != len(recorded.numbers):
+        return []
+    lines: list[str] = []
+    for place, number in _waiting_trades(recorded):
+        note = recorded.marked[place].rate
+        if note is not None:
+            lines.extend(rate_lines(number, recorded.trades[place].asset, note))
+    return lines
+
+
+def rate_lines(number: int, asset: str, note: RateNote) -> list[str]:
+    """The lines about trade ``number``, paid in another money than ``asset``'s own."""
+    said = note.said
+    fields: dict[str, object] = {
+        "number": number,
+        "asset": asset,
+        "paid": said.paid,
+        "money": said.money,
+        "rate": written(note.rate),
+        "said": written(said.amount),
+        "each": note.each,
+        "things": "shares" if note.each == "a share" else asset,
+    }
+    lines = [RATE_WORDS.format(**fields), WITHOUT_FX_FEE.format(**fields)]
+    if said.guessed_from is not None:
+        lines.append(RATE_GUESS_WORDS.format(**fields))
+    reference = note.reference
+    if reference is None:
+        lines.append(NO_REFERENCE_WORDS.format(**fields))
+    elif note.reference_far:
+        day = reference.day.isoformat()
+        lines.append(FAR_RATE_WORDS.format(**fields, reference=written(reference.rate), day=day))
+    market = note.market
+    if market is not None and market.verdict is PriceVerdict.FAR and market.market is not None:
+        shown = market.market
+        lines.append(
+            SAID_FAR_WORDS.format(
+                **fields,
+                market=written(shown.price.amount),
+                day=f" on {shown.day.isoformat()}" if shown.day else "",
+                times=format(market.times, "f") if market.times is not None else "",
+                way="higher" if market.higher else "lower",
+            )
+        )
+    if note.dropped_disagrees and said.dropped is not None:
+        lines.append(DROPPED_WORDS.format(**fields, dropped=written(said.dropped)))
+    return lines
+
+
 def _priced(recorded: Recorded) -> list[str]:
-    """One line for each trade waiting whose price was far, or was not compared."""
+    """One line for each trade waiting whose price was far, or was not compared.
+
+    A trade paid in another money than its asset's own says nothing of its
+    price in the money paid against a market price in another money: the
+    price said in the asset's own money was compared instead.
+    """
     if len(recorded.marked) != len(recorded.numbers):
         return []
     lines: list[str] = []
     for place, number in _waiting_trades(recorded):
         trade = recorded.trades[place]
+        marked = recorded.marked[place]
+        if marked.rate is not None and marked.price.verdict is PriceVerdict.OTHER_MONEY:
+            continue
         line = price_line(number, trade.asset, recorded.marked[place].price)
         if line is not None:
             lines.append(line)

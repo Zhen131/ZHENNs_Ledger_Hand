@@ -108,7 +108,7 @@ def main() -> None:
     stop = assistant_turns.usable(parts)
     if stop is not None:
         with st.container(key=NOTICE_KEY):
-            refused = parts.steps_refused or parts.price_gap_refused or ""
+            refused = parts.steps_refused or parts.price_gap_refused or parts.rate_gap_refused or ""
             st.warning(stop_words(stop, parts.assistant_steps, refused))
     state = assistant_session.chat()
     waiting = state.recording is not None or state.editing is not None

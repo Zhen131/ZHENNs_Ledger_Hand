@@ -38,6 +38,7 @@ from dataclasses import dataclass
 from decimal import Decimal
 from types import MappingProxyType
 
+from ledger_hand.core.cost_rate import RateNote
 from ledger_hand.core.marks import TradeMarks
 from ledger_hand.core.price_check import PriceCheck
 from ledger_hand.core.proposals import TradeCheck
@@ -160,10 +161,17 @@ class Sent:
 
 @dataclass(frozen=True, kw_only=True)
 class MarkedTrade:
-    """What the program noticed about one trade proposed: its marks, and its price check."""
+    """What the program noticed about one trade proposed: its marks, and its price check.
+
+    ``rate`` is what became of a trade paid in another money than the one
+    its asset is priced in (``RateNote``: the rate sent, the price said in
+    the asset's own money, what it was compared with), ``None`` for any
+    other trade.
+    """
 
     marks: TradeMarks
     price: PriceCheck
+    rate: RateNote | None = None
 
 
 @dataclass(frozen=True, kw_only=True)
