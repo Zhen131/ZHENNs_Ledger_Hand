@@ -398,8 +398,9 @@ Continue records the two exactly as the same words typed, without asking
 the model that chooses tools. The two pages keep their screenshots apart.
 The upload box is greyed out while a question waits. The assistant runs
 on the local plug only: with the cloud plug set, the page says so in one
-sentence and greys the input out. When `LEDGER_HAND_ASSISTANT_STEPS` or
-`LEDGER_HAND_PRICE_GAP_TIMES` is refused, the page says why and greys out
+sentence and greys the input out. When `LEDGER_HAND_ASSISTANT_STEPS`,
+`LEDGER_HAND_PRICE_GAP_TIMES` or `LEDGER_HAND_RATE_GAP_PERCENT` is refused, the
+page says why and greys out
 both the input and the upload box, so no screenshot is read for nothing.
 
 ### Connecting the assistant to your ledger
@@ -1652,6 +1653,7 @@ before.
 | Variable | Default | What it sets | Why this default |
 | --- | --- | --- | --- |
 | `LEDGER_HAND_PRICE_GAP_TIMES` | `5` | How many times apart a trade's price and the ledger's market price of its asset must be, either way, for the price to be marked suspicious; a number above 1 and at most 1000, such as `3` or `2.5`. Exactly that many times counts. | Five was chosen on 2026-11-25 with no source behind it; the product owner may change it. At 1 or below every price would be marked, and beyond 1000 it is the same as not comparing; both bounds are taken for now and wait for a reason. |
+| `LEDGER_HAND_RATE_GAP_PERCENT` | `10` | How far apart, in a hundred, the rate of a trade paid in another money than its asset's own (`costRate`, worked out from the price said in the asset's own money) and the rate of the latest such trade in the ledger, paid in the same money for an asset priced in the same money, must be for the rate to be marked suspicious; a number above 0 and at most 1000, such as `10` or `2.5`. Exactly that far is not far. | Ten was chosen on 2026-11-25 by the session that hands out the work, with no source behind it; the product owner may change it. At 0 every rate but the very same would be marked, and beyond 1000 a figure said ten times wrong is never marked; both bounds are taken for now and wait for a reason. |
 
 Like the step limit, this is not one of the model settings and is not
 shown on the settings page. The Assistant page and
