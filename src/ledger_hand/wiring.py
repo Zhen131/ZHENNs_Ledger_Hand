@@ -22,8 +22,9 @@ place of the model's: a model that is not in the server's list is
 
 For the assistant page, the parts hold the ledger the assistant reaches
 (``ledger``: the demo ledger, a ``ledger.fake_ledger.FakeLedger`` holding
-the demo book of ``ledger.demo_book`` and the cash of ``ledger.demo_cash``,
-a new one each time the parts are built), which kind of ledger it is (``ledger_kind``,
+the demo book of ``ledger.demo_book``, the cash of ``ledger.demo_cash`` and
+the euro of ``ledger.demo_euro``, a new one each time the parts are
+built), which kind of ledger it is (``ledger_kind``,
 ``flows.standing.LedgerKind``), and how many times the assistant may ask
 the model in one turn (``assistant_steps``, from
 ``settings.load_assistant_steps``), and how many times apart a price and
@@ -101,7 +102,7 @@ from ledger_hand.flows.progress import Tuning
 from ledger_hand.flows.recording import tuning_from
 from ledger_hand.flows.standing import LedgerKind
 from ledger_hand.flows.uploading import VisionModelCheck, VisionModelPresence
-from ledger_hand.ledger.demo_cash import demo_ledger_with_cash
+from ledger_hand.ledger.demo_euro import demo_ledger_with_euro
 from ledger_hand.ledger.link_client import LedgerLink, LinkSetup
 from ledger_hand.ledger.link_failures import LinkToken
 from ledger_hand.ledger.link_keeper import LinkKeeper
@@ -238,9 +239,10 @@ def assemble(changes: Mapping[Variable, str] | None = None) -> Parts:
         places=places,
         vision_model=connect_vision_model(settings) if local else None,
         vision_check=_vision_model_check(settings) if local else None,
-        # The demo ledger takes cards with cells left empty, as the real one does now, and
-        # has the ledger's tool for cash balances (``demo_cash``).
-        ledger=demo_ledger_with_cash().taking_cards(),
+        # The demo ledger takes cards with cells left empty, as the real one does now,
+        # has the ledger's tool for cash balances (``demo_cash``), and a euro, with the
+        # money each of its own assets is priced in (``demo_euro``).
+        ledger=demo_ledger_with_euro().taking_cards(),
         ledger_kind=LedgerKind.DEMO,
         assistant_steps=steps,
         steps_refused=steps_refused,

@@ -14,7 +14,9 @@ machine's Ollama), with the fake ledger and its demo book behind the tools
 (``ledger.demo_book``: the invented book with more assets, among them
 shares with Chinese names, and buys in August 2026), and its cash
 (``ledger.demo_cash``: opening amounts of USDT and US dollars that every
-trade then moves). For each thing said
+trade then moves), with a euro and the money each of the demo book's own
+assets is priced in (``ledger.demo_euro``), so a share bought for euros
+goes with its rate. For each thing said
 it prints which way it went (the model chose the
 tools, it was taken as the answer to the question waiting, or the program
 took over after two wrong steps), after a line "read as: ..." when the
@@ -42,21 +44,26 @@ money line is followed by its marks ("marks: price: suspicious (...);
 totalValue: computed (...)", or "marks: none") and what came of comparing
 its price with the ledger's market price ("price check: far from ...",
 "within reach of ...", "no market price in the ledger" or "not compared:
-..."); then who wrote
+..."), and, for a trade paid in another money than its asset's own, the
+rate sent ("rate: 1.0859375 USD for 1 EUR, from the 69.5 USD a share
+said (2 × 69.5 ÷ 128); compared with: ..."); then who wrote
 the last words ("words by: the model", or the program, and when the
 model's words were withheld, why), the assistant's last words and how it
 ended; just before the ending, when a question waits for its answer, what
 it asks about ("asked about: time", the cell's name; "new-coin" when it
 asks whether a word is a coin; "which-cell" when it asks which value is
-wrong). After the steps, when it came up, a line for money moved that is
+wrong; "price-in-USD" when it asks the price of one share in the asset's own
+money). After the steps, when it came up, a line for money moved that is
 recorded by hand ("money moved, to record by hand: deposits"), and what
 the ledger said of its cash: "cash balances: counted up to <day>" with one
 line a money as the ledger gave it, or that it has no tool for them, or
 could not be asked.
 ``LEDGER_HAND_ASSISTANT_STEPS``
 says how many times the model may be asked in one turn (six by default),
-and ``LEDGER_HAND_PRICE_GAP_TIMES`` how many times apart a price and the
-market price are far (five by default).
+``LEDGER_HAND_PRICE_GAP_TIMES`` how many times apart a price and the
+market price are far (five by default), and ``LEDGER_HAND_RATE_GAP_PERCENT``
+how far apart, in a hundred, a rate and the last such rate are (ten by
+default).
 When a question waits, the next argument is its answer.
 
 "Now" is the invented book's fixed moment, 24 November 2026, 23:55 in
@@ -105,7 +112,8 @@ from ledger_hand.assistant.outcome import (
 )
 from ledger_hand.assistant.results import not_done_text
 from ledger_hand.core.card_record import CardRecord
-from ledger_hand.core.followup import AskCell, ConfirmCoin
+from ledger_hand.core.cost_rate import RateNote, written
+from ledger_hand.core.followup import AskCell, AskSaidPrice, ConfirmCoin
 from ledger_hand.core.ledger_records import TradeFacts, TradeFilter
 from ledger_hand.core.marks import TradeMarks
 from ledger_hand.core.proposals import ProposalStatus, TradeCheck
@@ -118,19 +126,21 @@ from ledger_hand.flows.progress import DEFAULT_TUNING, Asked, TradeState, Tuning
 from ledger_hand.flows.record_words import price_check_words
 from ledger_hand.flows.recorded import Recorded
 from ledger_hand.flows.recording import tuning_from
-from ledger_hand.ledger.demo_cash import demo_ledger_with_cash
+from ledger_hand.ledger.demo_euro import demo_ledger_with_euro
 from ledger_hand.ledger.fake_ledger import FakeLedger
 from ledger_hand.ledger.invented_book import INVENTED_NOW, INVENTED_ZONE
 from ledger_hand.llm.connect import connect_model
 from ledger_hand.ports import ModelPort
 from ledger_hand.settings import (
     DEFAULT_PRICE_GAP_TIMES,
+    DEFAULT_RATE_GAP_PERCENT,
     Plug,
     SettingsError,
     Variable,
     load_assistant_steps,
     load_model_settings,
     load_price_gap_times,
+    load_rate_gap_percent,
 )
 
 _ASKING_FOR_HELP = frozenset({"--help", "-h"})
@@ -155,6 +165,7 @@ def main(
     ledger: FakeLedger | None = None,
     max_steps: int | None = None,
     price_gap: Decimal | None = None,
+    rate_gap: Decimal | None = None,
 ) -> int:
     """Run the script; the keyword arguments stand in for the outside world in tests."""
     if len(arguments) == 1 and arguments[0] in _ASKING_FOR_HELP:
@@ -170,15 +181,17 @@ def main(
     now, zone, whose = moment
     tuning = DEFAULT_TUNING
     gap = price_gap if price_gap is not None else DEFAULT_PRICE_GAP_TIMES
+    rates = rate_gap if rate_gap is not None else DEFAULT_RATE_GAP_PERCENT
     if model is None or max_steps is None:
         built = _model_and_steps(out)
         if built is None:
             return 2
         model, max_steps, tuning = model or built[0], max_steps or built[1], built[2]
         gap = price_gap if price_gap is not None else built[3]
-    # The demo ledger takes cards with cells left empty, as the real one does now, and
-    # has the ledger's tool for cash balances (``demo_cash``).
-    ledger = ledger or demo_ledger_with_cash().taking_cards()
+        rates = rate_gap if rate_gap is not None else built[4]
+    # The demo ledger takes cards with cells left empty, as the real one does now,
+    # has the ledger's tool for cash balances (``demo_cash``), and a euro (``demo_euro``).
+    ledger = ledger or demo_ledger_with_euro().taking_cards()
     print(f"now:    {now.isoformat()} in {zone} ({whose} moment)", file=out)
     print(f"model:  {getattr(model, 'name', None) or _model_name()}", file=out)
     print(f"ledger: {type(ledger).__name__}; at most {max_steps} steps a turn", file=out)
@@ -195,6 +208,7 @@ def main(
             max_steps=max_steps,
             tuning=tuning,
             price_gap=gap,
+            rate_gap=rates,
         )
         show_said(words, said, out)
         all_well = all_well and said.well_ended
@@ -240,11 +254,12 @@ def _moment(out: TextIO) -> tuple[datetime, str, str] | None:
     return datetime.now(timezone.utc), name, "the machine's"
 
 
-def _model_and_steps(out: TextIO) -> tuple[ModelPort, int, Tuning, Decimal] | None:
+def _model_and_steps(out: TextIO) -> tuple[ModelPort, int, Tuning, Decimal, Decimal] | None:
     try:
         settings = load_model_settings()
         steps = load_assistant_steps()
         gap = load_price_gap_times()
+        rates = load_rate_gap_percent()
     except SettingsError as error:
         print(f"setting refused: {error}", file=out)
         return None
@@ -255,7 +270,7 @@ def _model_and_steps(out: TextIO) -> tuple[ModelPort, int, Tuning, Decimal] | No
             file=out,
         )
         return None
-    return connect_model(settings), steps, tuning_from(settings), gap
+    return connect_model(settings), steps, tuning_from(settings), gap, rates
 
 
 def _model_name() -> str:
@@ -308,6 +323,9 @@ def _show_recording(said: Said, recorded: Recorded, out: TextIO) -> None:
         if marked:
             print(f"    {marks_line(marked[place].marks)}", file=out)
             print(f"    price check: {price_check_words(marked[place].price)}", file=out)
+            note = marked[place].rate
+            if note is not None:
+                print(f"    {rate_line(note)}", file=out)
         check = recorded.checks[place] if len(recorded.checks) == len(recorded.trades) else None
         empty = empty_line(trade, check)
         if empty is not None:
@@ -369,11 +387,17 @@ def _show_end(said: Said, out: TextIO) -> None:
 
 
 def asked_about(asked: Asked) -> str:
-    """What a question asks about, in one word: a cell's name, ``new-coin`` or ``which-cell``."""
+    """What a question asks about, in one word: a cell's name, ``new-coin`` or ``which-cell``.
+
+    The price of one unit in the asset's own money, for a trade paid in
+    another money, is ``price-in-USD`` (its money named).
+    """
     if isinstance(asked, AskCell):
         return asked.cell.value
     if isinstance(asked, ConfirmCoin):
         return "new-coin"
+    if isinstance(asked, AskSaidPrice):
+        return f"price-in-{asked.money}"
     return "which-cell"
 
 
@@ -502,6 +526,29 @@ def money_line(trade: TradeState) -> str:
     if fee is None:
         fee = price if record.fee.is_zero() else "said"
     return f"money: price {price}, fee {fee}"
+
+
+def rate_line(note: RateNote) -> str:
+    """The rate a trade paid in another money was sent with, what it came from and was compared
+    with.
+
+    Example: "rate: 1.0859375 USD for 1 EUR, from the 69.5 USD a share said (2 × 69.5 ÷ 128);
+    compared with: none in the ledger".
+    """
+    said = note.said
+    guess = " (its money a guess)" if said.guessed_from is not None else ""
+    reference = note.reference
+    if reference is None:
+        compared = "none in the ledger"
+    else:
+        far = ", far" if note.reference_far else ""
+        compared = f"{written(reference.rate)} of {reference.trade_id} on {reference.day}{far}"
+    return (
+        f"rate: {written(note.rate)} {said.money} for 1 {said.paid}, from the "
+        f"{written(said.amount)} {said.money} {note.each} said{guess} "
+        f"({written(note.quantity)} × {written(said.amount)} ÷ {written(note.total)}); "
+        f"compared with: {compared}"
+    )
 
 
 def marks_line(marks: TradeMarks) -> str:

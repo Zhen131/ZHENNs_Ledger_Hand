@@ -121,7 +121,7 @@
           "DOT"
         ]
       },
-      "shows": "A table of the ledger's assets: 13 rows, USDT, USD, BTC, ETH, ADA, MSFT, SOL, INTC, KO, AAPL, NVDA, PEP and DOT."
+      "shows": "A table of the ledger's assets: 14 rows, USDT, USD, BTC, ETH, ADA, MSFT, SOL, INTC, KO, AAPL, NVDA, PEP, DOT and EUR."
     },
     {
       "id": "ask-holdings",

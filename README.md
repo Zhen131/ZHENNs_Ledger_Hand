@@ -1105,7 +1105,7 @@ five times.
 5. `Show me my MSFT trades.`
    Gets: A table of every MSFT trade, all time, buys and sells: 3 rows, the buys of 12 August and 2 October 2026 and the sell of 12 November 2026. The header also says it was not narrowed to buys: the model asks for buys, and the program widens it, since the question names no side.
 6. `Which assets does my ledger have?`
-   Gets: A table of the ledger's assets: 13 rows, USDT, USD, BTC, ETH, ADA, MSFT, SOL, INTC, KO, AAPL, NVDA, PEP and DOT.
+   Gets: A table of the ledger's assets: 14 rows, USDT, USD, BTC, ETH, ADA, MSFT, SOL, INTC, KO, AAPL, NVDA, PEP, DOT and EUR.
 7. `Which coins and shares am I holding at the moment?`
    Gets: A table of what is held: 9 rows, AAPL, ADA, BTC, ETH, INTC, KO, MSFT, NVDA and SOL, each with its cost and its profit or loss on paper (not worked out for ADA, which has no market price).
 8. `Change the platform of the ADA buy on 25 September 2026 to Binance.`
