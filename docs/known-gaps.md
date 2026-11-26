@@ -586,6 +586,10 @@ the ledger gave them (decided on 2026-11-26). What is still not there:
   reply is made, and only when it matters; a reply made against an older
   ledger keeps its old line under a table of holdings even after the
   ledger is upgraded.
+- **The model may call USDT dollars.** Repeating a holding, the model
+  wrote a profit of USDT as "美元" or "USD" (measured 2026-11-26: "未实现利润为
+  6919.59984044美元", "unrealized profit of 1170.41008219 USD"); the table
+  under the reply names USDT, which is the right money. Not mended here.
 - **`Route.CASH` keeps its words.** Its value still reads "which it cannot
   look up"; it is kept as it was, since pages and records hold it.
 
@@ -694,22 +698,48 @@ was sent, please record it in the ledger yourself
   eight signs between ("我入了500美金"), "转入了500U", "deposit", "top up";
   not "买入金额", "收入", "投入", "买入了30美金". A withdrawal: "出金",
   "提现", "取现", "出了…金", "withdraw", "cash out"; not "卖出", "支出". An
-  exchange: "换成", "兑换", "换了", "换汇", "convert", "exchange", with two
-  moneys named and no coin or share named at all; "换汇费", "FX fee",
+  exchange: "换成", "兑换", "换了", "换汇", "convert", "exchange", with a
+  money named and no coin or share named at all ("换了300欧元"); "换汇费", "FX fee",
   "exchange fee" and "汇率转换的费用" are a trade's fee, not an exchange. A
   dividend: "分红", "派息", "股息", "dividend".
 - **Said, not asked.** A sentence with the shape of a question or a request
   ("多少", "几", "吗", "什么", "?", "how", "what", "did I", "查", "看",
   "告诉我", "show", "list", "tell me") is no statement, and goes to the
   question about cash, or to the model, as before.
-- **Beside a trade.** With a buy or a sell spoken of too ("买", "卖", "购",
-  "bought", "sold", "buy", "sell"), the trade is recorded as usual and the
-  reply ends with "Please record that part in the ledger yourself"; when
-  no trade was recorded (the model did not ask to record, or no trade was
-  found), a line says the trade was not recorded either. Whether a trade
-  was spoken of is read from those words alone: "入金500U，打算下周买BTC"
+- **Beside a trade.** Only a statement that names no coin or share (the
+  ledger's own assets that are not money, and the built-in coins) and says
+  no buy or sell ("买", "卖", "购", "bought", "sold", "buy", "sell") is
+  answered whole by the program (rework of 2026-11-26: a list of verbs is
+  never whole, and "股息再投资了0.1股KO", "Dividend reinvested into 0.1 KO",
+  "入金后上车了0.01个BTC", "Deposited 500 USDT and went long 0.01 BTC" were
+  swallowed). Any other goes to the model as usual, and the reply ends with
+  "Please record that part in the ledger yourself"; when no trade was
+  recorded (the model did not ask to record, or no trade was found), a
+  line says the trade was not recorded either. "入金500U，打算下周买BTC"
   goes to the model, which should record nothing for a plan, and the reply
   ends with both lines.
+- **Moving a coin in is handed to the model.** "入金了 0.5 个 BTC" (a coin
+  moved into the account, not bought) names BTC, so it goes to the model,
+  which may propose a buy of 0.5 BTC. The reply ends with the line that the
+  deposit is to be recorded by hand, and the card waits to be confirmed on
+  the ledger's page, but the user has to see that this one is not to be
+  confirmed. So does "Got a 2.1 USD dividend from KO today" when the ledger
+  holds KO: it goes to the model, which may propose a KO buy.
+- **A trade taken for a question about cash.** The question about cash
+  (another session's, unchanged) catches some trades: "今天现金买了2股KO",
+  "用U剩下的500买了3个SOL", "Bought 0.01 BTC with cash today",
+  "入金500U到现金账户，然后…买了0.01个BTC". It lays out the cash balances, and
+  when the words were said, not asked, and name a coin or share, the reply
+  ends with "This was taken as a question about cash. If you meant to
+  record a trade, please say the trade again on its own." Nothing of the
+  trade is recorded, and a deposit said beside it gets no line of its own.
+- **An exchange beside a trade is not seen.** "今天把500欧元换成了540美元，然后
+  下午4点买了2股AAPL" names AAPL, so no exchange is read; the model may
+  take the exchange for a trade and ask whether it was a buy or a sell, and
+  no line says the exchange is to be recorded by hand.
+- **A failed deposit is still told to be recorded.** "出金失败了" or "入金失败"
+  is read as money moved and answered "Please record it in the ledger
+  yourself", though a failed one is recorded nowhere.
 - **What it does not catch.** Other words ("往账户里打了500U", "转了500U进来",
   "领了股息" is caught but "收到了可口可乐给的钱" is not), and an exchange
   that names a coin ("把100U换成了比特币" is a buy, as before). Such a
