@@ -852,6 +852,50 @@ the ledger first; money bought with money ("用美元买了500 USDT") is an
 exchange, which the assistant leaves to the ledger. The Record page keeps
 the built-in coins and USDT.
 
+A trade paid in one money for an asset the ledger prices in another
+("今天15:30花了128欧元买了2股KO，一股69.5美元，换汇费0.19欧元", with KO priced
+in US dollars and a euro added in the ledger) is sent the way the ledger
+takes it: paid in EUR, its price and total in EUR (the price worked out as
+the total over the quantity, 64 EUR), the FX fee as its fee (0.19 EUR), and
+the rate between the two moneys (`costRate`, 1 EUR in USD) worked out from
+the dollar price said: 2 × 69.5 ÷ 128 = 1.0859375, to ten places, marked
+worked out, its reason naming the 69.5 USD said. The dollar price is in no
+cell of the trade. It goes this way only when all three hold: the ledger
+says which money the asset is itself priced in; the total names, on its
+own, another money the ledger prices trades in ("128欧元"; a total with no
+money is not paid in the fee's money); and the two are not USDT and the US
+dollar, which are never set against each other. The price then decides:
+
+- the asset's own money named ("69.5美元"): that price;
+- a vague word ("69.5美金"): the asset's own money when the trade's fee
+  names it, or, with neither USDT nor dollars named, when the asset's last
+  trade in the ledger used it; the rate is then marked assumed and the
+  reply says it is a guess. After a trade of KO paid in euros, "美金" is no
+  longer read as dollars, and the user is asked which money, as before;
+- the money paid ("一股64欧元"), or no price: the program asks "Trade 1 was
+  paid in EUR, but KO is priced in USD. How much was one share in USD?"; a
+  number alone or with "美元" answers it, "美金" or "USDT" is asked again;
+- another money ("69.5 USDT" for KO), or a number with no money: nothing
+  changes, the trade goes on as before.
+
+A quantity not said is asked, even though the ledger takes cards, since
+the rate needs it; no amount is ever worked out from figures said in two
+moneys (such a blank is asked). The euro amount said is taken without any
+FX fee, and the reply says so each time ("The EUR amount is taken as the
+money for the shares alone, without any FX fee; the FX fee is recorded as
+the fee."). Two guards: the rate is compared with the rate of the latest
+trade in the ledger paid in the same money for an asset priced in the same
+money (the asset's own first, then any), far at more than ten in a
+hundred (`LEDGER_HAND_RATE_GAP_PERCENT`, see "Settings"), and the reply
+says when there was none to compare with; the dollar price said is
+compared with the ledger's market price of the asset, as a price is. Far,
+the rate is marked suspicious with the figures, and the trade is still
+sent. The try-out script prints a line under such a trade (`rate:
+1.0859375 USD for 1 EUR, from the 69.5 USD a share said (2 × 69.5 ÷ 128);
+compared with: ...`), and the page's card shows a rate cell and the price
+said. What this does not do is in `docs/known-gaps.md`, "The assistant:
+trades paid in another money".
+
 A share or a coin said by a name the ledger's list does not hold as it is
 ("微软", "微软的股票", "Coca Cola") is asked about today: "The ledger lists
 no asset by that name; which asset was it?", with a note to answer with
@@ -1063,6 +1107,15 @@ way, so "我还有多少USDT" lays out about 140,080.19 USDT and 17,093.94 US
 dollars, and a trade saved in the demo shows in the balances next asked
 for. The demo book's own file and `demo_ledger` stay as they were, with no
 tool for cash.
+They also hold a euro (`src/ledger_hand/ledger/demo_euro.py`): EUR is added
+after every asset as a money trades may be paid in, with 5,000 euros of
+opening cash, and the demo book's own seven assets name the money they are
+priced in (USDT for SOL and DOT, US dollars for the five shares), so
+"今天15:30花了128欧元买了2股KO，一股69.5美元，换汇费0.19欧元" is sent paid in
+euros with its rate. The four assets taken from the invented book (BTC,
+ETH, ADA, MSFT) name none, so euros paid for them are asked about as
+before. The demo book has no trade paid in euros, so such a rate is never
+compared with an earlier one, and the reply says so.
 Besides the invented book's market prices (BTC 64880 USDT, ETH 2701 USDT,
 MSFT 441.62 USD) it has five near their August buys: SOL 150 USDT, INTC
 24 USD, KO 70 USD, AAPL 230 USD and NVDA 130 USD. ADA has none, on
@@ -1403,8 +1456,12 @@ another trade's turn; ⑤ not sent; or not measured), with the columns kept
 apart beside them (`evals/spoken_judge.py`, `evals/spoken_tally.py`). It
 answers one question only: the asset's code, once a trade, when the
 program asks which asset a trade is; a trade saved after that is counted
-apart (①a). A sentence the ledger cannot take yet (a payment in euros) is
-not enabled and counted in a table of its own. The question and change
+apart (①a). A sentence the ledger cannot take yet is not enabled and
+counted in a table of its own. The practice halves' five sentences of euros
+paid for a share were enabled on 2026-11-26: each names the exam book with
+a euro (`"book": "exam-euro"`, `exam_ledger_with_euro`), and its gold trade
+the rate it should be sent with (`"cost_rate"`), judged within a
+ten-thousandth; the hidden halves' are not enabled yet. The question and change
 measures read the same two keys at a set's top: `"book": "exam"` holds the
 exam book, and `"half": "hidden"` keeps the run to its totals; a set that
 names neither runs as before.

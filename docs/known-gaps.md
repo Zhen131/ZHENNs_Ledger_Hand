@@ -511,10 +511,18 @@ part of batch 68 the Assistant page reaches it too. What it does not do:
   its day, the plug sends `occurredDate` alone; before, it refused. The
   ledger's README does not say how a trade with a day alone is changed,
   and no test covers this path yet.
-- **A trade in another money than the asset's own is not sent.** The
-  ledger then needs the rate between the two moneys (`costRate`), which
-  the assistant does not ask for; the plug says so for that trade
-  (`HAND_NEEDS_COST_RATE`) and sends the others.
+- **A trade in another money than the asset's own goes only with its
+  rate.** The ledger then needs the rate between the two moneys
+  (`costRate`). Since 2026-11-26 the assistant works one out for a trade
+  that goes the way of "The assistant: trades paid in another money"
+  below, and the plug sends it as it is; any other trade in another money
+  than the asset's own reaches the plug with no rate, and the plug still
+  says so for that trade (`HAND_NEEDS_COST_RATE`), sending the others. Its
+  words still say the program "does not ask for" the rate, which is no
+  longer true of every such trade; the words were left as they were, the
+  plug being another session's file. The plug's samples for a trade paid
+  in euros were written from the ledger's README and tests, not captured
+  (`tests/ledger/samples/*-euro-*-documented.json`).
 - **A time with seconds is not sent.** The ledger takes a time to the
   minute; the plug says so (`HAND_TIME_HAS_SECONDS`).
 - **"bought_with" keeps its old name for the model.** For a holding it now
@@ -756,6 +764,66 @@ was sent, please record it in the ledger yourself
   reading and the reading of a balance of any money with no model; none
   is caught (`tests/evals/test_money_asks_not_misread.py`).
 
+## The assistant: trades paid in another money
+
+Since 2026-11-26 a trade paid in one money for an asset the ledger prices
+in another ("今天15:30花了128欧元买了2股KO，一股69.5美元，换汇费0.19欧元") is
+sent paid in that money, with the rate between the two worked out from the
+price said in the asset's own money (`flows/paid_apart.py`,
+`core/cost_rate.py`; README, "The assistant page"). What it does not do:
+
+- **Only when the ledger names the asset's own money.** An asset whose
+  `priceCurrencyCode` the ledger leaves empty (an older ledger, the fake
+  ledger's invented book, and the four assets the demo book takes from it:
+  BTC, ETH, ADA, MSFT) goes on as before: euros paid for Microsoft in the
+  demo are asked which money.
+- **The total must name the money paid itself.** "花了128，……，换汇费0.19欧元"
+  is not taken as paid in euros: the money is never read from the fee.
+- **"美金" for the share price follows the asset's last trade.** After a
+  trade of KO paid in euros, "一股70美金" is no longer read as dollars: the
+  user is asked which money, as the owner's rule of 2026-11-25 says
+  (`81A`, part 2, item 2). Reading a vague word by the asset's own money
+  would widen that rule, which is the product owner's to do.
+- **USDT and the US dollar are never set against each other.** Dollars
+  paid for a coin priced in USDT, or USDT for a share priced in dollars,
+  go on as before (asked which money, or the three amounts in doubt).
+- **One price a trade.** "一股64欧元，也就是69.5美元" keeps only the number
+  the model put in the price cell: the dollars, or, with the euros there,
+  the user is asked the price in dollars. The other number is not looked
+  for in what was said.
+- **The euro amount is taken without the FX fee.** The FX fee is the fee,
+  and the reply says so each time. If the amount said already holds the
+  fee, the ledger takes the fee from the euro cash a second time (0.19
+  euros in the example), and the rate is a little off (139 ÷ 127.81 ≈
+  1.0875 instead of 1.0859375).
+- **A fee in a third money is not taken from any cash.** "换汇费0.2美元" on
+  a trade paid in euros is sent as a fee of 0.2 USD; the ledger then marks
+  the trade's cost as not exact and moves no cash for the fee.
+- **The rate's reference is the ledger's latest such trade, as listed.**
+  It is looked for among the asset's own trades as listed for its money,
+  then among one page of the ledger's trades asked with no condition (the
+  latest 2000 at most). With none, nothing is compared, and the reply says
+  so; the first trade paid in euros has no guard but the market price of
+  the share. The demo book has no trade paid in euros, so its rates are
+  never compared. Ten in a hundred has no source behind it
+  (`LEDGER_HAND_RATE_GAP_PERCENT`).
+- **A blank is asked where it would be worked out across two moneys.** A
+  quantity, price or total missing beside a price and a total said in two
+  moneys is asked, even though the ledger takes cards, and so is the
+  quantity of a trade paid in another money; such a trade sends nothing
+  until it is answered. A trade whose money was named only in the price
+  cell by the model, with no unit beside the price ("用欧元买了2股KO，一股
+  69.5美元" with no money copied), is read as priced in dollars, its total
+  worked out as 139 USD: what was said there is not known to the program.
+- **Changing, deleting and asking do not show the rate.** A change of a
+  trade paid in another money sends its rate as listed; the tables of
+  trades do not show it.
+- **The fake ledger keeps one pool for each asset and money.** Selling
+  KO for euros there needs KO bought for euros; the real ledger holds the
+  asset as one.
+- **The hidden halves' sentences of euros paid are not enabled.** See
+  "The assistant: recording a trade".
+
 ## The assistant: recording a trade
 
 - **No reminder that the same words were recorded before.** The assistant
@@ -972,8 +1040,10 @@ was sent, please record it in the ledger yourself
     a share, so the trades should be asked for by the asset's identifier,
     not its code, once the real ledger is connected;
   - a trade paid in euros for a share priced in US dollars ("花了0.46欧
-    ……一股81.13美金") cannot be recorded yet: with no euro in the ledger it
-    is not sent; with one, the user is asked which money it was in.
+    ……一股81.13美金"): with no euro in the ledger it is not sent; with one,
+    and the ledger naming the share's own money, it is sent paid in euros
+    with its rate since 2026-11-26 (see "The assistant: trades paid in
+    another money"); otherwise the user is asked which money it was in.
 - **One more question when the ledger prices in two moneys.** With USDT
   and USD both pricing trades, a price said with no money ("价格94900") is
   asked about ("Which currency was this trade priced in?") before anything
@@ -1158,11 +1228,14 @@ was sent, please record it in the ledger yourself
   "都没有手续费" are left out by the model on four practice sentences, and
   the program then asks for the fee. A sentence with no "买" before the
   amounts ("在OKX，…个SOL，花了…U") is asked whether it was a buy or a sell.
-- **A payment in euros is not recorded.** The ledger has no euro yet, so
-  a share bought with euros (with a fee for changing money) is not sent,
-  and the reply says the ledger has no currency EUR; all nine such
-  sentences of the exam ended so. Dividends, deposits and withdrawals are
-  not in the exam.
+- **A payment in euros is measured on the practice halves only.** Against
+  the exam book, which has no euro, a share bought with euros is not sent,
+  and the reply says the ledger has no currency EUR. Since 2026-11-26 the
+  practice halves' five such sentences are enabled and said against the
+  exam book with a euro (`exam_ledger_with_euro`); the hidden halves' are
+  not enabled yet, and wait for a helper who writes their gold answers
+  without the rest being seen. Dividends, deposits and withdrawals are not
+  in the practice halves.
 - **The tools' words still say to list trades before a change.** The
   system prompt's rule and `list_trades`'s own words both say to find the
   trade first; the tools that change and delete say to call them straight
@@ -1431,9 +1504,11 @@ What reaching the ledger page from the Assistant page does not do yet:
   cash balance, so the assistant says it cannot look one up (see "The
   assistant: cash"). The ledger's `dev` has since added one (`5762751`);
   this program does not use it yet.
-- **A trade in another money than the asset's own is not sent.** The
-  ledger then needs the rate between the two moneys, which the assistant
-  does not ask for (see "The real ledger's plug").
+- **A trade in another money than the asset's own goes only with its
+  rate.** The assistant works the rate out only for a trade that goes the
+  way of "The assistant: trades paid in another money"; any other such
+  trade is not sent (see "The real ledger's plug"). Tried only on answers
+  written from the ledger's README, never on a running ledger.
 - **After a timeout or a reload, the assistant only says it cannot tell.**
   The ledger's rules for an assistant (its `assistant-link/README.md`,
   "Rules an assistant must keep", 4 and 5) ask it to look through the

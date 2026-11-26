@@ -65,6 +65,7 @@ src/ledger_hand/
         ledger_records.py     what the ledger port hands back: assets, trades, sums, holdings (exists)
         proposals.py          the ledger's answer to a proposal, and where one stands (exists)
         price_check.py        a trade's price against the ledger's market price       (exists)
+        cost_rate.py          the rate of a trade paid in another money, compared and marked (exists)
         marks.py              the marks on a trade's cells: worked out, assumed, suspicious (exists)
         trade_card.py         a trade proposed with cells left empty, and its marks as sent (exists)
         card_record.py        a card's cells kept, left empty or doubted; why a cell is doubted (exists)
@@ -154,6 +155,7 @@ src/ledger_hand/
         invented_book.py      the invented book: assets, trades, market prices, "now"  (exists)
         demo_book.py          the demo book: the invented one, seven assets and nine buys more (exists)
         demo_cash.py          the demo ledger with cash its trades move, for the page and the script (exists)
+        demo_euro.py          the demo ledger with a euro and its assets' own moneys (exists)
         moving_average.py     the fake ledger's own way of working out cost and profit (exists)
         fake_sums.py          the fake ledger's sums of a stretch of time and holdings (exists)
     assistant/            what the assistant's model is handed, and how its calls are judged (exists)
@@ -206,6 +208,8 @@ src/ledger_hand/
         assistant_record.py   the assistant's record: one versioned line per thing said (exists)
         cash_question.py      a question about cash caught before the model; the fixed words (exists)
         cash_answers.py       the ledger's cash balances answered; money moved said truthfully (exists)
+        paid_apart.py         a trade paid in another money than its asset's own: when, and how (exists)
+        said_price_asking.py  the price in the asset's own money asked and read by the program (exists)
     settings.py           the only place that reads settings; why each default, as data (exists)
     wiring.py             builds the parts from the settings, page changes, the clock and the zone (exists)
     ui/                   the user interface; the only place that may use Streamlit   (exists)
@@ -838,7 +842,9 @@ Two plugs:
   more assets (shares with Chinese names among them, PepsiCo and DOT never
   traded) and nine buys in August 2026, which the Assistant page and the
   try-out script start with, with opening cash (`ledger/demo_cash.py`,
-  `demo_ledger_with_cash`).
+  `demo_ledger_with_cash`), and with a euro and the money each of its own
+  assets is priced in (`ledger/demo_euro.py`, `demo_ledger_with_euro`, which
+  the page and the try-out script start with).
 - `ledger/link_ledger.py`: the real ledger, through its assistant link.
   `ledger/link_client.py` starts the ledger's own `assistant-link/main.ts`
   as a child process and speaks JSON-RPC with it; the plug turns the
@@ -987,6 +993,40 @@ saved (`TradeCheck.ready`), its empty cells and what the ledger found in
 the cells given (`LedgerProblem`), said back in the ledger's own words.
 The fake ledger checks cards and marks by the ledger's rules; the real
 plug sends `allowUnfinished`, `fieldMarks` and `null` for an empty cell.
+
+A trade paid in one money for an asset the ledger prices in another
+(2026-11-26; "花了128欧元买了2股KO，一股69.5美元"). Extraction keeps, beside
+each draft of a table made from the ledger's list, the one word for money
+written with its price, total and fee (`core/trade.py`, `MoneysSaid`;
+`Extracted.moneys_said`, kept in `Progress.moneys_said`). Before a trade is
+checked, `flows/paid_apart.py` decides whether it goes this way: the
+asset's own money A is known (`AssetTable.price_money_of`, from the
+ledger's `priceCurrencyCode`), the total's own unit names another money P
+the ledger prices in, and P and A are not USDT and the US dollar. The
+price's unit then gives the price said in A, a vague word read by the
+trade's own fee or the asset's last trade (the same lookup as guessing,
+kept with what it listed, `LastMoney.listed`), or, with P or no price, a
+question of the program's own (`AskSaidPrice`, `flows/said_price_asking.py`,
+read by the program, never the model). Taken, the draft's money is P and
+its price blank, worked out as the total over the quantity by the check;
+the price said in A is kept apart (`Progress.said_prices`, a `SaidPrice`)
+and copied onto the record or card (`said_price`); a quantity not said is
+asked even when the ledger takes cards. Any trade whose price or total
+named a money other than the trade's (extraction's reminders say so) and
+that would have its third amount worked out has that amount asked instead
+(`recording._worked_across`): nothing is worked out across two moneys.
+`flows/proposing.py` then works out the rate (`core/cost_rate.py`,
+`rate_of`: quantity × price said ÷ total, ten places), compares it with
+the latest trade paid in P for an asset priced in A (the asset's own as
+listed, then one more `list_trades` with no condition), far beyond
+`LEDGER_HAND_RATE_GAP_PERCENT` in a hundred, and the price said with the
+market price in A; it sends the rate (`TradeCard.cost_rate`), marks it
+(`with_rate_marks`: worked out, assumed or suspicious, on `costRate`) and
+hands what came of it back (`MarkedTrade.rate`, a `RateNote`) to the
+reply's lines (`record_words.rate_lines`), the page's card, the try-out
+script and the assistant's record ("rates", version 8). The fake ledger
+checks the rate by the ledger's own rule for an asset whose own money its
+book names.
 
 A trade whose quantity was said in a unit
 that is not the asset traded ("25U" of ETH) is held back when the flow
