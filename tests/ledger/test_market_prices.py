@@ -132,6 +132,16 @@ def test_two_assets_sharing_a_code_give_no_market_price_for_either() -> None:
     assert ledger.market_prices() == ()
 
 
+@pytest.mark.parametrize("odd", ["NaN", "Infinity", "-Infinity", "not a number"])
+def test_a_market_price_that_is_not_a_number_is_no_market_price(odd: str) -> None:
+    answer = positions_with(
+        {"BTC": priced(odd, "USDT", "2026-11-24"), "ETH": priced("2701", "USDT", "2026-11-24")}
+    )
+    ledger, _ = plug(("get_positions", answer), ASSETS)
+
+    assert [found.asset for found in ledger.market_prices()] == ["ETH"]
+
+
 def test_a_ledger_that_cannot_be_asked_is_a_ledger_failure() -> None:
     ledger, _ = plug(("get_positions", sample("page-not-connected")))
 

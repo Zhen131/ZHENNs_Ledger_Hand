@@ -786,9 +786,16 @@ def _market_price(
     money = _text(price.get("priceCurrencyCode"))
     if code is None or code in shared or money is None:
         return None
+    try:
+        amount = _decimal(price.get("price"))
+    except LedgerError:
+        return None
+    if not amount.is_finite():
+        # "NaN" or "Infinity" is no price to compare with: taken as none.
+        return None
     return MarketPrice(
         asset=code,
-        price=MoneyAmount(currency=money, amount=_decimal(price.get("price"))),
+        price=MoneyAmount(currency=money, amount=amount),
         day=_price_day(price.get("priceDate")),
     )
 
