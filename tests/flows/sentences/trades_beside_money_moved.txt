@@ -1,0 +1,80 @@
+# Sentences of trades written by the independent check of 2026-11-26 (invented figures), and the 17 it wrote to find fault.
+买入了500美金的黄金ETF
+今天上午10点买入了500美金的GLD，价格200美元，手续费0
+把USDT换成了BTC
+今天上午10点把1000 USDT换成了0.01个BTC，手续费1 USDT
+今天用100 USDT换了0.001个BTC
+用1000U换成ETH，价格2500，手续费0
+分三次买了ETH，每次0.1个，价格2500 USDT
+今天分两笔买入了0.2个BTC，价格98000 USDT
+红利再投资买了0.1股KO，一股70美元
+今天红利再投资买了0.1股KO，一股70美元，手续费0
+提前挂单买入0.5个ETH，价格2400 USDT，今天上午成交
+今天提前挂单买入1股AAPL，价格230美元
+现价买了2股MSFT，一股420美元，手续费0
+今天现价卖了1股NVDA，价格180美元
+今天存了点钱买了0.01个BTC，价格98000 USDT
+今天转手卖了0.5个ETH，价格2600 USDT
+今天汇丰账户买了2股AAPL，一股230美元
+今天下午3点在币安买入了0.3个SOL，价格150 USDT，手续费0.1 USDT
+今天卖出了0.2个BTC，收到19600 USDT，手续费19.6 USDT
+今天卖出金额是2000 USDT，卖了0.8个ETH
+今天买入金额1000 USDT，买了10个SOL
+今天花了500美金买了2股AAPL
+今天花了300刀买了1股MSFT
+入场了0.1个BTC，价格98000 USDT
+今天金叉买入0.5个ETH，价格2500 USDT
+今天抄底买了100个ADA，价格0.5 USDT
+今天加仓0.1个BTC，均价98000 USDT
+今天减仓了1股NVDA，价格180美元
+清仓了全部ETH，0.5个，价格2600 USDT
+今天用美元买了2股KO，一股70美元，换汇费0.2美元
+今天花了128欧元买了2股KO，一股69.5美元，换汇费0.19欧元
+今天花128欧元买2股可口可乐，一股69.5美元，汇率转换的费用0.19欧
+今天在欧易买了0.5个ETH，价格2400 USDT
+今天欧易上卖了1个SOL，价格160 USDT
+今天提了0.1个BTC的现货多单，价格98000 USDT
+今天现货买入0.2个ETH，价格2500 USDT
+今天10点用剩下的USDT买了0.01个BTC，价格98000 USDT
+用U剩下的500买了3个SOL，价格160 USDT
+今天把剩余的美元买了1股AAPL，一股230美元
+股息到账后又买了0.1股KO，一股70美元
+派息再投资，买了1股PEP，一股160美元
+今天入了0.01个BTC，价格98000 USDT
+今天入手了2股AAPL，一股230美元
+今天转入了一点BTC仓位，买了0.01个，价格98000 USDT
+I bought 0.1 BTC at 98000 USDT today, fee 0
+Sold 2 shares of AAPL at 230 USD today
+Bought 500 dollars of GLD today at 200 USD a share
+Converted my USDT into 0.01 BTC today at 98000
+Exchanged 1000 USDT for 0.01 BTC today
+Bought 0.1 BTC with the USDT left over from yesterday, at 98000 USDT
+Used my remaining USDT to buy 0.01 BTC at 98000
+Reinvested the dividend: bought 0.1 share of KO at 70 USD
+Placed a limit buy in advance, got filled 0.5 ETH at 2400 USDT today
+Bought 2 MSFT at market price 420 USD today
+Topped up my ETH position with 0.2 ETH at 2500 USDT today
+I deposited into ETH: bought 0.2 ETH at 2500 USDT today
+Sold 0.5 ETH for USDT at 2600 today, fee 1 USDT
+Bought 1 share of KO for 70 dollars today
+今天买了0.01个大饼，98000U
+今天卖了2股苹果，230刀一股
+今天现金买了2股KO，一股70美元
+今天用现金余额买了0.01个BTC，价格98000 USDT
+今天用USDT余额买了0.01个BTC，价格98000 USDT
+早上用账户里的钱买了1股NVDA，180美元
+Bought 0.01 BTC with cash today at 98000 USDT
+今天买了0.01个BTC，价格98000 USDT，手续费是存入的BNB抵扣的
+今天换仓：卖了1个SOL买了0.06个ETH
+今天把ETH换成了SOL，卖0.1个ETH，价格2500 USDT
+Topped up 0.1 BTC at 98000 USDT today
+股息再投资了0.1股KO，一股70美元
+Dividend reinvested into 0.1 KO at 70 USD today
+今天入金后入了0.01个BTC，价格98000 USDT
+今天充值500U，上车了0.01个BTC，价格98000 USDT
+Deposited 500 USDT and went long 0.01 BTC at 98000 today
+Deposited 500 USDT, got 0.01 BTC at 98000 today
+今天换汇后进了2股KO，一股70美元
+今天分红到账，又补了0.1股KO，一股70美元
+今天入金500U，梭哈了0.005个BTC，价格98000 USDT
+入金500U到现金账户，然后今天上午10点买了0.01个BTC，价格98000 USDT

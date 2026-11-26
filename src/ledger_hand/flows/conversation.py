@@ -15,9 +15,10 @@ routes (``Route``):
   thing ever waits: a new question takes the place of the one answered.
 - Otherwise, money moved that the assistant does not record, said and not
   asked (a deposit, a withdrawal, an exchange of moneys or a dividend,
-  ``money_asks.statement``), is answered by the program before the model
-  is asked: it records none of them, so it says so and sends nothing
-  (``Route.MANUAL``). Said beside a buy or a sell, the trade goes on as
+  ``money_asks.statement``), naming no coin or share and saying no buy or
+  sell, is answered by the program before the model is asked: it records
+  none of them, so it says so and sends nothing (``Route.MANUAL``). Said
+  beside a coin or share named, or a buy or a sell, the trade goes on as
   below, and the reply ends with a line saying that part is to be recorded
   in the ledger by hand, and another when no trade was recorded either:
   never half of it done unsaid. (Decided on 2026-11-26.)
@@ -28,10 +29,14 @@ routes (``Route``):
   none, how much of any money is still had ("我还有多少欧元") is caught by
   ``money_asks.left_asked``. Then the program asks the ledger for its cash
   balances once (``cash_answers``) and says its own fixed words, never the
-  model's (``Route.CASH``): with them, a table of every money's balance,
-  as the ledger gave it, nothing added up or converted; a ledger with no
-  tool for them (an older one) gets ``cash_question.CASH_WORDS``, as
-  before. (Decided on 2026-11-25; the balances, on 2026-11-26.)
+  model's (``Route.CASH``); when the words were said, not asked, and name
+  a coin or share ("今天现金买了2股KO"), the reply ends with a line that
+  they were taken as a question about cash, and a trade meant is to be
+  said again on its own (``TRADE_AS_CASH_WORDS``, 2026-11-26). With the
+  balances, a table of every money's balance, as the ledger gave it,
+  nothing added up or converted; a ledger with no tool for them (an
+  older one) gets ``cash_question.CASH_WORDS``, as before. (Decided on
+  2026-11-25; the balances, on 2026-11-26.)
 - Otherwise the model chooses tools (``assisting.take_turn``). When it asks
   to record a trade, what the user said, word for word, is handed to the
   recording flow (``recording.start``), once, however many such calls it
@@ -155,9 +160,11 @@ from ledger_hand.core.ledger_records import Asset
 from ledger_hand.core.ledger_table import names_of, table_of
 from ledger_hand.core.money_asks import (
     Statement,
+    asks_or_requests,
     left_asked,
     may_be_exchange,
     named_money,
+    names_a_holding,
     statement,
 )
 from ledger_hand.core.spoken_text import Tidied, tidy_spoken
@@ -171,6 +178,7 @@ from ledger_hand.flows import editing, recording
 from ledger_hand.flows.assisting import close_editing, close_recording, first_edit, take_turn
 from ledger_hand.flows.cash_answers import (
     NOT_RECORDED_EITHER,
+    TRADE_AS_CASH_WORDS,
     WITHHELD_WORDS,
     CashSeen,
     cash_words,
@@ -422,7 +430,8 @@ def _said(state: AssistantChat, said: str, around: _Around, max_steps: int) -> S
     if asked is None and left_asked(said):
         asked = CashAsk.LEFT
     if asked is not None:
-        return _cash_answered(state, said, asked, ledger)
+        cashed = _cash_answered(state, said, asked, ledger)
+        return _with_trade_line(cashed) if _trade_named(said, ledger) else cashed
     done = _modelled(state, said, around, max_steps)
     return done if manual is None else _with_tail(done, manual)
 
@@ -430,20 +439,49 @@ def _said(state: AssistantChat, said: str, around: _Around, max_steps: int) -> S
 def _manual(said: str, ledger: LedgerPort) -> Statement | None:
     """Money moved said that the assistant does not record, or ``None``.
 
-    The ledger's assets are asked for only when ``said`` may tell an
-    exchange of moneys, to know the coins and shares it holds; when it
-    cannot be asked, the built-in coins' names are used.
+    A statement that names a coin or share, or says a buy or a sell, is
+    one with a trade beside it, which goes on to the model. The ledger's
+    assets are asked for only when ``said`` may tell an exchange of moneys,
+    or is a statement with no trade seen beside it yet, to know the coins
+    and shares it holds; when it cannot be asked, the built-in coins'
+    names are used.
     """
-    held: tuple[str, ...] = tuple(name for name, _ in names_of(()).built_in)
-    extra: tuple[tuple[str, str], ...] = ()
-    if may_be_exchange(said):
-        try:
-            assets = ledger.list_assets()
-        except LedgerError:
-            assets = ()
-        held = (*held, *held_names(assets))
-        extra = money_of_the_ledger(assets)
-    return statement(said, held, extra)
+    built_in = _built_in_names()
+    found = statement(said, built_in)
+    if not may_be_exchange(said) and (found is None or found.with_trade):
+        return found
+    assets = _assets_or_none(ledger)
+    return statement(said, (*built_in, *held_names(assets)), money_of_the_ledger(assets))
+
+
+def _built_in_names() -> tuple[str, ...]:
+    return tuple(name for name, _ in names_of(()).built_in)
+
+
+def _assets_or_none(ledger: LedgerPort) -> tuple[Asset, ...]:
+    """The ledger's assets, or none when it cannot be asked."""
+    try:
+        return ledger.list_assets()
+    except LedgerError:
+        return ()
+
+
+def _trade_named(said: str, ledger: LedgerPort) -> bool:
+    """Whether ``said``, caught as a question about cash, is said, not asked, and names a coin
+    or share: then it may be a trade ("今天现金买了2股KO"). The ledger's assets are asked
+    for only for words with no shape of a question or a request."""
+    if asks_or_requests(said):
+        return False
+    held = (*_built_in_names(), *held_names(_assets_or_none(ledger)))
+    return names_a_holding(said, held)
+
+
+def _with_trade_line(done: Said) -> Said:
+    """``done``, a question about cash, its reply ending with ``TRADE_AS_CASH_WORDS``."""
+    reply = f"{done.reply}\n{TRADE_AS_CASH_WORDS}"
+    items = (*done.state.chat.items[:-1], Message(Role.ASSISTANT, reply))
+    chat = Chat(items=items, proposals=done.state.chat.proposals)
+    return replace(done, reply=reply, state=replace(done.state, chat=chat))
 
 
 def _cash_answered(state: AssistantChat, said: str, asked: CashAsk, ledger: LedgerPort) -> Said:

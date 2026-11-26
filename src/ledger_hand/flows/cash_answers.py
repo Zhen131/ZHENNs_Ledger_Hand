@@ -28,6 +28,11 @@ found (``CashSeen``): the balances, that the ledger has no tool for them
 - the ledger has no tool: ``CASH_WORDS``, word for word as before.
 - the ledger could not be asked: ``not_asked_words``, no figure.
 
+A question about cash said, not asked, that names a coin or share
+("今天现金买了2股KO") may be a trade the question about cash took for one;
+its reply then ends with ``TRADE_AS_CASH_WORDS``, and the trade is to be
+said again (2026-11-26).
+
 ``WITHHELD_WORDS`` stand in for the model's words with a figure beside a
 money unasked (``cash_question.withheld_cash``) when the ledger has the
 tool: ``CASH_WORDS`` would no longer be true then.
@@ -37,7 +42,8 @@ Every word here is the program's; no figure passes through the model.
 Names defined here: ``CashSeen``, ``look_up``, ``cash_words``,
 ``BALANCES_WORDS``, ``NO_CASH_ROWS``, ``BELOW_ZERO_WORDS``,
 ``NO_DETAIL_WORDS``, ``WITHHELD_WORDS``, ``not_in_ledger_words``,
-``not_asked_words``, ``manual_words``, ``manual_tail``, ``NOT_RECORDED_EITHER``
+``not_asked_words``, ``manual_words``, ``manual_tail``, ``NOT_RECORDED_EITHER``,
+``TRADE_AS_CASH_WORDS``
 and ``money_of_the_ledger``.
 """
 
@@ -70,6 +76,10 @@ WITHHELD_WORDS = (
     "I do not say a cash figure that was not read from the ledger. Ask how much of a "
     'money you still have, such as "how much USDT do I have", to see the ledger\'s '
     "cash balances."
+)
+TRADE_AS_CASH_WORDS = (
+    "This was taken as a question about cash. If you meant to record a trade, please say "
+    "the trade again on its own."
 )
 NOT_RECORDED_EITHER = (
     "The trade you spoke of was not recorded either: please say it again on its own."
