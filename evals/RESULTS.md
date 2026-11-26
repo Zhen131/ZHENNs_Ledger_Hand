@@ -10129,7 +10129,9 @@ figure worked out being no mark (the reply's reminder of the numbers no
 trade used names 0.2314547). The other ③s are those of before (R80-07,
 R70-05). The ②s are cells said but sent empty, the fee ("没有手续费",
 "手续费呢是零" not copied) or a time not copied (R80-03, R80-11), and the
-total of R100-03 left empty for not agreeing. Before the ruler counted a
+totals of R100-03 and R80-13 left empty for not agreeing (both asked which
+figure was wrong before). The three sentences that ask buy or sell
+(R100-15, R100-29, R80-05) ask as before, now counted rightly asked. Before the ruler counted a
 cell sent empty as a mark, the same sentences gave ③ 2, 6 and 1 (r100,
 r80, r70; `spoken-20261126T060136Z-…`, `…T060510Z-…`, `…T060745Z-…`).
 R80-23, a payment in euros not enabled, came back empty again and is
