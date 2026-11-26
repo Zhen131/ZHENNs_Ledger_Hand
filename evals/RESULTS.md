@@ -10173,3 +10173,23 @@ The same as at `d2c588c`; R100-09 is ③ again (its quantity worked out as
 trades whole, 0 silently wrong. `stocks.json`
 (`run-20261126T074905Z-stocks-assistant-5.jsonl`): 16 of 18, 0 silently
 wrong.
+
+### The hidden halves, three tiers, after cards with empty cells
+
+Measured once at `2c53186`, on 2026-11-26, with `first-3` and `assistant-5`;
+only the totals were read. The share is ① and ①a over the trades whose
+gold has no cell marked none or suspect.
+
+| Tier | Half | Trades | ① | ①a | ①b | ② (code) | ③ (code) | ③ with a passage reminder | ④ rightly | ④ not rightly | ⑤ | ① and ①a share (of) | First tool right | Results |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| r100 | hidden | 17 | 4 | 0 | 2 | 6 (5) | 2 (1) | 2 | 1 | 0 | 2 | 33.3% (12) | 15 of 15 | `spoken-20261126T081032Z-spoken-r100-hidden-first-3-assistant-5.jsonl` |
+| r80 | hidden | 11 | 7 | 0 | 0 | 3 (3) | 0 | 0 | 1 | 0 | 0 | 63.6% (11) | 11 of 11 | `spoken-20261126T081337Z-spoken-r80-hidden-first-3-assistant-5.jsonl` |
+| r70 | hidden | 9 | 6 | 2 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 100.0% (8) | 9 of 9 | `spoken-20261126T081531Z-spoken-r70-hidden-first-3-assistant-5.jsonl` |
+
+Against the lines: r70 passes both. r80 has no ③ and a share of 63.6%,
+under its line of eight in ten. r100 has two ③, where the line is none;
+before cards with empty cells it had one ③ and three trades that were
+asked about. Asking is gone from all three tiers except where the asset
+or the side has to be asked; the share did not move, because a trade
+sent with an empty cell counts as ②, not ①. The lines are not met with
+`qwen2.5:7b`; comparing other local models is left to the owner.
