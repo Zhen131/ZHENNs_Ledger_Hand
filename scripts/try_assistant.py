@@ -125,7 +125,6 @@ from ledger_hand.settings import (
     load_assistant_steps,
     load_model_settings,
     load_price_gap_times,
-    load_said_number_gap,
 )
 
 _ASKING_FOR_HELP = frozenset({"--help", "-h"})
@@ -171,9 +170,6 @@ def main(
             return 2
         model, max_steps, tuning = model or built[0], max_steps or built[1], built[2]
         gap = price_gap if price_gap is not None else built[3]
-    said_gap = _said_gap(out)
-    if said_gap is None:
-        return 2
     # The demo ledger takes cards with cells left empty, as the real one does now.
     ledger = ledger or demo_ledger().taking_cards()
     print(f"now:    {now.isoformat()} in {zone} ({whose} moment)", file=out)
@@ -192,7 +188,6 @@ def main(
             max_steps=max_steps,
             tuning=tuning,
             price_gap=gap,
-            said_gap=said_gap,
         )
         show_said(words, said, out)
         all_well = all_well and said.well_ended
@@ -236,15 +231,6 @@ def _moment(out: TextIO) -> tuple[datetime, str, str] | None:
         print("cannot tell the machine's time zone by a name the program takes", file=out)
         return None
     return datetime.now(timezone.utc), name, "the machine's"
-
-
-def _said_gap(out: TextIO) -> Decimal | None:
-    """How close a figure worked out must be to a number said, or ``None`` when refused."""
-    try:
-        return load_said_number_gap()
-    except SettingsError as error:
-        print(f"setting refused: {error}", file=out)
-        return None
 
 
 def _model_and_steps(out: TextIO) -> tuple[ModelPort, int, Tuning, Decimal] | None:

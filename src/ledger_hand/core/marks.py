@@ -191,11 +191,7 @@ _GUESSED = {Inferred.QUOTE: Field.QUOTE_ASSET_ID, Inferred.FEE_COIN: Field.FEE_A
 
 
 def marks_for(
-    record: TradeRecord,
-    check: PriceCheck | None = None,
-    *,
-    asset_name: str | None = None,
-    worked_reason: str | None = None,
+    record: TradeRecord, check: PriceCheck | None = None, *, asset_name: str | None = None
 ) -> TradeMarks:
     """Every mark of the trade ``record``; ``check`` is its price against the market price.
 
@@ -212,7 +208,6 @@ def marks_for(
         picked=record.picked,
         check=check,
         asset_name=asset_name,
-        worked_reason=worked_reason,
     )
 
 
@@ -228,7 +223,6 @@ def marks_from(
     doubts: tuple[FieldMark, ...] = (),
     assumed: tuple[FieldMark, ...] = (),
     empty: frozenset[Field] = frozenset(),
-    worked_reason: str | None = None,
 ) -> TradeMarks:
     """Every mark of one trade, from what it rests on; ``marks_for`` hands a record's in.
 
@@ -243,8 +237,6 @@ def marks_from(
     found: list[FieldMark] = []
     if derived is not None:
         field, reason = _WORKED_OUT[derived]
-        # The number said kept in place of the figure worked out (``said_numbers``).
-        reason = cut_reason(worked_reason) if worked_reason is not None else reason
         found.append(FieldMark(field, MarkKind.COMPUTED, reason))
     for guess in sorted(inferred, key=lambda one: one.name):
         if inferred_from is not None:

@@ -78,17 +78,11 @@ from __future__ import annotations
 
 import dataclasses
 from datetime import datetime
-from decimal import Decimal
 
 from ledger_hand.asking.prompts.bookkeeper import BOOKKEEPER_PROMPT
 from ledger_hand.core.assets import BUILT_IN_ASSETS, AssetTable, MoneyReading, UnknownAssets
 from ledger_hand.core.book import EarlierSave
-from ledger_hand.core.card_record import (
-    CardRecord,
-    card_record,
-    money_doubt_other,
-    money_doubt_two,
-)
+from ledger_hand.core.card_record import card_record, money_doubt_other, money_doubt_two
 from ledger_hand.core.coins import spoken_key
 from ledger_hand.core.followup import (
     FOLLOW_UP_ORDER,
@@ -103,11 +97,9 @@ from ledger_hand.core.followup import (
 )
 from ledger_hand.core.ledger_table import VAGUE_MONEY_CODES
 from ledger_hand.core.marks import Field
-from ledger_hand.core.numbers import Recognised, read_number
-from ledger_hand.core.said_numbers import said_instead
 from ledger_hand.core.time_wording import Refusal
 from ledger_hand.core.timeparse import day_named
-from ledger_hand.core.trade import Amount, OccurredTime, Side, TradeDraft, TradeRecord
+from ledger_hand.core.trade import OccurredTime, TradeDraft, TradeRecord
 from ledger_hand.core.validation import DraftProblems, Missing, check_draft
 from ledger_hand.core.zones import is_zone_name
 from ledger_hand.extraction.answer_phrase import (
@@ -211,7 +203,6 @@ def start(
     pick_prompt: AssetPickPrompt = ASSET_PICK_PROMPT,
     last_money: LastMoneyLookup | None = None,
     unfinished: bool = False,
-    said_gap: Decimal | None = None,
 ) -> Progress:
     """Judge ``passage``, extract its trades, check them, and ask the first question.
 
@@ -244,10 +235,6 @@ def start(
     only which asset and buy or sell (and a vague word for money the
     ledger cannot settle) are asked; every other gap becomes a card. Only
     the assistant turns it on, and only when the ledger offers it.
-
-    ``said_gap``, when given, puts a figure worked out back to the number
-    said that it only rounds to, within that part of it
-    (``core.said_numbers``). Only the assistant hands one in.
     """
     if not isinstance(now, datetime) or now.utcoffset() is None:
         raise ValueError("the current moment must be a datetime that carries an offset")
@@ -263,7 +250,7 @@ def start(
     progress = Progress(
         Stage.REFUSED,
         passage,
-        Setting(now, zone, assets, tuning, unfinished=unfinished, said_gap=said_gap),
+        Setting(now, zone, assets, tuning, unfinished=unfinished),
         seen_before=seen_before,
     )
     screening = screen(passage, model, prompt=screen_prompt, asks_again=tuning.asks_again)
@@ -537,7 +524,6 @@ def _next_question(
         draft, progress = guessed(progress, position, trade.draft, last)
         checked = check_draft(draft, assets, progress.setting.now)
         if isinstance(checked, TradeRecord):
-            checked, progress = _said_kept(progress, position, checked)
             trades[position] = TradeState(draft, TradeStatus.RECORDED, checked)
             continue
         follow_up = next_follow_up(draft, checked)
@@ -559,7 +545,6 @@ def _next_question(
                     taken_as_total=dict(progress.totals_from_units).get(position),
                     after_today=_after_today(progress, position),
                 )
-                card, progress = _said_kept(progress, position, card)
                 trades[position] = TradeState(draft, TradeStatus.UNFINISHED, card=card)
                 continue
             follow_up = asked
@@ -613,86 +598,6 @@ def _asked(follow_up: FollowUp) -> Asked:
     if isinstance(follow_up, CannotRecord):
         raise AssertionError(f"{follow_up.because} leads to no question")
     return follow_up
-
-
-_AMOUNT_NAMES = {Amount.QUANTITY: "quantity", Amount.PRICE: "price", Amount.TOTAL: "total"}
-
-
-def _said_kept[Kept: (TradeRecord, CardRecord)](
-    progress: Progress, position: int, record: Kept
-) -> tuple[Kept, Progress]:
-    """The trade at ``position`` with its figure worked out put back to the number said.
-
-    This function looks among the passage's numbers no cell used
-    (``NUMBERS_LEFT_OVER``) for the one the figure worked out only rounds
-    to (``core.said_numbers``); kept, it is taken off that reminder and
-    noted in ``Progress.said_numbers``. A fee in the asset bought that
-    would no longer be below the quantity keeps the figure worked out.
-
-    Why: R70-05 and R100-09 of the exam's practice halves were sent with a
-    figure worked out that differs from the one said in its last places
-    (decided on 2026-11-26 by the session that hands out the work).
-    """
-    gap = progress.setting.said_gap
-    derived = record.derived
-    quantity, price, total = record.quantity, record.price, record.total
-    if gap is None or derived is None or quantity is None or price is None or total is None:
-        return record, progress
-    found = said_instead(
-        derived=derived,
-        quantity=quantity,
-        price=price,
-        total=total,
-        left_over=_numbers_left_over(progress.issues),
-        gap=gap,
-    )
-    if found is None:
-        return record, progress
-    fee = record.fee
-    if (
-        derived is Amount.QUANTITY
-        and record.side is Side.BUY
-        and fee is not None
-        and record.fee_coin == record.coin
-        and fee >= found.said
-    ):
-        return record, progress
-    changes: dict[str, object] = {_AMOUNT_NAMES[derived]: found.said}
-    kept = dataclasses.replace(record, **changes)  # type: ignore[arg-type]
-    return kept, dataclasses.replace(
-        progress,
-        issues=_one_taken_off(progress.issues, found.written),
-        said_numbers=(*progress.said_numbers, (position, found)),
-    )
-
-
-def _numbers_left_over(issues: tuple[Issue, ...]) -> list[tuple[str, Decimal]]:
-    """The passage's numbers no cell used, as written and as read; those not read are left."""
-    found: list[tuple[str, Decimal]] = []
-    for issue in issues:
-        if issue.kind is not IssueKind.NUMBERS_LEFT_OVER:
-            continue
-        for written in issue.numbers:
-            reading = read_number(written)
-            if isinstance(reading, Recognised):
-                found.append((written, reading.value))
-    return found
-
-
-def _one_taken_off(issues: tuple[Issue, ...], written: str) -> tuple[Issue, ...]:
-    """``issues`` with ``written`` taken once off the numbers left over; none left, no reminder."""
-    kept: list[Issue] = []
-    taken = False
-    for issue in issues:
-        if issue.kind is IssueKind.NUMBERS_LEFT_OVER and not taken and written in issue.numbers:
-            numbers = list(issue.numbers)
-            numbers.remove(written)
-            taken = True
-            if numbers:
-                kept.append(dataclasses.replace(issue, numbers=tuple(numbers)))
-            continue
-        kept.append(issue)
-    return tuple(kept)
 
 
 def _after_today(progress: Progress, position: int) -> str | None:

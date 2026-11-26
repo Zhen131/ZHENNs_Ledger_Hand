@@ -112,7 +112,6 @@ from ledger_hand.ports import LedgerPort, ModelError, ModelErrorKind, ModelPort,
 from ledger_hand.settings import (
     DEFAULT_ASSISTANT_STEPS,
     DEFAULT_PRICE_GAP_TIMES,
-    DEFAULT_SAID_NUMBER_GAP,
     LEDGER_DIRECTORY_VARIABLE,
     AssistantLedger,
     DataPlaces,
@@ -128,7 +127,6 @@ from ledger_hand.settings import (
     load_ledger_link_settings,
     load_model_settings,
     load_price_gap_times,
-    load_said_number_gap,
 )
 from ledger_hand.storage.sqlite_store import SqliteStore
 
@@ -154,10 +152,8 @@ class Parts:
     that setting was refused, when it was (the assistant page then sends
     nothing and says why; the other pages do not use it). ``price_gap`` is
     how many times apart a price and the market price are far, and
-    ``price_gap_refused`` why that setting, or ``said_gap``'s, was refused,
-    when it was (the assistant page then sends nothing and says why).
-    ``said_gap`` is how close a figure worked out must be to a number said
-    and not used for the said one to be kept. ``first_ledger``
+    ``price_gap_refused`` why that setting was refused, when it was (the
+    assistant page then sends nothing and says why). ``first_ledger``
     is which ledger a new tab of the assistant page reaches first, and
     ``first_ledger_refused`` why the setting was refused, when it was.
     """
@@ -178,7 +174,6 @@ class Parts:
     steps_refused: str | None = None
     price_gap: Decimal = DEFAULT_PRICE_GAP_TIMES
     price_gap_refused: str | None = None
-    said_gap: Decimal = DEFAULT_SAID_NUMBER_GAP
     first_ledger: AssistantLedger = AssistantLedger.DEMO
     first_ledger_refused: str | None = None
 
@@ -223,7 +218,6 @@ def assemble(changes: Mapping[Variable, str] | None = None) -> Parts:
     local = settings.plug is Plug.LOCAL
     steps, steps_refused = _steps()
     gap, gap_refused = _price_gap()
-    said_gap, said_refused = _said_gap()
     first, first_refused = _first_ledger()
     return Parts(
         model=model,
@@ -242,9 +236,7 @@ def assemble(changes: Mapping[Variable, str] | None = None) -> Parts:
         assistant_steps=steps,
         steps_refused=steps_refused,
         price_gap=gap,
-        # A refused setting of either gap stops the assistant page, naming its variable.
-        price_gap_refused=gap_refused or said_refused,
-        said_gap=said_gap,
+        price_gap_refused=gap_refused,
         first_ledger=first,
         first_ledger_refused=first_refused,
     )
@@ -279,15 +271,6 @@ def _price_gap() -> tuple[Decimal, str | None]:
         return load_price_gap_times(), None
     except SettingsError as error:
         return DEFAULT_PRICE_GAP_TIMES, str(error)
-
-
-def _said_gap() -> tuple[Decimal, str | None]:
-    """How close a figure worked out must be to a number said, or the default and why the
-    setting was refused; refused, it stops only the assistant page, as the price gap does."""
-    try:
-        return load_said_number_gap(), None
-    except SettingsError as error:
-        return DEFAULT_SAID_NUMBER_GAP, str(error)
 
 
 def _vision_model_check(settings: ModelSettings) -> VisionModelCheck:

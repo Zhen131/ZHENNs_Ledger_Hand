@@ -134,7 +134,6 @@ def take_text(text: str) -> None:
         max_steps=parts.assistant_steps,
         tuning=parts.tuning,
         price_gap=parts.price_gap,
-        said_gap=parts.said_gap,
     )
     _kept(text, said, now)
 
@@ -277,7 +276,6 @@ def continue_screenshot(read_key: str, note_key: str) -> None:
         zone=parts.zone,
         tuning=parts.tuning,
         price_gap=parts.price_gap,
-        said_gap=parts.said_gap,
     )
     session.keep_reading(None, ASSISTANT_SPOT)
     _fill_boxes(read_key, note_key, "")
