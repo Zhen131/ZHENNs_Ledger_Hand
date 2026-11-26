@@ -44,7 +44,6 @@ from evals.run import Backend, local_backend
 from evals.tool_set import TOOL_SET, FirstStep, load_tool_set, markdown, score_first_step
 from ledger_hand.assistant.prompting import AssistantPrompt, system_message
 from ledger_hand.assistant.prompts import (
-    assistant_fifth,
     assistant_first,
     assistant_fourth,
     assistant_second,
@@ -62,7 +61,6 @@ PROMPTS: dict[str, tuple[AssistantPrompt, ModuleType]] = {
     assistant_second.ASSISTANT_SECOND.name: (assistant_second.ASSISTANT_SECOND, assistant_second),
     assistant_third.ASSISTANT_THIRD.name: (assistant_third.ASSISTANT_THIRD, assistant_third),
     assistant_fourth.ASSISTANT_FOURTH.name: (assistant_fourth.ASSISTANT_FOURTH, assistant_fourth),
-    assistant_fifth.ASSISTANT_FIFTH.name: (assistant_fifth.ASSISTANT_FIFTH, assistant_fifth),
 }
 
 

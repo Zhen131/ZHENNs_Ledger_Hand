@@ -123,7 +123,7 @@ from ledger_hand.assistant.outcome import (
 )
 from ledger_hand.assistant.period_cuts import cut_misstep, is_cut
 from ledger_hand.assistant.prompting import AssistantPrompt, system_message
-from ledger_hand.assistant.prompts.assistant_fifth import ASSISTANT_FIFTH
+from ledger_hand.assistant.prompts.assistant_fourth import ASSISTANT_FOURTH
 from ledger_hand.assistant.results import (
     answered_by_program_text,
     editing_text,
@@ -162,7 +162,7 @@ from ledger_hand.ports import (
 )
 
 # The system prompt a turn uses unless it is handed another: the latest version.
-DEFAULT_PROMPT = ASSISTANT_FIFTH
+DEFAULT_PROMPT = ASSISTANT_FOURTH
 
 # Ledger failures the model can tell the user about; any other ends the turn.
 _TOLD_TO_THE_MODEL = frozenset(
