@@ -35,7 +35,12 @@ from <trade> on <day>" when the program guessed it from the ledger's last
 trade of the asset, "only money" when no word for money was said and the
 ledger prices in one money; a fee of zero is in the price's money and
 says the same), and one line from the program saying what reached the
-ledger ("sent to the ledger: nothing" when nothing did); then who wrote
+ledger ("sent to the ledger: nothing" when nothing did). Each trade's
+money line is followed by its marks ("marks: price: suspicious (...);
+totalValue: computed (...)", or "marks: none") and what came of comparing
+its price with the ledger's market price ("price check: far from ...",
+"within reach of ...", "no market price in the ledger" or "not compared:
+..."); then who wrote
 the last words ("words by: the model", or the program, and when the
 model's words were withheld, why), the assistant's last words and how it
 ended; just before the ending, when a question waits for its answer, what
@@ -43,7 +48,9 @@ it asks about ("asked about: time", the cell's name; "new-coin" when it
 asks whether a word is a coin; "which-cell" when it asks which value is
 wrong).
 ``LEDGER_HAND_ASSISTANT_STEPS``
-says how many times the model may be asked in one turn (six by default).
+says how many times the model may be asked in one turn (six by default),
+and ``LEDGER_HAND_PRICE_GAP_TIMES`` how many times apart a price and the
+market price are far (five by default).
 When a question waits, the next argument is its answer.
 
 "Now" is the invented book's fixed moment, 24 November 2026, 23:55 in
@@ -76,6 +83,7 @@ import json
 import sys
 from collections.abc import Sequence
 from datetime import datetime, timezone
+from decimal import Decimal
 from typing import TextIO
 
 import tzlocal
@@ -92,12 +100,15 @@ from ledger_hand.assistant.outcome import (
 from ledger_hand.assistant.results import not_done_text
 from ledger_hand.core.followup import AskCell, ConfirmCoin
 from ledger_hand.core.ledger_records import TradeFacts, TradeFilter
+from ledger_hand.core.marks import TradeMarks
 from ledger_hand.core.proposals import ProposalStatus
 from ledger_hand.core.trade import Inferred, TradeRecord
 from ledger_hand.core.zones import is_zone_name
 from ledger_hand.extraction.asset_picking import AssetPick
 from ledger_hand.flows.conversation import AssistantChat, Route, Said, say
 from ledger_hand.flows.progress import DEFAULT_TUNING, Asked, TradeState, Tuning
+from ledger_hand.flows.record_words import price_check_words
+from ledger_hand.flows.recorded import Recorded
 from ledger_hand.flows.recording import tuning_from
 from ledger_hand.ledger.demo_book import demo_ledger
 from ledger_hand.ledger.fake_ledger import FakeLedger
@@ -105,11 +116,13 @@ from ledger_hand.ledger.invented_book import INVENTED_NOW, INVENTED_ZONE
 from ledger_hand.llm.connect import connect_model
 from ledger_hand.ports import ModelPort
 from ledger_hand.settings import (
+    DEFAULT_PRICE_GAP_TIMES,
     Plug,
     SettingsError,
     Variable,
     load_assistant_steps,
     load_model_settings,
+    load_price_gap_times,
 )
 
 _ASKING_FOR_HELP = frozenset({"--help", "-h"})
@@ -133,6 +146,7 @@ def main(
     model: ModelPort | None = None,
     ledger: FakeLedger | None = None,
     max_steps: int | None = None,
+    price_gap: Decimal | None = None,
 ) -> int:
     """Run the script; the keyword arguments stand in for the outside world in tests."""
     if len(arguments) == 1 and arguments[0] in _ASKING_FOR_HELP:
@@ -147,11 +161,13 @@ def main(
         return 2
     now, zone, whose = moment
     tuning = DEFAULT_TUNING
+    gap = price_gap if price_gap is not None else DEFAULT_PRICE_GAP_TIMES
     if model is None or max_steps is None:
         built = _model_and_steps(out)
         if built is None:
             return 2
         model, max_steps, tuning = model or built[0], max_steps or built[1], built[2]
+        gap = price_gap if price_gap is not None else built[3]
     ledger = ledger or demo_ledger()
     print(f"now:    {now.isoformat()} in {zone} ({whose} moment)", file=out)
     print(f"model:  {getattr(model, 'name', None) or _model_name()}", file=out)
@@ -168,6 +184,7 @@ def main(
             zone=zone,
             max_steps=max_steps,
             tuning=tuning,
+            price_gap=gap,
         )
         show_said(words, said, out)
         all_well = all_well and said.well_ended
@@ -213,10 +230,11 @@ def _moment(out: TextIO) -> tuple[datetime, str, str] | None:
     return datetime.now(timezone.utc), name, "the machine's"
 
 
-def _model_and_steps(out: TextIO) -> tuple[ModelPort, int, Tuning] | None:
+def _model_and_steps(out: TextIO) -> tuple[ModelPort, int, Tuning, Decimal] | None:
     try:
         settings = load_model_settings()
         steps = load_assistant_steps()
+        gap = load_price_gap_times()
     except SettingsError as error:
         print(f"setting refused: {error}", file=out)
         return None
@@ -227,7 +245,7 @@ def _model_and_steps(out: TextIO) -> tuple[ModelPort, int, Tuning] | None:
             file=out,
         )
         return None
-    return connect_model(settings), steps, tuning_from(settings)
+    return connect_model(settings), steps, tuning_from(settings), gap
 
 
 def _model_name() -> str:
@@ -249,18 +267,7 @@ def show_said(words: str, said: Said, out: TextIO) -> None:
         _show_step(number, step, out)
     recorded = said.recorded
     if recorded is not None:
-        asked = len(recorded.progress.calls)
-        print(
-            f"recording: {asked} call(s) to the model for this passage so far, "
-            "apart from the steps",
-            file=out,
-        )
-        if said.route is not Route.ANSWER:
-            for found in recorded.progress.picks:
-                print(f"  {pick_line(found)}", file=out)
-        for number, trade in zip(recorded.numbers, recorded.trades, strict=True):
-            print(f"  trade {number}: {trade_line(trade)}", file=out)
-            print(f"    {money_line(recorded.progress.trades[number - 1])}", file=out)
+        _show_recording(said, recorded, out)
     failure = turn.failure if turn is not None else None
     if recorded is not None and recorded.failure is not None:
         failure = recorded.failure
@@ -270,6 +277,25 @@ def show_said(words: str, said: Said, out: TextIO) -> None:
         failure = said.edited.failure
         print(f"failure: {type(failure).__name__}: {failure}", file=out)
     _show_end(said, out)
+
+
+def _show_recording(said: Said, recorded: Recorded, out: TextIO) -> None:
+    """Print the recording: its calls, the names picked, and each trade sent with its marks."""
+    asked = len(recorded.progress.calls)
+    print(
+        f"recording: {asked} call(s) to the model for this passage so far, apart from the steps",
+        file=out,
+    )
+    if said.route is not Route.ANSWER:
+        for found in recorded.progress.picks:
+            print(f"  {pick_line(found)}", file=out)
+    marked = recorded.marked if len(recorded.marked) == len(recorded.trades) else ()
+    for place, (number, trade) in enumerate(zip(recorded.numbers, recorded.trades, strict=True)):
+        print(f"  trade {number}: {trade_line(trade)}", file=out)
+        print(f"    {money_line(recorded.progress.trades[number - 1])}", file=out)
+        if marked:
+            print(f"    {marks_line(marked[place].marks)}", file=out)
+            print(f"    price check: {price_check_words(marked[place].price)}", file=out)
 
 
 def pick_line(found: AssetPick) -> str:
@@ -393,6 +419,17 @@ def money_line(trade: TradeState) -> str:
     if fee is None:
         fee = price if record.fee.is_zero() else "said"
     return f"money: price {price}, fee {fee}"
+
+
+def marks_line(marks: TradeMarks) -> str:
+    """Every mark of one trade sent, cell by cell, with its reason; ``marks: none`` for none."""
+    if not marks.marks:
+        return "marks: none"
+    said = [
+        f"{mark.field.value}: {mark.kind.value}" + (f" ({mark.reason})" if mark.reason else "")
+        for mark in marks.marks
+    ]
+    return "marks: " + "; ".join(said)
 
 
 def _money_source(record: TradeRecord, mark: Inferred) -> str | None:

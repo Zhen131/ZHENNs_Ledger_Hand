@@ -35,6 +35,8 @@ recording: 2 call(s) to the model for this passage so far, apart from the steps
   trade 1: 2026-11-24T09:40:00+01:00 buy 0.02 BTC at 94900 USDT, total 1898 USDT, fee 2 USDT, \
 platform 币安, note -
     money: price only money, fee said
+    marks: totalValue: computed (worked out as quantity × price)
+    price check: within reach of the market price: 64880 USDT on 2026-11-24, about 1.5 times higher
 sent to the ledger: proposal-1, 1 trade(s)
 words by: the program
 assistant: Sent to the ledger. It waits there for you to confirm it on the ledger's own page.
