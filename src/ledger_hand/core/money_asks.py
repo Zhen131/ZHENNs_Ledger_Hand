@@ -14,17 +14,21 @@ does not record, said, not asked. Four kinds (``Manual``):
 - a withdrawal: "出金", "提现", "取现", "出了200美金", "withdraw", "cash
   out". Not "卖出金额", "卖出了", "支出".
 - an exchange of moneys: a verb of exchanging ("换成", "兑换", "换了",
-  "convert", "exchange") with two moneys named, and no coin or share named
+  "convert", "exchange") with a money named, and no coin or share named
   at all ("用100 USDT换了0.001个BTC" is a buy). "换汇费", "FX fee" and
   "汇率转换的费用" are fees, not an exchange.
 - a dividend: "分红", "派息", "股息", "dividend".
 
 It is a statement only when no shape of a question or a request is in it
 ("多少", "几", "吗", "?", "how much", "what", "查", "看", "show", ...): a
-question goes to the question about cash, as before. Whether a buy or a
-sell is spoken of beside it ("买", "卖", "bought", "sold") is said too, so
-that the trade is still recorded and only the rest is said to be recorded
-by hand.
+question goes to the question about cash, as before. Whether a trade may
+be spoken of beside it is said too (``with_trade``), so that the trade is
+still recorded and only the rest is said to be recorded by hand: when the
+words name any coin or share at all (the names handed in as ``held``), or
+say a buy or a sell ("买", "卖", "bought", "sold"). Only a statement that
+names no coin or share and says no buy or sell is answered whole by the
+program (rework of 2026-11-26: a list of verbs for a trade is never
+whole, "股息再投资了0.1股KO" and "入金后上车了0.01个BTC" were swallowed).
 
 ``left_asked`` tells "how much of a money is still had" for any money of
 ``ledger_table.MONEY_WORDS`` and ``VAGUE_MONEY_WORDS`` ("我还有多少欧元",
@@ -39,8 +43,8 @@ does not know, the user still gets the ledger's balances (decided on
 2026-11-26).
 
 Names defined here: ``Manual``, ``Statement``, ``statement``,
-``may_be_exchange``, ``asks_or_requests``, ``left_asked``, ``named_money``
-and ``money_named``.
+``may_be_exchange``, ``asks_or_requests``, ``names_a_holding``, ``left_asked``,
+``named_money`` and ``money_named``.
 """
 
 from __future__ import annotations
@@ -237,8 +241,13 @@ def _held(text: str, held: Sequence[str]) -> bool:
     return re.search(pattern, text) is not None
 
 
+def names_a_holding(said: str, held: Sequence[str]) -> bool:
+    """Whether ``said`` names any of ``held``, the names of coins and shares, money aside."""
+    return _held(_normal(said), held)
+
+
 def may_be_exchange(said: str) -> bool:
-    """Whether ``said`` may tell an exchange: a verb of exchanging and two moneys named.
+    """Whether ``said`` may tell an exchange: a verb of exchanging and a money named.
 
     The caller then asks the ledger for its assets, to know the coins and
     shares it holds, before ``statement`` judges it.
@@ -246,7 +255,7 @@ def may_be_exchange(said: str) -> bool:
     text = _normal(said)
     for fee in _EXCHANGE_FEES:
         text = re.sub(fee, " ", text)
-    return _any(_EXCHANGE, text) and len(money_named(text)) >= 2
+    return _any(_EXCHANGE, text) and bool(money_named(text))
 
 
 def statement(
@@ -256,7 +265,8 @@ def statement(
 
     ``held`` are the names of the coins and shares the ledger knows, and
     the built-in coins' names; ``extra`` the ledger's cash moneys, each word
-    with its code. A question or a request is no statement.
+    with its code. A question or a request is no statement. Naming any of
+    ``held`` counts as a trade spoken of beside it.
     """
     if asks_or_requests(said):
         return None
@@ -274,7 +284,8 @@ def statement(
         kinds.append(Manual.DIVIDEND)
     if not kinds:
         return None
-    return Statement(kinds=tuple(kinds), with_trade=_any(_TRADE, text))
+    beside = _any(_TRADE, text) or _held(text, held)
+    return Statement(kinds=tuple(kinds), with_trade=beside)
 
 
 def _exchange(text: str, held: Sequence[str], extra: Sequence[tuple[str, str]]) -> bool:
@@ -282,7 +293,7 @@ def _exchange(text: str, held: Sequence[str], extra: Sequence[tuple[str, str]]) 
         text = re.sub(fee, " ", text)
     if not _any(_EXCHANGE, text):
         return False
-    if len(money_named(text, extra)) < 2:
+    if not money_named(text, extra):
         return False
     return not _held(text, held)
 

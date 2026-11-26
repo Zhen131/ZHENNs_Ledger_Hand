@@ -49,7 +49,8 @@ HELD = (*BUILT_IN, "KO", "Coca-Cola", "可口可乐")
 def test_a_statement_of_money_moved_is_read_with_its_kind(
     said: str, kinds: tuple[Manual, ...]
 ) -> None:
-    assert statement(said, HELD) == Statement(kinds=kinds, with_trade=False)
+    # Against a ledger that holds no Coca-Cola: no coin or share is named.
+    assert statement(said, BUILT_IN) == Statement(kinds=kinds, with_trade=False)
 
 
 @pytest.mark.parametrize(
@@ -102,10 +103,14 @@ def test_asking_and_requesting_have_their_own_shapes() -> None:
     assert not asks_or_requests("我今天入金了500 USDT")
 
 
-def test_an_exchange_needs_its_verb_and_two_moneys_before_the_ledger_is_asked() -> None:
+def test_an_exchange_needs_its_verb_and_a_money_before_the_ledger_is_asked() -> None:
     assert may_be_exchange("今天把100欧元换成了108美元")
-    assert not may_be_exchange("今天用100 USDT换了0.001个BTC")
+    assert may_be_exchange("换了300欧元")
+    # Asked of the ledger, then found to name a coin: a buy, not an exchange.
+    assert may_be_exchange("今天用100 USDT换了0.001个BTC")
+    assert statement("今天用100 USDT换了0.001个BTC", BUILT_IN) is None
     assert not may_be_exchange("换汇费0.19欧元，花了128欧元买了2股KO，一股69.5美元")
+    assert not may_be_exchange("今天换了个手机")
 
 
 @pytest.mark.parametrize(
@@ -144,3 +149,36 @@ def test_the_moneys_named_are_read_in_order_a_vague_word_as_vague() -> None:
     assert money_named("花了0.46欧") == ("EUR",)
     assert money_named("欧易") == ()
     assert money_named("100 GBP", extra=(("GBP", "GBP"),)) == ("GBP",)
+
+
+@pytest.mark.parametrize(
+    "said",
+    [
+        # A coin or share named counts as a trade spoken of (rework of 2026-11-26).
+        "股息再投资了0.1股KO，一股70美元",
+        "Dividend reinvested into 0.1 KO at 70 USD today",
+        "今天分红到账，又补了0.1股KO，一股70美元",
+        "Topped up my ETH position with 0.2 ETH at 2500 USDT today",
+        "Topped up 0.1 BTC at 98000 USDT today",
+        "今天入金后入了0.01个BTC，价格98000 USDT",
+        "今天充值500U，上车了0.01个BTC，价格98000 USDT",
+        "今天入金500U，梭哈了0.005个BTC，价格98000 USDT",
+        "Deposited 500 USDT and went long 0.01 BTC at 98000 today",
+        "Deposited 500 USDT, got 0.01 BTC at 98000 today",
+        "Got a 2.1 USD dividend from KO today",
+    ],
+)
+def test_a_statement_naming_a_coin_or_share_has_a_trade_beside_it(said: str) -> None:
+    found = statement(said, HELD)
+
+    assert found is not None and found.with_trade
+
+
+@pytest.mark.parametrize(
+    "said",
+    ["我今天入金了500 USDT", "昨天分红到账2.1美元", "换了300欧元", "出金200 USDT"],
+)
+def test_a_pure_statement_names_no_coin_or_share(said: str) -> None:
+    found = statement(said, HELD)
+
+    assert found is not None and not found.with_trade

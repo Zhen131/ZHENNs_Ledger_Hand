@@ -26,6 +26,8 @@ from tests.fakes.routed_model import RoutedModel
 from tests.fakes.scripted_model import scripted_record
 
 NOW, ZONE, SENTENCES = load_set()
+# The money moved said beside a share the demo ledger holds: read as with a trade.
+NAMES_A_SHARE = frozenset({"M10"})
 HELD = (*(name for name, _ in names_of(()).built_in), *held_names(DEMO_ASSETS))
 
 
@@ -73,7 +75,10 @@ def test_the_programs_readings_take_each_group_as_it_should() -> None:
         found = statement(one.text, HELD)
         assert found is not None, one.id
         assert tuple(kind.name.lower() for kind in found.kinds) == one.kinds, one.id
-        assert found.with_trade == one.with_trade, one.id
+        # Since the rework of 2026-11-26 a coin or share named counts as a trade
+        # beside it: M10 names KO, so the program now hands it to the model.
+        beside = one.with_trade or one.id in NAMES_A_SHARE
+        assert found.with_trade == beside, one.id
     for one in group("must_pass"):
         assert statement(one.text, HELD) is None, one.id
         assert caught(one.text, ledger) is not None or not left_asked(one.text), one.id
