@@ -10070,6 +10070,31 @@ baseline, the one ③ of the hidden `r100` came with a reminder about the
 whole passage only. The hidden halves' sentence-by-sentence results are
 not written here.
 
+### The five sentences of euros paid, enabled (added 2026-11-26)
+
+The practice halves' five sentences of euros paid for a share (R100-07,
+R100-21, R100-27, R80-23, R80-25) were enabled once the assistant sends
+such a trade with its rate (`2506d8a`), each said against the exam book
+with a euro (`exam_ledger_with_euro`), its gold trade holding the rate
+(judged within a ten-thousandth). The rows above are left as they were.
+Measured once at `ddc7882`, `first-3`, `assistant-5`:
+
+| Sentence | Ending | What came of it |
+| --- | --- | --- |
+| R100-07, R100-21, R100-27, R80-25 | ④ rightly asked | asked whether it was a buy or a sell: the model left the side empty, as it did before (it was hidden then behind "the ledger has no currency EUR") |
+| R80-23 | ⑤ | an empty reply, no tool called, as in every run since `assistant-5` |
+
+None was sent, so none was a ③. Said again by hand on the demo ledger with
+a euro, answering "买" and the asset's code, the four sent the gold
+trade: paid in EUR, the price worked out, the FX fee as the fee, the rate
+1.0869479935, 1.187084502, 1.1177180307 and 1.1670426986, marked assumed
+(the "美金" of the share price taken as USD from the asset's last trade).
+Every other practice sentence went the way it went before at `beaba14`
+(`spoken-20261126T112120Z-…`, `…T112405Z-…`, `…T112629Z-…` before;
+`spoken-20261126T115440Z-…`, `…T115726Z-…`, `…T115951Z-…` after, kept
+outside the repository). The hidden halves' sentences of euros paid are
+not enabled.
+
 ## 2026-11-26: a trade said with its day only is sent; K6 and K7's gold answers, `qwen2.5:7b`
 
 On 2026-11-26, at `992e888`, the gold answers of K6 and K7 of
