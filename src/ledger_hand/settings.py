@@ -41,6 +41,12 @@ the ledger's market price must be for the price to be marked suspicious:
 ``LEDGER_HAND_PRICE_GAP_TIMES``, five when it is not set. It is not a
 model setting either, and is not shown on the settings page.
 
+``load_rate_gap_percent`` reads how far, in hundredths, the rate of a
+trade paid in another money (``costRate``) may be from the rate of the
+latest such trade in the ledger before it is marked suspicious:
+``LEDGER_HAND_RATE_GAP_PERCENT``, ten when it is not set. It is not a
+model setting either, and is not shown on the settings page.
+
 ``load_ledger_link_settings`` reads what is needed to start the ledger's
 assistant link (the small Node.js program in the ledger's own folder that
 passes the assistant's tool calls to the ledger page): the ledger's folder
@@ -76,6 +82,8 @@ constants, ``MAX_RETRIES``, ``MAX_SCREENSHOT_MB``, ``Secret``, ``SettingsError``
 ``DEFAULT_ASSISTANT_STEPS``, ``FEWEST_ASSISTANT_STEPS``, ``MOST_ASSISTANT_STEPS``,
 ``load_assistant_steps``, ``PRICE_GAP_TIMES_VARIABLE``, ``DEFAULT_PRICE_GAP_TIMES``,
 ``LEAST_PRICE_GAP_TIMES``, ``MOST_PRICE_GAP_TIMES``, ``load_price_gap_times``,
+``RATE_GAP_PERCENT_VARIABLE``, ``DEFAULT_RATE_GAP_PERCENT``, ``LEAST_RATE_GAP_PERCENT``,
+``MOST_RATE_GAP_PERCENT``, ``load_rate_gap_percent``,
 ``LEDGER_DIRECTORY_VARIABLE``, ``LEDGER_LINK_PORT_VARIABLE``,
 ``LEDGER_PAGE_PORT_VARIABLE``, ``DEFAULT_LEDGER_LINK_PORT``, ``DEFAULT_LEDGER_PAGE_PORT``,
 ``LedgerLinkSettings``, ``load_ledger_link_settings``, ``ASSISTANT_LEDGER_VARIABLE``,
@@ -753,6 +761,51 @@ def load_price_gap_times(environ: Mapping[str, str] | None = None) -> Decimal:
     if not LEAST_PRICE_GAP_TIMES < times <= MOST_PRICE_GAP_TIMES:
         raise refused
     return times
+
+
+# --- how far a rate between two moneys may be from the last one ------------------
+
+RATE_GAP_PERCENT_VARIABLE = "LEDGER_HAND_RATE_GAP_PERCENT"
+# Ten in a hundred: decided on 2026-11-25 by the session that hands out the
+# work, with no source behind it; the product owner may change it (87B, part
+# 4, item 6; 88 item 29). A rate further than that from the rate of the latest
+# trade paid in the same money for an asset priced in the same money is
+# marked suspicious; exactly that far is not.
+DEFAULT_RATE_GAP_PERCENT = Decimal("10")
+# Above 0: at 0 every rate but the very same would be marked. At most 1000:
+# beyond that a figure said ten times wrong is never marked. Both are taken
+# for now, and wait for a reason (decided on 2026-11-26).
+LEAST_RATE_GAP_PERCENT = Decimal("0")
+MOST_RATE_GAP_PERCENT = Decimal("1000")
+
+
+def load_rate_gap_percent(environ: Mapping[str, str] | None = None) -> Decimal:
+    """How far apart, in hundredths, a rate and the last one are far, from ``environ``.
+
+    The process's environment when ``None``. Not set, or blank: the default.
+    A value that is not a decimal above ``LEAST_RATE_GAP_PERCENT`` and at
+    most ``MOST_RATE_GAP_PERCENT`` ("10", "2.5") is a ``SettingsError``
+    naming the variable. Example: "10" gives 10, so 1.2 against 1.0859 is
+    far and 1.1 is not.
+    """
+    source = os.environ if environ is None else environ
+    value = source.get(RATE_GAP_PERCENT_VARIABLE)
+    if value is None or not value.strip():
+        return DEFAULT_RATE_GAP_PERCENT
+    written = value.strip()
+    refused = SettingsError(
+        f"{RATE_GAP_PERCENT_VARIABLE}: a number above {LEAST_RATE_GAP_PERCENT} and at most "
+        f"{MOST_RATE_GAP_PERCENT}, such as 10 or 2.5, not {written!r}"
+    )
+    if not re.fullmatch(r"[0-9]{1,4}(\.[0-9]{1,6})?", written, flags=re.ASCII):
+        raise refused
+    try:
+        percent = Decimal(written)
+    except InvalidOperation:
+        raise refused from None
+    if not LEAST_RATE_GAP_PERCENT < percent <= MOST_RATE_GAP_PERCENT:
+        raise refused
+    return percent
 
 
 # --- how the ledger's assistant link is started ------------------------------
