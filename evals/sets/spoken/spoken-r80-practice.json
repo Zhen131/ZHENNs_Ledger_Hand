@@ -724,14 +724,58 @@
       "id": "R80-23",
       "kind": "eur_payment_fx_fee",
       "language": "zh",
-      "enabled": false,
-      "wait_for": "eur_payment",
+      "enabled": true,
+      "book": "exam-euro",
       "text": "我在2026年9月3号下午14点55分花了231.61欧元买了1.1283116股苹果，当时股价是一股221.57美金，另外有一笔换汇费0.35欧元。",
       "gold": {
-        "expect": "cannot_record",
-        "why": [
-          "money_not_in_ledger",
-          "fee_money_not_in_ledger"
+        "expect": "send",
+        "trades": [
+          {
+            "side": {
+              "value": "buy"
+            },
+            "asset": {
+              "value": "AAPL",
+              "said": "苹果"
+            },
+            "quantity": {
+              "value": "1.1283116",
+              "said": "1.1283116"
+            },
+            "price": {
+              "computed": true
+            },
+            "total": {
+              "value": "231.61",
+              "said": "231.61"
+            },
+            "quote": {
+              "value": "EUR",
+              "said": "欧元"
+            },
+            "fee": {
+              "value": "0.35",
+              "said": "0.35"
+            },
+            "fee_asset": {
+              "value": "EUR",
+              "said": "欧元"
+            },
+            "occurred": {
+              "value": "2026-09-03 14:55",
+              "said": "2026年9月3号下午14点55分"
+            },
+            "platform": {
+              "value": ""
+            },
+            "suspect": [],
+            "inferred": [],
+            "ask_ok": [],
+            "cost_rate": {
+              "value": "1.079400722",
+              "from": "221.57"
+            }
+          }
         ]
       }
     },
@@ -739,14 +783,58 @@
       "id": "R80-25",
       "kind": "eur_payment_fx_fee",
       "language": "zh",
-      "enabled": false,
-      "wait_for": "eur_payment",
+      "enabled": true,
+      "book": "exam-euro",
       "text": "我在2026年10月15号晚上21点14分花了128.53欧元买了2.0408163股可口可乐，当时股价是一股73.5美金，另外有一笔换汇费0.19欧元。",
       "gold": {
-        "expect": "cannot_record",
-        "why": [
-          "money_not_in_ledger",
-          "fee_money_not_in_ledger"
+        "expect": "send",
+        "trades": [
+          {
+            "side": {
+              "value": "buy"
+            },
+            "asset": {
+              "value": "KO",
+              "said": "可口可乐"
+            },
+            "quantity": {
+              "value": "2.0408163",
+              "said": "2.0408163"
+            },
+            "price": {
+              "computed": true
+            },
+            "total": {
+              "value": "128.53",
+              "said": "128.53"
+            },
+            "quote": {
+              "value": "EUR",
+              "said": "欧元"
+            },
+            "fee": {
+              "value": "0.19",
+              "said": "0.19"
+            },
+            "fee_asset": {
+              "value": "EUR",
+              "said": "欧元"
+            },
+            "occurred": {
+              "value": "2026-10-15 21:14",
+              "said": "2026年10月15号晚上21点14分"
+            },
+            "platform": {
+              "value": ""
+            },
+            "suspect": [],
+            "inferred": [],
+            "ask_ok": [],
+            "cost_rate": {
+              "value": "1.1670426986",
+              "from": "73.5"
+            }
+          }
         ]
       }
     }

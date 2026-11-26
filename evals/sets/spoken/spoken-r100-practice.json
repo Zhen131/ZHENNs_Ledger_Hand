@@ -179,14 +179,58 @@
       "id": "R100-07",
       "kind": "eur_payment_fx_fee",
       "language": "zh",
-      "enabled": false,
-      "wait_for": "eur_payment",
+      "enabled": true,
+      "book": "exam-euro",
       "text": "可口可乐我在2026年的10月6号的晚上20点02分还花了0.46欧买了0.0061629股。当时的股价是落在一股81.13美金。但是我花的是欧元啊，请注意。然后好像有一个 FX fee，这个好像是汇率转换的费用，是0.01欧元。",
       "gold": {
-        "expect": "cannot_record",
-        "why": [
-          "money_not_in_ledger",
-          "fee_money_not_in_ledger"
+        "expect": "send",
+        "trades": [
+          {
+            "side": {
+              "value": "buy"
+            },
+            "asset": {
+              "value": "KO",
+              "said": "可口可乐"
+            },
+            "quantity": {
+              "value": "0.0061629",
+              "said": "0.0061629"
+            },
+            "price": {
+              "computed": true
+            },
+            "total": {
+              "value": "0.46",
+              "said": "0.46"
+            },
+            "quote": {
+              "value": "EUR",
+              "said": "欧"
+            },
+            "fee": {
+              "value": "0.01",
+              "said": "0.01"
+            },
+            "fee_asset": {
+              "value": "EUR",
+              "said": "欧元"
+            },
+            "occurred": {
+              "value": "2026-10-06 20:02",
+              "said": "2026年的10月6号的晚上20点02分"
+            },
+            "platform": {
+              "value": ""
+            },
+            "suspect": [],
+            "inferred": [],
+            "ask_ok": [],
+            "cost_rate": {
+              "value": "1.0869479935",
+              "from": "81.13"
+            }
+          }
         ]
       }
     },
@@ -530,14 +574,58 @@
       "id": "R100-21",
       "kind": "eur_payment_fx_fee",
       "language": "zh",
-      "enabled": false,
-      "wait_for": "eur_payment",
+      "enabled": true,
+      "book": "exam-euro",
       "text": "可口可乐我在2026年的11月8号的上午9点31分还花了210.6欧买了3.1657591股。当时的股价是落在一股78.97美金。但是我花的是欧元啊，请注意。然后好像有一个 FX fee，这个好像是汇率转换的费用，是0.32欧元。",
       "gold": {
-        "expect": "cannot_record",
-        "why": [
-          "money_not_in_ledger",
-          "fee_money_not_in_ledger"
+        "expect": "send",
+        "trades": [
+          {
+            "side": {
+              "value": "buy"
+            },
+            "asset": {
+              "value": "KO",
+              "said": "可口可乐"
+            },
+            "quantity": {
+              "value": "3.1657591",
+              "said": "3.1657591"
+            },
+            "price": {
+              "computed": true
+            },
+            "total": {
+              "value": "210.6",
+              "said": "210.6"
+            },
+            "quote": {
+              "value": "EUR",
+              "said": "欧"
+            },
+            "fee": {
+              "value": "0.32",
+              "said": "0.32"
+            },
+            "fee_asset": {
+              "value": "EUR",
+              "said": "欧元"
+            },
+            "occurred": {
+              "value": "2026-11-08 09:31",
+              "said": "2026年的11月8号的上午9点31分"
+            },
+            "platform": {
+              "value": ""
+            },
+            "suspect": [],
+            "inferred": [],
+            "ask_ok": [],
+            "cost_rate": {
+              "value": "1.187084502",
+              "from": "78.97"
+            }
+          }
         ]
       }
     },
@@ -654,14 +742,58 @@
       "id": "R100-27",
       "kind": "eur_payment_fx_fee",
       "language": "zh",
-      "enabled": false,
-      "wait_for": "eur_payment",
+      "enabled": true,
+      "book": "exam-euro",
       "text": "苹果我在2026年的9月1号的晚上21点00分还花了223.67欧买了1.0822979股。当时的股价是落在一股230.99美金。但是我花的是欧元啊，请注意。然后好像有一个 FX fee，这个好像是汇率转换的费用，是0.34欧元。",
       "gold": {
-        "expect": "cannot_record",
-        "why": [
-          "money_not_in_ledger",
-          "fee_money_not_in_ledger"
+        "expect": "send",
+        "trades": [
+          {
+            "side": {
+              "value": "buy"
+            },
+            "asset": {
+              "value": "AAPL",
+              "said": "苹果"
+            },
+            "quantity": {
+              "value": "1.0822979",
+              "said": "1.0822979"
+            },
+            "price": {
+              "computed": true
+            },
+            "total": {
+              "value": "223.67",
+              "said": "223.67"
+            },
+            "quote": {
+              "value": "EUR",
+              "said": "欧"
+            },
+            "fee": {
+              "value": "0.34",
+              "said": "0.34"
+            },
+            "fee_asset": {
+              "value": "EUR",
+              "said": "欧元"
+            },
+            "occurred": {
+              "value": "2026-09-01 21:00",
+              "said": "2026年的9月1号的晚上21点00分"
+            },
+            "platform": {
+              "value": ""
+            },
+            "suspect": [],
+            "inferred": [],
+            "ask_ok": [],
+            "cost_rate": {
+              "value": "1.1177180307",
+              "from": "230.99"
+            }
+          }
         ]
       }
     },
