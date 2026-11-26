@@ -21,7 +21,7 @@ from ledger_hand.flows.conversation import AssistantChat, say
 from ledger_hand.ledger.demo_book import DEMO_ASSETS
 from ledger_hand.ledger.demo_cash import demo_ledger_with_cash
 from ledger_hand.ledger.invented_book import INVENTED_NOW, INVENTED_ZONE
-from ledger_hand.ports import ToolReply
+from ledger_hand.ports import ToolCall, ToolReply
 from tests.fakes.routed_model import RoutedModel
 from tests.fakes.scripted_model import scripted_record
 
@@ -106,3 +106,26 @@ def test_the_ruler_judges_a_table_money_moved_and_a_figure_unheard() -> None:
     made_up = judge(near, said(near.text, "你还有 50 USDT 的现金。"))
     assert made_up.right
     assert made_up.trouble == ""
+
+
+def test_a_figure_after_a_lookup_is_the_tables_and_no_trouble() -> None:
+    near = next(one for one in group("must_pass") if one.text == "我现在还有多少BTC")
+    looked = ToolReply(
+        text="",
+        calls=(ToolCall(name="get_positions", arguments={}),),
+        record=scripted_record(),
+    )
+    after = ToolReply(
+        text="You hold 1.0174765 BTC, 6919.6 USDT up.", calls=(), record=scripted_record()
+    )
+    done = say(
+        AssistantChat(),
+        near.text,
+        model=RoutedModel(tools=[looked, after]),
+        ledger=demo_ledger_with_cash().taking_cards(),
+        now=NOW,
+        zone=ZONE,
+        max_steps=6,
+    )
+
+    assert judge(near, done).trouble == ""

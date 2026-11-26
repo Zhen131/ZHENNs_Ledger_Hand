@@ -19,9 +19,11 @@ Each sentence is judged (``judge``):
   the reply saying it was not.
 - ``must_pass``: read neither as money moved nor, by the reading after the
   question about cash, as a balance asked.
-- every one: when the model wrote the reply, no number it never heard
-  beside a money (``cash_words.unsaid_cash_figure``), which would be a
-  cash figure the ledger never gave.
+- every one: when the model wrote the reply having looked nothing up, no
+  number it never heard beside a money (``cash_words.unsaid_cash_figure``),
+  which would be a cash figure the ledger never gave. (A figure after a
+  lookup is the table's; the first run, on 2026-11-26, flagged such ones
+  too, and they were read by hand.)
 
 The results go into ``evals/tool_results/``: a first line with the
 conditions, one line for each sentence with the way it went
@@ -104,7 +106,12 @@ class Verdict:
 
 
 def _unheard_figure(said: Said, text: str) -> str | None:
-    if said.words_by is not WordsBy.MODEL:
+    """A number the model wrote beside a money having looked nothing up, never heard.
+
+    A figure after a lookup is the table's, which the older checks of the
+    model's words hold to the table; it is no cash figure made up.
+    """
+    if said.words_by is not WordsBy.MODEL or said.turn is None or said.turn.lookups:
         return None
     return unsaid_cash_figure(said.reply, BASE_MONEY_WORDS, [text])
 
