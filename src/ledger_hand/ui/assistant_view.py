@@ -20,6 +20,9 @@ the reply:
   typed (``assistant_turns.take_text``);
 - the line on what reached the ledger (``assistant_how.sent_line``);
 - "How this was done", closed until opened (``assistant_how.how_lines``);
+- after the reply's own container, in the same bubble, one card for each
+  trade sent, its cells and their marks (``assistant_trade_cards``), read
+  only; beside the table of the proposal, not in place of it;
 - when the reply was not kept in the assistant's record, why, under the
   key ``record_key`` (``assistant_record_words.not_kept_words``): a missing
   data folder as a plain line, any other reason as a warning, never an
@@ -43,7 +46,7 @@ from ledger_hand.assistant.tools import ToolName
 from ledger_hand.flows.assistant_record import NotKept, RecordProblem
 from ledger_hand.flows.conversation import Said
 from ledger_hand.flows.editing import Choosing, Picking
-from ledger_hand.ui import assistant_session, assistant_turns
+from ledger_hand.ui import assistant_session, assistant_trade_cards, assistant_turns
 from ledger_hand.ui.assistant_failure_words import failure_lines
 from ledger_hand.ui.assistant_how import how_lines, sent_line, words_by_line
 from ledger_hand.ui.assistant_record_words import not_kept_words
@@ -105,8 +108,11 @@ def draw(parts: Parts, exchanges: Sequence[Exchange]) -> None:
             with st.chat_message("user"):
                 st.text(exchange.words)
                 _read_as(exchange)
-        with st.chat_message("assistant"), st.container(key=exchange_key(exchange.number)):
-            _reply(parts, exchange, latest=latest)
+        with st.chat_message("assistant"):
+            with st.container(key=exchange_key(exchange.number)):
+                _reply(parts, exchange, latest=latest)
+            said = exchange.said
+            assistant_trade_cards.draw(said.recorded if said is not None else None, exchange.number)
 
 
 def _read_as(exchange: Exchange) -> None:

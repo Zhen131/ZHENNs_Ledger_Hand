@@ -100,6 +100,8 @@ def usable(parts: Parts) -> Stop | None:
         return Stop.CLOUD_PLUG
     if parts.steps_refused is not None:
         return Stop.STEPS_REFUSED
+    if parts.price_gap_refused is not None:
+        return Stop.PRICE_GAP_REFUSED
     return None
 
 
@@ -131,6 +133,7 @@ def take_text(text: str) -> None:
         zone=parts.zone,
         max_steps=parts.assistant_steps,
         tuning=parts.tuning,
+        price_gap=parts.price_gap,
     )
     _kept(text, said, now)
 
@@ -272,6 +275,7 @@ def continue_screenshot(read_key: str, note_key: str) -> None:
         now=now,
         zone=parts.zone,
         tuning=parts.tuning,
+        price_gap=parts.price_gap,
     )
     session.keep_reading(None, ASSISTANT_SPOT)
     _fill_boxes(read_key, note_key, "")
