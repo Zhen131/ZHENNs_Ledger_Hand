@@ -23,7 +23,14 @@ is, for every recording sentence, what it is against the demo book; a
 test sees to it. The words each new trade was recorded from are made up
 too, agree with its figures, and copy no sentence of the exam.
 
-Names defined here: ``EXAM_ADDED``, ``EXAM_TRADES`` and ``exam_ledger``.
+The sentences of euros paid for a share (enabled on 2026-11-26) are said
+against the same book with a euro and the money each of the demo book's
+own assets is priced in (``exam_ledger_with_euro``, the assets of
+``ledger.demo_euro``); a sentence says so (``"book": "exam-euro"``). The
+book has no trade paid in euros, so no rate is compared with an earlier one.
+
+Names defined here: ``EXAM_ADDED``, ``EXAM_TRADES``, ``exam_ledger`` and
+``exam_ledger_with_euro``.
 """
 
 from __future__ import annotations
@@ -35,6 +42,7 @@ from zoneinfo import ZoneInfo
 from ledger_hand.core.ledger_records import TradeFacts
 from ledger_hand.core.trade import Side
 from ledger_hand.ledger.demo_book import DEMO_ASSETS, DEMO_MARKET_PRICES, DEMO_TRADES
+from ledger_hand.ledger.demo_euro import DEMO_EURO_ASSETS
 from ledger_hand.ledger.fake_ledger import FakeLedger
 from ledger_hand.ledger.invented_book import INVENTED_ZONE
 
@@ -157,4 +165,11 @@ def exam_ledger() -> FakeLedger:
     2026-11-25, so that a sentence is measured against the ledger as it is.
     """
     ledger = FakeLedger(assets=DEMO_ASSETS, trades=EXAM_TRADES, prices=DEMO_MARKET_PRICES)
+    return ledger.taking_cards()
+
+
+def exam_ledger_with_euro() -> FakeLedger:
+    """A new fake ledger holding the exam book with a euro, and the money each of the demo
+    book's own assets is priced in; it takes cards, as ``exam_ledger``."""
+    ledger = FakeLedger(assets=DEMO_EURO_ASSETS, trades=EXAM_TRADES, prices=DEMO_MARKET_PRICES)
     return ledger.taking_cards()

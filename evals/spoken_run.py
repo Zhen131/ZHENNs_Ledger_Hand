@@ -66,12 +66,12 @@ from pathlib import Path
 from typing import TextIO
 
 from evals.cells import issues_about
-from evals.exam_book import exam_ledger
+from evals.exam_book import exam_ledger, exam_ledger_with_euro
 from evals.hidden_runs import log_hidden_run
 from evals.judged_run import CHINESE_EXTRACTS
 from evals.run import Backend, local_backend
-from evals.spoken_judge import Observed, SentTrade, Waiting, judge, local_minute
-from evals.spoken_set import SpokenSentence, SpokenSet, load_spoken_set
+from evals.spoken_judge import RATE_CELL, Observed, SentTrade, Waiting, judge, local_minute
+from evals.spoken_set import EURO_BOOK, SpokenSentence, SpokenSet, load_spoken_set
 from evals.spoken_tally import SentenceRow, markdown_sentences, markdown_totals, tally
 from evals.tool_run import REPO_ROOT, TOOL_RESULTS_DIR, _git
 from ledger_hand.assistant.outcome import Ending as TurnEnding
@@ -182,6 +182,7 @@ _MARKED_CELL = {
     "feeAssetId": "fee_asset",
     "occurredDate": "occurred",
     "platform": "platform",
+    "costRate": RATE_CELL,
 }
 # The marks of a card that are a cell's own mark: what the program worked out is none.
 _OWN_MARKS = frozenset({MarkKind.SUSPICIOUS, MarkKind.INFERRED})
@@ -240,6 +241,7 @@ def _sent(recorded: Recorded, zone: str) -> tuple[SentTrade, ...]:
                 picked_only=pick - said,
                 inferred=guessed,
                 day=facts.day.isoformat() if facts.date_only and facts.day else None,
+                cost_rate=_text(facts.cost_rate),
             )
         )
     return tuple(sent)
@@ -370,6 +372,7 @@ class Ports:
     steps: int
     tuning: Tuning
     chinese: PromptVersion | None = None
+    euro_ledger_of: Callable[[], LedgerPort] = exam_ledger_with_euro
 
 
 def _asset_code_to_say(
@@ -394,7 +397,7 @@ def say_sentence(
     sentence: SpokenSentence, spoken: SpokenSet, ports: Ports
 ) -> tuple[list[tuple[str, Said]], frozenset[int]]:
     """``sentence`` said in a chat of its own, with the asset's code answered once a trade."""
-    ledger = ports.ledger_of()
+    ledger = ports.euro_ledger_of() if sentence.book == EURO_BOOK else ports.ledger_of()
     codes = frozenset(asset.code for asset in ledger.list_assets())
     answered: set[int] = set()
     words: str | None = sentence.text

@@ -28,6 +28,12 @@ for each gold trade, and one for each trade sent beyond them:
 - ``NOT_SENT`` (⑤): nothing sent and nothing waits, for the reasons given;
 - ``NOT_MEASURED``: the model could not be reached, twice.
 
+A trade whose gold answer holds a rate (a trade paid in another money
+than its asset's own, ``GoldRate``) also has its rate judged, as the cell
+``cost_rate``: wrong when none was sent or it is more than a ten-thousandth
+of it away (``RATE_TOLERANCE``); its own mark is the card's, suspicious or
+assumed. A trade with no rate in its gold answer has none judged.
+
 A cell's own mark is one of: a reminder the reply said, about this trade
 and this cell (``evals.cells.issues_about``); the mark that its money was
 guessed (the pricing money, the fee's money); the line saying the model
@@ -47,7 +53,8 @@ A sentence not enabled has no gold trade: anything it sends is judged as
 trades beyond the gold ones; otherwise it said it cannot be recorded, it
 asked, or something else (``disabled_ending``).
 
-Names defined here: ``ASKED_ONCE_CARDS_ARE_TAKEN``, ``Ending``, ``SentTrade``,
+Names defined here: ``ASKED_ONCE_CARDS_ARE_TAKEN``, ``RATE_CELL``, ``RATE_TOLERANCE``,
+``Ending``, ``SentTrade``,
 ``Waiting``, ``Observed``, ``TradeResult``, ``judge``, ``disabled_ending``, ``first_tool_right`` and
 ``same_value``.
 """
@@ -97,7 +104,8 @@ class SentTrade:
     time known only to the day); ``marked`` the cells with a mark of their
     own, of any kind; ``picked_only`` the cells whose only mark is the
     line about an asset the model picked; ``inferred`` the cells marked as
-    a guessed money; ``day`` the day of a time known only to the day.
+    a guessed money; ``day`` the day of a time known only to the day;
+    ``cost_rate`` the rate it was sent with, or ``None``.
     """
 
     number: int
@@ -106,6 +114,7 @@ class SentTrade:
     picked_only: frozenset[str] = frozenset()
     inferred: frozenset[str] = frozenset()
     day: str | None = None
+    cost_rate: str | None = None
 
 
 @dataclass(frozen=True)
@@ -177,6 +186,25 @@ def same_value(name: str, gold: str, got: str | None) -> bool:
     return gold == got
 
 
+# The name of a trade's rate among the cells judged, when its gold answer holds one.
+RATE_CELL = "cost_rate"
+# How far apart a rate and the gold one may be, relatively: a ten-thousandth (87B,
+# part 6, the second part's line, 2026-11-25).
+RATE_TOLERANCE = Decimal("0.0001")
+
+
+def _wrong_rate(gold: GoldTrade, sent: SentTrade) -> frozenset[str]:
+    """``RATE_CELL`` when the gold answer holds a rate and the one sent is not it, within
+    ``RATE_TOLERANCE`` of it; nothing otherwise."""
+    rate = gold.cost_rate
+    if rate is None:
+        return frozenset()
+    got = sent.cost_rate
+    if got is not None and abs(Decimal(got) / Decimal(rate.value) - 1) <= RATE_TOLERANCE:
+        return frozenset()
+    return frozenset({RATE_CELL})
+
+
 def local_minute(moment: datetime, zone: str) -> str:
     """A moment as local time in ``zone``, to the minute, as gold times are written."""
     return moment.astimezone(ZoneInfo(zone)).strftime("%Y-%m-%d %H:%M")
@@ -192,7 +220,7 @@ def _expected(gold: GoldTrade, name: str, zone: str) -> str | None:
 def _sent_result(
     index: int, gold: GoldTrade, sent: SentTrade, zone: str, *, answered: bool
 ) -> TradeResult:
-    wrong: set[str] = set()
+    wrong: set[str] = set(_wrong_rate(gold, sent))
     must_mark: set[str] = set(gold.suspect)
     empty_ok = True
     for name in CELLS:

@@ -40,6 +40,14 @@ cells whose money should be marked as a guess (``inferred``) and the cells
 a question about counts as rightly asked (``ask_ok``; by default every
 ``none`` and ``suspect`` cell).
 
+Added on 2026-11-26, for the sentences of euros paid for a share: such a
+sentence names the book it is said against (``"book": "exam-euro"``, the
+exam book with a euro), and its trade the rate it should be sent with
+(``"cost_rate": {"value": ..., "from": ...}``, ``GoldRate``): the rate,
+and the price of one unit said in the asset's own money it is worked out
+from as quantity × that price ÷ total, to ten places. A trade with no rate
+in its gold answer has its rate not judged.
+
 ``load_spoken_set`` reads a file and checks its shape. ``gold_problems``
 checks each gold answer against what was said, the way the program reads
 it (every piece tidied first), and gives the problems found, each named by
@@ -47,8 +55,8 @@ the sentence's identifier and a few fixed words, never by what was said:
 a hidden sentence's words never reach a message.
 
 Names defined here: ``CELLS``, ``AMOUNT_CELLS``, ``SEND``, ``ASK``,
-``CANNOT_RECORD``, ``WAITS``, ``HALVES``, ``TIERS``, ``GoldCell``,
-``GoldTrade``, ``SpokenGold``, ``SpokenSentence``, ``SpokenSet``,
+``CANNOT_RECORD``, ``WAITS``, ``EURO_BOOK``, ``HALVES``, ``TIERS``, ``GoldCell``,
+``GoldRate``, ``GoldTrade``, ``SpokenGold``, ``SpokenSentence``, ``SpokenSet``,
 ``load_spoken_set``, ``gold_problems``, ``gold_moment``, ``computed_value``,
 ``gold_value`` and ``is_hidden``.
 """
@@ -64,6 +72,7 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
+from ledger_hand.core.cost_rate import rate_of, written
 from ledger_hand.core.numbers import Recognised, read_number
 from ledger_hand.core.spoken_text import tidy_spoken
 from ledger_hand.core.timeparse import TimeRecognised, read_time
@@ -92,6 +101,8 @@ CANNOT_RECORD = "cannot_record"
 _EXPECTS = frozenset({SEND, ASK, CANNOT_RECORD})
 # What a sentence not enabled yet waits for in the ledger.
 WAITS = frozenset({"eur_payment", "fx_fee", "cash_balance", "dividend"})
+# The one book a sentence may name of its own: the exam book with a euro.
+EURO_BOOK = "exam-euro"
 HALVES = frozenset({"practice", "hidden"})
 TIERS = frozenset({"r100", "r80", "r70"})
 # The words that say a fee was none at all, besides a number read as 0.
@@ -114,13 +125,27 @@ class GoldCell:
 
 
 @dataclass(frozen=True)
+class GoldRate:
+    """The rate a trade paid in another money than its asset's own is sent with, and the price
+    of one unit said in the asset's own money it is worked out from (added 2026-11-26)."""
+
+    value: str
+    said_price: str
+
+
+@dataclass(frozen=True)
 class GoldTrade:
-    """One trade of a gold answer: its ten cells and the three lists."""
+    """One trade of a gold answer: its ten cells and the three lists.
+
+    ``cost_rate`` is the rate of a trade paid in another money than its
+    asset's own, or ``None`` for every other trade, whose rate is not judged.
+    """
 
     cells: Mapping[str, GoldCell]
     suspect: frozenset[str] = frozenset()
     inferred: frozenset[str] = frozenset()
     ask_ok: frozenset[str] = frozenset()
+    cost_rate: GoldRate | None = None
 
     @property
     def nones(self) -> frozenset[str]:
@@ -155,6 +180,7 @@ class SpokenSentence:
     text: str
     gold: SpokenGold
     wait_for: str | None = None
+    book: str | None = None
 
 
 @dataclass(frozen=True)
@@ -209,11 +235,15 @@ def _names(data: object) -> frozenset[str]:
 
 def _trade(data: Mapping[str, object]) -> GoldTrade:
     cells = {name: _cell(data[name]) for name in CELLS}  # type: ignore[arg-type]
+    rate = data.get("cost_rate")
     trade = GoldTrade(
         cells=cells,
         suspect=_names(data.get("suspect")),
         inferred=_names(data.get("inferred")),
         ask_ok=_names(data.get("ask_ok")),
+        cost_rate=GoldRate(value=str(rate["value"]), said_price=str(rate["from"]))  # type: ignore[index]
+        if rate is not None
+        else None,
     )
     if not trade.inferred <= _INFERABLE:
         raise ValueError("only a trade's money and its fee's money may be guessed")
@@ -255,6 +285,7 @@ def load_spoken_set(path: Path) -> SpokenSet:
             text=str(item["text"]),
             gold=_gold(item["gold"]),
             wait_for=None if item.get("wait_for") is None else str(item["wait_for"]),
+            book=None if item.get("book") is None else str(item["book"]),
         )
         for item in data["sentences"]
     )
@@ -280,6 +311,8 @@ def load_spoken_set(path: Path) -> SpokenSet:
             raise ValueError(f"a sentence waits for one of {sorted(WAITS)}")
         if not sentence.enabled and (sentence.gold.expect != CANNOT_RECORD or sentence.gold.trades):
             raise ValueError("a sentence not enabled has only 'cannot be recorded' as its gold")
+        if sentence.book not in (None, EURO_BOOK):
+            raise ValueError(f"a sentence names no book of its own, or {EURO_BOOK!r}")
     return spoken
 
 
@@ -330,6 +363,27 @@ def _trade_problems(trade: GoldTrade, sentence: SpokenSentence, spoken: SpokenSe
     for name in AMOUNT_CELLS:
         if trade.cells[name].computed and computed_value(trade, name) is None:
             problems.append(f"{name}: cannot be worked out from the other two")
+    problems.extend(_rate_problems(trade, sentence, spoken))
+    return problems
+
+
+def _rate_problems(trade: GoldTrade, sentence: SpokenSentence, spoken: SpokenSet) -> list[str]:
+    """What is wrong with a gold rate: not worked out from the gold figures, or from a price
+    that was not said."""
+    rate = trade.cost_rate
+    if rate is None:
+        return []
+    problems: list[str] = []
+    quantity, total = gold_value(trade, "quantity"), gold_value(trade, "total")
+    worked = (
+        written(rate_of(Decimal(quantity), Decimal(rate.said_price), Decimal(total)))
+        if quantity is not None and total is not None
+        else None
+    )
+    if worked != rate.value:
+        problems.append("cost_rate: is not quantity × the price said ÷ total, to ten places")
+    if rate.said_price not in tidy_spoken(sentence.text, spoken.zone).text:
+        problems.append("cost_rate: the price it is worked out from was not said")
     return problems
 
 
