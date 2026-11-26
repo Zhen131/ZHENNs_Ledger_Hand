@@ -283,3 +283,23 @@ def test_a_price_said_in_the_money_paid_that_agrees_is_not_said() -> None:
     )
 
     assert "was not used" not in then.reply
+
+
+@pytest.mark.parametrize(
+    "cells",
+    [
+        {"quantity": "0.01526391个BTC", "total": "950U"},
+        {"quantity": "0.01526391", "price": "950U"},
+    ],
+)
+def test_a_trade_that_cannot_be_recorded_is_told_so_and_nothing_is_asked(
+    cells: dict[str, str],
+) -> None:
+    # The model copied the coin as the money used: no money the ledger prices in.
+    said = "今天17:03在OKX，0.01526391个BTC，花了950U，手续费是0。"
+    row_cells = {"side": "buy", "coin": "BTC", "price_currency": "BTC", "fee": "0"} | cells
+    (result,) = talk(said, rows=[row_cells | {"time": "今天17:03"}], ledger=books.jia())
+
+    assert result.recorded is not None
+    assert result.recorded.ending is RecordEnding.NOTHING_TO_SEND, result.reply
+    assert "the ledger does not price trades in BTC" in result.reply

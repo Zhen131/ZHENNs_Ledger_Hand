@@ -631,6 +631,8 @@ def _worked_across(
     money, or a vague word beside another money), with only two of
     quantity, price and total said. The third is then not worked out from
     figures in two moneys: it is asked, even when the ledger takes cards.
+    A trade that cannot be recorded at all (its money one the ledger prices
+    nothing in) is told so first, as before, and nothing is asked.
     Example: "用欧元买了2股KO，一股69.5美元" asks the total, never 139.
 
     Why: "任何时候不许跨两种钱去算第三样" (87B, part 4, item 4,
@@ -639,6 +641,9 @@ def _worked_across(
     """
     if isinstance(checked, TradeRecord):
         blank = checked.derived
+    elif isinstance(next_follow_up(draft, checked), CannotRecord):
+        # A trade that cannot be recorded at all is told so, as before; nothing is asked.
+        return None
     else:
         stated = [amount for amount in Amount if draft.stated(amount) is not None]
         blank = next(iter(set(Amount) - set(stated))) if len(stated) == 2 else None
