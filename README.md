@@ -722,15 +722,35 @@ the program's checks work on the words tidied. While a question waits,
 the line `asked about:`, just before the ending, names what it asks about
 (`time`, `fee`, and so on).
 
-Cash cannot be asked about yet: none of the eight tools reads a cash
-balance, a deposit or a withdrawal. A question about cash ("我还有多少USDT",
-"现金余额是多少", "How much USD did I deposit?") is caught by the program
-before the model is asked, and answered with the program's own words: the
-assistant cannot look up cash yet, the ledger's home page shows the cash
-balance, and no figure is worked out from the trades. No table is shown.
-Under a table of holdings or of sums the page says it holds no cash
-balance. What the catch knows and does not know is in
-`docs/known-gaps.md`, "The assistant: cash".
+A question about cash ("我还有多少USDT", "现金余额是多少", "我还有多少欧元")
+is caught by the program before the model is asked, and the program asks
+the ledger for its cash balances itself (the ledger's `get_cash_balances`,
+never handed to the model). It answers with its own words, the day the
+balances are counted to, and a table of every money the ledger holds, one
+row each, 0 and below 0 as the ledger gave them: nothing is added up or
+converted, and a vague word such as "美金" picks no row. A money named that
+the ledger lacks is said so ("The ledger has no money EUR."); a balance
+below 0 is said to be most likely a deposit never recorded, not a debt.
+Asked how much was deposited or withdrawn, it says the ledger gives only
+the balances, and lays out none. A ledger with no tool for cash balances
+(one older than 2026-11-25) gets the words as before: the assistant cannot
+look up cash, the ledger's home page shows it, and no figure is worked out
+from the trades. Under a table of holdings or of sums the page says it
+holds no cash balance, and, when the ledger has the tool, how to see them.
+
+Money moved that the assistant does not record, said rather than asked
+("我今天入金了500 USDT", "昨天提现了200U", "把100欧元换成了108美元",
+"可口可乐分红了2.1美元", "I deposited 500 USDT today"), is answered by the
+program before the model is asked: "The assistant does not record
+deposits, so nothing was sent to the ledger. Please record it in the
+ledger yourself." Said beside a trade ("入金500U，然后买了0.01个BTC…"), the
+trade is recorded as usual and the reply ends with a line saying the rest
+is to be recorded in the ledger by hand, and another when no trade was
+recorded either. What both catches know and do not know is in
+`docs/known-gaps.md`, "The assistant: cash" and "The assistant: money
+recorded by hand". `.venv/bin/python -m evals.cash_balances_run` says the
+sentences of `evals/sets/cash/cash-balances.json` to the whole assistant
+against the demo ledger with cash and judges each.
 
 Recording is the program's, not the model's. When the model asks to record
 a trade, what the user said, tidied as above, is handed to the same recording
@@ -1035,6 +1055,13 @@ The buys, one each of BTC, ETH, SOL, ADA, MSFT, INTC, KO, AAPL and NVDA,
 all fall before the invented book's first trade, coins in USDT and shares
 in USD, and are large enough that a sale said later in the autumn is not
 turned down for want of a holding. PepsiCo and DOT have no trade at all.
+The page and the script start it with cash too
+(`src/ledger_hand/ledger/demo_cash.py`): 250,000 USDT and 60,000 US
+dollars before its first trade, which every trade then moves the ledger's
+way, so "我还有多少USDT" lays out about 140,080.19 USDT and 17,093.94 US
+dollars, and a trade saved in the demo shows in the balances next asked
+for. The demo book's own file and `demo_ledger` stay as they were, with no
+tool for cash.
 Besides the invented book's market prices (BTC 64880 USDT, ETH 2701 USDT,
 MSFT 441.62 USD) it has five near their August buys: SOL 150 USDT, INTC
 24 USD, KO 70 USD, AAPL 230 USD and NVDA 130 USD. ADA has none, on

@@ -544,10 +544,52 @@ part of batch 68 the Assistant page reaches it too. What it does not do:
 
 ## The assistant: cash
 
-The assistant cannot look up a cash balance, a deposit or a withdrawal:
-none of the eight tools it hands the model reads one. The ledger added a
-ninth tool for cash balances on 2026-11-25; connecting it changes the
-tools handed to the model and is left for a batch of its own. Until then:
+The model cannot look up a cash balance, a deposit or a withdrawal: none
+of the eight tools handed to it reads one. The program itself reads the
+ledger's cash balances (its tool `get_cash_balances`, added on
+2026-11-25) when a question about cash is caught, and lays them out as
+the ledger gave them (decided on 2026-11-26). What is still not there:
+
+- **Balances only, no deposits one by one.** The ledger hands back each
+  money's balance and nothing of the deposits, withdrawals or exchanges
+  that made it, so "我一共入了多少金" gets words saying so, and no table
+  (a balance is not a sum of deposits).
+- **An older ledger has no such tool.** Asked, it answers `UNKNOWN_TOOL`;
+  the program then says the fixed words of before (`CASH_WORDS`), word for
+  word. The fake ledger made with no `cash` is such a ledger, so the
+  question about cash's own set (`evals/sets/cash.json`) and its ruler
+  measure that case still; the balances are measured by
+  `evals/sets/cash/cash-balances.json` against the demo ledger with cash.
+- **Asked and told in one sentence.** "我今天入金了500 USDT，现在还有多少？"
+  is a question: the question about cash decides its kind (here money put
+  in), so it gets the words that the ledger gives only balances, and
+  neither a table nor a word that the deposit is recorded by hand.
+- **The words standing in for a made-up figure.** When the model, having
+  looked nothing up, says a number beside a money, its words give way to
+  `CASH_WORDS` when the ledger has no tool for cash, and to other fixed
+  words (`WITHHELD_WORDS`: no figure not read from the ledger; ask how
+  much of a money is left) when it has. That check knows only the
+  nicknames of a money and the ledger's cash codes and names: "你还有 250
+  欧元" is not stopped, "欧元" being none of them (as before).
+- **The real ledger's plug is tried on written answers only.** Its cash
+  balances, an empty list and `UNKNOWN_TOOL` are tried on answers written
+  from the ledger's README and its own tests
+  (`tests/ledger/samples/cash-balances-*-documented.json`), never captured
+  from a running ledger.
+- **`ledger/link_tools.py` still names eight tools.** The program now uses
+  nine, but the list the ledger tier compares stays at eight, and
+  `get_cash_balances` is still reported as a tool the program does not
+  use; a change of that tool's fields on the ledger's side would not turn
+  the ledger tier red. (Left so, to change no test of the session that
+  connected the real ledger.)
+- **How the page knows.** Whether the ledger has the tool is asked when a
+  reply is made, and only when it matters; a reply made against an older
+  ledger keeps its old line under a table of holdings even after the
+  ledger is upgraded.
+- **`Route.CASH` keeps its words.** Its value still reads "which it cannot
+  look up"; it is kept as it was, since pages and records hold it.
+
+What follows is how a question about cash is caught, as before:
 
 - **A question about cash is caught from the user's words alone.** Before
   the model is asked, `core/cash_words.py` looks for four kinds: cash or a
@@ -639,6 +681,50 @@ tools handed to the model and is left for a batch of its own. Until then:
   assets is asked for, once, to know its cash assets and the names of the
   others; when it cannot be asked, the nicknames and the built-in coins'
   names alone are used.
+
+## The assistant: money recorded by hand
+
+The assistant proposes buys and sells only. A deposit, a withdrawal, an
+exchange of moneys or a dividend, said rather than asked, is answered by
+the program before the model is asked: it does not record that, nothing
+was sent, please record it in the ledger yourself
+(`core/money_asks.py`, 2026-11-26). What it knows:
+
+- **The words.** A deposit: "入金", "充值", "存入", "入了…金" with up to
+  eight signs between ("我入了500美金"), "转入了500U", "deposit", "top up";
+  not "买入金额", "收入", "投入", "买入了30美金". A withdrawal: "出金",
+  "提现", "取现", "出了…金", "withdraw", "cash out"; not "卖出", "支出". An
+  exchange: "换成", "兑换", "换了", "换汇", "convert", "exchange", with two
+  moneys named and no coin or share named at all; "换汇费", "FX fee",
+  "exchange fee" and "汇率转换的费用" are a trade's fee, not an exchange. A
+  dividend: "分红", "派息", "股息", "dividend".
+- **Said, not asked.** A sentence with the shape of a question or a request
+  ("多少", "几", "吗", "什么", "?", "how", "what", "did I", "查", "看",
+  "告诉我", "show", "list", "tell me") is no statement, and goes to the
+  question about cash, or to the model, as before.
+- **Beside a trade.** With a buy or a sell spoken of too ("买", "卖", "购",
+  "bought", "sold", "buy", "sell"), the trade is recorded as usual and the
+  reply ends with "Please record that part in the ledger yourself"; when
+  no trade was recorded (the model did not ask to record, or no trade was
+  found), a line says the trade was not recorded either. Whether a trade
+  was spoken of is read from those words alone: "入金500U，打算下周买BTC"
+  goes to the model, which should record nothing for a plan, and the reply
+  ends with both lines.
+- **What it does not catch.** Other words ("往账户里打了500U", "转了500U进来",
+  "领了股息" is caught but "收到了可口可乐给的钱" is not), and an exchange
+  that names a coin ("把100U换成了比特币" is a buy, as before). Such a
+  sentence goes to the model as before. Measured on 2026-11-26 before
+  this reading was added, a dividend said went to the model, which asked
+  for the details of a trade, and "我入了500美金" got the model's words
+  that it answers only about the ledger.
+- **The dividend sentence.** It says "Please record it in the ledger
+  yourself" for a dividend too. The ledger records dividends on its own
+  page under Record, Dividend (since its `dev` of 2026-11-26); a ledger
+  older than that has no place for one, which these words do not say.
+- **None of the sets is caught.** Every sentence of `evals/sets/` (the
+  hidden halves left out) and the demo sentences goes through this
+  reading and the reading of a balance of any money with no model; none
+  is caught (`tests/evals/test_money_asks_not_misread.py`).
 
 ## The assistant: recording a trade
 
