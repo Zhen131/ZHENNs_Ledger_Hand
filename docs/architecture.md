@@ -1061,8 +1061,10 @@ three readings, in this order:
 
 1. Money moved that the assistant does not record, said and not asked
    (`core/money_asks.py`, `statement`): a deposit, a withdrawal, an
-   exchange of moneys or a dividend. Alone, the program says it does not
-   record it and sends nothing (`Route.MANUAL`). Beside a buy or a sell,
+   exchange of moneys or a dividend. Naming no coin or share and saying
+   no buy or sell, the program says it does not record it and sends
+   nothing (`Route.MANUAL`). Beside a coin or share named, or a buy or a
+   sell,
    the second reading's deposit and withdrawal are passed over, the
    sentence goes to the model as any other, and the reply ends with a line
    that the rest is to be recorded by hand, and another when no trade was
@@ -1071,6 +1073,9 @@ three readings, in this order:
    or a balance named outright, how much of a money is still had (the
    money one of the nicknames, "钱", "money", or a cash asset of the
    ledger's own list), money put in or taken out.
+   A trade the second reading takes for a question about cash, said and
+   not asked and naming a coin or share, gets a closing line that it was
+   taken so and is to be said again (`TRADE_AS_CASH_WORDS`).
 3. Only when the second finds none: how much of any money of the tables is
    still had (`money_asks.left_asked`, "我还有多少欧元", "我还剩多少EUR").
 
