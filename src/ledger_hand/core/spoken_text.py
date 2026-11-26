@@ -55,6 +55,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date, datetime
 
+from ledger_hand.core.chinese import CHINESE_CHARACTER
 from ledger_hand.core.numbers import Recognised, read_number, write_number
 from ledger_hand.core.time_range import Period, read_period
 from ledger_hand.core.time_wording import Refusal
@@ -117,7 +118,7 @@ class Tidied:
 # year is ambiguous because this year's has not come yet.
 _CHECK_MOMENT = (2100, 12, 31, 23, 59)
 
-_CHINESE = re.compile("[一-鿿〇]")
+_CHINESE = CHINESE_CHARACTER
 _DIGIT_WORDS = "零一二三四五六七八九"
 _DIGIT_VALUE = {word: value for value, word in enumerate(_DIGIT_WORDS)} | {"〇": 0, "两": 2}
 _NUMBER_CHARACTERS = "零一二两三四五六七八九十百千万亿"

@@ -2,6 +2,7 @@
 
     .venv/bin/python -m evals.stock_run
     .venv/bin/python -m evals.stock_run --model qwen2.5:7b
+    .venv/bin/python -m evals.stock_run --extract spoken-1
 
 Run from the top of the repository. Each sentence is said once, in a chat of
 its own, to the whole assistant (``flows.conversation.say``): the real
@@ -9,7 +10,9 @@ model, the system prompt a turn uses by default, a fresh fake ledger with
 its invented book (or the same book with USD a money no trade is priced in,
 where the sentence says ``usdt_only``), and the set's fixed moment and zone.
 The recording flow judges and extracts with the prompt versions the
-assistant uses. Nothing is answered: a question asked is what came of it. What came
+assistant uses; ``--extract`` names another version for words with Chinese
+in them (``judged_run.CHINESE_EXTRACTS``), handed to ``say``, the results
+file's name then saying it. Nothing is answered: a question asked is what came of it. What came
 of it is judged against the gold answer (``stock_set``), every field by the
 ledger's code. The model is the one the settings name unless ``--model``
 names another, with the settings' parameters and question tuning; the steps
@@ -37,6 +40,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import TextIO
 
+from evals.judged_run import CHINESE_EXTRACTS
 from evals.run import Backend, local_backend
 from evals.stock_set import (
     STOCK_SET,
@@ -51,9 +55,11 @@ from evals.stock_set import (
 from evals.tool_run import REPO_ROOT, TOOL_RESULTS_DIR, _git
 from ledger_hand.core.followup import AskCell, AskWhichCell, ConfirmCoin
 from ledger_hand.core.ledger_records import Pricing
+from ledger_hand.extraction.prompt_language import ENGLISH_EXTRACT_PROMPT
+from ledger_hand.extraction.prompting import PromptVersion
 from ledger_hand.flows import assisting
 from ledger_hand.flows.conversation import (
-    ASSISTANT_EXTRACT_PROMPT,
+    ASSISTANT_CHINESE_EXTRACT_PROMPT,
     ASSISTANT_SCREEN_PROMPT,
     AssistantChat,
     Said,
@@ -165,7 +171,11 @@ def _line(
 
 
 def _conditions(
-    backend: Backend, started: datetime, set_file: Path, steps: int
+    backend: Backend,
+    started: datetime,
+    set_file: Path,
+    steps: int,
+    chinese: PromptVersion = ASSISTANT_CHINESE_EXTRACT_PROMPT,
 ) -> dict[str, object]:
     prompt = assisting.DEFAULT_PROMPT
     stock_set = load_stock_set(set_file)
@@ -177,7 +187,8 @@ def _conditions(
         "prompt": prompt.name,
         "prompt_words_sha256": _sha256(prompt.words.encode("utf-8")),
         "screen_prompt": ASSISTANT_SCREEN_PROMPT.name,
-        "extraction_prompt": ASSISTANT_EXTRACT_PROMPT.name,
+        "extraction_prompt": chinese.name,
+        "english_extraction_prompt": ENGLISH_EXTRACT_PROMPT.name,
         "commit": _git("rev-parse", "HEAD"),
         "worktree_clean": not _git("status", "--porcelain", "--", ".", f":(exclude){results}"),
         "model": backend.name,
@@ -193,7 +204,12 @@ def _conditions(
 
 
 def _said(
-    sentence: StockSentence, model: ModelPort, steps: int, tuning: Tuning, set_file: Path
+    sentence: StockSentence,
+    model: ModelPort,
+    steps: int,
+    tuning: Tuning,
+    set_file: Path,
+    chinese: PromptVersion | None = None,
 ) -> Said:
     stock_set = load_stock_set(set_file)
     return say(
@@ -205,18 +221,24 @@ def _said(
         zone=stock_set.zone,
         max_steps=steps,
         tuning=tuning,
+        extract_for_chinese=chinese,
     )
 
 
 def run(
-    backend: Backend, set_file: Path, path: Path, max_steps: int, tuning: Tuning
+    backend: Backend,
+    set_file: Path,
+    path: Path,
+    max_steps: int,
+    tuning: Tuning,
+    chinese: PromptVersion | None = None,
 ) -> list[tuple[StockSentence, Outcome, Verdict, str]]:
     """Run every sentence of the set, writing each sentence's line as it comes."""
     rows: list[tuple[StockSentence, Outcome, Verdict, str]] = []
     with path.open("a", encoding="utf-8") as out:
         for sentence in load_stock_set(set_file).sentences:
             began = time.monotonic()
-            said = _said(sentence, backend.model, max_steps, tuning, set_file)
+            said = _said(sentence, backend.model, max_steps, tuning, set_file, chinese)
             outcome = outcome_of(said)
             verdict = judge(sentence.gold, outcome)
             rows.append((sentence, outcome, verdict, _came(said, outcome)))
@@ -231,7 +253,14 @@ def main(arguments: Sequence[str] = (), *, out: TextIO = sys.stdout) -> int:
     parser = argparse.ArgumentParser(prog="evals.stock_run")
     parser.add_argument("--model", default=None)
     parser.add_argument("--set", default=str(STOCK_SET), help="the set of sentences to run")
+    parser.add_argument(
+        "--extract",
+        choices=sorted(CHINESE_EXTRACTS),
+        default=None,
+        help="the extraction version for words with Chinese in them",
+    )
     options = parser.parse_args(arguments)
+    chinese = CHINESE_EXTRACTS[options.extract] if options.extract else None
     set_file = Path(options.set).resolve()
     try:
         backend = local_backend(options.model)
@@ -243,10 +272,14 @@ def main(arguments: Sequence[str] = (), *, out: TextIO = sys.stdout) -> int:
     started = datetime.now(UTC)
     TOOL_RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     stamp = started.strftime("%Y%m%dT%H%M%SZ")
-    path = TOOL_RESULTS_DIR / f"run-{stamp}-{set_file.stem}-{assisting.DEFAULT_PROMPT.name}.jsonl"
-    head = _conditions(backend, started, set_file, steps)
+    named = f"-{options.extract}" if options.extract else ""
+    prompts = f"{named}-{assisting.DEFAULT_PROMPT.name}"
+    path = TOOL_RESULTS_DIR / f"run-{stamp}-{set_file.stem}{prompts}.jsonl"
+    head = _conditions(
+        backend, started, set_file, steps, chinese or ASSISTANT_CHINESE_EXTRACT_PROMPT
+    )
     path.write_text(json.dumps(head, ensure_ascii=False) + "\n", encoding="utf-8")
-    rows = run(backend, set_file, path, steps, tuning)
+    rows = run(backend, set_file, path, steps, tuning, chinese)
     verdicts = {sentence.id: verdict for sentence, _, verdict, _ in rows}
     end = {
         "record": "end",

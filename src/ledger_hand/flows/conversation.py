@@ -90,6 +90,14 @@ were said go to the ledger as each trade's own record of them
 (Decided on 2026-11-25: the program tidies, so the model never reads a
 number or a time it might change.)
 
+Words typed or said are extracted with the version of the prompt their
+language calls for (``prompt_language.extract_prompt_for``): words with a
+Chinese character in them, once tidied, with
+``ASSISTANT_CHINESE_EXTRACT_PROMPT``, or the version handed to ``say`` for
+Chinese (``extract_for_chinese``, which the measures use); words with none
+with ``first-3``. A screenshot is always extracted with ``first-3``
+(``ASSISTANT_EXTRACT_PROMPT``): no other version was measured on one.
+
 A screenshot read is said through ``say_from_reading``: the text read, as
 the person left it, and the note typed beside it are joined into one
 passage (``screenshot.start_from_reading``) and recorded exactly as the
@@ -108,7 +116,8 @@ This module reads no clock, no zone and no settings: all are handed in.
 Names defined here: ``Route``, ``WordsBy``, ``AssistantChat``, ``Said``,
 ``ScreenshotText``, ``say``, ``say_from_reading``,
 ``ASSISTANT_SCREEN_PROMPT``, ``ASSISTANT_EXTRACT_PROMPT``,
-``ASSISTANT_PICK_PROMPT`` and ``ASSISTANT_PICKS_ASSETS``.
+``ASSISTANT_CHINESE_EXTRACT_PROMPT``, ``ASSISTANT_PICK_PROMPT`` and
+``ASSISTANT_PICKS_ASSETS``.
 """
 
 from __future__ import annotations
@@ -126,6 +135,8 @@ from ledger_hand.core.ledger_records import Asset
 from ledger_hand.core.ledger_table import table_of
 from ledger_hand.core.spoken_text import Tidied, tidy_spoken
 from ledger_hand.extraction.picture_reading import PictureRead
+from ledger_hand.extraction.prompt_language import extract_prompt_for
+from ledger_hand.extraction.prompting import PromptVersion
 from ledger_hand.extraction.prompts.asset_pick import ASSET_PICK_PROMPT
 from ledger_hand.extraction.prompts.first3 import FIRST_PROMPT_3
 from ledger_hand.extraction.prompts.screen2 import SCREEN_PROMPT_2
@@ -155,6 +166,8 @@ from ledger_hand.ports import LedgerError, LedgerPort, Message, ModelPort, Role,
 # extracts with the third extraction version, the one measured best.
 ASSISTANT_SCREEN_PROMPT = SCREEN_PROMPT_2
 ASSISTANT_EXTRACT_PROMPT = FIRST_PROMPT_3
+# The version words with a Chinese character in them are extracted with.
+ASSISTANT_CHINESE_EXTRACT_PROMPT = FIRST_PROMPT_3
 # The prompt version that picks, from the ledger's list, the asset a name not
 # found names. The three versions measured on the practice half of the names
 # set tied, so the first is kept.
@@ -284,6 +297,7 @@ class _Around:
 
     ``raw_text`` is the words as the user said them, when tidying changed
     them; a trade recorded from them is sent with these words.
+    ``chinese`` is the version words with Chinese in them are extracted with.
     """
 
     model: ModelPort
@@ -292,6 +306,7 @@ class _Around:
     zone: str
     tuning: Tuning
     raw_text: str | None = None
+    chinese: PromptVersion = ASSISTANT_CHINESE_EXTRACT_PROMPT
 
 
 def say(
@@ -304,15 +319,20 @@ def say(
     zone: str,
     max_steps: int,
     tuning: Tuning = DEFAULT_TUNING,
+    extract_for_chinese: PromptVersion | None = None,
 ) -> Said:
     """What comes of the user saying ``said`` after ``state``.
 
     ``tuning`` is how the recording flow calls the model to word a question;
     the caller takes it from the settings (``recording.tuning_from``).
     ``said`` is tidied first, and the words tidied go on in its place.
+    ``extract_for_chinese``, when given, is the version words with Chinese
+    in them are extracted with, in place of the assistant's own.
     """
     read_as = tidy_spoken(said, zone)
-    around = _Around(model, ledger, now, zone, tuning, said if read_as.changed else None)
+    chinese = extract_for_chinese or ASSISTANT_CHINESE_EXTRACT_PROMPT
+    raw_text = said if read_as.changed else None
+    around = _Around(model, ledger, now, zone, tuning, raw_text, chinese)
     done = _said(state, read_as.text, around, max_steps)
     return replace(done, read_as=read_as)
 
@@ -426,13 +446,12 @@ def _begun(said: str, around: _Around, shot: ScreenshotText | None = None) -> Re
 def _start(said: str, around: _Around, table: AssetTable, shot: ScreenshotText | None) -> Progress:
     """The recording flow begun the assistant's way, for words typed and a screenshot alike.
 
-    The prompt versions, the holding back, the picking of an asset from
+    The judging prompt version, the holding back, the picking of an asset from
     the ledger's list and the looking up of an asset's last money in the
     ledger are named here once, so the two ways cannot drift apart.
     """
     assistant_way = {
         "screen_prompt": ASSISTANT_SCREEN_PROMPT,
-        "extract_prompt": ASSISTANT_EXTRACT_PROMPT,
         "hold_other_unit": True,
         "pick_assets": ASSISTANT_PICKS_ASSETS,
         "pick_prompt": ASSISTANT_PICK_PROMPT,
@@ -446,6 +465,7 @@ def _start(said: str, around: _Around, table: AssetTable, shot: ScreenshotText |
             zone=around.zone,
             assets=table,
             tuning=around.tuning,
+            extract_prompt=extract_prompt_for(said, around.chinese),
             **assistant_way,
         )
         if around.raw_text is None:
@@ -460,6 +480,7 @@ def _start(said: str, around: _Around, table: AssetTable, shot: ScreenshotText |
         note=shot.note,
         assets=table,
         tuning=around.tuning,
+        extract_prompt=ASSISTANT_EXTRACT_PROMPT,
         **assistant_way,
     )
 

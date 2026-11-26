@@ -2,13 +2,18 @@
 
     .venv/bin/python -m evals.spoken_run --set evals/sets/spoken-r100-practice.json
     .venv/bin/python -m evals.spoken_run --set evals/sets/spoken-r70-hidden.json --model qwen2.5:7b
+    .venv/bin/python -m evals.spoken_run --set evals/sets/spoken/spoken-r80-practice.json \
+        --extract spoken-1
 
 Run from the top of the repository. Each sentence is said once, in a chat
 of its own, to the whole assistant (``flows.conversation.say``): the real
 model, the system prompt a turn uses by default, a fresh fake ledger
 holding the exam book (``exam_book``), the set's fixed moment and zone,
 and the settings' steps and question tuning. The recording flow judges and
-extracts with the prompt versions the assistant uses.
+extracts with the prompt versions the assistant uses; ``--extract`` names
+another version for words with Chinese in them (``judged_run.CHINESE_EXTRACTS``;
+``first-3`` keeps every sentence on ``first-3``), handed to ``say``, and
+English is read with ``first-3`` either way.
 
 The ruler answers one question only: when the program asks which asset a
 trade is (the asset itself, not its fee's money) and the gold asset of
@@ -55,6 +60,7 @@ from typing import TextIO
 from evals.cells import issues_about
 from evals.exam_book import exam_ledger
 from evals.hidden_runs import log_hidden_run
+from evals.judged_run import CHINESE_EXTRACTS
 from evals.run import Backend, local_backend
 from evals.spoken_judge import Observed, SentTrade, Waiting, judge, local_minute
 from evals.spoken_set import SpokenSentence, SpokenSet, load_spoken_set
@@ -67,10 +73,12 @@ from ledger_hand.core.ledger_records import TradeFacts
 from ledger_hand.core.proposals import CheckOutcome
 from ledger_hand.core.trade import Inferred, TradeDraft
 from ledger_hand.extraction.issues import Issue
+from ledger_hand.extraction.prompt_language import ENGLISH_EXTRACT_PROMPT
+from ledger_hand.extraction.prompting import PromptVersion
 from ledger_hand.extraction.reply_table import Field
 from ledger_hand.flows import assisting
 from ledger_hand.flows.conversation import (
-    ASSISTANT_EXTRACT_PROMPT,
+    ASSISTANT_CHINESE_EXTRACT_PROMPT,
     ASSISTANT_SCREEN_PROMPT,
     AssistantChat,
     Said,
@@ -279,6 +287,7 @@ class Ports:
     ledger_of: Callable[[], LedgerPort]
     steps: int
     tuning: Tuning
+    chinese: PromptVersion | None = None
 
 
 def _asset_code_to_say(
@@ -319,6 +328,7 @@ def say_sentence(
             zone=spoken.zone,
             max_steps=ports.steps,
             tuning=ports.tuning,
+            extract_for_chinese=ports.chinese,
         )
         saids.append((words, said))
         state = said.state
@@ -424,7 +434,12 @@ def run(
 
 
 def _conditions(
-    backend: Backend, started: datetime, set_file: Path, spoken: SpokenSet, steps: int
+    backend: Backend,
+    started: datetime,
+    set_file: Path,
+    spoken: SpokenSet,
+    steps: int,
+    chinese: PromptVersion = ASSISTANT_CHINESE_EXTRACT_PROMPT,
 ) -> dict[str, object]:
     prompt = assisting.DEFAULT_PROMPT
     results = TOOL_RESULTS_DIR.relative_to(REPO_ROOT).as_posix()
@@ -438,7 +453,8 @@ def _conditions(
         "prompt": prompt.name,
         "prompt_words_sha256": _sha256(prompt.words.encode("utf-8")),
         "screen_prompt": ASSISTANT_SCREEN_PROMPT.name,
-        "extraction_prompt": ASSISTANT_EXTRACT_PROMPT.name,
+        "extraction_prompt": chinese.name,
+        "english_extraction_prompt": ENGLISH_EXTRACT_PROMPT.name,
         "commit": _git("rev-parse", "HEAD"),
         "worktree_clean": not _git("status", "--porcelain", "--", ".", f":(exclude){results}"),
         "model": backend.name,
@@ -495,7 +511,14 @@ def main(arguments: Sequence[str] = (), *, out: TextIO = sys.stdout) -> int:
     parser = argparse.ArgumentParser(prog="evals.spoken_run")
     parser.add_argument("--model", default=None)
     parser.add_argument("--set", required=True, help="the set of sentences to run")
+    parser.add_argument(
+        "--extract",
+        choices=sorted(CHINESE_EXTRACTS),
+        default=ASSISTANT_CHINESE_EXTRACT_PROMPT.name,
+        help="the extraction version for words with Chinese in them",
+    )
     options = parser.parse_args(arguments)
+    chinese = CHINESE_EXTRACTS[options.extract]
     set_file = Path(options.set).resolve()
     try:
         spoken = load_spoken_set(set_file)
@@ -508,12 +531,14 @@ def main(arguments: Sequence[str] = (), *, out: TextIO = sys.stdout) -> int:
     started = datetime.now(UTC)
     TOOL_RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     stamp = started.strftime("%Y%m%dT%H%M%SZ")
-    prompts = f"{ASSISTANT_EXTRACT_PROMPT.name}-{assisting.DEFAULT_PROMPT.name}"
+    prompts = f"{chinese.name}-{assisting.DEFAULT_PROMPT.name}"
     name = f"spoken-{stamp}-{set_file.stem}-{prompts}"
     path = TOOL_RESULTS_DIR / f"{name}.jsonl"
-    head = _conditions(backend, started, set_file, spoken, steps)
+    head = _conditions(backend, started, set_file, spoken, steps, chinese)
     path.write_text(json.dumps(head, ensure_ascii=False) + "\n", encoding="utf-8")
-    ports = Ports(model=backend.model, ledger_of=exam_ledger, steps=steps, tuning=tuning)
+    ports = Ports(
+        model=backend.model, ledger_of=exam_ledger, steps=steps, tuning=tuning, chinese=chinese
+    )
     rows = run(spoken, ports, path)
     finish(rows, head, spoken, set_file, path, out)
     return 0

@@ -39,6 +39,14 @@ were made to its sentence (``tidied``), and the file's name ends in
 written, and nothing in the results differs from a run before the switch
 was added. (Decided on 2026-11-25.)
 
+A version written for Chinese (``CHINESE_EXTRACTS``, ``spoken-1`` and
+after) is not handed every sentence: each passage goes through the one
+function the assistant asks (``prompt_language.extract_prompt_for``), so a
+passage with a Chinese character in it is extracted with the version named
+and one with none with ``first-3``; the first line then says
+``"english_extraction_prompt": "first-3"`` as well. Any other version is
+handed every sentence, as before.
+
 It is here so that a new prompt version the assistant uses can be held to
 the old sentences: on the same day, each version runs both sets, and the
 fields wrong with nothing said about them (``silent_wrong``: a wrong value
@@ -53,7 +61,7 @@ first line with the conditions, one line for each sentence, and an
 Exit status: 0 the run finished; 2 it could not start, or ``--voice`` and
 ``--final-exam`` were both given.
 
-Names defined here: ``SCREENS``, ``EXTRACTS``, ``produced_of``,
+Names defined here: ``SCREENS``, ``EXTRACTS``, ``CHINESE_EXTRACTS``, ``produced_of``,
 ``silent_wrong``, ``reminders_of``, ``whole_right_of``, ``held_of``,
 ``run`` and ``main``.
 """
@@ -79,12 +87,14 @@ from evals.voice import VOICE_SET
 from ledger_hand.core import spoken_text
 from ledger_hand.core.assets import BUILT_IN_ASSETS
 from ledger_hand.core.spoken_text import tidy_spoken
+from ledger_hand.extraction.prompt_language import ENGLISH_EXTRACT_PROMPT, extract_prompt_for
 from ledger_hand.extraction.prompting import PromptVersion
 from ledger_hand.extraction.prompts.first import FIRST_PROMPT
 from ledger_hand.extraction.prompts.first2 import FIRST_PROMPT_2
 from ledger_hand.extraction.prompts.first3 import FIRST_PROMPT_3
 from ledger_hand.extraction.prompts.screen import SCREEN_PROMPT
 from ledger_hand.extraction.prompts.screen2 import SCREEN_PROMPT_2
+from ledger_hand.extraction.prompts.spoken1 import SPOKEN_PROMPT_1
 from ledger_hand.flows.progress import Progress, Stage, TradeStatus
 from ledger_hand.flows.recording import start
 from ledger_hand.ports import ModelError, ModelPort
@@ -94,10 +104,21 @@ SCREENS: dict[str, PromptVersion] = {
     SCREEN_PROMPT.name: SCREEN_PROMPT,
     SCREEN_PROMPT_2.name: SCREEN_PROMPT_2,
 }
+# The versions written for words with Chinese in them; English is read with first-3.
+_BY_LANGUAGE: dict[str, PromptVersion] = {
+    SPOKEN_PROMPT_1.name: SPOKEN_PROMPT_1,
+}
+# The versions a measure may hand the assistant for Chinese: first-3 is
+# "keep what there is", since first-3 for Chinese gives first-3 for all.
+CHINESE_EXTRACTS: dict[str, PromptVersion] = {
+    FIRST_PROMPT_3.name: FIRST_PROMPT_3,
+    **_BY_LANGUAGE,
+}
 EXTRACTS: dict[str, PromptVersion] = {
     FIRST_PROMPT.name: FIRST_PROMPT,
     FIRST_PROMPT_2.name: FIRST_PROMPT_2,
     FIRST_PROMPT_3.name: FIRST_PROMPT_3,
+    **_BY_LANGUAGE,
 }
 
 
@@ -135,8 +156,11 @@ def _one(
     hold: bool = False,
     tidy: bool = False,
 ) -> Progress:
+    passage = _passage(sentence, tidy=tidy)
+    if extract.name in _BY_LANGUAGE:
+        extract = extract_prompt_for(passage, extract)
     return start(
-        _passage(sentence, tidy=tidy),
+        passage,
         model,
         now=sentence.now,
         zone=sentence.zone,
@@ -310,6 +334,8 @@ def _head(
         "started_at": started.isoformat(timespec="seconds"),
         "hold_other_unit": options.hold_other_unit,
     }
+    if options.extract in _BY_LANGUAGE:
+        head["english_extraction_prompt"] = ENGLISH_EXTRACT_PROMPT.name
     if options.tidy:
         head["tidy"] = True
         head["tidy_module_sha256"] = _sha256(Path(spoken_text.__file__).read_bytes())
