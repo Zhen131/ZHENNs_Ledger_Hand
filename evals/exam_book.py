@@ -151,5 +151,10 @@ EXAM_TRADES = (*DEMO_TRADES, *EXAM_ADDED)
 
 
 def exam_ledger() -> FakeLedger:
-    """A new fake ledger holding the exam book: the demo assets and prices, and its trades."""
-    return FakeLedger(assets=DEMO_ASSETS, trades=EXAM_TRADES, prices=DEMO_MARKET_PRICES)
+    """A new fake ledger holding the exam book: the demo assets and prices, and its trades.
+
+    It takes cards with cells left empty, as the real ledger does since
+    2026-11-25, so that a sentence is measured against the ledger as it is.
+    """
+    ledger = FakeLedger(assets=DEMO_ASSETS, trades=EXAM_TRADES, prices=DEMO_MARKET_PRICES)
+    return ledger.taking_cards()

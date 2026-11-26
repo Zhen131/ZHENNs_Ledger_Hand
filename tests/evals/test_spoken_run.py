@@ -20,8 +20,15 @@ import pytest
 
 import evals.hidden_runs as hidden_runs
 import evals.spoken_run as spoken_run
-from evals.exam_book import exam_ledger
-from evals.spoken_judge import DisabledEnding, Ending, Observed, SentTrade, TradeResult, judge
+from evals.exam_book import EXAM_TRADES, exam_ledger
+from evals.spoken_judge import (
+    DisabledEnding,
+    Ending,
+    Observed,
+    SentTrade,
+    TradeResult,
+    judge,
+)
 from evals.spoken_judge import disabled_ending as disabled
 from evals.spoken_run import Ports, observe, say_sentence
 from evals.spoken_set import (
@@ -35,6 +42,8 @@ from evals.spoken_set import (
 )
 from evals.spoken_tally import SentenceRow, tally
 from ledger_hand.flows.progress import DEFAULT_TUNING
+from ledger_hand.ledger.demo_book import DEMO_ASSETS, DEMO_MARKET_PRICES
+from ledger_hand.ledger.fake_ledger import FakeLedger
 from ledger_hand.ports import ModelError, ModelErrorKind, ToolCall, ToolReply
 from tests.fakes.routed_model import RoutedModel
 from tests.fakes.scripted_model import Step, scripted_record
@@ -122,13 +131,23 @@ def model(
     )
 
 
-def ports(scripted: RoutedModel) -> Ports:
-    return Ports(model=scripted, ledger_of=exam_ledger, steps=6, tuning=DEFAULT_TUNING)
+def ports(scripted: RoutedModel, *, before: bool = False) -> Ports:
+    """The ports for ``scripted``; ``before``, with a ledger that takes no card with empty
+    cells, as every ledger was before 2026-11-25, so that the program asks each gap."""
+    ledger_of = exam_ledger_before if before else exam_ledger
+    return Ports(model=scripted, ledger_of=ledger_of, steps=6, tuning=DEFAULT_TUNING)
 
 
-def came(spoken: SpokenSet, scripted: RoutedModel) -> tuple[Observed, list[TradeResult]]:
+def exam_ledger_before() -> FakeLedger:
+    """The exam book on a ledger that takes no card with empty cells."""
+    return FakeLedger(assets=DEMO_ASSETS, trades=EXAM_TRADES, prices=DEMO_MARKET_PRICES)
+
+
+def came(
+    spoken: SpokenSet, scripted: RoutedModel, *, before: bool = False
+) -> tuple[Observed, list[TradeResult]]:
     sentence = spoken.sentences[0]
-    saids, answered = say_sentence(sentence, spoken, ports(scripted))
+    saids, answered = say_sentence(sentence, spoken, ports(scripted, before=before))
     observed = observe([said for _, said in saids], answered, spoken.zone)
     return observed, judge(sentence, observed, spoken.zone)
 
@@ -182,7 +201,7 @@ def test_the_asset_code_is_answered_once_and_the_trade_saved_counts_apart(tmp_pa
     scripted = model(text, rows, answers=[copied("MSFT")])
     spoken = one_set(tmp_path, text, [gold])
 
-    saids, answered = say_sentence(spoken.sentences[0], spoken, ports(scripted))
+    saids, answered = say_sentence(spoken.sentences[0], spoken, ports(scripted, before=True))
     observed = observe([said for _, said in saids], answered, spoken.zone)
     (result,) = judge(spoken.sentences[0], observed, spoken.zone)
 
@@ -353,7 +372,7 @@ def test_a_question_about_a_cell_the_gold_lets_be_asked_is_asked_rightly(tmp_pat
     gold = _msft(fee=NONE, fee_asset=NONE)
 
     observed, (result,) = came(
-        one_set(tmp_path, MSFT_NO_FEE, [gold]), model(MSFT_NO_FEE, [MSFT_ROW])
+        one_set(tmp_path, MSFT_NO_FEE, [gold]), model(MSFT_NO_FEE, [MSFT_ROW]), before=True
     )
 
     assert result.ending is Ending.ASKED_OK
@@ -363,7 +382,9 @@ def test_a_question_about_a_cell_the_gold_lets_be_asked_is_asked_rightly(tmp_pat
 def test_a_question_about_a_cell_the_gold_has_is_not_asked_rightly(tmp_path: Path) -> None:
     gold = _msft(fee={"value": "0", "said": "400"})
 
-    _, (result,) = came(one_set(tmp_path, MSFT_NO_FEE, [gold]), model(MSFT_NO_FEE, [MSFT_ROW]))
+    _, (result,) = came(
+        one_set(tmp_path, MSFT_NO_FEE, [gold]), model(MSFT_NO_FEE, [MSFT_ROW]), before=True
+    )
 
     assert result.ending is Ending.ASKED_NOT_OK
 
@@ -376,7 +397,9 @@ def test_the_other_trade_waits_its_turn_and_a_wrong_draft_cell_is_counted(tmp_pa
         _msft(quantity=_said("3", "2"), total={"computed": True}, fee=NONE, fee_asset=NONE),
     ]
 
-    observed, results = came(one_set(tmp_path, text, golds), model(text, [MSFT_ROW, second]))
+    observed, results = came(
+        one_set(tmp_path, text, golds), model(text, [MSFT_ROW, second]), before=True
+    )
 
     assert endings(results) == [Ending.ASKED_OK, Ending.NOT_ITS_TURN]
     assert results[1].draft_unmarked == frozenset({"quantity"})
@@ -392,7 +415,7 @@ def test_a_question_after_the_asset_code_is_left_unanswered(tmp_path: Path) -> N
     scripted = model(text, rows, answers=[copied("MSFT")])
     spoken = one_set(tmp_path, text, [gold])
 
-    saids, answered = say_sentence(spoken.sentences[0], spoken, ports(scripted))
+    saids, answered = say_sentence(spoken.sentences[0], spoken, ports(scripted, before=True))
     observed = observe([said for _, said in saids], answered, spoken.zone)
     (result,) = judge(spoken.sentences[0], observed, spoken.zone)
 
@@ -470,10 +493,10 @@ EURO = f"{WHEN}花了9欧元买入0.1股KO，股价80美元，手续费0"
 
 
 def _not_enabled(
-    tmp_path: Path, rows: Sequence[dict[str, str]], **options: object
+    tmp_path: Path, rows: Sequence[dict[str, str]], *, before: bool = False, **options: object
 ) -> DisabledEnding | None:
     spoken = one_set(tmp_path, EURO, enabled=False)
-    observed, results = came(spoken, model(EURO, rows, **options))  # type: ignore[arg-type]
+    observed, results = came(spoken, model(EURO, rows, **options), before=before)  # type: ignore[arg-type]
     if observed.sent:
         assert endings(results) == [Ending.SILENT] * len(observed.sent)
     return disabled(spoken.sentences[0], observed)
@@ -486,7 +509,7 @@ def test_a_sentence_not_enabled_said_to_be_unrecordable_is_told(tmp_path: Path) 
 
 def test_a_sentence_not_enabled_asked_about_is_asked(tmp_path: Path) -> None:
     asked = row(side="buy", coin="KO", quantity="0.1股", price="80美元", time=WHEN)
-    assert _not_enabled(tmp_path, [asked]) is DisabledEnding.ASKED
+    assert _not_enabled(tmp_path, [asked], before=True) is DisabledEnding.ASKED
 
 
 def test_a_sentence_not_enabled_that_sends_counts_every_trade_as_silent(tmp_path: Path) -> None:
@@ -628,3 +651,37 @@ def test_a_silent_trade_of_a_reply_with_a_passage_reminder_is_counted_apart(
 
     assert tally([with_reminder, without])["silent_with_passage_reminder"] == 1
     assert tally([with_reminder, without])["silent"] == 2
+
+
+# --- once the ledger takes a card with empty cells --------------------------------------------
+
+
+def test_a_fee_not_said_is_sent_empty_and_counts_as_left_empty(tmp_path: Path) -> None:
+    gold = _msft(fee=NONE, fee_asset=NONE)
+
+    observed, (result,) = came(
+        one_set(tmp_path, MSFT_NO_FEE, [gold]), model(MSFT_NO_FEE, [MSFT_ROW])
+    )
+
+    assert observed.waiting is None
+    (sent,) = observed.sent
+    assert (sent.values["fee"], sent.values["fee_asset"]) == (None, None)
+    assert result.ending is Ending.EMPTY_LEFT
+
+
+def test_three_figures_that_disagree_are_marked_on_the_card_not_silent(tmp_path: Path) -> None:
+    text = f"{WHEN}买入0.5 SOL，成交价200 USDT，总额300 USDT，手续费0"
+    rows = [
+        row(side="buy", coin="SOL", quantity="0.5 SOL", price="200 USDT", total="300 USDT",
+            fee="0", time=WHEN)
+    ]  # fmt: skip
+    gold = gold_trade(total=_said("300", "300"), suspect=["quantity", "price", "total"])
+    gold.pop("suspect")
+    trade = {**gold, "suspect": ["quantity", "price", "total"]}
+
+    observed, (result,) = came(one_set(tmp_path, text, [trade]), model(text, rows))
+
+    (sent,) = observed.sent
+    assert sent.values["total"] is None
+    assert {"quantity", "price", "total"} <= sent.marked
+    assert result.ending is Ending.MARKED

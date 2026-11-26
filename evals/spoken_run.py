@@ -25,9 +25,13 @@ not let the model pick assets from the ledger's list, so a trade saved
 once the code was given is counted apart (①a).
 
 What came of each sentence is judged trade by trade (``spoken_judge``)
-and added up (``spoken_tally``). When the model cannot be reached, the
-sentence is said again once, after a wait (three minutes, for another
-process to let the model go); twice unreachable, it is not measured. When
+and added up (``spoken_tally``). A trade sent as a card with empty cells
+(the exam book takes them, as the real ledger does) is sent with those
+cells empty (①b where the gold has them none); a suspicious or assumed
+mark on its card is a mark of the cell's own. When the model cannot be
+reached, the sentence is said again once, after a wait (three minutes,
+for another process to let the model go); twice unreachable, it is not
+measured. When
 more than a tenth of a file's sentences are not measured, the run says so
 and should be run again.
 
@@ -70,8 +74,10 @@ from ledger_hand.assistant.outcome import Ending as TurnEnding
 from ledger_hand.core.assets import AssetTable, MoneyReading
 from ledger_hand.core.followup import AskCell, AskWhichCell, Cell, ConfirmCoin
 from ledger_hand.core.ledger_records import TradeFacts
+from ledger_hand.core.marks import MarkKind
 from ledger_hand.core.proposals import CheckOutcome
 from ledger_hand.core.trade import Inferred, TradeDraft
+from ledger_hand.core.trade_card import TradeCard
 from ledger_hand.extraction.issues import Issue
 from ledger_hand.extraction.prompt_language import ENGLISH_EXTRACT_PROMPT
 from ledger_hand.extraction.prompting import PromptVersion
@@ -86,7 +92,7 @@ from ledger_hand.flows.conversation import (
 )
 from ledger_hand.flows.progress import Progress, Question, Tuning
 from ledger_hand.flows.record_words import SPOKEN_REMINDERS, spoken_reminders
-from ledger_hand.flows.recorded import Recorded, RecordEnding
+from ledger_hand.flows.recorded import MarkedTrade, Recorded, RecordEnding
 from ledger_hand.flows.recording import tuning_from
 from ledger_hand.ports import LedgerPort, ModelError, ModelPort
 from ledger_hand.settings import SettingsError, load_assistant_steps, load_model_settings
@@ -139,35 +145,74 @@ def _marked_by(issues: Sequence[Issue], position: int) -> frozenset[str]:
     )
 
 
-def _values(facts: TradeFacts, zone: str) -> dict[str, str | None]:
+def _text(value: Decimal | None) -> str | None:
+    return str(value) if value is not None else None
+
+
+def _values(facts: TradeFacts | TradeCard, zone: str) -> dict[str, str | None]:
+    """The ten cells sent, as text; a cell a card left empty is ``None``."""
+    moment = facts.occurred
     return {
         "side": facts.side.value,
         "asset": facts.asset,
-        "quantity": str(facts.quantity),
-        "price": str(facts.price),
-        "total": str(facts.total),
+        "quantity": _text(facts.quantity),
+        "price": _text(facts.price),
+        "total": _text(facts.total),
         "quote": facts.quote,
-        "fee": str(facts.fee),
+        "fee": _text(facts.fee),
         "fee_asset": facts.fee_asset,
-        "occurred": None if facts.date_only else local_minute(facts.occurred, zone),
+        "occurred": None if moment is None or facts.date_only else local_minute(moment, zone),
         "platform": facts.platform,
     }
+
+
+# The ruler's name for each cell of the ledger a card's mark is on.
+_MARKED_CELL = {
+    "type": "side",
+    "assetId": "asset",
+    "quantity": "quantity",
+    "price": "price",
+    "totalValue": "total",
+    "quoteAssetId": "quote",
+    "fee": "fee",
+    "feeAssetId": "fee_asset",
+    "occurredDate": "occurred",
+    "platform": "platform",
+}
+# The marks of a card that are a cell's own mark: what the program worked out is none.
+_OWN_MARKS = frozenset({MarkKind.SUSPICIOUS, MarkKind.INFERRED})
+
+
+def _card_marked(marked: MarkedTrade | None) -> frozenset[str]:
+    """The cells a trade's card marks suspicious or assumed, by the ruler's names."""
+    if marked is None:
+        return frozenset()
+    return frozenset(
+        _MARKED_CELL[mark.field.value]
+        for mark in marked.marks.marks
+        if mark.kind in _OWN_MARKS and mark.field.value in _MARKED_CELL
+    )
 
 
 def _sent(recorded: Recorded, zone: str) -> tuple[SentTrade, ...]:
     if recorded.ending not in _SENT_ENDINGS:
         return ()
     checks = recorded.checks or (None,) * len(recorded.trades)
+    marks = recorded.marked if len(recorded.marked) == len(recorded.trades) else ()
     reminders = spoken_reminders(recorded)
     progress = recorded.progress
     picked = {found.code for found in progress.picks if found.code is not None}
     sent: list[SentTrade] = []
-    for number, facts, check in zip(recorded.numbers, recorded.trades, checks, strict=True):
+    for place, (number, facts, check) in enumerate(
+        zip(recorded.numbers, recorded.trades, checks, strict=True)
+    ):
         if check is not None and check.outcome is not CheckOutcome.PASSED:
             continue
-        record = progress.trades[number - 1].record
+        state = progress.trades[number - 1]
+        record = state.record if state.record is not None else state.card
         guessed = frozenset(_GUESSED[one] for one in record.inferred) if record else frozenset()
-        said = _marked_by(reminders, number - 1) | guessed
+        on_card = _card_marked(marks[place] if marks else None)
+        said = _marked_by(reminders, number - 1) | guessed | on_card
         pick = frozenset({"asset"}) if facts.asset in picked else frozenset()
         sent.append(
             SentTrade(
@@ -176,7 +221,7 @@ def _sent(recorded: Recorded, zone: str) -> tuple[SentTrade, ...]:
                 marked=said | pick,
                 picked_only=pick - said,
                 inferred=guessed,
-                day=facts.day.isoformat() if facts.date_only else None,
+                day=facts.day.isoformat() if facts.date_only and facts.day else None,
             )
         )
     return tuple(sent)
