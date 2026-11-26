@@ -12,7 +12,9 @@ Each argument is one thing the user says, in order, in one chat. They are
 sent to the model the settings name (by default ``qwen2.5:7b`` on this
 machine's Ollama), with the fake ledger and its demo book behind the tools
 (``ledger.demo_book``: the invented book with more assets, among them
-shares with Chinese names, and buys in August 2026). For each thing said
+shares with Chinese names, and buys in August 2026), and its cash
+(``ledger.demo_cash``: opening amounts of USDT and US dollars that every
+trade then moves). For each thing said
 it prints which way it went (the model chose the
 tools, it was taken as the answer to the question waiting, or the program
 took over after two wrong steps), after a line "read as: ..." when the
@@ -112,7 +114,7 @@ from ledger_hand.flows.progress import DEFAULT_TUNING, Asked, TradeState, Tuning
 from ledger_hand.flows.record_words import price_check_words
 from ledger_hand.flows.recorded import Recorded
 from ledger_hand.flows.recording import tuning_from
-from ledger_hand.ledger.demo_book import demo_ledger
+from ledger_hand.ledger.demo_cash import demo_ledger_with_cash
 from ledger_hand.ledger.fake_ledger import FakeLedger
 from ledger_hand.ledger.invented_book import INVENTED_NOW, INVENTED_ZONE
 from ledger_hand.llm.connect import connect_model
@@ -170,8 +172,9 @@ def main(
             return 2
         model, max_steps, tuning = model or built[0], max_steps or built[1], built[2]
         gap = price_gap if price_gap is not None else built[3]
-    # The demo ledger takes cards with cells left empty, as the real one does now.
-    ledger = ledger or demo_ledger().taking_cards()
+    # The demo ledger takes cards with cells left empty, as the real one does now, and
+    # has the ledger's tool for cash balances (``demo_cash``).
+    ledger = ledger or demo_ledger_with_cash().taking_cards()
     print(f"now:    {now.isoformat()} in {zone} ({whose} moment)", file=out)
     print(f"model:  {getattr(model, 'name', None) or _model_name()}", file=out)
     print(f"ledger: {type(ledger).__name__}; at most {max_steps} steps a turn", file=out)
