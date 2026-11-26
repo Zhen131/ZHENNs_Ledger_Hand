@@ -10,7 +10,9 @@ nothing is worked out again.
   time, said under every reply: a proposal to record, a change, a deletion,
   or nothing.
 - ``how_lines``: how it was done, for the part of the page that opens on a
-  click: which way it went; each step of the model, each tool it asked for
+  click: which way it went; the money moved said that the assistant does
+  not record, and what the ledger said of its cash, when either came up;
+  each step of the model, each tool it asked for
   with the arguments given (those dropped unread named), a short piece of
   what was handed back, or why the call was a wrong step, or that it was
   not run; whether the program took over; how many steps the model took
@@ -26,6 +28,7 @@ from __future__ import annotations
 import json
 
 from ledger_hand.assistant.outcome import NotRunCall, RefusedCall, Step
+from ledger_hand.flows.cash_answers import CashSeen
 from ledger_hand.flows.conversation import Route, Said, WordsBy
 
 # What was handed back can run to a whole list; a line of it is enough to see
@@ -84,11 +87,27 @@ def _step_lines(number: int, step: Step) -> list[str]:
     return lines
 
 
+def _cash_seen(seen: CashSeen) -> str:
+    if seen.tool is False:
+        return "the ledger has no tool for them"
+    if seen.failure is not None:
+        return f"the ledger could not be asked ({seen.failure.code})"
+    if seen.balances is not None and seen.shown:
+        return f"read from the ledger, counted up to {seen.balances.day.isoformat()}"
+    return "the ledger has a tool for them"
+
+
 def how_lines(said: Said, steps: int) -> tuple[str, ...]:
     """How ``said`` was done, one line each; ``steps`` is how many one turn allows."""
     lines = [f"Way: {said.route.value}"]
     if said.cash is not None:
         lines.append(f"Caught as a question about cash: {said.cash.value}")
+    if said.manual is not None:
+        kinds = ", ".join(kind.value for kind in said.manual.kinds)
+        beside = "; a trade was spoken of beside it" if said.manual.with_trade else ""
+        lines.append(f"Money moved that the assistant does not record: {kinds}{beside}")
+    if said.cash_seen is not None:
+        lines.append(f"Cash balances in the ledger: {_cash_seen(said.cash_seen)}")
     turn = said.turn
     if turn is not None:
         for number, step in enumerate(turn.steps, start=1):

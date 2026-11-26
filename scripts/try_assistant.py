@@ -48,7 +48,11 @@ model's words were withheld, why), the assistant's last words and how it
 ended; just before the ending, when a question waits for its answer, what
 it asks about ("asked about: time", the cell's name; "new-coin" when it
 asks whether a word is a coin; "which-cell" when it asks which value is
-wrong).
+wrong). After the steps, when it came up, a line for money moved that is
+recorded by hand ("money moved, to record by hand: deposits"), and what
+the ledger said of its cash: "cash balances: counted up to <day>" with one
+line a money as the ledger gave it, or that it has no tool for them, or
+could not be asked.
 ``LEDGER_HAND_ASSISTANT_STEPS``
 says how many times the model may be asked in one turn (six by default),
 and ``LEDGER_HAND_PRICE_GAP_TIMES`` how many times apart a price and the
@@ -271,6 +275,8 @@ def show_said(words: str, said: Said, out: TextIO) -> None:
     turn = said.turn
     for number, step in enumerate(turn.steps if turn is not None else (), start=1):
         _show_step(number, step, out)
+    for line in cash_lines(said):
+        print(line, file=out)
     recorded = said.recorded
     if recorded is not None:
         _show_recording(said, recorded, out)
@@ -306,6 +312,35 @@ def _show_recording(said: Said, recorded: Recorded, out: TextIO) -> None:
         empty = empty_line(trade, check)
         if empty is not None:
             print(f"    {empty}", file=out)
+
+
+def cash_lines(said: Said) -> list[str]:
+    """The money moved said that is recorded by hand, and the ledger's cash balances laid out.
+
+    For example "cash balances: counted up to 2026-11-24", then one line a
+    money, "  USDT (Tether): 140080.18724 USDT", as the ledger gave it.
+    """
+    lines: list[str] = []
+    if said.manual is not None:
+        kinds = ", ".join(kind.value for kind in said.manual.kinds)
+        beside = "; a trade was spoken of beside it" if said.manual.with_trade else ""
+        lines.append(f"money moved, to record by hand: {kinds}{beside}")
+    seen = said.cash_seen
+    if seen is None:
+        return lines
+    if seen.tool is False:
+        lines.append("cash balances: the ledger has no tool for them")
+    elif seen.failure is not None:
+        lines.append(f"cash balances: the ledger could not be asked ({seen.failure.code})")
+    elif seen.balances is not None and seen.shown:
+        lines.append(f"cash balances: counted up to {seen.balances.day.isoformat()}")
+        lines += [
+            f"  {row.code} ({row.name}): {format(row.balance, 'f')} {row.code}"
+            for row in seen.balances.balances
+        ]
+    else:
+        lines.append("cash balances: the ledger has a tool for them")
+    return lines
 
 
 def pick_line(found: AssetPick) -> str:

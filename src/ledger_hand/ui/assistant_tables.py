@@ -23,13 +23,17 @@ money. No money is assumed.
   row a part, the parts that change marked; or a deletion, the trade alone.
 - ``listed_rows``: the trades a change or deletion found, numbered from 1
   as the program numbered them when it asked which.
+- ``cash_rows``: the ledger's cash balances, one row a money, in its
+  order, each in its own money, 0 and below 0 as given; never a total.
 
 Under a table of holdings or of sums, ``NO_CASH`` says that it holds no cash
-balance: the assistant cannot look up cash yet. It is laid out on the page
-only, never handed to the model.
+balance: the assistant cannot look up cash yet. When the ledger has a tool
+for cash balances (as it said when the reply was made, never asked again
+while the page draws), ``NO_CASH_ASKABLE`` says instead how to see them.
+Either is laid out on the page only, never handed to the model.
 
 Names defined here: ``CHANGED_MARK``, ``IN_THE_LEDGER``, ``FEES_INSIDE``, ``NO_CASH``,
-``proposed_rows``,
+``NO_CASH_ASKABLE``, ``cash_rows``, ``proposed_rows``,
 ``lookup_rows``,
 ``change_rows`` and ``listed_rows``.
 """
@@ -43,6 +47,7 @@ from ledger_hand.assistant.lookups import Lookup, when_text
 from ledger_hand.assistant.tools import ToolName
 from ledger_hand.core.ledger_records import (
     Asset,
+    CashBalances,
     CurrencyTotals,
     Figure,
     LedgerTrade,
@@ -194,6 +199,19 @@ FEES_INSIDE = "Fees paid in a group's own money are already inside its spent and
 
 # Said under every table of holdings or of sums (the product owner, 2026-11-25).
 NO_CASH = "This table holds no cash balance: the assistant cannot look up cash yet."
+# Said instead under such a table when the ledger has a tool for cash balances.
+NO_CASH_ASKABLE = (
+    "This table holds no cash balance; ask how much of a money you still have, such as "
+    '"how much cash do I have", to see the cash balances.'
+)
+
+
+def cash_rows(balances: CashBalances) -> list[Row]:
+    """The ledger's cash balances, one row a money, as it gave them; nothing added up."""
+    return [
+        {"Money": row.code, "Name": row.name, "Balance": f"{shown(row.balance)} {row.code}"}
+        for row in balances.balances
+    ]
 
 
 def _summary(summary: PeriodSummary) -> list[Row]:

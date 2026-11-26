@@ -10,10 +10,14 @@ the reply:
 - who wrote it, as the result says (``assistant_how.words_by_line``);
 - each failure the reply rests on, in one plain sentence
   (``assistant_failure_words``), in an error box;
-- the tables the program lays out (``assistant_tables``): what each read
-  tool found, under its header, a table of holdings or of sums with a line
-  that it holds no cash balance (``NO_CASH``); the trades sent; a change before and after,
-  or the trade to delete; the trades found when the program asks which;
+- the tables the program lays out (``assistant_tables``): the ledger's
+  cash balances, when a question about cash was answered with them; what
+  each read tool found, under its header, a table of holdings or of sums
+  with a line that it holds no cash balance (``NO_CASH``, or
+  ``NO_CASH_ASKABLE`` when the ledger said it has a tool for cash
+  balances, as kept with the reply: the page never asks the ledger); the
+  trades sent; a change before and after, or the trade to delete; the
+  trades found when the program asks which;
 - under the latest reply only, while the flows wait for its answer, one
   button for each answer offered: a question's choices, each listed trade's
   number, each amount that may follow. Pressing one says that answer, as if
@@ -32,7 +36,8 @@ A note the page said by itself (a screenshot read, dropped or not read, a
 demo button that did nothing) is shown alone, a failure in an error box.
 
 Names defined here: ``exchange_key``, ``table_key``, ``choice_key``,
-``how_key``, ``record_key``, ``read_as_key``, ``READ_AS`` and ``draw``.
+``how_key``, ``record_key``, ``read_as_key``, ``READ_AS`` and ``draw``. The
+key of the table of cash balances is ``table_key(number, "cash")``.
 """
 
 from __future__ import annotations
@@ -54,6 +59,8 @@ from ledger_hand.ui.assistant_session import Exchange, NoteTone
 from ledger_hand.ui.assistant_tables import (
     FEES_INSIDE,
     NO_CASH,
+    NO_CASH_ASKABLE,
+    cash_rows,
     change_rows,
     listed_rows,
     lookup_rows,
@@ -170,13 +177,17 @@ def _table(rows: list[dict[str, str]], key: str, header: Sequence[str] = ()) -> 
 
 
 def _tables(said: Said, number: int) -> None:
+    seen = said.cash_seen
+    if seen is not None and seen.shown and seen.balances is not None:
+        _table(cash_rows(seen.balances), table_key(number, "cash"))
+    no_cash = NO_CASH_ASKABLE if seen is not None and seen.tool is True else NO_CASH
     if said.turn is not None:
         for index, lookup in enumerate(said.turn.lookups):
             _table(lookup_rows(lookup), table_key(number, "lookup", index), header_lines(lookup))
             if lookup.summary is not None and lookup.summary.by_currency:
                 st.caption(FEES_INSIDE)
             if lookup.tool in _WITHOUT_CASH:
-                st.caption(NO_CASH)
+                st.caption(no_cash)
     recorded = said.recorded
     if recorded is not None and recorded.trades:
         st.caption("The trades in the proposal:")
