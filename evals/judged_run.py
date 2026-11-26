@@ -95,6 +95,7 @@ from ledger_hand.extraction.prompts.first3 import FIRST_PROMPT_3
 from ledger_hand.extraction.prompts.screen import SCREEN_PROMPT
 from ledger_hand.extraction.prompts.screen2 import SCREEN_PROMPT_2
 from ledger_hand.extraction.prompts.spoken1 import SPOKEN_PROMPT_1
+from ledger_hand.extraction.prompts.spoken2 import SPOKEN_PROMPT_2
 from ledger_hand.flows.progress import Progress, Stage, TradeStatus
 from ledger_hand.flows.recording import start
 from ledger_hand.ports import ModelError, ModelPort
@@ -107,6 +108,7 @@ SCREENS: dict[str, PromptVersion] = {
 # The versions written for words with Chinese in them; English is read with first-3.
 _BY_LANGUAGE: dict[str, PromptVersion] = {
     SPOKEN_PROMPT_1.name: SPOKEN_PROMPT_1,
+    SPOKEN_PROMPT_2.name: SPOKEN_PROMPT_2,
 }
 # The versions a measure may hand the assistant for Chinese: first-3 is
 # "keep what there is", since first-3 for Chinese gives first-3 for all.

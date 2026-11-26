@@ -51,13 +51,14 @@ from ledger_hand.extraction.passage import Passage, Piece
 from ledger_hand.extraction.prompting import Example, PromptVersion, example_reply
 from ledger_hand.extraction.prompts.first3 import FIRST_PROMPT_3
 from ledger_hand.extraction.prompts.spoken1 import SPOKEN_PROMPT_1
+from ledger_hand.extraction.prompts.spoken2 import SPOKEN_PROMPT_2
 from ledger_hand.extraction.reply_table import Field
 from tests.extraction.test_new_prompts_hold_no_test_sentence import clauses
 from tests.flows.scripted_flow import NOW, ZONE
 
 SETS = Path(__file__).resolve().parents[2] / "evals" / "sets" / "spoken"
 RECORDING = ("r100", "r80", "r70")
-VERSIONS: tuple[PromptVersion, ...] = (SPOKEN_PROMPT_1,)
+VERSIONS: tuple[PromptVersion, ...] = (SPOKEN_PROMPT_1, SPOKEN_PROMPT_2)
 
 SAME_IN_A_ROW = 12
 SAME_IN_A_ROW_NUMBERS_HIDDEN = 20

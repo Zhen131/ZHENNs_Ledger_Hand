@@ -30,6 +30,7 @@ from ledger_hand.extraction.prompts.first3_examples import SHARE_EXAMPLES_3
 from ledger_hand.extraction.prompts.screen import SCREEN_PROMPT
 from ledger_hand.extraction.prompts.screen2 import SCREEN_PROMPT_2
 from ledger_hand.extraction.prompts.spoken1 import SPOKEN_PROMPT_1
+from ledger_hand.extraction.prompts.spoken2 import SPOKEN_PROMPT_2
 from ledger_hand.extraction.reply_table import Field
 from tests.extraction.test_new_prompts_hold_no_test_sentence import SENTENCES, clauses
 from tests.flows.scripted_flow import NOW, ZONE
@@ -53,6 +54,7 @@ PROMPTS = {
     FIRST_PROMPT_2.name: (whole(FIRST_PROMPT_2), whole(FIRST_PROMPT)),
     FIRST_PROMPT_3.name: (whole(FIRST_PROMPT_3), whole(FIRST_PROMPT)),
     SPOKEN_PROMPT_1.name: (whole(SPOKEN_PROMPT_1), whole(FIRST_PROMPT_3)),
+    SPOKEN_PROMPT_2.name: (whole(SPOKEN_PROMPT_2), whole(FIRST_PROMPT_3)),
 }
 SHARE_SENTENCES = [sentence.text for sentence in load_stock_set().sentences]
 
