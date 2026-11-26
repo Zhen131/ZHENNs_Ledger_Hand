@@ -29,6 +29,8 @@ the ledger; samples in ``tests/ledger/samples/``, 2026-11-25).
 - ``Position``: what is held of one asset, in the asset's own money.
 - ``MoneyAmount`` and ``NotWorkedOut``: a figure in one named money, or the
   reason it could not be worked out (``Figure`` is either).
+- ``MarketPrice``: the ledger's market price of one asset, in one money,
+  and the day it is for.
 
 Money of two kinds is never added together: a sum or a holding is always
 given for one money, named beside it. Amounts are exact decimals, never
@@ -39,7 +41,7 @@ it is never to be shown as midnight.
 Names defined here: ``AssetKind``, ``Pricing``, ``Asset``, ``MoneyAmount``,
 ``NotWorkedOut``, ``Figure``, ``TradeFacts``, ``LedgerTrade``, ``TradeFilter``,
 ``PeriodRequest``, ``AssetRealized``, ``CurrencyTotals``, ``PeriodSummary``,
-``Position``, ``MOST_TRADES_LISTED`` and ``TradeList``.
+``Position``, ``MarketPrice``, ``MOST_TRADES_LISTED`` and ``TradeList``.
 """
 
 from __future__ import annotations
@@ -448,6 +450,28 @@ class Position:
         _require_figure("a holding's profit or loss", self.unrealized)
         if isinstance(self.unrealized, MoneyAmount) and self.unrealized.currency != self.currency:
             raise ValueError("a holding's profit or loss is given in the holding's money")
+
+
+@dataclass(frozen=True, kw_only=True)
+class MarketPrice:
+    """The ledger's market price of one unit of ``asset``, in ``price.currency``.
+
+    ``day`` is the day the price is for, or ``None`` when the ledger does
+    not say. The amount is kept as the ledger gave it, even 0 or below;
+    whoever compares a price with it takes such a one as no market price.
+    Example: BTC at 64880 USDT on 2026-11-24.
+    """
+
+    asset: str
+    price: MoneyAmount
+    day: date | None = None
+
+    def __post_init__(self) -> None:
+        _require_text("a market price's asset", self.asset)
+        if not isinstance(self.price, MoneyAmount):
+            raise TypeError("a market price is a MoneyAmount")
+        if self.day is not None:
+            _require_day("the day of a market price", self.day)
 
 
 # The most trades one listing hands back: the latest ones. Two thousand is
