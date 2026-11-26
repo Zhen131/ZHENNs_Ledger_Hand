@@ -65,7 +65,7 @@ def test_judged_run_hands_an_older_version_every_passage(monkeypatch: pytest.Mon
 
 
 def test_judged_run_knows_the_versions_for_chinese_and_names_both_in_its_first_line() -> None:
-    assert set(judged_run.CHINESE_EXTRACTS) == {"first-3", "spoken-1", "spoken-2"}
+    assert set(judged_run.CHINESE_EXTRACTS) == {"first-3", "spoken-1", "spoken-2", "spoken-3"}
     assert judged_run.EXTRACTS["spoken-1"] is SPOKEN_PROMPT_1
     options = argparse.Namespace(
         screen="screen-2", extract="spoken-1", hold_other_unit=True, tidy=False
