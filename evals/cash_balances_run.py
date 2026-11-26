@@ -19,11 +19,11 @@ Each sentence is judged (``judge``):
   the reply saying it was not.
 - ``must_pass``: read neither as money moved nor, by the reading after the
   question about cash, as a balance asked.
-- every one: when the model wrote the reply having looked nothing up, no
-  number it never heard beside a money (``cash_words.unsaid_cash_figure``),
-  which would be a cash figure the ledger never gave. (A figure after a
-  lookup is the table's; the first run, on 2026-11-26, flagged such ones
-  too, and they were read by hand.)
+- every one: when the model wrote the reply, every figure in it is one a
+  table of this turn or the user gave, and a figure said as cash is a
+  cash balance of the money it names, never one of the holdings; none is
+  said as money put in or taken out (``cash_figures.unfound``; second
+  rework, 2026-11-26).
 
 The results go into ``evals/tool_results/``: a first line with the
 conditions, one line for each sentence with the way it went
@@ -49,22 +49,27 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, TextIO
 
+from evals.cash_figures import unfound
 from evals.cash_run import path_of
 from evals.run import Backend, local_backend
 from evals.tool_run import REPO_ROOT, TOOL_RESULTS_DIR, _git
-from ledger_hand.core.cash_words import BASE_MONEY_WORDS, unsaid_cash_figure
+from ledger_hand.core.cash_words import held_names
+from ledger_hand.core.ledger_table import names_of
 from ledger_hand.core.money_asks import left_asked
 from ledger_hand.flows import assisting
 from ledger_hand.flows.cash_question import caught
 from ledger_hand.flows.conversation import AssistantChat, Route, Said, WordsBy, say
 from ledger_hand.flows.recorded import RecordEnding
 from ledger_hand.flows.recording import tuning_from
+from ledger_hand.ledger.demo_book import DEMO_ASSETS
 from ledger_hand.ledger.demo_cash import demo_ledger_with_cash
 from ledger_hand.ports import ModelError
 from ledger_hand.settings import SettingsError, load_assistant_steps, load_model_settings
 
 CASH_BALANCES_SET = Path(__file__).resolve().parent / "sets" / "cash" / "cash-balances.json"
 _GROUPS = ("named", "manual", "must_pass")
+# The names of the coins and shares, so that "BTC 余额" is not taken for cash.
+_HELD = (*(name for name, _ in names_of(()).built_in), *held_names(DEMO_ASSETS))
 
 
 @dataclass(frozen=True)
@@ -106,20 +111,28 @@ class Verdict:
 
 
 def _unheard_figure(said: Said, text: str) -> str | None:
-    """A number the model wrote beside a money having looked nothing up, never heard.
+    """Why a figure of the model's own words is made up (``cash_figures.unfound``), or ``None``.
 
-    A figure after a lookup is the table's, which the older checks of the
-    model's words hold to the table; it is no cash figure made up.
+    The tables are those the read tools handed back this turn, and the
+    ledger's cash balances when the program read them.
     """
-    if said.words_by is not WordsBy.MODEL or said.turn is None or said.turn.lookups:
+    turn = said.turn
+    if said.words_by is not WordsBy.MODEL or turn is None:
         return None
-    return unsaid_cash_figure(said.reply, BASE_MONEY_WORDS, [text])
+    seen = said.cash_seen
+    return unfound(
+        said.reply,
+        tables=turn.lookups,
+        cash=seen.balances if seen is not None else None,
+        user_said=(*turn.chat.user_said, text),
+        held=_HELD,
+    )
 
 
 def judge(sentence: Sentence, said: Said) -> Verdict:
     """How ``said`` fares for ``sentence``, as its group asks."""
     figure = _unheard_figure(said, sentence.text)
-    trouble = f"the model said {figure!r} beside a money, unheard" if figure else ""
+    trouble = f"the model's words: {figure}" if figure else ""
     if sentence.group == "named":
         seen = said.cash_seen
         right = seen is not None and seen.shown
