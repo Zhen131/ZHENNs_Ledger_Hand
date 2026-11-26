@@ -22,6 +22,11 @@ ledger made most of a trade's fields optional):
 2. every field the ledger requires of such a tool, this program sends;
 3. every field this program sends, the tool takes.
 
+``allowUnfinished`` and ``fieldMarks`` of ``propose_trade_add`` are sent
+only to a ledger whose list of tools says it takes them
+(``link_ledger.LinkLedger.takes_unfinished``), so a ledger from before
+2026-11-25 shows them as fields it does not take.
+
 A tool the ledger lists and this program does not use is no difference
 (the ledger added a ninth, ``get_cash_balances``, on 2026-11-25); ``unused``
 names such tools. A field the ledger required once and no longer requires
@@ -84,7 +89,11 @@ SENT_FIELDS: Mapping[str, Mapping[str, frozenset[str]]] = MappingProxyType(
         "list_trades": {TOP: frozenset({"startDate", "endDate", "assetId", "side", "pageToken"})},
         "get_period_summary": {TOP: frozenset({"startDate", "endDate"})},
         "get_positions": {TOP: frozenset()},
-        "propose_trade_add": {TOP: _WHO | {"trades"}, "trades[]": _TRADE_SENT},
+        # A card's switch and marks, sent only to a ledger that lists them (2026-11-26).
+        "propose_trade_add": {
+            TOP: _WHO | {"trades", "allowUnfinished"},
+            "trades[]": _TRADE_SENT | {"fieldMarks"},
+        },
         "propose_trade_update": {TOP: _WHO | {"tradeId", "trade"}, "trade": _TRADE_SENT},
         "propose_trade_delete": {TOP: _WHO | {"tradeId"}},
         "get_proposal_status": {TOP: frozenset({"proposalId"})},

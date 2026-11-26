@@ -42,6 +42,15 @@ What it turns, and how (68B2, part 13):
   from another, leaving out trades dated after today; one that the ledger
   could not work out leaves the sum not worked out, with its reason. Its
   profit or loss is the ledger's own row for that asset.
+- A card (a trade with cells left empty, ``propose_cards``) is sent to the
+  same tool with ``allowUnfinished`` and each card's marks
+  (``fieldMarks``); an empty cell is ``null``, never 0 or empty text, and
+  a fee of 0 whose money is not known has no money either. Each card the
+  ledger takes says ``readyToSave``, ``missingFields`` and
+  ``ledgerProblem``, read into its check. Whether the ledger takes cards
+  is read once from its list of tools (``takes_unfinished``): the field
+  ``allowUnfinished`` of ``propose_trade_add``; a link that does not list
+  its tools here is taken as one that does not (2026-11-26).
 - Market prices are read from the holdings (``get_positions``), sold-out
   ones included, since an asset sold out still has one. Each is matched to
   its asset by the ledger's identifier and named by that asset's code; a
@@ -109,14 +118,17 @@ from ledger_hand.core.ledger_table import same_code_words, same_codes
 from ledger_hand.core.proposals import (
     TARGET_NOT_FOUND,
     CheckOutcome,
+    LedgerProblem,
     ProposalResult,
     ProposalState,
     ProposalStatus,
     TradeCheck,
 )
 from ledger_hand.core.trade import Side
+from ledger_hand.core.trade_card import TradeCard
 from ledger_hand.ledger.link_client import AnswerKind, ToolAnswer
 from ledger_hand.ledger.link_failures import LedgerLinkError, LinkFailure
+from ledger_hand.ledger.link_tools import TOP, taken_fields
 from ledger_hand.ports import LedgerError, LedgerErrorKind
 
 # The ledger takes at most ten trades in one call to record ("TOO_MANY_TRADES").
@@ -269,6 +281,8 @@ class LinkLedger:
         self._today = today
         # The trades as last listed, as the ledger wrote them, by their identifier.
         self._rows: dict[str, Mapping[str, Any]] = {}
+        # Whether the ledger takes cards, once read from its list of tools.
+        self._unfinished: bool | None = None
 
     def __repr__(self) -> str:
         return f"LinkLedger(model={self._model!r})"
@@ -349,9 +363,67 @@ class LinkLedger:
                 checks[index] = _check(result)
         return ProposalResult(checks=tuple(check for check in checks if check is not None))
 
-    def _added(self, batch: Sequence[tuple[int, dict[str, Any]]], said: str) -> list[Any]:
-        """The ledger's result for each trade of one call to record ``batch``."""
+    def takes_unfinished(self) -> bool:
+        if self._unfinished is None:
+            self._unfinished = self._lists_unfinished()
+        return self._unfinished
+
+    def _lists_unfinished(self) -> bool:
+        """Whether the link's list of tools says ``propose_trade_add`` takes
+        ``allowUnfinished``; ``False`` when it lists none here or cannot be asked."""
+        listing = getattr(self._link, "tools", None)
+        if not callable(listing):
+            return False
+        try:
+            tools = listing()
+        except (LedgerLinkError, OSError):
+            return False
+        for tool in tools if isinstance(tools, list) else ():
+            if isinstance(tool, Mapping) and tool.get("name") == "propose_trade_add":
+                schema = tool.get("inputSchema")
+                if not isinstance(schema, Mapping):
+                    return False
+                return "allowUnfinished" in taken_fields(schema).get(TOP, frozenset())
+        return False
+
+    def propose_cards(self, cards: tuple[TradeCard, ...], said: str) -> ProposalResult:
+        if not cards:
+            raise ValueError("a proposal to record holds at least one card")
+        too_long = self._too_long(said)
+        if too_long is not None:
+            return ProposalResult(checks=tuple(too_long for _ in cards))
+        assets = self._raw_assets()
+        checks: list[TradeCheck | None] = []
+        sendable: list[tuple[int, dict[str, Any]]] = []
+        for index, card in enumerate(cards):
+            written = _card_written(card, assets)
+            if isinstance(written, TradeCheck):
+                checks.append(written)
+            else:
+                checks.append(None)
+                sendable.append((index, written))
+        for start in range(0, len(sendable), MOST_PER_CALL):
+            batch = sendable[start : start + MOST_PER_CALL]
+            try:
+                results = self._added(batch, said, unfinished=True)
+            except LedgerError as error:
+                if start == 0:
+                    raise
+                for index, _ in sendable[start:]:
+                    checks[index] = _after_earlier(error)
+                break
+            for (index, _), result in zip(batch, results, strict=True):
+                checks[index] = _card_check(result)
+        return ProposalResult(checks=tuple(check for check in checks if check is not None))
+
+    def _added(
+        self, batch: Sequence[tuple[int, dict[str, Any]]], said: str, *, unfinished: bool = False
+    ) -> list[Any]:
+        """The ledger's result for each trade of one call to record ``batch``; with
+        ``unfinished``, cards with cells left empty allowed."""
         arguments = {"trades": [one for _, one in batch], **self._who(said)}
+        if unfinished:
+            arguments["allowUnfinished"] = True
         results = _list(self._answer("propose_trade_add", arguments), "results")
         if len(results) != len(batch):
             raise LedgerError(
@@ -820,6 +892,37 @@ def _check(result: Mapping[str, Any]) -> TradeCheck:
     return _refused(code, message)
 
 
+def _card_check(result: Mapping[str, Any]) -> TradeCheck:
+    """One card's result: taken, with whether it can be saved, its empty cells and what the
+    ledger found in the cells given; or turned down, as any trade is."""
+    if result.get("ok") is not True:
+        return _check(result)
+    ready = result.get("readyToSave")
+    if not isinstance(ready, bool):
+        return TradeCheck(outcome=CheckOutcome.PASSED, proposal_id=str(result["proposalId"]))
+    missing = result.get("missingFields")
+    named = tuple(str(name) for name in missing) if isinstance(missing, list) else ()
+    return TradeCheck(
+        outcome=CheckOutcome.PASSED,
+        proposal_id=str(result["proposalId"]),
+        ready=ready and not named,
+        missing=named,
+        problem=_ledger_problem(result.get("ledgerProblem")),
+    )
+
+
+def _ledger_problem(value: object) -> LedgerProblem | None:
+    """What the ledger found in a card's given cells, as it said it; ``None`` for nothing."""
+    if not isinstance(value, Mapping):
+        return None
+    return LedgerProblem(
+        code=_text(value.get("code")) or "UNEXPECTED_PROGRAM_ERROR",
+        message=_text(value.get("message")) or "The ledger gave no reason.",
+        category=_text(value.get("category")),
+        field=_text(value.get("field")),
+    )
+
+
 def _after_earlier(error: LedgerError) -> TradeCheck:
     """A trade of a later call that failed, when an earlier call's trades are waiting."""
     if error.kind is LedgerErrorKind.TIMED_OUT:
@@ -935,6 +1038,94 @@ def _written(
         return time
     written.update(time)
     return written
+
+
+def _card_written(
+    card: TradeCard, assets: Sequence[Mapping[str, Any]]
+) -> dict[str, Any] | TradeCheck:
+    """``card`` with the write side's names, an empty cell ``null``; or this program's own
+    reason not to send it.
+
+    A fee of 0 is taken in the money used, and has none when that is
+    empty. The marks go as they are (``fieldMarks``); the ledger checks
+    them. The day alone is sent for a card known only to its day; no day
+    sends no time at all.
+    """
+    ids: dict[str, str | None] = {}
+    fee_code = card.quote if card.fee is not None and card.fee == 0 else card.fee_asset
+    for name, code in (
+        ("assetId", card.asset),
+        ("quoteAssetId", card.quote),
+        ("feeAssetId", fee_code),
+    ):
+        if code is None:
+            ids[name] = None
+            continue
+        found = _found(code, assets)
+        if not isinstance(found, str):
+            return _refused(found[1], found[2])
+        ids[name] = found
+    own = next((asset for asset in assets if str(asset.get("assetId")) == ids["assetId"]), None)
+    own_money = _text(own.get("priceCurrencyAssetId")) if own is not None else None
+    rate = card.cost_rate
+    quote_id = ids["quoteAssetId"]
+    if own_money is not None and quote_id is not None and own_money != quote_id and rate is None:
+        return _refused(
+            "HAND_NEEDS_COST_RATE",
+            f"{card.asset} is priced in another money than {card.quote}; the ledger needs the "
+            "rate between the two, which this program does not ask for yet, so it was not sent.",
+        )
+    written: dict[str, Any] = {
+        "type": card.side.value,
+        "assetId": ids["assetId"],
+        "quantity": _figure(card.quantity),
+        "price": _figure(card.price),
+        "totalValue": _figure(card.total),
+        "quoteAssetId": quote_id,
+        "fee": _figure(card.fee),
+        "feeAssetId": ids["feeAssetId"],
+        "costRate": format(rate, "f") if rate is not None else None,
+        "platform": _kept_text(card.platform, None, "platform"),
+        "note": _kept_text(card.note, None, "note"),
+    }
+    if card.marks:
+        written["fieldMarks"] = [mark.as_dict() for mark in card.marks]
+    if card.occurred is None:
+        return written
+    facts = card.facts
+    time = _time(facts) if facts is not None else _card_time(card)
+    if isinstance(time, TradeCheck):
+        return time
+    written.update(time)
+    return written
+
+
+def _figure(value: Decimal | None) -> str | None:
+    """A figure as the ledger takes it, a decimal string; ``None`` (``null``) when empty."""
+    return format(value, "f") if value is not None else None
+
+
+def _card_time(card: TradeCard) -> dict[str, Any] | TradeCheck:
+    """The time of a card with other cells empty, as ``_time`` sends a whole trade's."""
+    assert card.occurred is not None
+    stand_in = TradeFacts(
+        occurred=card.occurred,
+        side=card.side,
+        asset=card.asset,
+        quantity=Decimal(1),
+        price=Decimal(1),
+        total=Decimal(1),
+        quote=card.asset,
+        fee=Decimal(0),
+        fee_asset=card.asset,
+        platform="",
+        note="",
+        raw_text=None,
+        zone=card.zone,
+        date_only=card.date_only,
+        cost_rate=None,
+    )
+    return _time(stand_in)
 
 
 def _same_rate(row: Mapping[str, Any], rate: Decimal | None) -> bool:

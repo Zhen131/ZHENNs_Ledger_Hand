@@ -37,7 +37,11 @@ through a ``LedgerPort``: list its assets and trades, sum a stretch of time
 up, say what is held and at what market price, and propose to record,
 change or delete trades. A
 proposal writes nothing: it waits in the ledger for the person to save or
-reject it there, one proposal for each trade. Every failure is one
+reject it there, one proposal for each trade. A ledger that takes a trade
+with cells left empty (``takes_unfinished``) is sent cards
+(``propose_cards``, ``core.trade_card``), each with its marks; it says
+for each card it took whether it can be saved as it is, which cells are
+empty, and what its checks found in the cells given. Every failure is one
 ``LedgerError`` carrying one of seven kinds, a fixed code and a sentence; a
 trade that fails the ledger's check is not a failure, but part of the
 proposal's answer. Its shapes are declared in ``core.ledger_records`` and
@@ -85,6 +89,7 @@ from ledger_hand.core.ledger_records import (
 )
 from ledger_hand.core.proposals import ProposalResult, ProposalState
 from ledger_hand.core.stored import StoredTrade
+from ledger_hand.core.trade_card import TradeCard
 
 
 class Role(enum.Enum):
@@ -622,6 +627,26 @@ class LedgerPort(Protocol):
 
     def propose_add(self, trades: tuple[TradeFacts, ...], said: str) -> ProposalResult:
         """Propose to record ``trades``; the answer holds the check of each, in order."""
+        ...
+
+    def takes_unfinished(self) -> bool:
+        """Whether the ledger takes a trade with cells left empty, and marks on its cells.
+
+        Only read, once: what the ledger's tools say they take, not a call
+        about the person's trades. ``False`` for a ledger that never
+        said so, which is then sent every trade whole, as before.
+        """
+        ...
+
+    def propose_cards(self, cards: tuple[TradeCard, ...], said: str) -> ProposalResult:
+        """Propose to record ``cards``, cells left empty allowed, each with its marks.
+
+        The answer holds the check of each, in order; each card taken says
+        whether it can be saved as it is (``TradeCheck.ready``), its empty
+        cells and what the ledger found in the cells given. A card whose
+        every cell is given is checked as by ``propose_add``. Only for a
+        ledger that ``takes_unfinished``.
+        """
         ...
 
     def propose_update(self, trade_id: str, facts: TradeFacts, said: str) -> ProposalResult:

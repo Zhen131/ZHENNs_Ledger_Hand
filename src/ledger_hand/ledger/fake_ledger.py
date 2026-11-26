@@ -37,10 +37,37 @@ Its market prices are the ones it is handed (``prices``, one amount for
 each asset and money), each for the day ``prices_on``: by default the day
 of the invented book's "now", 24 November 2026.
 
+Made to (``takes_unfinished=True``, or ``taking_cards()`` on one made
+already), it takes a trade with cells left empty, a card
+(``propose_cards``), as the real ledger does since 2026-11-25 (72B). By
+default it is a ledger from before, which takes none: every test and
+measure written before then keeps the ledger it was written against, and
+the demo ledger of the assistant page, the try-out script and the exam
+book are made to take cards. A card whose every
+cell is given is checked as a trade to record is, and turned down the
+same way. A card with an empty cell is kept, cannot be saved, and says
+which cells are empty (in the ledger's order) and what the cells given
+show: a total that does not agree with quantity times price, or, when
+the day, quantity, price, total and money used are all there, a sell of
+more than was held (``INSUFFICIENT_HOLDINGS``); the holdings are not
+checked otherwise (72B's revision 2). Marks are kept as they came and can
+be read back (``marks_of``); they let nothing through and stop nothing.
+Its marks are checked by the ledger's own rules, split as the ledger
+splits them (72C1): an unknown cell or kind, or a reason longer than 256
+UTF-16 units, refuses the whole call (``INVALID_ARGUMENTS``); a
+suspicious mark with no reason, two marks on one cell, or a worked out or
+assumed mark on an empty cell turns that card down alone. Saving a card
+with an empty cell is refused, saying which cells, so no path writes an
+unfinished trade into the book.
+
 ``failure``, when given, is raised by every call of the port, so that a test
 can see what becomes of a ledger that fails; ``market_failure`` is raised
 by the call for market prices alone. ``calls`` names every call of
 the port made, in order; ``said`` keeps the words each proposal came with.
+A proposal of cards is named ``propose_add`` there, as the ledger's one
+tool to record is (``propose_trade_add``), and one whose every card is
+whole is made through ``propose_add`` itself; asking whether the ledger
+takes cards asks nothing of the book and is not named.
 
 Names defined here: ``FakeLedger``.
 """
@@ -53,6 +80,7 @@ from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
 
+from ledger_hand.core.ledger_limits import text_length
 from ledger_hand.core.ledger_records import (
     MOST_TRADES_LISTED,
     Asset,
@@ -67,14 +95,18 @@ from ledger_hand.core.ledger_records import (
     TradeFilter,
     TradeList,
 )
+from ledger_hand.core.marks import Field, MarkKind, SentMark
 from ledger_hand.core.proposals import (
     TARGET_NOT_FOUND,
     CheckOutcome,
+    LedgerProblem,
     ProposalResult,
     ProposalState,
     ProposalStatus,
     TradeCheck,
 )
+from ledger_hand.core.trade_card import TradeCard
+from ledger_hand.core.validation import amounts_agree
 from ledger_hand.ledger.fake_sums import period_summary, positions
 from ledger_hand.ledger.invented_book import (
     INVENTED_ASSETS,
@@ -92,6 +124,15 @@ _INVENTED_DAY = INVENTED_NOW.date()
 
 _OVERSOLD_CODE = "sells_more_than_held"
 _OVERSOLD_WORDS = "With this, a sell would take out more than was held at the time."
+_BAD_ARGUMENTS = "INVALID_ARGUMENTS"
+_HOLDINGS_CODE = "INSUFFICIENT_HOLDINGS"
+_MISMATCH_CODE = "TOTAL_VALUE_MISMATCH"
+_MISMATCH_WORDS = "The total is not quantity times price."
+_UNFINISHED_CODE = "PROPOSAL_UNFINISHED"
+# The ledger's FIELD_MARK_REASON_MAX_LENGTH, in UTF-16 units.
+_REASON_MOST = 256
+_FIELDS = frozenset(field.value for field in Field)
+_KINDS = frozenset(kind.value for kind in MarkKind)
 _VOID_CODE = "TARGET_CHANGED"
 _VOID_WORDS = "The ledger changed after this was sent, so it can no longer be saved."
 
@@ -108,6 +149,7 @@ class _Proposal:
     target: str | None
     facts: TradeFacts | None
     state: ProposalState
+    card: TradeCard | None = None
 
 
 class FakeLedger:
@@ -123,7 +165,9 @@ class FakeLedger:
         most_listed: int = MOST_TRADES_LISTED,
         prices_on: date | None = _INVENTED_DAY,
         market_failure: LedgerError | None = None,
+        takes_unfinished: bool = False,
     ) -> None:
+        self._takes_unfinished = takes_unfinished
         self._assets = tuple(assets)
         self._trades: Book = tuple(trades)
         self._prices = dict(prices)
@@ -200,6 +244,40 @@ class FakeLedger:
             checks.append(self._kept(_Kind.ADD, None, facts))
         return ProposalResult(checks=tuple(checks))
 
+    def takes_unfinished(self) -> bool:
+        return self._takes_unfinished
+
+    def taking_cards(self) -> FakeLedger:
+        """This same ledger, from now on one that takes cards, as the real ledger does now."""
+        self._takes_unfinished = True
+        return self
+
+    def propose_cards(self, cards: tuple[TradeCard, ...], said: str) -> ProposalResult:
+        if not cards:
+            raise ValueError("a proposal to record holds at least one card")
+        if not self._takes_unfinished:
+            self._called("propose_add", said)
+            raise LedgerError(
+                LedgerErrorKind.OTHER,
+                _BAD_ARGUMENTS,
+                "This ledger does not take allowUnfinished or fieldMarks.",
+            )
+        whole = _whole_call_refusal(cards)
+        if whole is not None:
+            self._called("propose_add", said)
+            raise LedgerError(LedgerErrorKind.OTHER, _BAD_ARGUMENTS, whole)
+        if all(card.complete and _card_refusal(card) is None for card in cards):
+            facts = tuple(card.facts for card in cards if card.facts is not None)
+            result = self.propose_add(facts, said)
+            return ProposalResult(
+                checks=tuple(
+                    self._as_card(check, card)
+                    for check, card in zip(result.checks, cards, strict=True)
+                )
+            )
+        self._called("propose_add", said)
+        return ProposalResult(checks=self._cards_checked(cards))
+
     def propose_update(self, trade_id: str, facts: TradeFacts, said: str) -> ProposalResult:
         self._called("propose_update", said)
         if trade_id not in self._keys():
@@ -226,9 +304,29 @@ class FakeLedger:
 
     # --- outside the port: what the person does on the ledger's own page ------
 
+    def marks_of(self, proposal_id: str) -> tuple[SentMark, ...]:
+        """The marks a card waiting as ``proposal_id`` came with, as they came."""
+        card = self._proposal(proposal_id).card
+        return card.marks if card is not None else ()
+
+    def card_of(self, proposal_id: str) -> TradeCard | None:
+        """The card waiting as ``proposal_id``, as it came; ``None`` for a trade sent whole."""
+        return self._proposal(proposal_id).card
+
     def save(self, proposal_id: str) -> None:
-        """Save a pending proposal: the book changes; pending ones it spoils become void."""
+        """Save a pending proposal: the book changes; pending ones it spoils become void.
+
+        A card with an empty cell is never saved: it is refused, naming the
+        cells, as the ledger's page refuses it (72B, scene F).
+        """
         proposal = self._pending(proposal_id)
+        card = proposal.card
+        if card is not None and not card.complete:
+            raise LedgerError(
+                LedgerErrorKind.OTHER,
+                _UNFINISHED_CODE,
+                f"This trade cannot be saved yet: fill in {', '.join(card.missing)} first.",
+            )
         after = self._applied(proposal, self._trades)
         if after is None:
             proposal.state = _void(proposal_id)
@@ -306,12 +404,132 @@ class FakeLedger:
             return _failed_check(_OVERSOLD_CODE, _OVERSOLD_WORDS)
         return None
 
-    def _kept(self, kind: _Kind, target: str | None, facts: TradeFacts | None) -> TradeCheck:
+    def _kept(
+        self,
+        kind: _Kind,
+        target: str | None,
+        facts: TradeFacts | None,
+        card: TradeCard | None = None,
+    ) -> TradeCheck:
         """Keep one passed change as a pending proposal of its own; its check."""
         proposal_id = f"proposal-{len(self._proposals) + 1}"
         state = ProposalState(proposal_id=proposal_id, status=ProposalStatus.PENDING)
-        self._proposals[proposal_id] = _Proposal(kind=kind, target=target, facts=facts, state=state)
+        self._proposals[proposal_id] = _Proposal(
+            kind=kind, target=target, facts=facts, state=state, card=card
+        )
         return TradeCheck(outcome=CheckOutcome.PASSED, proposal_id=proposal_id)
+
+    def _as_card(self, check: TradeCheck, card: TradeCard) -> TradeCheck:
+        """A whole card's check as one sent with cards allowed: ready, nothing missing."""
+        if check.outcome is not CheckOutcome.PASSED or check.proposal_id is None:
+            return check
+        self._proposals[check.proposal_id].card = card
+        return TradeCheck(
+            outcome=CheckOutcome.PASSED, proposal_id=check.proposal_id, ready=True, missing=()
+        )
+
+    def _cards_checked(self, cards: tuple[TradeCard, ...]) -> tuple[TradeCheck, ...]:
+        """Each card checked against the book as the whole cards before it that passed leave it.
+
+        A card with an empty cell never changes that book: the ones after
+        it may not lean on it (72B's revision 2).
+        """
+        checks: list[TradeCheck] = []
+        book = self._trades
+        for number, card in enumerate(cards, start=1):
+            refusal = _card_refusal(card)
+            if refusal is not None:
+                checks.append(_failed_check(_BAD_ARGUMENTS, refusal))
+                continue
+            facts = card.facts
+            if facts is not None:
+                added = (*book, (f"proposed-{number}", facts))
+                failed = self._failed(facts, added)
+                if failed is not None:
+                    checks.append(failed)
+                    continue
+                book = added
+                kept = self._kept(_Kind.ADD, None, facts, card)
+                checks.append(self._as_card(kept, card))
+                continue
+            unknown = self._unknown_code(card)
+            if unknown is not None:
+                checks.append(unknown)
+                continue
+            kept = self._kept(_Kind.ADD, None, None, card)
+            assert kept.proposal_id is not None
+            checks.append(
+                TradeCheck(
+                    outcome=CheckOutcome.PASSED,
+                    proposal_id=kept.proposal_id,
+                    ready=False,
+                    missing=card.missing,
+                    problem=self._problem(card, book, number),
+                )
+            )
+        return tuple(checks)
+
+    def _unknown_code(self, card: TradeCard) -> TradeCheck | None:
+        """Why a card with an empty cell is turned down: an asset the book lacks, or a money
+        that prices nothing; ``None`` when it is taken."""
+        codes = {asset.code: asset for asset in self._assets}
+        for code in (card.asset, card.quote, card.fee_asset):
+            if code is not None and code not in codes:
+                return _failed_check("unknown_asset", f"The ledger has no asset {code}.")
+        if card.quote is not None and codes[card.quote].pricing is not Pricing.CAN_PRICE:
+            return _failed_check(
+                "cannot_price", f"{card.quote} cannot be the money a trade is priced in."
+            )
+        return None
+
+    def _problem(self, card: TradeCard, book: Book, number: int) -> LedgerProblem | None:
+        """What the cells given of a card with an empty cell show, or ``None``.
+
+        The total against quantity times price when all three are there;
+        the holdings only when the day, the amounts and the money are.
+        """
+        quantity, price, total = card.quantity, card.price, card.total
+        three = quantity is not None and price is not None and total is not None
+        if three and not amounts_agree(quantity, price, total):  # type: ignore[arg-type]
+            return LedgerProblem(
+                code=_MISMATCH_CODE,
+                category="check-failed",
+                message=_MISMATCH_WORDS,
+                field="totalValue",
+            )
+        if (
+            card.occurred is None
+            or quantity is None
+            or price is None
+            or total is None
+            or card.quote is None
+        ):
+            return None
+        facts = TradeFacts(
+            occurred=card.occurred,
+            side=card.side,
+            asset=card.asset,
+            quantity=quantity,
+            price=price,
+            total=total,
+            quote=card.quote,
+            fee=Decimal(0),
+            fee_asset=card.quote,
+            platform=card.platform,
+            note=card.note,
+            raw_text=card.raw_text,
+            zone=card.zone,
+            date_only=card.date_only,
+            cost_rate=card.cost_rate,
+        )
+        if replay((*book, (f"proposed-{number}", facts))).oversold:
+            return LedgerProblem(
+                code=_HOLDINGS_CODE,
+                category="check-failed",
+                message=_OVERSOLD_WORDS,
+                field="quantity",
+            )
+        return None
 
     def _applied(self, proposal: _Proposal, book: Book) -> tuple[Book, str] | None:
         """``book`` with the proposal's change in it, and the trade it writes; ``None`` when
@@ -332,6 +550,38 @@ class FakeLedger:
         assert facts is not None
         changed = tuple((key, facts if key == target else old) for key, old in book)
         return None if self._failed(facts, changed) is not None else (changed, target)
+
+
+def _whole_call_refusal(cards: tuple[TradeCard, ...]) -> str | None:
+    """Why the ledger refuses a whole call for its marks, or ``None``: an unknown cell or
+    kind, or a reason longer than the ledger takes (72C1)."""
+    for number, card in enumerate(cards, start=1):
+        for place, mark in enumerate(card.marks, start=1):
+            where = f"trades[{number}].fieldMarks[{place}]"
+            if mark.field not in _FIELDS:
+                return f"{where}.field is not a field a mark can be on."
+            if mark.kind not in _KINDS:
+                return f"{where}.kind is not computed, inferred or suspicious."
+            if mark.reason is not None and text_length(mark.reason) > _REASON_MOST:
+                return f"{where}.reason is longer than {_REASON_MOST} characters."
+    return None
+
+
+def _card_refusal(card: TradeCard) -> str | None:
+    """Why the ledger turns one card down for its marks, or ``None``: a suspicious mark with
+    no reason, two marks on one cell, or a worked out or assumed mark on an empty cell."""
+    seen: set[str] = set()
+    empty = set(card.missing)
+    for place, mark in enumerate(card.marks, start=1):
+        if mark.field in seen:
+            return f"fieldMarks[{place}]: a field carries one mark at most."
+        seen.add(mark.field)
+        blank = mark.reason is None or not mark.reason.strip()
+        if mark.kind == MarkKind.SUSPICIOUS.value and blank:
+            return f"fieldMarks[{place}].reason: a suspicious mark says why."
+        if mark.field in empty and mark.kind != MarkKind.SUSPICIOUS.value:
+            return f"fieldMarks[{place}]: an empty field can only be suspicious."
+    return None
 
 
 def _failed_check(code: str, message: str) -> TradeCheck:
