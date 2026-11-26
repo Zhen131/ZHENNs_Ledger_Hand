@@ -934,8 +934,8 @@ tools handed to the model and is left for a batch of its own. Until then:
 - **A payment in euros is not recorded.** The ledger has no euro yet, so
   a share bought with euros (with a fee for changing money) is not sent,
   and the reply says the ledger has no currency EUR; all nine such
-  sentences of the exam ended so. A question about the cash left is
-  answered by the program's fixed words. Dividends, deposits and withdrawals are not in the exam.
+  sentences of the exam ended so. Dividends, deposits and withdrawals are
+  not in the exam.
 - **The tools' words still say to list trades before a change.** The
   system prompt's rule and `list_trades`'s own words both say to find the
   trade first; the tools that change and delete say to call them straight

@@ -1,11 +1,12 @@
 """Tests of the ten exam sets said the owner's way: they read, and every gold answer holds.
 
-The ten files sit in a folder of their own, ``evals/sets/spoken/``: one
-sentence of the questions is a question about cash, which the program is
-meant to catch before the model (``cash_question.caught``), and the gate
-that no sentence of the sets in ``evals/sets/`` is caught would take it
-for a mistake. The same gate is kept here for the exam, with that one
-kind of sentence left out: no other sentence of the ten files is caught.
+The ten files sit in a folder of their own, ``evals/sets/spoken/``: a
+sentence that waits for the ledger's cash balance (``wait_for``) is one
+the program is meant to catch before the model (``cash_question.caught``),
+and the gate that no sentence of the sets in ``evals/sets/`` is caught
+would take such a sentence for a mistake. The same gate is kept here for
+the exam, such sentences left out: no other sentence of the ten files is
+caught.
 
 Every check here names a sentence by its identifier only, never by what
 was said or by a figure of it, since half the sentences are the hidden
@@ -132,7 +133,7 @@ def test_every_change_names_a_trade_of_the_exam_book_and_amounts_that_agree(half
     assert off == []
 
 
-def test_no_sentence_of_the_exam_is_caught_as_a_question_about_cash_but_one_about_cash() -> None:
+def test_no_sentence_of_the_exam_is_caught_as_a_question_about_cash_unless_marked_so() -> None:
     caught_ones: list[str] = []
     for name in SIZES:
         for entry in _entries(name):
