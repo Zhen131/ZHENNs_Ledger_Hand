@@ -722,7 +722,7 @@ PRICE_GAP_TIMES_VARIABLE = "LEDGER_HAND_PRICE_GAP_TIMES"
 DEFAULT_PRICE_GAP_TIMES = Decimal("5")
 # Above 1: at 1 or below every price would be marked. At most 1000: beyond
 # that it is the same as not comparing. Both are taken for now, and wait for
-# a reason (85B, 2026-11-25).
+# a reason (decided on 2026-11-25).
 LEAST_PRICE_GAP_TIMES = Decimal("1")
 MOST_PRICE_GAP_TIMES = Decimal("1000")
 

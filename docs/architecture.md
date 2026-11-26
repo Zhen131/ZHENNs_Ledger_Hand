@@ -63,6 +63,8 @@ src/ledger_hand/
         fee_cost.py           whether the ledger counts a trade's fee in the cost     (exists)
         ledger_records.py     what the ledger port hands back: assets, trades, sums, holdings (exists)
         proposals.py          the ledger's answer to a proposal, and where one stands (exists)
+        price_check.py        a trade's price against the ledger's market price       (exists)
+        marks.py              the marks on a trade's cells: worked out, assumed, suspicious (exists)
     ports.py              the three ports: model, storage and ledger                  (exists)
     extraction/           a passage of text to drafts                                 (exists)
         extractor.py          the entry point: one passage in, drafts and issues out  (exists)
@@ -221,6 +223,7 @@ src/ledger_hand/
         assistant_tables.py   the tables laid out from a result, cell by cell          (exists)
         assistant_how.py      who wrote a reply, what was sent, how it was done        (exists)
         assistant_cards.py    a card for each proposal sent; the demo buttons          (exists)
+        assistant_trade_cards.py  a read-only card for each trade sent, its marks beside its cells (exists)
         assistant_turns.py    a message, a button or an upload handed to the flows     (exists)
         assistant_numbers.py  how the Assistant page writes a number                   (exists)
         assistant_failure_words.py  one plain sentence for every failure on the Assistant page (exists)
@@ -789,6 +792,7 @@ ports file.
 | `list_trades(TradeFilter)` | The trades of a stretch of days (both ends counted, each trade on the day of its own offset), of an asset, on a side, each part optional; oldest first, at most `MOST_TRADES_LISTED` (2000) of the latest, and whether older ones were cut (`TradeList`). Each trade names its money, its fee's asset, its time zone, whether only its day is known, its rate between moneys, and whether it is dated after today; a sell carries its profit or loss and why it is not exact when it is not. |
 | `period_summary(PeriodRequest)` | The sums of a stretch of days: one group for each money, with its count of buys and sells, what they paid and brought in (or why that was not added up), its fees, its profit or loss with the part transfers took apart, and one row an asset. Never added across moneys. |
 | `positions()` | What is held, one holding for each asset, in the asset's own money; none sold out, and no holding of an asset the ledger lists as cash. |
+| `market_prices()` | Only read: the ledger's market price of each asset that has one (`MarketPrice`: the asset's code, the amount in its money, the day it is for), sold-out assets included; a code two assets share gives none. |
 | `propose_add`, `propose_update`, `propose_delete` | Propose to record, change or delete trades, with what the user said this time. Each trade is checked on its own: passed, it waits under a proposal identifier of its own; failed, it has a code and the ledger's sentence. A call may be taken in part. Nothing is written: a proposal waits for the person on the ledger's own page. |
 | `proposal_status(id)` | Where a proposal stands (`ProposalState`): pending, saved (with the trade written), rejected or void (with why). |
 
@@ -811,7 +815,9 @@ Two plugs:
   trade, taken in part, days counted on each trade's own clock. It offers
   two things outside the port, for tests, the try-out script and the
   Assistant page's demo buttons (through `flows/standing.py` only):
-  saving and rejecting a proposal. `tests/ledger/test_ledger_port.py` runs
+  saving and rejecting a proposal. Its market prices are the ones it is
+  handed, for the day of the invented book's "now"; one call can be made
+  to fail alone (`market_failure`). `tests/ledger/test_ledger_port.py` runs
   the port's tests against it. It holds one of two books: the invented
   book (`ledger/invented_book.py`) when none is handed in, which the tests
   and the measures written before use as it is; and the demo book
@@ -826,7 +832,9 @@ Two plugs:
   internal identifier, days both ends counted, every page of trades read,
   a change sent whole with the time, platform, note and rate kept as last
   listed, the sums of one asset added up here from the money each of its
-  trades moved. Two named tables sort every error code of the ledger
+  trades moved, a trade known only to its day sent with the day alone, and
+  market prices read from the holdings (`get_positions`), sold-out ones
+  included, each matched to its asset by the ledger's identifier. Two named tables sort every error code of the ledger
   (`CALL_FAILURES`, `TRADE_REFUSALS`); the ledger tier checks them against
   the ledger's README. It reads no environment variable and no clock: the
   model's name and today's date are handed in. `tests/ledger/
@@ -911,8 +919,36 @@ trades and asks what is missing. While its question waits, what the user
 says next is the answer, and the model is not asked. Once every trade is
 settled, `flows/proposing.py` sends them to the ledger as one proposal,
 every figure as the flow gave it and the user's words with each trade; a
-trade known only to the day, or naming an asset the ledger does not have,
-is left out with its reason. A trade whose quantity was said in a unit
+trade known only to the day is sent with its day alone (`date_only`), and
+one naming an asset the ledger does not have is left out with its reason.
+
+Each trade sent is marked, by the program, never the model. Once the
+trades to send are known, and before they are sent, the ledger is asked
+once for its market prices (`market_prices`); each trade's price is
+compared with its asset's (`core/price_check.py`, `check_price`): far at
+`LEDGER_HAND_PRICE_GAP_TIMES` times apart either way (five by default,
+exactly five counting), never across two moneys, and not at all when the
+money is not known or the market price is 0 or below. Then
+`core/marks.py` (`marks_for`, a pure function of the record, the price
+check and the ledger's name of the asset) marks the cells the user did not
+say: the amount the program worked out (`computed`), a money guessed from
+the asset's last trade or an asset the model matched from the list
+(`inferred`, kept on the draft and the record as `picked`), and a price
+far from the market price (`suspicious`, with its reason); one mark a
+cell, the stronger kept and the other's reason put first. The kinds and
+the cells are the ledger's own names, and the ledger's rules for marks
+hold from the moment one is made, a reason counted and cut in UTF-16
+units. The marks come back with the proposal (`Recorded.marked`) and go
+to the reply (`record_words`, a line for each price far off or not
+compared), the Assistant page's card for each trade
+(`ui/assistant_trade_cards.py`), the try-out script and the assistant's
+record; they are not sent to the ledger yet, which does not know them on
+its current tools. `as_sent` is the guard ready for when they are: a cell
+sent empty keeps only a suspicious mark, and each mark is the ledger's
+three keys. A ledger that cannot be asked for its market prices leaves
+every price not compared, and the trades are sent all the same.
+
+A trade whose quantity was said in a unit
 that is not the asset traded ("25U" of ETH) is held back when the flow
 starts (`recording.start`, `hold_other_unit`, which only the assistant
 turns on), asked nothing about and left out, its reply saying the number

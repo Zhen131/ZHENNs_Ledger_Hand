@@ -360,6 +360,18 @@ answers it offers (a question's choices, each listed trade's number, which
 amount follows) are buttons under the latest reply; pressing one says that
 answer, as if typed.
 
+Under a reply that sent trades, beside the table, one card for each trade
+shows its cells one to a line (asset, side, quantity, price, total, the
+money used, the fee, the day and the time of day, then the platform and
+the note when there are any), a cell with nothing in it saying `none`.
+Beside a cell the program did not take from your words stands its mark:
+"worked out by the program", "assumed by the program", or, in red, the
+word "SUSPICIOUS:" and the reason written out. When the price was not
+compared with a market price, a plain line under the card says why
+("price not checked: no market price in the ledger"), since a card with no
+mark is not a card that was checked. A card is read only: nothing on it
+changes the trade.
+
 On the right, one card for each proposal sent in this chat says where it
 stands. With the demo ledger it is asked each time the page is drawn, and
 Refresh asks again. With your ledger page, a proposal is confirmed on the
@@ -382,9 +394,9 @@ Continue records the two exactly as the same words typed, without asking
 the model that chooses tools. The two pages keep their screenshots apart.
 The upload box is greyed out while a question waits. The assistant runs
 on the local plug only: with the cloud plug set, the page says so in one
-sentence and greys the input out. When `LEDGER_HAND_ASSISTANT_STEPS` is
-refused, the page says why and greys out both the input and the upload
-box, so no screenshot is read for nothing.
+sentence and greys the input out. When `LEDGER_HAND_ASSISTANT_STEPS` or
+`LEDGER_HAND_PRICE_GAP_TIMES` is refused, the page says why and greys out
+both the input and the upload box, so no screenshot is read for nothing.
 
 ### Connecting the assistant to your ledger
 
@@ -475,10 +487,12 @@ the model asked for with its arguments, a short piece of what the ledger
 handed back and any failure codes, the trades proposed with their amounts
 and money, each trade not sent and why, the kinds of reminder said, the
 proposals sent and how they stood, and the model and prompt versions
-used. The most recent 1,000 entries are kept; older ones are dropped.
-The record is now at version 3: version 3 added "read_as". Entries of
-versions 1 and 2, written before, are still read as they are, and a file
-may hold all three.
+used, and for each trade proposed its marks, what came of comparing its
+price with the market price, and the cells sent empty ("marks"). The most
+recent 1,000 entries are kept; older ones are dropped. The record is now
+at version 6: version 3 added "read_as", version 4 "asset_picks", version
+5 "ledger" and version 6 "marks". Entries of versions 1 to 5, written
+before, are still read as they are, and a file may hold all six.
 
 **The file is plain text, not encrypted: it holds what you said to the
 assistant, word for word, with its numbers.** It stays on this computer;
@@ -722,9 +736,37 @@ thing said is the answer ("skip" and "cancel" work as on the Record page).
 Once every trade is settled, the trades go to the ledger as one proposal,
 which waits there until it is saved or rejected on the ledger's own page;
 nothing is confirmed in the assistant. Every figure is the recording flow's,
-and the user's words go with each trade. A trade said only with its day, or
-naming an asset the ledger does not have, is left out, with a sentence
-saying why; an open order, or words with no trade in them, send nothing.
+and the user's words go with each trade. A trade said only with its day
+("11月20号买了0.1个ETH") is sent with its day alone, no time of day made
+up; one naming an asset the ledger does not have is left out, with a
+sentence saying why; an open order, or words with no trade in them, send
+nothing.
+
+Each trade sent carries marks on the cells the user did not say outright,
+the ledger's own three kinds: **worked out** by the program (the total
+from the quantity and the price, for one), **assumed** by the program (a
+money guessed from the asset's last trade, below, or an asset the model
+matched from the ledger's list), and **suspicious**, always with its
+reason. A price is suspicious when it is at least five times the ledger's
+market price of the asset, or at most a fifth of it (exactly five counts;
+`LEDGER_HAND_PRICE_GAP_TIMES` changes five, see "Settings"). Before the
+trades are sent the ledger is asked once for its market prices. The reply
+says each such price, for example for "今天上午11点在币安0.01个BTC 花了950U，
+手续费0", where 950 was read as the price: `Trade 1: the price 950 USDT is
+far from the market price of BTC in the ledger, 64880 USDT on 2026-11-24
+(about 68 times lower). It is marked suspicious; check it before you
+confirm.` A price and a market price in different moneys (USDT and the US
+dollar) are never compared, and the reply says so ("... not compared with
+the market price ..."); so it does when the ledger cannot be asked for its
+market prices, and the trade is still sent. An asset with no market price
+is compared with nothing and nothing is said. For now the marks are shown
+in the reply, on the Assistant page and in the try-out script, and kept
+in the assistant's record; they are not sent to the ledger yet. The
+try-out script prints two lines under each trade sent: its marks
+(`marks: price: suspicious (...); totalValue: computed (...)`, or
+`marks: none`) and what came of comparing its price (`price check: far
+from the market price: ...`, `within reach of ...`, `no market price in
+the ledger` or `not compared: ...`).
 
 What can be recorded, and the money it is priced in, come from the
 ledger's own list of assets, asked for once when recording begins: with a
@@ -958,8 +1000,11 @@ The buys, one each of BTC, ETH, SOL, ADA, MSFT, INTC, KO, AAPL and NVDA,
 all fall before the invented book's first trade, coins in USDT and shares
 in USD, and are large enough that a sale said later in the autumn is not
 turned down for want of a holding. PepsiCo and DOT have no trade at all.
-The new assets and ADA have no market price, so their profit on paper is
-not worked out. Every figure is invented.
+Besides the invented book's market prices (BTC 64880 USDT, ETH 2701 USDT,
+MSFT 441.62 USD) it has five near their August buys: SOL 150 USDT, INTC
+24 USD, KO 70 USD, AAPL 230 USD and NVDA 130 USD. ADA has none, on
+purpose, so its profit on paper is not worked out; PepsiCo and DOT, never
+traded, have none either. Every figure is invented.
 
 ## Sentences for a demo
 

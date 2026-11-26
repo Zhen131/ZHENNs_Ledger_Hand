@@ -777,7 +777,7 @@ def _market_price(
 ) -> MarketPrice | None:
     """The market price of one holding's asset, by its identifier; ``None`` when it has none.
 
-    A code two assets share gives none: neither is picked (85B, 2026-11-25).
+    A code two assets share gives none: neither is picked (decided on 2026-11-25).
     """
     price = row.get("marketPrice")
     if not isinstance(price, Mapping):

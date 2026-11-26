@@ -139,7 +139,7 @@ def _marked(
     """Each trade to send, its price compared with the market price and its cells marked.
 
     The ledger is asked for its market prices once. When it cannot be asked,
-    no price is compared and the trades are still sent (85B, 2026-11-25).
+    no price is compared and the trades are still sent (decided on 2026-11-25).
     """
     markets: tuple[MarketPrice, ...] = ()
     failure: str | None = None

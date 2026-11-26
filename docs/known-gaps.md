@@ -506,9 +506,6 @@ The plug for the real ledger (`ledger/link_ledger.py`) is built and walked
 through a real ledger page by a script with no model, and since the third
 part of batch 68 the Assistant page reaches it too. What it does not do:
 
-- **A trade with only its day is not sent, though the ledger takes one.**
-  See "A trade said with its day only is not sent" under "The assistant:
-  recording a trade": that one entry says it all.
 - **A trade in another money than the asset's own is not sent.** The
   ledger then needs the rate between the two moneys (`costRate`), which
   the assistant does not ask for; the plug says so for that trade
@@ -661,7 +658,8 @@ tools handed to the model and is left for a batch of its own. Until then:
   Apple, "柚子币" as SOL, "可口可乐装瓶公司" as Coca-Cola), and the whole
   assistant sent two shares for "2股微软和英特尔"; the checks of the words
   left over cannot catch a name picked whole. Turned on, a pick is said
-  only in the reply; the proposal carries no mark of it.
+  in the reply and marked as assumed on the trade's card; the ledger is
+  not handed the mark yet.
 - **Answering "which asset" with a Chinese name is not understood.** Once
   the program asks which asset a trade was, the answer is read as before:
   answer with the asset's code as the ledger lists it ("MSFT"); "微软" is
@@ -696,23 +694,51 @@ tools handed to the model and is left for a batch of its own. Until then:
   answer. A question about the holdings at that moment is taken as an
   answer that cannot be used, and the same question is asked again. Saying
   "cancel" drops the passage, and the next thing said goes to the model.
-- **A trade said with its day only is not sent.** The recording flow keeps a
-  trade said with a day and no time of day ("昨天买了 0.5 ETH", "bought
-  0.5 ETH yesterday") as known to
-  the day, and asks nothing more. Rather than
-  make up a time of day, the program leaves that trade out and asks the user
-  to say it again with the time it was made (`LeftOut.DAY_ONLY`); the other
-  trades of the same words are sent. The real ledger, as connected on
-  2026-11-25, does take a trade with its day alone (sample
-  `propose-add-date-only`), so leaving it out is no longer for the
-  ledger's sake; whether to send such trades is for the product owner to
-  decide, and until then they are left out. Such a trade is
-  still asked about first like any other: "昨天买了 0.5 ETH，价格 2700"
-  ("bought 0.5 ETH yesterday at 2700") asks for the fee, and only once it
-  is answered is the user told that the trade lacks its time and is not
-  sent, so that answer was given for nothing. Asking for the time first
-  would change the order of the recording flow's questions, which this
-  round left as it was.
+- **A trade said with its day only is sent with its day alone.** The
+  recording flow keeps a trade said with a day and no time of day
+  ("11月20号买了0.1个ETH", "bought 0.5 ETH yesterday") as known to the day.
+  It is sent with its day alone (`date_only`), no time of day made up, as
+  the real ledger takes it (sample `propose-add-date-only`); the card says
+  `none` for its time of day, with no mark. What is left: such a trade is
+  still asked about first like any other ("昨天买了 0.5 ETH，价格 2700" asks
+  for the fee), and the ledger then holds no time of day for it, so two
+  trades of one day keep no order of their own. `LeftOut.DAY_ONLY` and its
+  sentence stay in the code, which no path reaches now.
+- **Only one kind of suspicious cell yet: a price far from the market
+  price.** A price at least `LEDGER_HAND_PRICE_GAP_TIMES` times (five by
+  default) the ledger's market price of the asset, or at most that part of
+  it, is marked suspicious. Nothing else is: a quantity far from what is
+  held, a fee far too large for the trade, or the three amounts not
+  agreeing (which is still asked about) are not marked. Five was chosen
+  with no source behind it, and the bounds of the setting (above 1, at most
+  1000) and the line at which the times apart are shown whole (ten) wait
+  for a reason.
+- **A price is never compared across two moneys.** When the trade is in
+  USDT and the ledger's market price of its asset is in US dollars, or the
+  other way round, nothing is compared and nothing converted; the reply
+  says the price was not compared, and the card has a plain line saying
+  why, but no mark. The same holds when the ledger cannot be asked for its
+  market prices (the trade is still sent) and when the asset has no market
+  price (then nothing is said in the reply, only the line under the card).
+  A card with no mark is therefore not a card that was checked.
+- **A wrong figure with no mark on it.** When the user says the quantity
+  and the price, not the total, and the quantity is out by a power of ten
+  (a zero too many or too few, as a speech transcript may write it), the
+  total is worked out from it and marked only as worked out; the price is
+  as said, and near the market price. Neither kind of suspicious mark
+  catches it: the card shows a wrong total marked "worked out by the
+  program", and nothing in red.
+- **What the program fills in itself is not marked.** The time zone, the
+  year or "today" the program fills in from the clock and the machine are
+  on nearly every trade, and marking them all would leave the marks unread;
+  only the money guessed from the last trade, an asset the model matched,
+  and the amount worked out are marked as not said.
+- **The marks' reasons are in English.** On a ledger page in Chinese the
+  reasons still read in English, as every word of this program does.
+- **The marks do not reach the ledger yet.** They are shown in the reply,
+  on the Assistant page's cards and in the try-out script, and kept in the
+  assistant's record; the ledger's own pending list shows none of them,
+  since the program does not send them on the ledger's current tools.
 - **Figures copied into the wrong field, with nothing to say.** When the
   model copies an amount into another field and the figures still agree
   with each other, the program has no reminder to give, and the trade is
@@ -1223,8 +1249,6 @@ What reaching the ledger page from the Assistant page does not do yet:
 - **A trade in another money than the asset's own is not sent.** The
   ledger then needs the rate between the two moneys, which the assistant
   does not ask for (see "The real ledger's plug").
-- **A trade said with its day only is not sent, though the ledger takes
-  one.** See "A trade said with its day only is not sent".
 - **After a timeout or a reload, the assistant only says it cannot tell.**
   The ledger's rules for an assistant (its `assistant-link/README.md`,
   "Rules an assistant must keep", 4 and 5) ask it to look through the
