@@ -27,7 +27,7 @@ README = Path(__file__).resolve().parents[1] / "README.md"
 
 
 def test_not_set_or_blank_is_the_default_of_five() -> None:
-    assert DEFAULT_PRICE_GAP_TIMES == Decimal(5)
+    assert Decimal(5) == DEFAULT_PRICE_GAP_TIMES
     assert load_price_gap_times({}) == DEFAULT_PRICE_GAP_TIMES
     assert load_price_gap_times({PRICE_GAP_TIMES_VARIABLE: ""}) == DEFAULT_PRICE_GAP_TIMES
     assert load_price_gap_times({PRICE_GAP_TIMES_VARIABLE: "  "}) == DEFAULT_PRICE_GAP_TIMES

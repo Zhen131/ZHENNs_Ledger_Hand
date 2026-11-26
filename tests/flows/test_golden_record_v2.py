@@ -89,7 +89,7 @@ def test_an_entry_of_version_two_keeps_every_name_an_entry_of_version_three_has(
 
     for entry in entries:
         assert list(entry) == [
-            name for name in made if name not in ("read_as", "asset_picks", "ledger")
+            name for name in made if name not in ("read_as", "asset_picks", "ledger", "marks")
         ]
     assert list(entries[1]["trades"][0]) == list(made["trades"][0])
     assert list(entries[1]["sent"][0]) == list(made["sent"][0])

@@ -13,7 +13,9 @@ trade not sent and why, the kinds of reminder said, each trade sent with
 its proposal and how it stood when sent (or why the ledger turned it
 down), each name of an asset handed to the model to pick from the
 ledger's list when recording began (what it was, the words and the code
-the model gave, whether it was taken and why not), how it ended, and the
+the model gave, whether it was taken and why not), each trade proposed
+with its marks, what came of comparing its price with the market price
+and its cells sent empty, how it ended, and the
 model and prompt versions used. Amounts are
 written as text, each beside the money the result names. A screenshot's
 picture is never written: only that it came from a screenshot, and the
@@ -61,6 +63,8 @@ from typing import Any
 
 from ledger_hand.assistant.outcome import NotRunCall, RefusedCall, TakenCall
 from ledger_hand.core.ledger_records import TradeFacts
+from ledger_hand.core.marks import Field
+from ledger_hand.core.price_check import PriceCheck
 from ledger_hand.core.proposals import CheckOutcome, ProposalStatus
 from ledger_hand.flows.assisting import DEFAULT_PROMPT
 from ledger_hand.flows.conversation import Route, Said
@@ -83,7 +87,12 @@ from ledger_hand.ports import LedgerError, ModelError
 # said to, "demo" or "page". A new name, so a new version, as version 4's
 # golden sample is committed and never changed (architecture, rule 11).
 # Entries of versions 1 to 4 are still read as they are.
-RECORD_VERSION = 5
+# Version 6 (2026-11-25) added "marks": for each trade proposed, its number,
+# the marks on its cells (cell, kind, reason), what came of comparing its
+# price with the ledger's market price, and the cells sent empty (none yet,
+# kept now so that sending empty cells needs no new version). Entries of
+# versions 1 to 5 are still read as they are.
+RECORD_VERSION = 6
 
 # One thousand: an entry is a few thousand bytes, so the file stays at a few
 # megabytes and is read whole in a blink each time an entry is added; at
@@ -189,6 +198,7 @@ def entry_for(
         "asset_picks": _asset_picks(said),
         "reminders": _reminders(said),
         "sent": _sent(said),
+        "marks": _marks(said),
         "models": {"tools": model, "vision": vision_model if screenshot else None},
         "prompts": _prompts(said),
     }
@@ -390,6 +400,39 @@ def _sent(said: Said) -> list[dict[str, Any]]:
             {"number": None, "what": what, "proposal": edit_sent.proposal, "status": waiting}
         )
     return sent
+
+
+def _marks(said: Said) -> list[dict[str, Any]]:
+    """For each trade proposed: its marks, its price check and its cells sent empty."""
+    recorded = said.recorded
+    if recorded is None or len(recorded.marked) != len(recorded.numbers):
+        return []
+    return [
+        {
+            "number": number,
+            "marks": [
+                {"field": mark.field.value, "kind": mark.kind.value, "reason": mark.reason}
+                for mark in marked.marks.marks
+            ],
+            "price_check": _price_check(marked.price),
+            "empty": [field.value for field in Field if field in marked.marks.empty],
+        }
+        for number, marked in zip(recorded.numbers, recorded.marked, strict=True)
+    ]
+
+
+def _price_check(check: PriceCheck) -> dict[str, Any]:
+    market = check.market
+    return {
+        "verdict": check.verdict.name.lower(),
+        "market": {
+            "price": _amount(market.price.amount),
+            "money": market.price.currency,
+            "day": market.day.isoformat() if market.day is not None else None,
+        }
+        if market is not None
+        else None,
+    }
 
 
 def _prompts(said: Said) -> dict[str, str]:

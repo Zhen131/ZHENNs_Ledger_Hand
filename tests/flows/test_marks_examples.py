@@ -360,13 +360,20 @@ def test_row_12_a_ledger_that_cannot_be_asked_for_prices_still_gets_the_trade() 
     assert ledger.calls == ["list_assets", "market_prices", "propose_add"]
 
 
-@pytest.mark.parametrize(("gap", "marked_far"), [(Decimal(3), True), (Decimal(5), False)])
-def test_row_13_the_line_follows_the_setting(gap: Decimal, marked_far: bool) -> None:
-    said, _ = btc_said("20000 USDT", gap=gap)
+def test_row_13_at_three_times_the_same_price_is_far() -> None:
+    said, _ = btc_said("20000 USDT", gap=Decimal(3))
 
     _, marked = sent_one(said)
-    assert (marked.marks.on(Field.PRICE) is not None) is marked_far
-    assert (FAR in said.reply) is marked_far
+    assert mark_on(marked.marks, Field.PRICE).kind is MarkKind.SUSPICIOUS
+    assert FAR in said.reply
+
+
+def test_row_13_at_five_times_it_is_not() -> None:
+    said, _ = btc_said("20000 USDT", gap=Decimal(5))
+
+    _, marked = sent_one(said)
+    assert marked.marks.on(Field.PRICE) is None
+    assert FAR not in said.reply
 
 
 def test_row_14_a_sell_has_its_total_worked_out_and_nothing_else() -> None:
