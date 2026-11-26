@@ -1,0 +1,55 @@
+{
+  "case": "list-assets-euro-older-documented",
+  "_source": "Written from the ledger's assistant-link/README.md (propose_trade_add, list_trades, list_assets: costRate, priceCurrencyCode) and its test assistantToolCall.customCurrency.test.ts, not captured from a running ledger. Invented figures.",
+  "what": "the same, from a ledger that names no money KO is priced in",
+  "tool": "list_assets",
+  "arguments": {},
+  "answer": {
+    "kind": "result",
+    "content": {
+      "kind": "asset-list",
+      "assets": [
+        {
+          "assetId": "asset-usdt",
+          "assetCode": "USDT",
+          "assetName": "Tether USD",
+          "assetKind": "currency",
+          "stockMarket": null,
+          "priceCurrencyAssetId": null,
+          "priceCurrencyCode": null,
+          "canBeTradeCurrency": true
+        },
+        {
+          "assetId": "asset-usd",
+          "assetCode": "USD",
+          "assetName": "US Dollar",
+          "assetKind": "currency",
+          "stockMarket": null,
+          "priceCurrencyAssetId": null,
+          "priceCurrencyCode": null,
+          "canBeTradeCurrency": true
+        },
+        {
+          "assetId": "asset-eur",
+          "assetCode": "EUR",
+          "assetName": "Euro",
+          "assetKind": "currency",
+          "stockMarket": null,
+          "priceCurrencyAssetId": null,
+          "priceCurrencyCode": null,
+          "canBeTradeCurrency": true
+        },
+        {
+          "assetId": "asset-ko",
+          "assetCode": "KO",
+          "assetName": "Coca-Cola",
+          "assetKind": "stock",
+          "stockMarket": "US",
+          "priceCurrencyAssetId": null,
+          "priceCurrencyCode": null,
+          "canBeTradeCurrency": false
+        }
+      ]
+    }
+  }
+}

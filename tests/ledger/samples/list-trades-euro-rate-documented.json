@@ -1,0 +1,48 @@
+{
+  "case": "list-trades-euro-rate-documented",
+  "_source": "Written from the ledger's assistant-link/README.md (propose_trade_add, list_trades, list_assets: costRate, priceCurrencyCode) and its test assistantToolCall.customCurrency.test.ts, not captured from a running ledger. Invented figures.",
+  "what": "one KO buy paid in EUR, with its rate",
+  "tool": "list_trades",
+  "arguments": {
+    "assetId": "asset-ko"
+  },
+  "answer": {
+    "kind": "result",
+    "content": {
+      "kind": "trade-list",
+      "trades": [
+        {
+          "tradeId": "trade-ko-eur",
+          "occurredAt": "2026-11-03T16:00:00+01:00",
+          "occurredTimeZone": "Europe/Budapest",
+          "timePrecision": "minute",
+          "side": "buy",
+          "assetId": "asset-ko",
+          "assetCode": "KO",
+          "quantity": "3",
+          "price": "60",
+          "tradeAmount": "180",
+          "tradeCurrencyAssetId": "asset-eur",
+          "tradeCurrencyCode": "EUR",
+          "fee": "0",
+          "feeAssetId": "asset-eur",
+          "feeAssetCode": "EUR",
+          "costRate": "1.0859",
+          "platform": null,
+          "note": null,
+          "rawText": null,
+          "recordedAt": "2026-11-03T15:01:00.000Z",
+          "lastModifiedAt": "2026-11-03T15:01:00.000Z",
+          "isDatedAfterToday": false,
+          "cashSpentOrReceived": "180",
+          "cashSpentOrReceivedMissingReason": null,
+          "realizedProfitAndLoss": null,
+          "realizedProfitAndLossCurrencyAssetId": null,
+          "realizedProfitAndLossCurrencyCode": null,
+          "realizedProfitAndLossIsReliable": true,
+          "realizedProfitAndLossUnreliableReason": null
+        }
+      ]
+    }
+  }
+}

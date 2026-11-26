@@ -1,0 +1,39 @@
+{
+  "case": "propose-add-euro-rate-documented",
+  "_source": "Written from the ledger's assistant-link/README.md (propose_trade_add, list_trades, list_assets: costRate, priceCurrencyCode) and its test assistantToolCall.customCurrency.test.ts, not captured from a running ledger. Invented figures.",
+  "what": "KO bought for EUR with its rate: taken",
+  "tool": "propose_trade_add",
+  "arguments": {
+    "trades": [
+      {
+        "occurredDate": "2026-11-24",
+        "occurredTime": "15:30",
+        "occurredTimeZone": "Europe/Budapest",
+        "type": "buy",
+        "assetId": "asset-ko",
+        "quantity": "2",
+        "price": "64",
+        "totalValue": "128",
+        "quoteAssetId": "asset-eur",
+        "fee": "0.19",
+        "feeAssetId": "asset-eur",
+        "costRate": "1.0859375",
+        "platform": "",
+        "note": ""
+      }
+    ],
+    "sourceText": "今天15:30花了128欧元买了2股KO，一股69.5美元，换汇费0.19欧元",
+    "modelName": "qwen2.5:7b"
+  },
+  "answer": {
+    "kind": "result",
+    "content": {
+      "results": [
+        {
+          "ok": true,
+          "proposalId": "proposal-eur-1"
+        }
+      ]
+    }
+  }
+}
