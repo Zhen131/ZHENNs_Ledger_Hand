@@ -10,6 +10,11 @@ and answers; or asks to delete a BTC trade), into a folder of its own; the
 results file and the printed table, with the parts that change at every
 run blanked, must have the fingerprints the earlier code gave them, pinned
 below. No real model is called.
+
+The system prompt a measure names is held at ``assistant-4`` while a
+fingerprint is taken: the fingerprints were pinned when it was the
+default, and the results file and the table name it, so a later default
+would change them without changing how a set without the two keys runs.
 """
 
 from __future__ import annotations
@@ -27,6 +32,8 @@ import pytest
 import evals.ask_run as ask_run
 import evals.edit_run as edit_run
 from evals.run import Backend
+from ledger_hand.assistant.prompts.assistant_fourth import ASSISTANT_FOURTH
+from ledger_hand.flows import assisting
 from ledger_hand.ports import ChatItem, ModelParameters, ToolCall, ToolReply, ToolResult, ToolSpec
 from tests.fakes.scripted_model import scripted_record
 
@@ -94,6 +101,7 @@ def _fingerprint(
     monkeypatch.setattr(module, "TOOL_RESULTS_DIR", results)
     monkeypatch.setattr(module, "local_backend", lambda _name: backend)
     monkeypatch.setattr(module, "load_assistant_steps", lambda: 6)
+    monkeypatch.setattr(assisting, "DEFAULT_PROMPT", ASSISTANT_FOURTH)
     out = io.StringIO()
     assert module.main(["--set", str(set_file)], out=out) == 0
     (written,) = results.glob("*.jsonl")
