@@ -18,6 +18,11 @@ card holds no input and no button: it cannot change the trade. The demo
 ledger's save and reject stay on the card of the proposal
 (``assistant_cards``).
 
+A trade paid in another money than its asset's own has one more cell
+after the fee, its rate ("1.0859375 USD for 1 EUR") with its mark, and a
+plain line under its cells with the price said in the asset's own money
+(``SAID_PRICE``), which is in none of the cells (2026-11-26).
+
 A card sent with cells left empty says ``none`` in each, and under its
 cells which are to be filled in on the ledger's page before it can be
 saved (``TO_FILL_IN``); a cell left empty for being wrong carries its
@@ -29,7 +34,7 @@ were. The figures are the proposal's own, written by
 ``assistant_numbers.shown``. (Decided on 2026-11-25.)
 
 Names defined here: ``TAGS``, ``SUSPICIOUS_TAG``, ``NOT_CHECKED``,
-``TO_FILL_IN``, ``card_key``, ``cell_key`` and ``draw``.
+``TO_FILL_IN``, ``SAID_PRICE``, ``card_key``, ``cell_key`` and ``draw``.
 """
 
 from __future__ import annotations
@@ -40,6 +45,7 @@ from types import MappingProxyType
 
 import streamlit as st
 
+from ledger_hand.core.cost_rate import RateNote
 from ledger_hand.core.marks import Field, FieldMark, MarkKind, TradeMarks
 from ledger_hand.core.trade_card import TradeCard, card_of
 from ledger_hand.flows.record_words import not_checked_words
@@ -59,6 +65,8 @@ SUSPICIOUS_TAG = TAGS[MarkKind.SUSPICIOUS]
 NOT_CHECKED = "price not checked: "
 # The start of the line under a card sent with cells left empty.
 TO_FILL_IN = "to fill in on the ledger's page before saving: "
+# The start of the line under a card paid in another money than its asset's own.
+SAID_PRICE = "price you said in the asset's own money: "
 _NONE = "none"
 
 type _Cell = tuple[str, str, tuple[Field, ...]]
@@ -85,8 +93,11 @@ def draw(recorded: Recorded | None, exchange: int) -> None:
         facts = sent if isinstance(sent, TradeCard) else card_of(sent)
         with st.container(border=True, key=card_key(exchange, number)):
             st.markdown(f"**Trade {number}**")
-            for label, value, fields in _cells(facts, marked.marks):
+            for label, value, fields in _cells(facts, marked.marks, marked.rate):
                 _cell(exchange, number, label, value, _marks_on(marked.marks, fields))
+            if marked.rate is not None:
+                said = marked.rate.said
+                st.text(f"{SAID_PRICE}{shown(said.amount)} {said.money} {marked.rate.each}")
             reason = not_checked_words(marked.price)
             if reason is not None:
                 st.text(NOT_CHECKED + reason)
@@ -98,10 +109,11 @@ def _shown(value: Decimal | None) -> str:
     return shown(value) if value is not None else _NONE
 
 
-def _cells(facts: TradeCard, marks: TradeMarks) -> list[_Cell]:
+def _cells(facts: TradeCard, marks: TradeMarks, rate: RateNote | None = None) -> list[_Cell]:
     """Each cell of the card: its name, its value as shown, and the cells of the ledger it is.
 
     A cell left empty is ``none``; so is a money left empty beside a figure.
+    The rate is a cell only for a trade paid in another money (``rate``).
     """
     quote, fee_asset = facts.quote or _NONE, facts.fee_asset or _NONE
     moment = facts.occurred
@@ -113,6 +125,17 @@ def _cells(facts: TradeCard, marks: TradeMarks) -> list[_Cell]:
         ("Total", f"{_shown(facts.total)} {quote}", (Field.TOTAL_VALUE,)),
         ("Money used", quote, (Field.QUOTE_ASSET_ID,)),
         ("Fee", f"{_shown(facts.fee)} {fee_asset}", (Field.FEE, Field.FEE_ASSET_ID)),
+        *(
+            [
+                (
+                    "Rate",
+                    f"{_shown(facts.cost_rate)} {rate.said.money} for 1 {quote}",
+                    (Field.COST_RATE,),
+                )
+            ]
+            if rate is not None
+            else []
+        ),
         ("Day", moment.date().isoformat() if moment is not None else _NONE, (Field.OCCURRED_DATE,)),
         (
             "Time of day",
