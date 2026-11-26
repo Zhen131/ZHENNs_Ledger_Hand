@@ -704,20 +704,54 @@ tools handed to the model and is left for a batch of its own. Until then:
   ("11月20号买了0.1个ETH", "bought 0.5 ETH yesterday") as known to the day.
   It is sent with its day alone (`date_only`), no time of day made up, as
   the real ledger takes it (sample `propose-add-date-only`); the card says
-  `none` for its time of day, with no mark. What is left: such a trade is
-  still asked about first like any other ("昨天买了 0.5 ETH，价格 2700" asks
-  for the fee), and the ledger then holds no time of day for it, so two
-  trades of one day keep no order of their own. `LeftOut.DAY_ONLY` and its
+  `none` for its time of day, with no mark. What is left: the ledger then
+  holds no time of day for it, so two trades of one day keep no order of
+  their own. `LeftOut.DAY_ONLY` and its
   sentence stay in the code, which no path reaches now.
-- **Only one kind of suspicious cell yet: a price far from the market
-  price.** A price at least `LEDGER_HAND_PRICE_GAP_TIMES` times (five by
-  default) the ledger's market price of the asset, or at most that part of
-  it, is marked suspicious. Nothing else is: a quantity far from what is
-  held, a fee far too large for the trade, or the three amounts not
-  agreeing (which is still asked about) are not marked. Five was chosen
-  with no source behind it, and the bounds of the setting (above 1, at most
-  1000) and the line at which the times apart are shown whole (ten) wait
-  for a reason.
+- **What is marked suspicious, and what is not.** A price at least
+  `LEDGER_HAND_PRICE_GAP_TIMES` times (five by default) the ledger's market
+  price of the asset, or at most that part of it; quantity, price and total
+  said that do not agree (all three); and, on a card sent with cells left
+  empty, a cell said but wrong in itself (`core/card_record.py`, `Doubt`)
+  and a vague word for money the ledger's last trade cannot settle. Nothing
+  else is: a quantity far from what is held, or a fee far too large for
+  the trade, is not marked. Five was chosen with no source behind it, and
+  the bounds of the setting (above 1, at most 1000) and the line at which
+  the times apart are shown whole (ten) wait for a reason.
+- **The ledger turns down a whole card whose figures do not agree, so the
+  total is left empty.** When quantity, price and total are all said and
+  do not agree, the ledger (72B, 2026-11-25) takes no trade with every
+  cell given; the quantity and the price go as said, the total empty, all
+  three marked suspicious, the total's reason holding the total said. If
+  the ledger comes to take such a card, the three can go as said, each
+  marked, with no cell empty; only the sending and that one reply line
+  change.
+- **A ledger whose tools do not take cells left empty is asked every gap
+  as before.** Whether the ledger takes cards is read once from its list
+  of tools (`allowUnfinished` on `propose_trade_add`). The fake ledger is a
+  ledger from before unless made to take cards (the demo ledger, the
+  try-out script's and the exam book are). The real plug reads the list
+  only from a link that lists its tools: the link kept by the Assistant
+  page (`link_keeper`, its caller `_Current`) does not offer the list to
+  the plug, so the Assistant page with your ledger page still asks each
+  gap, and sends no marks, until the keeper hands the list on.
+- **A vague word for money that no rule names is still asked.** Besides
+  "the ledger has no trade of the asset" and "the ledger cannot be asked"
+  (both asked, as the product owner's rule says), a vague word is still
+  asked about when the trade itself names two moneys beside it
+  (`MONEY_NOT_CLEAR`), or when the asset's last trade used USDT or the US
+  dollar but that money prices nothing in the ledger now. Neither is in
+  the rules for cards; they were left as they were.
+- **A cell the model wrote that is not in the words is left empty, unmarked.**
+  On a card, a figure or a time the model wrote that is not a piece of what
+  was said, or that could not be read as a number, is left empty with no
+  mark, as any cell not said; the reply names it among the empty cells. A
+  time refused for lying after today is the one such cell marked (with the
+  day it names).
+- **A quantity said in another unit that is not money is still held back.**
+  "25U" of ETH is taken as the total once the ledger takes cards; a
+  quantity whose unit is an asset other than the one traded, or names two
+  moneys, is held back and said as before.
 - **A price is never compared across two moneys.** When the trade is in
   USDT and the ledger's market price of its asset is in US dollars, or the
   other way round, nothing is compared and nothing converted; the reply
@@ -740,10 +774,9 @@ tools handed to the model and is left for a batch of its own. Until then:
   and the amount worked out are marked as not said.
 - **The marks' reasons are in English.** On a ledger page in Chinese the
   reasons still read in English, as every word of this program does.
-- **The marks do not reach the ledger yet.** They are shown in the reply,
-  on the Assistant page's cards and in the try-out script, and kept in the
-  assistant's record; the ledger's own pending list shows none of them,
-  since the program does not send them on the ledger's current tools.
+- **The marks reach the ledger only when it takes cards.** A ledger that
+  takes cells left empty is sent each trade's marks after the guard; one
+  from before is sent none, and they are shown only on this side.
 - **The day of a market price fetched online may be a day early.** The
   day said beside a market price is the first ten characters of what the
   ledger gives; a price fetched online carries a moment in UTC

@@ -364,6 +364,10 @@ Under a reply that sent trades, beside the table, one card for each trade
 shows its cells one to a line (asset, side, quantity, price, total, the
 money used, the fee, the day and the time of day, then the platform and
 the note when there are any), a cell with nothing in it saying `none`.
+A trade sent with cells left empty (below) shows `none` in each, and a
+line under the card names the cells to fill in on the ledger's page
+before it can be saved ("to fill in on the ledger's page before saving:
+fee, feeAssetId"); the table of the trades sent says the same beside it.
 Beside a cell the program did not take from your words stands its mark:
 "worked out by the program", "assumed by the program", or, in red, the
 word "SUSPICIOUS:" and the reason written out. When the price was not
@@ -730,8 +734,30 @@ balance. What the catch knows and does not know is in
 
 Recording is the program's, not the model's. When the model asks to record
 a trade, what the user said, tidied as above, is handed to the same recording
-flow the Record page uses: it judges the words, extracts the trades and
-asks for what is missing, such as the fee, one question at a time. The next
+flow the Record page uses: it judges the words and extracts the trades.
+The ledger takes a trade with cells left empty, which waits on its
+pending list until they are filled in there, so the assistant asks only
+which asset was traded and whether it was a buy or a sell (the ledger
+never takes either empty), and a vague word for money when the ledger has
+no trade of the asset or cannot be asked (below). Every other gap is sent,
+not asked: a cell not said is left empty, never 0 ("手续费" not said is an
+empty fee, not a fee of 0); a cell said but wrong in itself (a price of 0,
+a day after today, a fee not below the quantity bought in the same coin, a
+platform longer than the ledger takes) is left empty and marked
+suspicious with what was said and why; a quantity said in money ("用25U买了
+点ETH") is taken as the total spent, the quantity and price left empty, and
+marked assumed. When quantity, price and total all said do not agree, the
+quantity and the price are sent as said, the total left empty (the ledger
+turns down a trade whose every cell is given and whose figures do not
+agree), all three marked suspicious with the three figures, and the reply
+says the program does not guess which is wrong. The reply names the cells
+sent empty ("Trade 1 was sent with empty fields: fee, feeAssetId. ... fill
+them in on the ledger's own page before you save it."), carries what the
+ledger found in the cells given in its own words, and never says nothing
+was found while a figure, the day or the money is empty: the ledger cannot
+check a sell's holdings then. A ledger whose tools do not take cells left
+empty (one from before 2026-11-25) is asked each gap as before, one
+question at a time, and is sent no marks. The next
 thing said is the answer ("skip" and "cancel" work as on the Record page).
 Once every trade is settled, the trades go to the ledger as one proposal,
 which waits there until it is saved or rejected on the ledger's own page;
@@ -759,14 +785,18 @@ confirm.` A price and a market price in different moneys (USDT and the US
 dollar) are never compared, and the reply says so ("... not compared with
 the market price ..."); so it does when the ledger cannot be asked for its
 market prices, and the trade is still sent. An asset with no market price
-is compared with nothing and nothing is said. For now the marks are shown
-in the reply, on the Assistant page and in the try-out script, and kept
-in the assistant's record; they are not sent to the ledger yet. The
+is compared with nothing and nothing is said; so is a price left empty. The
+marks are shown in the reply, on the Assistant page and in the try-out
+script, kept in the assistant's record, and sent with each trade to a
+ledger that takes them, which shows them beside the cells on its pending
+list (a cell sent empty keeps a suspicious mark only). The
 try-out script prints two lines under each trade sent: its marks
 (`marks: price: suspicious (...); totalValue: computed (...)`, or
 `marks: none`) and what came of comparing its price (`price check: far
 from the market price: ...`, `within reach of ...`, `no market price in
-the ledger` or `not compared: ...`).
+the ledger` or `not compared: ...`); a trade sent with cells left empty
+prints `none` in each and one line more (`empty: fee, feeAssetId; the
+ledger: cannot be saved yet`).
 
 What can be recorded, and the money it is priced in, come from the
 ledger's own list of assets, asked for once when recording begins: with a
@@ -774,9 +804,9 @@ share and US dollars in the ledger,
 "今天15:30在IBKR买了2股MSFT，410美元一股，手续费1美元" sends one trade of
 MSFT priced in USD, its fee taken in USD.
 When the ledger prices trades in more than one money, a price said with no
-money ("价格94900") is asked about first ("Which currency was this trade
-priced in?"), and one money is never taken for another: "U" is USDT,
-"美元" is the US dollar.
+money ("价格94900") leaves the money used empty, and its price is not
+compared with a market price; one money is never taken for another: "U" is
+USDT, "美元" is the US dollar.
 
 "美金", "刀", "美刀", "$" and "bucks" are vague: each may mean USDT or the
 US dollar. Such a word follows the money the same trade names outright on
@@ -786,9 +816,10 @@ another trade) does not count. When the trade names neither, the money of
 the asset's last trade in the ledger is taken, and the reply says it is a
 guess ("Trade 1: no currency was said, so it is priced in USDT, the
 currency of the last ETH trade in the ledger. This is a guess; check it
-before you confirm."). When the ledger has no trade of the asset, cannot be
-asked, or the asset's last day of trades used both moneys, the user is
-asked. A word that names one money ("欧元", "EUR", "人民币", "福林") counts
+before you confirm."). When the ledger has no trade of the asset, or cannot be
+asked, the user is asked. When the asset's last day of trades used both
+moneys, or its last trade used another money (CNY), the money is left
+empty and marked suspicious, saying which. A word that names one money ("欧元", "EUR", "人民币", "福林") counts
 only when the ledger has that money: "价格2200欧元" with no euro in the
 ledger is not sent, and the reply says the ledger has no currency EUR yet.
 An answer whose money is not the trade's ("2400美元" for a trade in USDT)

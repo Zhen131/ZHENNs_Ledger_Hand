@@ -65,6 +65,8 @@ src/ledger_hand/
         proposals.py          the ledger's answer to a proposal, and where one stands (exists)
         price_check.py        a trade's price against the ledger's market price       (exists)
         marks.py              the marks on a trade's cells: worked out, assumed, suspicious (exists)
+        trade_card.py         a trade proposed with cells left empty, and its marks as sent (exists)
+        card_record.py        a card's cells kept, left empty or doubted; why a cell is doubted (exists)
     ports.py              the three ports: model, storage and ledger                  (exists)
     extraction/           a passage of text to drafts                                 (exists)
         extractor.py          the entry point: one passage in, drafts and issues out  (exists)
@@ -794,6 +796,8 @@ ports file.
 | `positions()` | What is held, one holding for each asset, in the asset's own money; none sold out, and no holding of an asset the ledger lists as cash. |
 | `market_prices()` | Only read: the ledger's market price of each asset that has one (`MarketPrice`: the asset's code, the amount in its money, the day it is for), sold-out assets included; a code two assets share gives none. |
 | `propose_add`, `propose_update`, `propose_delete` | Propose to record, change or delete trades, with what the user said this time. Each trade is checked on its own: passed, it waits under a proposal identifier of its own; failed, it has a code and the ledger's sentence. A call may be taken in part. Nothing is written: a proposal waits for the person on the ledger's own page. |
+| `takes_unfinished()` | Only read: whether the ledger takes a trade with cells left empty and marks on its cells, from what its tools say they take; `False` for a ledger from before. |
+| `propose_cards(cards, said)` | Propose to record cards (`TradeCard`), cells left empty allowed, each with its marks; each card taken says whether it can be saved as it is, its empty cells and what the ledger found in the cells given. A card with every cell given is checked as by `propose_add`. Nothing is written. |
 | `proposal_status(id)` | Where a proposal stands (`ProposalState`): pending, saved (with the trade written), rejected or void (with why). |
 
 Every failure is a `LedgerError` with one of seven kinds (`LedgerErrorKind`:
@@ -942,11 +946,35 @@ units. The marks come back with the proposal (`Recorded.marked`) and go
 to the reply (`record_words`, a line for each price far off or not
 compared), the Assistant page's card for each trade
 (`ui/assistant_trade_cards.py`), the try-out script and the assistant's
-record; they are not sent to the ledger yet, which does not know them on
-its current tools. `as_sent` is the guard ready for when they are: a cell
-sent empty keeps only a suspicious mark, and each mark is the ledger's
-three keys. A ledger that cannot be asked for its market prices leaves
-every price not compared, and the trades are sent all the same.
+record. A ledger that cannot be asked for its market prices leaves every
+price not compared, and the trades are sent all the same.
+
+Cards with cells left empty (2026-11-26). The ledger takes a trade with
+any of seven cells empty (`allowUnfinished`: the day, quantity, price,
+total, money used, fee, fee's money); such a trade waits on its pending
+list and cannot be saved until they are filled in there. Whether the
+ledger takes them is read once (`LedgerPort.takes_unfinished`) when
+recording begins on the assistant's way, and kept in the flow's setting
+(`Setting.unfinished`). Then `flows/recording.py` asks only which asset
+and buy or sell (`_still_asked`), and a vague word for money when the
+ledger has no trade of the asset or cannot be asked (`_vague_verdict`);
+every other draft with problems is settled as `TradeStatus.UNFINISHED`
+with a `core/card_record.py` `CardRecord`, built by `card_record`, a pure
+function of the draft, the check's problems, the asset table and the
+moment: each cell kept, left empty (`None`, never 0), or left empty and
+doubted with the user's own value (`Doubt`). `flows/proposing.py` turns
+every record and card into a `core/trade_card.py` `TradeCard` (the cells
+of `TradeFacts`, the seven perhaps `None`), works out its marks
+(`marks_for`, or `card_marks` for a card), puts them through the guard
+(`marks.sent_marks`: a cell sent empty keeps only a suspicious mark, no
+time of day is marked when none is sent, each mark the ledger's three
+keys) and sends them all with `LedgerPort.propose_cards`; a ledger that
+does not take cards is sent the whole trades with `propose_add`, as
+before, and every gap was asked. Each card's check says whether it can be
+saved (`TradeCheck.ready`), its empty cells and what the ledger found in
+the cells given (`LedgerProblem`), said back in the ledger's own words.
+The fake ledger checks cards and marks by the ledger's rules; the real
+plug sends `allowUnfinished`, `fieldMarks` and `null` for an empty cell.
 
 A trade whose quantity was said in a unit
 that is not the asset traded ("25U" of ETH) is held back when the flow
@@ -1120,8 +1148,8 @@ is settled in three places, in order:
 
 The reply says each guessed money in fixed words (`record_words`,
 `GUESSED_WORDS`), and the try-out script prints where each money came
-from. The marks are not sent to the ledger (`TradeFacts` has no field for
-them) and not kept in the assistant's record. An answer with a table made
+from. The guess is one of a trade's marks (`inferred`), sent with it to a
+ledger that takes cards. An answer with a table made
 from the ledger's list goes through `filling.fill_from_ledger`: a money
 named outright that is not the trade's own is not filled in, and the user
 is asked which it is (`Progress.clash`, `MoneyClash`, `settle_clash`); a
