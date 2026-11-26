@@ -14,6 +14,7 @@ import json
 import pytest
 
 from ledger_hand.flows import conversation
+from ledger_hand.ledger.demo_book import demo_ledger
 from scripts import try_assistant
 from tests.fakes.routed_model import RoutedModel
 from tests.fakes.scripted_model import Step
@@ -37,7 +38,9 @@ def run(words: list[str], coin: str, picks: list[Step], answers: list[Step] = ()
         answers=answers,
     )
     out = io.StringIO()
-    try_assistant.main(words, out=out, model=model, max_steps=6)
+    # A question about the fee follows only on a ledger that takes no card with an empty cell.
+    ledger = demo_ledger() if answers else None
+    try_assistant.main(words, out=out, model=model, max_steps=6, ledger=ledger)
     return out.getvalue()
 
 

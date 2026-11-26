@@ -18,24 +18,30 @@ card holds no input and no button: it cannot change the trade. The demo
 ledger's save and reject stay on the card of the proposal
 (``assistant_cards``).
 
+A card sent with cells left empty says ``none`` in each, and under its
+cells which are to be filled in on the ledger's page before it can be
+saved (``TO_FILL_IN``); a cell left empty for being wrong carries its
+suspicious mark with the value said.
+
 The cards sit in the reply's speech bubble, after the reply's own
 container, so the lines read from that container by place stay where they
 were. The figures are the proposal's own, written by
 ``assistant_numbers.shown``. (Decided on 2026-11-25.)
 
 Names defined here: ``TAGS``, ``SUSPICIOUS_TAG``, ``NOT_CHECKED``,
-``card_key``, ``cell_key`` and ``draw``.
+``TO_FILL_IN``, ``card_key``, ``cell_key`` and ``draw``.
 """
 
 from __future__ import annotations
 
 from collections.abc import Sequence
+from decimal import Decimal
 from types import MappingProxyType
 
 import streamlit as st
 
-from ledger_hand.core.ledger_records import TradeFacts
 from ledger_hand.core.marks import Field, FieldMark, MarkKind, TradeMarks
+from ledger_hand.core.trade_card import TradeCard, card_of
 from ledger_hand.flows.record_words import not_checked_words
 from ledger_hand.flows.recorded import Recorded
 from ledger_hand.ui.assistant_numbers import shown
@@ -51,6 +57,8 @@ TAGS = MappingProxyType(
 SUSPICIOUS_TAG = TAGS[MarkKind.SUSPICIOUS]
 # The start of the line under a card whose price was not compared.
 NOT_CHECKED = "price not checked: "
+# The start of the line under a card sent with cells left empty.
+TO_FILL_IN = "to fill in on the ledger's page before saving: "
 _NONE = "none"
 
 type _Cell = tuple[str, str, tuple[Field, ...]]
@@ -70,39 +78,52 @@ def draw(recorded: Recorded | None, exchange: int) -> None:
     """One card for each trade ``recorded`` sent, with its marks; nothing when none was."""
     if recorded is None or not recorded.trades or len(recorded.marked) != len(recorded.trades):
         return
-    for number, facts, marked in zip(
+    for number, sent, marked in zip(
         recorded.numbers, recorded.trades, recorded.marked, strict=True
     ):
+        # A trade handed in whole (older callers) is drawn as its card.
+        facts = sent if isinstance(sent, TradeCard) else card_of(sent)
         with st.container(border=True, key=card_key(exchange, number)):
             st.markdown(f"**Trade {number}**")
-            for label, value, fields in _cells(facts):
+            for label, value, fields in _cells(facts, marked.marks):
                 _cell(exchange, number, label, value, _marks_on(marked.marks, fields))
             reason = not_checked_words(marked.price)
             if reason is not None:
                 st.text(NOT_CHECKED + reason)
+            if not facts.complete:
+                st.text(TO_FILL_IN + ", ".join(facts.missing))
 
 
-def _cells(facts: TradeFacts) -> list[_Cell]:
-    """Each cell of the card: its name, its value as shown, and the cells of the ledger it is."""
+def _shown(value: Decimal | None) -> str:
+    return shown(value) if value is not None else _NONE
+
+
+def _cells(facts: TradeCard, marks: TradeMarks) -> list[_Cell]:
+    """Each cell of the card: its name, its value as shown, and the cells of the ledger it is.
+
+    A cell left empty is ``none``; so is a money left empty beside a figure.
+    """
+    quote, fee_asset = facts.quote or _NONE, facts.fee_asset or _NONE
+    moment = facts.occurred
     cells: list[_Cell] = [
         ("Asset", facts.asset, (Field.ASSET_ID,)),
         ("Side", facts.side.value, (Field.TYPE,)),
-        ("Quantity", shown(facts.quantity), (Field.QUANTITY,)),
-        ("Price", f"{shown(facts.price)} {facts.quote}", (Field.PRICE,)),
-        ("Total", f"{shown(facts.total)} {facts.quote}", (Field.TOTAL_VALUE,)),
-        ("Money used", facts.quote, (Field.QUOTE_ASSET_ID,)),
-        ("Fee", f"{shown(facts.fee)} {facts.fee_asset}", (Field.FEE, Field.FEE_ASSET_ID)),
-        ("Day", facts.day.isoformat(), (Field.OCCURRED_DATE,)),
+        ("Quantity", _shown(facts.quantity), (Field.QUANTITY,)),
+        ("Price", f"{_shown(facts.price)} {quote}", (Field.PRICE,)),
+        ("Total", f"{_shown(facts.total)} {quote}", (Field.TOTAL_VALUE,)),
+        ("Money used", quote, (Field.QUOTE_ASSET_ID,)),
+        ("Fee", f"{_shown(facts.fee)} {fee_asset}", (Field.FEE, Field.FEE_ASSET_ID)),
+        ("Day", moment.date().isoformat() if moment is not None else _NONE, (Field.OCCURRED_DATE,)),
         (
             "Time of day",
-            _NONE if facts.date_only else facts.occurred.strftime("%H:%M"),
+            _NONE if moment is None or facts.date_only else moment.strftime("%H:%M"),
             (Field.OCCURRED_TIME, Field.OCCURRED_TIME_ZONE),
         ),
     ]
-    if facts.platform:
-        cells.append(("Platform", facts.platform, (Field.PLATFORM,)))
-    if facts.note:
-        cells.append(("Note", facts.note, (Field.NOTE,)))
+    if facts.platform or marks.on(Field.PLATFORM) is not None:
+        cells.append(("Platform", facts.platform or _NONE, (Field.PLATFORM,)))
+    if facts.note or marks.on(Field.NOTE) is not None:
+        cells.append(("Note", facts.note or _NONE, (Field.NOTE,)))
     return cells
 
 

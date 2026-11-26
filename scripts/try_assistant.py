@@ -98,11 +98,13 @@ from ledger_hand.assistant.outcome import (
     TurnResult,
 )
 from ledger_hand.assistant.results import not_done_text
+from ledger_hand.core.card_record import CardRecord
 from ledger_hand.core.followup import AskCell, ConfirmCoin
 from ledger_hand.core.ledger_records import TradeFacts, TradeFilter
 from ledger_hand.core.marks import TradeMarks
-from ledger_hand.core.proposals import ProposalStatus
+from ledger_hand.core.proposals import ProposalStatus, TradeCheck
 from ledger_hand.core.trade import Inferred, TradeRecord
+from ledger_hand.core.trade_card import TradeCard
 from ledger_hand.core.zones import is_zone_name
 from ledger_hand.extraction.asset_picking import AssetPick
 from ledger_hand.flows.conversation import AssistantChat, Route, Said, say
@@ -168,7 +170,8 @@ def main(
             return 2
         model, max_steps, tuning = model or built[0], max_steps or built[1], built[2]
         gap = price_gap if price_gap is not None else built[3]
-    ledger = ledger or demo_ledger()
+    # The demo ledger takes cards with cells left empty, as the real one does now.
+    ledger = ledger or demo_ledger().taking_cards()
     print(f"now:    {now.isoformat()} in {zone} ({whose} moment)", file=out)
     print(f"model:  {getattr(model, 'name', None) or _model_name()}", file=out)
     print(f"ledger: {type(ledger).__name__}; at most {max_steps} steps a turn", file=out)
@@ -296,6 +299,10 @@ def _show_recording(said: Said, recorded: Recorded, out: TextIO) -> None:
         if marked:
             print(f"    {marks_line(marked[place].marks)}", file=out)
             print(f"    price check: {price_check_words(marked[place].price)}", file=out)
+        check = recorded.checks[place] if len(recorded.checks) == len(recorded.trades) else None
+        empty = empty_line(trade, check)
+        if empty is not None:
+            print(f"    {empty}", file=out)
 
 
 def pick_line(found: AssetPick) -> str:
@@ -394,27 +401,60 @@ def _ending(said: Said) -> str:
     return turn.ending.value if turn is not None else "-"
 
 
-def trade_line(trade: TradeFacts) -> str:
-    """One trade on one line, every figure as the proposal holds it, written out in full."""
+def trade_line(trade: TradeFacts | TradeCard) -> str:
+    """One trade on one line, every figure as the proposal holds it, written out in full.
+
+    A cell a card leaves empty is written ``none``.
+    """
     quantity, price, total, fee = (
-        format(value, "f") for value in (trade.quantity, trade.price, trade.total, trade.fee)
+        _shown(value) for value in (trade.quantity, trade.price, trade.total, trade.fee)
     )
+    quote, fee_asset = trade.quote or "none", trade.fee_asset or "none"
     return (
         f"{_when(trade)} {trade.side.value} {quantity} {trade.asset} "
-        f"at {price} {trade.quote}, total {total} {trade.quote}, "
-        f"fee {fee} {trade.fee_asset}, platform {trade.platform or '-'}, "
+        f"at {price} {quote}, total {total} {quote}, "
+        f"fee {fee} {fee_asset}, platform {trade.platform or '-'}, "
         f"note {trade.note or '-'}"
     )
 
 
-def _when(trade: TradeFacts) -> str:
-    """The trade's moment in full, or its day alone when only the day is known."""
-    return trade.day.isoformat() if trade.date_only else trade.occurred.isoformat()
+def _shown(value: Decimal | None) -> str:
+    return format(value, "f") if value is not None else "none"
+
+
+def _when(trade: TradeFacts | TradeCard) -> str:
+    """The trade's moment in full, its day alone when only the day is known, or ``none``."""
+    if trade.occurred is None:
+        return "none"
+    return trade.occurred.date().isoformat() if trade.date_only else trade.occurred.isoformat()
+
+
+def empty_line(card: TradeCard, check: TradeCheck | None) -> str | None:
+    """The cells a card was sent with empty, and what the ledger said of it; ``None`` when whole.
+
+    Example: "empty: fee, feeAssetId; the ledger: cannot be saved yet".
+    """
+    if card.complete:
+        return None
+    said = ""
+    if check is not None and check.ready is not None:
+        said = "; the ledger: " + ("can be saved" if check.ready else "cannot be saved yet")
+        if check.problem is not None:
+            said += f", it found {check.problem.code} ({check.problem.message})"
+    return f"empty: {', '.join(card.missing)}{said}"
 
 
 def money_line(trade: TradeState) -> str:
-    """Where a trade's two moneys came from: said, guessed from the ledger, or the only one."""
+    """Where a trade's two moneys came from: said, guessed from the ledger, or the only one.
+
+    A card's money left empty is ``empty``.
+    """
     record = trade.record
+    card = trade.card
+    if record is None and card is not None:
+        price = "empty" if card.quote is None else _card_source(card, Inferred.QUOTE)
+        fee = "empty" if card.fee_coin is None else _card_source(card, Inferred.FEE_COIN)
+        return f"money: price {price}, fee {fee}"
     if record is None:
         return "money: -"
     price = _money_source(record, Inferred.QUOTE)
@@ -435,6 +475,13 @@ def marks_line(marks: TradeMarks) -> str:
         for mark in marks.marks
     ]
     return "marks: " + "; ".join(said)
+
+
+def _card_source(card: CardRecord, mark: Inferred) -> str:
+    source = card.inferred_from
+    if mark not in card.inferred or source is None:
+        return "said"
+    return f"inferred from {source.trade_id} on {source.occurred.date().isoformat()}"
 
 
 def _money_source(record: TradeRecord, mark: Inferred) -> str | None:

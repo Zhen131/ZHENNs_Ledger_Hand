@@ -8,9 +8,10 @@ the result names it: a trade's own money, a fee's own asset, a sum's own
 money. No money is assumed.
 
 - ``proposed_rows``: the trades sent as one proposal, numbered as said;
-  when the ledger turned some down, each row also says, under
-  ``IN_THE_LEDGER``, whether it waits in the ledger or was not taken and
-  why.
+  when the ledger turned some down, or a card with cells left empty waits
+  there, each row also says, under ``IN_THE_LEDGER``, whether it waits in
+  the ledger (and which cells are still to be filled in) or was not taken
+  and why. A cell a card left empty reads ``none``.
 - ``lookup_rows``: what a read tool found: trades, the sums of a stretch of
   time, holdings or assets. Its header (the days, the asset, the side, the
   counts) is the program's (``lookups.header_lines``). The sums are one row
@@ -36,6 +37,7 @@ Names defined here: ``CHANGED_MARK``, ``IN_THE_LEDGER``, ``FEES_INSIDE``, ``NO_C
 from __future__ import annotations
 
 from collections.abc import Sequence
+from decimal import Decimal
 
 from ledger_hand.assistant.lookups import Lookup, when_text
 from ledger_hand.assistant.tools import ToolName
@@ -50,12 +52,15 @@ from ledger_hand.core.ledger_records import (
     TradeFacts,
 )
 from ledger_hand.core.proposals import CheckOutcome, TradeCheck
+from ledger_hand.core.trade_card import TradeCard
 from ledger_hand.ui.assistant_numbers import shown
 
 type Row = dict[str, str]
 
 CHANGED_MARK = "changed"
 IN_THE_LEDGER = "In the ledger"
+# A cell a card left empty.
+_EMPTY = "none"
 
 
 def _when(facts: TradeFacts) -> str:
@@ -83,20 +88,57 @@ def _trade_cells(facts: TradeFacts) -> Row:
     }
 
 
+def _proposed_cells(trade: TradeFacts | TradeCard) -> Row:
+    """A trade's cells as ``_trade_cells`` writes them; a card's empty cell reads ``none``."""
+    if isinstance(trade, TradeFacts):
+        return _trade_cells(trade)
+    whole = trade.facts
+    if whole is not None:
+        return _trade_cells(whole)
+    quote, fee_asset = trade.quote or _EMPTY, trade.fee_asset or _EMPTY
+    return {
+        "Time": _card_when(trade),
+        "Side": trade.side.value,
+        "Asset": trade.asset,
+        "Quantity": _maybe_shown(trade.quantity),
+        "Price": f"{_maybe_shown(trade.price)} {quote}",
+        "Total": f"{_maybe_shown(trade.total)} {quote}",
+        "Fee": f"{_maybe_shown(trade.fee)} {fee_asset}",
+        "Platform": trade.platform or "-",
+    }
+
+
+def _maybe_shown(value: Decimal | None) -> str:
+    return shown(value) if value is not None else _EMPTY
+
+
+def _card_when(card: TradeCard) -> str:
+    if card.occurred is None:
+        return _EMPTY
+    if card.date_only:
+        return card.occurred.date().isoformat()
+    return card.occurred.strftime("%Y-%m-%d %H:%M")
+
+
 def proposed_rows(
-    numbers: Sequence[int], trades: Sequence[TradeFacts], checks: Sequence[TradeCheck] = ()
+    numbers: Sequence[int],
+    trades: Sequence[TradeFacts | TradeCard],
+    checks: Sequence[TradeCheck] = (),
 ) -> list[Row]:
     """One row for each trade sent, with its number in what was said and its note.
 
     When the ledger turned any of them down (``checks``, one for each trade),
-    each row also says whether it waits in the ledger or was not taken, and
-    why (68B3, addition 1); when it took them all, the rows are as before.
+    or a card waits that cannot be saved yet, each row also says whether it
+    waits in the ledger or was not taken, and why (68B3, addition 1); when
+    it took them all whole, the rows are as before.
     """
     rows = [
-        {"#": str(number), **_trade_cells(facts), "Note": facts.note or "-"}
+        {"#": str(number), **_proposed_cells(facts), "Note": facts.note or "-"}
         for number, facts in zip(numbers, trades, strict=True)
     ]
-    if len(checks) != len(rows) or all(c.outcome is CheckOutcome.PASSED for c in checks):
+    if len(checks) != len(rows) or all(
+        c.outcome is CheckOutcome.PASSED and c.ready is not False for c in checks
+    ):
         return rows
     # Beside the number, so it is seen without scrolling a wide table sideways.
     return [
@@ -106,6 +148,11 @@ def proposed_rows(
 
 
 def _in_the_ledger(check: TradeCheck) -> str:
+    if check.outcome is CheckOutcome.PASSED and check.ready is False:
+        return (
+            f"waiting ({check.proposal_id}); fill in {', '.join(check.missing)} "
+            "on the ledger's page before you save it"
+        )
     if check.outcome is CheckOutcome.PASSED:
         return f"waiting for you to confirm ({check.proposal_id})"
     return f"not taken: {check.message or check.code or 'no reason given'}"

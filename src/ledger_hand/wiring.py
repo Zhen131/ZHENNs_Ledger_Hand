@@ -230,7 +230,8 @@ def assemble(changes: Mapping[Variable, str] | None = None) -> Parts:
         places=places,
         vision_model=connect_vision_model(settings) if local else None,
         vision_check=_vision_model_check(settings) if local else None,
-        ledger=demo_ledger(),
+        # The demo ledger takes cards with cells left empty, as the real one does now.
+        ledger=demo_ledger().taking_cards(),
         ledger_kind=LedgerKind.DEMO,
         assistant_steps=steps,
         steps_refused=steps_refused,
