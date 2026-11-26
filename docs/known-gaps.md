@@ -9,6 +9,77 @@ described with the trades or passages it affects; where a choice is needed,
 it waits for the project owner. How the model did in the experiments, and
 what was not measured, is in `docs/project-report.md`.
 
+## What you will meet (the assistant, at the end of the round, 2026-11-26)
+
+A summary only, the most costly first: what a user of the assistant will
+see. Each item's detail stays in the section it points to.
+
+- **A wrong figure can still reach a card with no mark of its own.** On
+  the exam said the owner's way, hidden halves, at the end of the round
+  (totals only): as said, 2 wrong figures with no mark, where the line is
+  none, and 33.3% of 12 trades saved with no cell changed (no line); a
+  little tidier, none, but 63.6% of 11, under its line of 80%; tidy, none
+  and 100% of 8, both lines met (`evals/RESULTS.md`, "The hidden halves,
+  three tiers, at the end of the round"). The kinds seen on the practice
+  halves, with made-up figures: a number the user said that the model did
+  not copy, the cell worked out from the other two a hair off it (150 said,
+  150.00078 sent; 0.2314547 said, 0.23145469 sent), marked only "worked
+  out by the program"; and what was paid in all copied as the price (950
+  U for 0.301823 ETH sent as a price of 950), which is less than five
+  times off the market price and so not marked suspicious ("The assistant:
+  recording a trade", "A figure worked out a hair off the one said keeps
+  the figure worked out" and "Figures copied into the wrong field, with
+  nothing to say"). Comparing other local models is left to the owner.
+- **Buy or sell the model filled in itself is not marked.** Words that say
+  neither are sometimes sent as a buy, with no mark on that cell ("The
+  assistant: recording a trade").
+- **Euros and dollars both said as the total, with no FX fee, are
+  recorded in dollars, unmarked.** "128欧元（约139美元）" may be sent as
+  paid 139 USD, so the ledger would take dollars, not euros; at most a
+  reminder names 128 as a number not used ("The assistant: trades paid in
+  another money", "Euros and dollars both said as the total").
+- **A share said by its Chinese name is asked about.** "微软", "可口可乐"
+  get "which asset was it?", to be answered with the code ("MSFT"): the
+  step that lets the model pick from the ledger's list is off, since it
+  picked listed shares for names the ledger lacks ("The assistant:
+  recording a trade", "A share's Chinese name is not matched").
+- **The owner's long euro sentences are asked twice before a card.** On
+  the practice halves, four of five were first asked buy or sell, then
+  which asset; the fifth came back empty from the model. A sentence with
+  the code and "买了" (the euro sentence for a demo in the README) goes
+  through at once ("The assistant: trades paid in another money", "The
+  owner's long euro sentences are first asked buy or sell").
+- **The first trade paid in euros has no rate to be compared with.** A
+  euro amount said one place wrong (128 said as 12.8) is then not marked;
+  the reply says nothing was compared ("The rate's reference is the
+  ledger's latest such trade, as listed").
+- **After a share was bought for euros, "美金" for it is asked.** "一股70美金"
+  for KO after a KO trade paid in euros gets "which money?"; "70美元" or
+  "70 USD" does not ("\"美金\" for the share price follows the asset's last
+  trade").
+- **One go and two answers can record different moneys.** "每股400刀" with
+  the fee "1 USDT" said in the same sentence is all USDT; with the fee
+  given only as an answer, the price stays the guessed US dollar and only
+  the fee is USDT, said as a guess ("Vague words for money: what the rule
+  does not cover").
+- **A time said with "时间" or "时区" in the sentence is asked about.**
+  "成交的时间是二六年十一月二十号下午三点" keeps its Chinese time as said, and
+  the time is asked; "匈牙利时间" and a time with neither word are read
+  ("A time said with another zone is not tidied, and is asked about").
+- **Some money moved is not recognised.** "把0.1个ETH提到了钱包" is not
+  read as a withdrawal and goes to the model like any sentence; a deposit
+  or a dividend that names a coin or share ("入金了0.5个BTC", "KO分红了2.1美元")
+  goes to the model too, which may propose a buy, and the reply ends
+  with the line to record the rest by hand ("The assistant: money
+  recorded by hand", "Moving a coin in is handed to the model").
+- **The real ledger was not tried this round.** The ledger tier of the
+  checks (`scripts/check.sh ledger`) was not run in this round, and the
+  plug's changes of the round (market prices asked, a day sent alone,
+  cells left empty and their marks, cash balances, the rate) were tried
+  only against answers written from the ledger's README and tests, never
+  on a running ledger page ("The real ledger's plug" and "The assistant
+  page and your ledger page").
+
 ## Time zone database versions
 
 **What it is.** A trade known to the minute or second is written with its
@@ -476,13 +547,15 @@ changed.
   try-out script's `--save` or the page's demo buttons, which work on the
   demo ledger alone. The invented book gives ADA no market price on
   purpose, so its profit on paper is always "not worked out".
-- **The line of 95% for choosing what to do is not measured.** Whether
-  the model picks the right kind of work (record, ask, change or delete,
-  or nothing) for at least 95% of new sentences is to be judged on
-  sentences the owner says in their own way, which nobody has looked at
-  while writing the prompts. Those sentences have not been written yet, so
-  this line has no number. The nineteen sentences of the first step were
-  seen while the prompt was written; they are not that test.
+- **The line of 95% for choosing what to do is measured on recording
+  only.** Whether the model picks the right kind of work (record, ask,
+  change or delete, or nothing) for at least 95% of new sentences is
+  judged on the exam said the owner's way, whose hidden halves nobody
+  looked at while writing the prompts: the first tool was right on 35 of
+  35 enabled recording sentences there, once, and the line is reported,
+  not held (`evals/RESULTS.md`, "At the end" and "The hidden halves, three
+  tiers, at the end of the round"). The nineteen sentences of the first
+  step were seen while the prompt was written; they are not that test.
 - **The model fills the recording tool with arguments it does not take.**
   Measured on the nineteen sentences, the model asks for the right tool
   first every time, but on every trade it records it also hands over the
@@ -1053,8 +1126,14 @@ price said in the asset's own money (`flows/paid_apart.py`,
     used for it;
   - changing and deleting a trade, and asking the ledger, do not use the
     lists of words for money: there "U" and "刀" are not read as a money;
-  - a guess is said in the reply only; the proposal sent to the ledger
-    carries no mark of it, and the assistant's record does not keep it;
+  - a guess is said in the reply, and marked assumed on the money's cells
+    of the card sent to a ledger that takes cards (and in the assistant's
+    record, "marks"); a ledger that takes no cards gets no mark of it;
+  - only the first thing said counts as the same trade: said in one go
+    ("买了3股MSFT，每股400刀，手续费1 USDT"), the price follows the fee's
+    USDT; said in two ("买了3股MSFT，每股400刀", then "1 USDT" when the fee
+    is asked, as a ledger that takes no cards asks it), the price was already guessed from the last MSFT trade (US
+    dollars, said as a guess) and only the fee is in USDT;
   - the question asked while a guessed trade still lacks a figure names
     the guessed money ("in USDT?") without saying it is a guess;
   - with the real ledger: a trade's time may be known only to the day,
@@ -1089,9 +1168,12 @@ price said in the asset's own money (`flows/paid_apart.py`,
 - **A fee may be taken in money the ledger does not price trades in.** A fee
   in such money (a fee of "1 EUR" with the euro in the ledger) is recorded
   in it; the ledger checks the proposal.
-- **Money said where the quantity goes is not sent.** "25U买了点ETH"
-  says what was paid in all, not how many ETH. The assistant does not
-  guess it is the total: that trade is not sent and nothing is asked
+- **Money said where the quantity goes is not sent to a ledger that
+  takes no cards.** (A ledger that takes cards, as the demo ledger and
+  the real one do now, takes it as the total; see "A quantity said in
+  another unit that is not money is still held back" above.) "25U买了点ETH"
+  says what was paid in all, not how many ETH. Without cards, the
+  assistant does not guess it is the total: that trade is not sent and nothing is asked
   about it, and the reply says the number and the unit read ("25 U") and
   asks for the trade to be said again with the money as the total
   ("... for 25 U in total"). The other trades of the same words are sent.
@@ -1231,8 +1313,10 @@ price said in the asset's own money (`flows/paid_apart.py`,
   set (a remark about the market copied as the trade's opinion), and the
   third sent two wrong figures with no mark on the hidden halves against
   one for `first-3`, so the assistant still extracts with `first-3`. At
-  the end, on the hidden halves: as said, one wrong figure with no mark
-  (the line is none), 33.3% saved with no cell changed; a little tidier,
+  the end of that tuning, on the hidden halves: as said, one wrong figure
+  with no mark (the line is none), 33.3% saved with no cell changed (two
+  wrong figures with no mark since cards with empty cells are sent, and so
+  at the end of the round; see "What you will meet" above); a little tidier,
   none, but 63.6% saved against a line of 80%; tidy, none and 100%, both
   lines met (`evals/RESULTS.md`, "Three versions for Chinese, and the
   pick" and "At the end"). The rules that helped on the practice halves
@@ -1240,15 +1324,17 @@ price said in the asset's own money (`flows/paid_apart.py`,
   total) were not kept steadily by `qwen2.5:7b` once more rules were
   added: `spoken-3` put "花了…U" into the price again on two practice
   sentences that `spoken-1` and `spoken-2` had right.
-- **A cell that should be empty is asked about, and the draft waits.** A
-  fee not looked at, or a time with no time of day, is asked about rather
-  than sent empty, until the ledger takes a card with empty cells. While
-  the question waits, the other cells of the draft go to the ledger as
-  they stand once it is answered; the exam counts a draft cell wrong and
-  unmarked apart, and found none at the baseline.
+- **A cell that should be empty was asked about at the baseline.** A
+  fee not looked at, or a time with no time of day, was asked about
+  rather than sent empty, before the exam book took cards with empty
+  cells; since 2026-11-26 it takes them, and such a cell is sent empty
+  (`evals/RESULTS.md`, "2026-11-26: cards with empty cells; the practice
+  halves, three tiers"). The exam counted a draft cell wrong and unmarked
+  apart, and found none at the baseline.
 - **A fee said to be none is often not copied.** "没有手续费" and
-  "都没有手续费" are left out by the model on four practice sentences, and
-  the program then asks for the fee. A sentence with no "买" before the
+  "都没有手续费" are left out by the model on four practice sentences;
+  the program asked for the fee before cards, and now sends the fee
+  empty, to be filled in on the ledger's page. A sentence with no "买" before the
   amounts ("在OKX，…个SOL，花了…U") is asked whether it was a buy or a sell.
 - **A payment in euros is measured on the practice halves only.** Against
   the exam book, which has no euro, a share bought with euros is not sent,
@@ -1276,9 +1362,10 @@ price said in the asset's own money (`flows/paid_apart.py`,
   call only ("删掉10月6号和10月21号那两笔BTC" gives one call, for 10月6号;
   "数量改成0.0081，成交价改成62000" one call, for the quantity), and then
   nothing is said about the other one.
-- **Measured: 13 of 17 done right, none done wrong.** On the set of
-  changes and deletions (`evals/sets/edits.json`), at the latest run, 13
-  of 17 sentences ended with the right proposal or the right refusal and
+- **Measured: 13 of 17 done right with `assistant-4`, none done wrong;
+  14 with `assistant-5`, the default (next item).** On the set of
+  changes and deletions (`evals/sets/edits.json`), at the latest run with
+  `assistant-4`, 13 of 17 sentences ended with the right proposal or the right refusal and
   none sent a wrong one (`evals/RESULTS.md`, "2026-11-25: a cut period
   judged by the sentence just said first"). The four not done, each
   sending nothing: a month copied out of a day ("把11月3号那笔ADA的备注改成
@@ -1291,12 +1378,9 @@ price said in the asset's own money (`flows/paid_apart.py`,
   and a time of the model's own where none was said ("把ADA那笔的平台改成
   Binance", "change the ADA trade's platform to Binance", copied as
   "今天", "today"). So about one change in four is not done the
-  first time, and the user is asked back or told to say it again. Not
-  mended in this round: raising it needs a new version of the system
-  prompt (without its line on listing first, and asking for the whole
-  time), which changes two tests that hold the default version and means
-  measuring every ruler again; that is left for tuning on the owner's own
-  sentences.
+  first time, and the user is asked back or told to say it again. The
+  second of the four is done with `assistant-5`, whose line on listing
+  first was changed (next item); the other three are not.
 - **`assistant-5` says to call the tools straight away, and is the
   default (2026-11-26).** Its one changed line says what the tools that
   change and delete say. Measured against `assistant-4` it did 14 of the
@@ -1522,10 +1606,13 @@ price said in the asset's own money (`flows/paid_apart.py`,
 
 What reaching the ledger page from the Assistant page does not do yet:
 
-- **No cash.** The ledger tried here (`dev@a6ba639`) has no tool for a
-  cash balance, so the assistant says it cannot look one up (see "The
-  assistant: cash"). The ledger's `dev` has since added one (`5762751`);
-  this program does not use it yet.
+- **Cash balances only from a ledger that has the tool.** The ledger
+  tried here (`dev@a6ba639`) has no tool for a cash balance, so with it
+  the assistant says it cannot look one up. The ledger's `dev` has since
+  added one (`5762751`), and since 2026-11-26 the plug reads it (see "The
+  real ledger's plug" and "The assistant: cash"); that was tried only
+  against answers written from the ledger's README, never on a running
+  ledger page.
 - **A trade in another money than the asset's own goes only with its
   rate.** The assistant works the rate out only for a trade that goes the
   way of "The assistant: trades paid in another money"; any other such
