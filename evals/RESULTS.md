@@ -10245,3 +10245,19 @@ way.
 Results: `run-20261126T085039Z-cash-balances-all-assistant-5.jsonl` (first),
 `run-20261126T095934Z-cash-balances-all-assistant-5.jsonl` (after), kept
 outside the repository.
+
+### The hidden halves, three tiers, at the end of the round
+
+Measured once more at `4ff8a0b`, on 2026-11-26, after the cash balance,
+the trades paid in euros and the mark on a fee in another money; only the
+totals were read. They are the same as after cards with empty cells.
+
+| Tier | Half | Trades | ① | ①a | ①b | ② (code) | ③ (code) | ③ with a passage reminder | ④ rightly | ④ not rightly | ⑤ | ① and ①a share (of) | First tool right | Results |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| r100 | hidden | 17 | 4 | 0 | 2 | 6 (5) | 2 (1) | 2 | 1 | 0 | 2 | 33.3% (12) | 15 of 15 | `spoken-20261126T133808Z-spoken-r100-hidden-first-3-assistant-5.jsonl` |
+| r80 | hidden | 11 | 7 | 0 | 0 | 3 (3) | 0 | 0 | 1 | 0 | 0 | 63.6% (11) | 11 of 11 | `spoken-20261126T134113Z-spoken-r80-hidden-first-3-assistant-5.jsonl` |
+| r70 | hidden | 9 | 6 | 2 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 100.0% (8) | 9 of 9 | `spoken-20261126T134307Z-spoken-r70-hidden-first-3-assistant-5.jsonl` |
+
+Against the lines, as before: r70 passes both; r80 has no ③ and a share
+of 63.6%, under eight in ten; r100 has two ③, where the line is none.
+The hidden halves stay closed: no sentence of them has been read.
