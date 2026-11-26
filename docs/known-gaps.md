@@ -506,6 +506,11 @@ The plug for the real ledger (`ledger/link_ledger.py`) is built and walked
 through a real ledger page by a script with no model, and since the third
 part of batch 68 the Assistant page reaches it too. What it does not do:
 
+- **A change of a trade known only to its day sends the day alone.**
+  When a trade in the real ledger holds only its day and the user changes
+  its day, the plug sends `occurredDate` alone; before, it refused. The
+  ledger's README does not say how a trade with a day alone is changed,
+  and no test covers this path yet.
 - **A trade in another money than the asset's own is not sent.** The
   ledger then needs the rate between the two moneys (`costRate`), which
   the assistant does not ask for; the plug says so for that trade
@@ -739,6 +744,24 @@ tools handed to the model and is left for a batch of its own. Until then:
   on the Assistant page's cards and in the try-out script, and kept in the
   assistant's record; the ledger's own pending list shows none of them,
   since the program does not send them on the ledger's current tools.
+- **The day of a market price fetched online may be a day early.** The
+  day said beside a market price is the first ten characters of what the
+  ledger gives; a price fetched online carries a moment in UTC
+  (`2026-11-24T23:30:00Z`), which in Budapest is already the 25th. Only
+  the day written in the reply and on the card is off; the comparison is
+  not.
+- **"About 1.0 times" and "about 5.0 times" can be read the wrong way.**
+  Below ten times the times apart are shown to one place, so a price near
+  the market price reads "about 1.0 times lower" in the try-out script and
+  the assistant's record, and one 4.99 times off reads "about 5.0 times
+  higher" though it is not far. The reply and the card never say this for
+  a price within reach.
+- **A trade the ledger turned down still gets its card.** The card is
+  drawn, with its marks, for every trade sent; that the ledger did not
+  take it is said in the table beside it, not on the card.
+- **A refused price-gap setting can name a number that is in range.**
+  `LEDGER_HAND_PRICE_GAP_TIMES=00005` is refused (leading zeros), and the
+  sentence says "a number above 1 and at most 1000", which 5 is.
 - **Figures copied into the wrong field, with nothing to say.** When the
   model copies an amount into another field and the figures still agree
   with each other, the program has no reminder to give, and the trade is
