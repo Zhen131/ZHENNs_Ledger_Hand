@@ -9,6 +9,10 @@ none, how much of any money is still had (``money_asks.left_asked``). None
 may be caught: the sets hold trades, questions about trades and questions
 about cash, which the question about cash keeps as before.
 
+The set written to be caught by them (``cash/cash-balances.json``) is
+read for its ``must_pass`` sentences alone: its ``named`` and ``manual``
+sentences are caught on purpose, and measured by its own ruler.
+
 A sentence of the practice halves not yet in use (``enabled`` false) that
 waits for cash balances or dividends would be read on purpose; such
 sentences are listed apart, and there are none today.
@@ -56,7 +60,10 @@ def _all() -> list[tuple[str, str, bool]]:
     """Each sentence, the file it is in, and whether it waits on purpose."""
     found = []
     for path in (*SETS, DEMO_SENTENCES):
-        for one in _sentences(json.loads(path.read_text(encoding="utf-8"))):
+        data = json.loads(path.read_text(encoding="utf-8"))
+        if path.name == "cash-balances.json":
+            data = data["must_pass"]
+        for one in _sentences(data):
             if isinstance(one, str):
                 found.append((path.name, one, False))
                 continue

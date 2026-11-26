@@ -1,0 +1,436 @@
+{
+  "about": "Sentences about cash balances and about money moved that the assistant does not record, said to the whole assistant against the demo ledger with cash (USDT and US dollars, no euro), each once in a chat of its own, at the fixed moment and zone below. 'named' ask a balance and must each be answered with the ledger's table of balances: those copied from cash.json say where from (only its questions about cash or what is left, not those about deposits), five were written for this set. 'manual' tell a deposit, a withdrawal, an exchange of moneys or a dividend, each with the kinds it tells and whether a trade was spoken of beside it; how many are read so is reported, with no line, and none may be sent as a trade. 'must_pass' must be read as neither: every sentence near them in cash.json, copied, and nine written for this set. Every figure is made up. Written before any run and not changed after.",
+  "now": "2026-11-24T23:55:00+01:00",
+  "zone": "Europe/Budapest",
+  "named": [
+    {
+      "id": "N1",
+      "text": "我还有多少USDT",
+      "from": "cash.json named C1"
+    },
+    {
+      "id": "N2",
+      "text": "我账上还剩多少美元",
+      "from": "cash.json named C2"
+    },
+    {
+      "id": "N3",
+      "text": "现金余额是多少",
+      "from": "cash.json named C4"
+    },
+    {
+      "id": "N4",
+      "text": "How much USDT do I have left?",
+      "from": "cash.json named C5"
+    },
+    {
+      "id": "N5",
+      "text": "What is my cash balance?",
+      "from": "cash.json named C6"
+    },
+    {
+      "id": "N6",
+      "text": "Do I still have cash to buy more BTC?",
+      "from": "cash.json named C8"
+    },
+    {
+      "id": "N7",
+      "text": "我的余额还够不够再买一手英伟达",
+      "from": "cash.json named_added A1"
+    },
+    {
+      "id": "N8",
+      "text": "余额够买0.1个BTC吗",
+      "from": "cash.json named_added A2"
+    },
+    {
+      "id": "N9",
+      "text": "Is my balance enough to buy 0.1 ETH?",
+      "from": "cash.json named_added A3"
+    },
+    {
+      "id": "N10",
+      "text": "我的余额还够买 0.1 个 BTC 吗",
+      "from": "cash.json named_added_2 D1"
+    },
+    {
+      "id": "N11",
+      "text": "现金余额还剩多少",
+      "from": "cash.json named_added_2 D2"
+    },
+    {
+      "id": "N12",
+      "text": "我账户余额还有多少钱",
+      "from": "cash.json named_added_2 D3"
+    },
+    {
+      "id": "N13",
+      "text": "我还剩多少 USDT 可以用",
+      "from": "cash.json named_added_2 D4"
+    },
+    {
+      "id": "N14",
+      "text": "Do I have enough balance to buy 2 more MSFT shares?",
+      "from": "cash.json named_added_2 D5"
+    },
+    {
+      "id": "N15",
+      "text": "What's my cash balance right now?",
+      "from": "cash.json named_added_2 D6"
+    },
+    {
+      "id": "N16",
+      "text": "How much money is left in my balance?",
+      "from": "cash.json named_added_2 D7"
+    },
+    {
+      "id": "N17",
+      "text": "What's my USDT balance?",
+      "from": "cash.json named_added_2 D8"
+    },
+    {
+      "id": "N18",
+      "text": "我还有多少美金"
+    },
+    {
+      "id": "N19",
+      "text": "我还有多少欧元"
+    },
+    {
+      "id": "N20",
+      "text": "我还剩多少EUR"
+    },
+    {
+      "id": "N21",
+      "text": "How much USD do I have?"
+    },
+    {
+      "id": "N22",
+      "text": "我账上还有多少人民币"
+    }
+  ],
+  "manual": [
+    {
+      "id": "M1",
+      "text": "我今天入金了500 USDT",
+      "kinds": [
+        "deposit"
+      ],
+      "with_trade": false
+    },
+    {
+      "id": "M2",
+      "text": "我入了500美金",
+      "kinds": [
+        "deposit"
+      ],
+      "with_trade": false
+    },
+    {
+      "id": "M3",
+      "text": "I deposited 300 USDT on Binance this morning",
+      "kinds": [
+        "deposit"
+      ],
+      "with_trade": false
+    },
+    {
+      "id": "M4",
+      "text": "今天充值了800 USDT",
+      "kinds": [
+        "deposit"
+      ],
+      "with_trade": false
+    },
+    {
+      "id": "M5",
+      "text": "昨天从币安提现了200U",
+      "kinds": [
+        "withdrawal"
+      ],
+      "with_trade": false
+    },
+    {
+      "id": "M6",
+      "text": "Withdrew 150 USD to my bank account yesterday",
+      "kinds": [
+        "withdrawal"
+      ],
+      "with_trade": false
+    },
+    {
+      "id": "M7",
+      "text": "今天把100欧元换成了108美元",
+      "kinds": [
+        "exchange"
+      ],
+      "with_trade": false
+    },
+    {
+      "id": "M8",
+      "text": "Converted 200 USDT to USD today",
+      "kinds": [
+        "exchange"
+      ],
+      "with_trade": false
+    },
+    {
+      "id": "M9",
+      "text": "可口可乐今天分红了2.1美元",
+      "kinds": [
+        "dividend"
+      ],
+      "with_trade": false
+    },
+    {
+      "id": "M10",
+      "text": "Got a 2.1 USD dividend from KO today",
+      "kinds": [
+        "dividend"
+      ],
+      "with_trade": false
+    },
+    {
+      "id": "M11",
+      "text": "英伟达派息0.5美元",
+      "kinds": [
+        "dividend"
+      ],
+      "with_trade": false
+    },
+    {
+      "id": "M12",
+      "text": "入金500U，然后今天上午10点买了0.01个BTC，价格98000 USDT，手续费0",
+      "kinds": [
+        "deposit"
+      ],
+      "with_trade": true
+    },
+    {
+      "id": "M13",
+      "text": "Deposited 1000 USDT, then bought 0.1 ETH at 2600 USDT today at 3pm, fee 0",
+      "kinds": [
+        "deposit"
+      ],
+      "with_trade": true
+    }
+  ],
+  "must_pass": [
+    {
+      "id": "X1",
+      "text": "今天下午3点在OKX用100 USDT买了0.0015个BTC，手续费0.1 USDT",
+      "from": "cash.json must_pass P1"
+    },
+    {
+      "id": "X2",
+      "text": "昨晚9点在币安花了500U买了ETH，均价2400",
+      "from": "cash.json must_pass P2"
+    },
+    {
+      "id": "X3",
+      "text": "今天早上10点在IBKR买了2股MSFT，410美元一股，手续费1美元",
+      "from": "cash.json must_pass P3"
+    },
+    {
+      "id": "X4",
+      "text": "上个月花了多少USDT",
+      "from": "cash.json must_pass P4"
+    },
+    {
+      "id": "X5",
+      "text": "10月卖币一共收回了多少美元",
+      "from": "cash.json must_pass P5"
+    },
+    {
+      "id": "X6",
+      "text": "我现在还有多少BTC",
+      "from": "cash.json must_pass P6"
+    },
+    {
+      "id": "X7",
+      "text": "今年在ETH上赚了多少钱",
+      "from": "cash.json must_pass P7"
+    },
+    {
+      "id": "X8",
+      "text": "我想调仓，先看看我现在持有哪些币",
+      "from": "cash.json must_pass P8"
+    },
+    {
+      "id": "X9",
+      "text": "Bought 0.01 BTC on Binance today at 10:00 for 950 USDT, fee 1 USDT",
+      "from": "cash.json must_pass P9"
+    },
+    {
+      "id": "X10",
+      "text": "Sold 1 MSFT on IBKR this afternoon at 4pm for 420 dollars, fee 1 dollar",
+      "from": "cash.json must_pass P10"
+    },
+    {
+      "id": "X11",
+      "text": "How much USDT did I spend on ETH?",
+      "from": "cash.json must_pass P11"
+    },
+    {
+      "id": "X12",
+      "text": "How much did I get back from selling ADA in October?",
+      "from": "cash.json must_pass P12"
+    },
+    {
+      "id": "X13",
+      "text": "How much ETH do I have left?",
+      "from": "cash.json must_pass P13"
+    },
+    {
+      "id": "X14",
+      "text": "I want to rebalance my portfolio; what do I hold right now?",
+      "from": "cash.json must_pass P14"
+    },
+    {
+      "id": "X15",
+      "text": "What was my realized profit in USD this year?",
+      "from": "cash.json must_pass P15"
+    },
+    {
+      "id": "X16",
+      "text": "Which trades did I pay for with USDT in September?",
+      "from": "cash.json must_pass P16"
+    },
+    {
+      "id": "X17",
+      "text": "我的 ETH 余额还有多少个",
+      "from": "cash.json must_pass_added B1"
+    },
+    {
+      "id": "X18",
+      "text": "What's my BTC balance?",
+      "from": "cash.json must_pass_added B2"
+    },
+    {
+      "id": "X19",
+      "text": "比特币余额是多少",
+      "from": "cash.json must_pass_added B3"
+    },
+    {
+      "id": "X20",
+      "text": "BTC的余额还剩几个",
+      "from": "cash.json must_pass_added B4"
+    },
+    {
+      "id": "X21",
+      "text": "以太坊余额多少",
+      "from": "cash.json must_pass_added B5"
+    },
+    {
+      "id": "X22",
+      "text": "Show me the balance of ETH",
+      "from": "cash.json must_pass_added B6"
+    },
+    {
+      "id": "X23",
+      "text": "What is my ETH's balance?",
+      "from": "cash.json must_pass_added B7"
+    },
+    {
+      "id": "X24",
+      "text": "my ADA balance please",
+      "from": "cash.json must_pass_added B8"
+    },
+    {
+      "id": "X25",
+      "text": "我的 BTC 余额是多少",
+      "from": "cash.json must_pass_added_2 E1"
+    },
+    {
+      "id": "X26",
+      "text": "余额里 ETH 还有几个",
+      "from": "cash.json must_pass_added_2 E2"
+    },
+    {
+      "id": "X27",
+      "text": "英伟达的余额还剩多少股",
+      "from": "cash.json must_pass_added_2 E3"
+    },
+    {
+      "id": "X28",
+      "text": "微软股票的余额还有多少",
+      "from": "cash.json must_pass_added_2 E4"
+    },
+    {
+      "id": "X29",
+      "text": "我账上 ada 还剩多少个",
+      "from": "cash.json must_pass_added_2 E5"
+    },
+    {
+      "id": "X30",
+      "text": "以太坊还剩几个",
+      "from": "cash.json must_pass_added_2 E6"
+    },
+    {
+      "id": "X31",
+      "text": "What's my eth balance?",
+      "from": "cash.json must_pass_added_2 E7"
+    },
+    {
+      "id": "X32",
+      "text": "balance of BTC please",
+      "from": "cash.json must_pass_added_2 E8"
+    },
+    {
+      "id": "X33",
+      "text": "How much ADA do I have left?",
+      "from": "cash.json must_pass_added_2 E9"
+    },
+    {
+      "id": "X34",
+      "text": "Show me the remaining balance for my MSFT shares",
+      "from": "cash.json must_pass_added_2 E10"
+    },
+    {
+      "id": "X35",
+      "text": "what is the balance on my bitcoin",
+      "from": "cash.json must_pass_added_2 E11"
+    },
+    {
+      "id": "X36",
+      "text": "比特币余额",
+      "from": "cash.json must_pass_added_2 E12"
+    },
+    {
+      "id": "X37",
+      "text": "今天15:30花了128欧元买了2股KO，一股69.5美元，换汇费0.19欧元"
+    },
+    {
+      "id": "X38",
+      "text": "今天用100 USDT换了0.001个BTC"
+    },
+    {
+      "id": "X39",
+      "text": "今天买入金额500U的BTC，均价98000，手续费0"
+    },
+    {
+      "id": "X40",
+      "text": "查一下我的入金"
+    },
+    {
+      "id": "X41",
+      "text": "欧易还有多少币"
+    },
+    {
+      "id": "X42",
+      "text": "今天上午10点买入了30美金的ETH，均价2600 USDT，手续费0"
+    },
+    {
+      "id": "X43",
+      "text": "今天下午4点花了0.46欧买了KO，然后有一个 FX fee，这个好像是汇率转换的费用，是0.01欧元"
+    },
+    {
+      "id": "X44",
+      "text": "今天卖出了0.5个ETH，收入1300 USDT，手续费1.3 USDT"
+    },
+    {
+      "id": "X45",
+      "text": "Bought 1 AAPL at 230 USD today at 4pm, paid a 0.5 USD FX fee"
+    }
+  ]
+}
