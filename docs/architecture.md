@@ -763,9 +763,10 @@ bytes committed.
 number, apart from the book: `assistant-record.jsonl` in the data folder,
 one line of JSON for each thing said to the assistant
 (`flows/assistant_record.py`). Every entry carries `format_version`, a
-named constant (`RECORD_VERSION`, now 3; version 2 gave each trade sent a
-line of its own in `sent`, and version 3 added `read_as`, the words tidied
-and each change), which is none of the ledger's
+named constant (`RECORD_VERSION`, now 8; version 2 gave each trade sent a
+line of its own in `sent`, version 3 added `read_as`, the words tidied
+and each change, version 4 `asset_picks`, version 5 `ledger`, version 6
+`marks`, version 7 `manual` and `cash`, and version 8 `rates`), which is none of the ledger's
 four version numbers and not the book's. A file holding an entry of a
 newer version, or a line that cannot be read, is never written, cut or
 deleted by the program: nothing is added and the pages say why. Only a
@@ -774,15 +775,14 @@ before the next entry. The file keeps the most recent `KEPT_AT_MOST`
 entries; dropping older ones writes a new file beside it that then takes
 its name (`os.replace`). The file is plain text with the person's words in
 it; it is never in Git. Its golden samples,
-`tests/flows/golden/assistant-record-v1.jsonl` (four invented entries),
-`tests/flows/golden/assistant-record-v2.jsonl` (three) and
-`tests/flows/golden/assistant-record-v3.jsonl` (three), each made by the
-code itself at its version, are checked by their digests, copied to a
-temporary folder before they are read, and never edited; a test sees that
-an entry made now has the same names as the newest golden ones (and those
-of the older versions without `read_as`), so a change to what an entry
-holds comes with a new version and a new sample. Entries of all three
-versions in one file are read alike.
+`tests/flows/golden/assistant-record-v1.jsonl` (four invented entries)
+to `tests/flows/golden/assistant-record-v8.jsonl` (two or three each), each
+made by the code itself at its version, are checked by their digests,
+copied to a temporary folder before they are read, and never edited; a
+test sees that an entry made now has the same names as the newest golden
+ones (and those of the older versions without the names added since), so
+a change to what an entry holds comes with a new version and a new
+sample. Entries of all eight versions in one file are read alike.
 
 `tests/fakes/memory_store.py` is the port's stand-in for tests: it keeps
 everything in memory, does what the port promises the way the SQLite plug
@@ -1035,6 +1035,10 @@ that is not the asset traded ("25U" of ETH) is held back when the flow
 starts (`recording.start`, `hold_other_unit`, which only the assistant
 turns on), asked nothing about and left out, its reply saying the number
 read and the unit; the Record page keeps the number and only reminds.
+When the ledger takes cards with cells left empty, a quantity said in one
+money is taken as the total instead (`recording._totals_from_units`), and
+only a unit of no money, or of another money than the one said, is still
+held back.
 The name of an asset that the ledger's table does not find, and that
 cannot be written as a code ("微软的股票"), can be handed to the model before
 any question, with the list of the assets that can be traded, to pick one
@@ -1057,8 +1061,9 @@ the question, that a proposal was sent, or why nothing was
 (`flows/record_words.py`), and every thing said carries the program's own
 word on what reached the ledger. When the model goes wrong two steps in a
 row, the program hands what was said to the recording flow once before it
-gives up. The money a proposal is priced in is, for now, the ledger's USDT;
-this is the one place the new parts name the extraction's single money.
+gives up. The money a proposal is priced in is the money its record
+names (see "The asset table": USDT, the US dollar, or a money paid such
+as the euro).
 
 Changing or deleting one trade is the program's too (`flows/editing.py`).
 The model says only which trade (the user's words for the time, the asset
