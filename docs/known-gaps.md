@@ -956,7 +956,7 @@ tools handed to the model and is left for a batch of its own. Until then:
   system prompt's rule and `list_trades`'s own words both say to find the
   trade first; the tools that change and delete say to call them straight
   away. `list_trades`'s words are not changed. The system prompt's rule is
-  changed in `assistant-5`, which is not the default yet (see "The
+  changed in `assistant-5`, the default since 2026-11-26 (see "The
   assistant: changing and deleting").
 
 ## The assistant: changing and deleting
@@ -991,19 +991,15 @@ tools handed to the model and is left for a batch of its own. Until then:
   time), which changes two tests that hold the default version and means
   measuring every ruler again; that is left for tuning on the owner's own
   sentences.
-- **`assistant-5` says to call the tools straight away, and is not the
-  default yet (2026-11-26).** Its one changed line says what the tools
-  that change and delete say. Measured against `assistant-4` it did 14 of
-  the 17 changes right instead of 13 (N8, where the model listed the
-  trades and asked in words, is now done), none sent wrong on any set,
-  recording and the first tool the same, and no question answered off; one
-  question of the exam's hidden half got no table where it had one
+- **`assistant-5` says to call the tools straight away, and is the
+  default (2026-11-26).** Its one changed line says what the tools that
+  change and delete say. Measured against `assistant-4` it did 14 of the
+  17 changes right instead of 13 (N8, where the model listed the trades
+  and asked in words, is now done), none sent wrong on any set, recording
+  and the first tool the same, and no question answered off
   (`evals/RESULTS.md`, "The system prompt's rule on changes, before and
-  after"). It is not the default because the gate that pins how the
-  question and change measures run the older sets was taken with
-  `assistant-4` as the default and has to change with it; until that is
-  agreed, `assistant-4` stays. N4, N9 and N10 are still not done with
-  either.
+  after"). With it, one question that had got a table got none. N4, N9
+  and N10 are still not done with either.
 - **A time cut short is a wrong step, not a narrower lookup.** A period
   the model copied that stands cut out of a longer time in the sentence
   just said ("9月", September, out of "9月13号", 13 September) is not

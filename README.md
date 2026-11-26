@@ -1239,7 +1239,7 @@ wording is a new version.
 | `read-1` (`extraction/prompts/read.py`) | Reading a screenshot out as text, before extraction: each value with the label the screen gives it, as it stands | No example at all (zero-shot) |
 | `bookkeeper-1` (`asking/prompts/bookkeeper.py`) | Wording a follow-up question | A role (persona): a meticulous bookkeeper who asks for one thing at a time |
 | `spoken-1`, `spoken-2`, `spoken-3` (`extraction/prompts/spoken1.py`, `spoken2.py`, `spoken3.py`) | Extraction of words with a Chinese character in them, for experiments only | A changed content: `first-3`'s instructions and examples, then rules and examples written the way the owner speaks, already tidied (`spoken1_examples.py` and after); the version is chosen by whether the words hold a Chinese character (`extraction/prompt_language.py`), English keeping `first-3`. None was picked: the assistant extracts with `first-3` |
-| `assistant-5` (`assistant/prompts/assistant_fifth.py`) | The assistant's system prompt, for experiments only | A changed content: `assistant-4` with its rule on finding a trade to change said as the tools say (call the tool straight away). It met the rule it was held to, but `assistant-4` stays the default for now (`evals/RESULTS.md`) |
+| `assistant-5` (`assistant/prompts/assistant_fifth.py`) | The assistant's system prompt, for experiments only | A changed content: `assistant-4` with its rule on finding a trade to change said as the tools say (call the tool straight away). It met the rule it was held to and is the default the assistant turns with (`evals/RESULTS.md`) |
 
 `zero_shot`, `persona`, `stepwise` and `price_total` each differ from
 `first` in that one thing only, and a test checks it. `second` differs from

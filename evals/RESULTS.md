@@ -10013,12 +10013,12 @@ words, is done with `assistant-5`. One practice sentence of `r80` (R80-23, a
 payment in euros, not enabled) could not reach the model twice after
 `assistant-5` and was not measured; less than a tenth, so the run stands.
 
-`assistant-5` met every line, but is not the default: the gate that pins
-how the question and change measures run the older sets
-(`tests/evals/test_old_sets_unchanged.py`) was taken with `assistant-4`
-as the default, and changes with it. Changing that gate is left to be
-agreed, so `assistant-4` was put back as the default (`7e89b76`), and
-`assistant-5`'s file and its own test stay.
+`assistant-5` met every line. The gate that pins how the question and
+change measures run the older sets (`tests/evals/test_old_sets_unchanged.py`)
+had taken the default system prompt into its fingerprints, so `assistant-4`
+was first put back (`7e89b76`); once the gate was made to hold the system
+prompt at `assistant-4` while it fingerprints (`601ce9d`, the pinned values
+unchanged), `assistant-5` was made the default (`778bd26`).
 
 Results, before: `spoken-20261126T020156Z-spoken-r100-practice-first-3-assistant-4.jsonl`,
 `spoken-20261126T020427Z-spoken-r80-practice-first-3-assistant-4.jsonl`,
@@ -10047,8 +10047,9 @@ Results, before: `spoken-20261126T020156Z-spoken-r100-practice-first-3-assistant
 ### At the end
 
 At the end the assistant extracts with `first-3` and turns with
-`assistant-4`, as before the tuning, so the runs that count are those
-before `assistant-5` (`4bbd6b8`), and the final set's is the baseline's.
+`assistant-5`, so the runs that count are those after `assistant-5`
+(`7fb2eab`), and the final set's is the baseline's, extraction being
+unchanged.
 Against the lines fixed for the hidden halves:
 
 | Tier | ③ (line) | ① share with ①a (line) | Met? |
