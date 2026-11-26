@@ -30,6 +30,16 @@ see. Each item's detail stays in the section it points to.
   recording a trade", "A figure worked out a hair off the one said keeps
   the figure worked out" and "Figures copied into the wrong field, with
   nothing to say"). Comparing other local models is left to the owner.
+- **A time said in another zone can be recorded in the ledger's zone,
+  with no word.** When the words name another zone and the time is
+  written so the model can read it, the trade is sent with that clock time
+  in the ledger's zone (Budapest), no mark on the time and no reminder:
+  "按北京时间算，2026年11月20号下午3点在OKX买了0.1个ETH，成交价2700 USDT，手续费0.1 USDT"
+  (invented; by Beijing time, 3 p.m.) was sent as 2026-11-20 15:00
+  +01:00, and so was the same with the date and time in Chinese number
+  words ("二零二六年十一月二十号下午三点"). The money is right; the time is
+  hours off. Tidying leaves such a sentence as said, but the model reads
+  the time itself ("A time said with another zone is not tidied").
 - **Buy or sell the model filled in itself is not marked.** Words that say
   neither are sometimes sent as a buy, with no mark on that cell ("The
   assistant: recording a trade").
@@ -55,19 +65,30 @@ see. Each item's detail stays in the section it points to.
   euro amount said one place wrong (128 said as 12.8) is then not marked;
   the reply says nothing was compared ("The rate's reference is the
   ledger's latest such trade, as listed").
-- **After a share was bought for euros, "美金" for it is asked.** "一股70美金"
-  for KO after a KO trade paid in euros gets "which money?"; "70美元" or
-  "70 USD" does not ("\"美金\" for the share price follows the asset's last
-  trade").
-- **One go and two answers can record different moneys.** "每股400刀" with
-  the fee "1 USDT" said in the same sentence is all USDT; with the fee
-  given only as an answer, the price stays the guessed US dollar and only
-  the fee is USDT, said as a guess ("Vague words for money: what the rule
-  does not cover").
-- **A time said with "时间" or "时区" in the sentence is asked about.**
-  "成交的时间是二六年十一月二十号下午三点" keeps its Chinese time as said, and
-  the time is asked; "匈牙利时间" and a time with neither word are read
-  ("A time said with another zone is not tidied, and is asked about").
+- **After a share was bought for euros, "美金" for it is not guessed.**
+  Once the last KO trade was paid in euros, a new KO trade paid in euros
+  with the share price said in "美金" ("花了140欧元买了2股 KO，一股70美金，……")
+  is asked which money ("What is the pricing currency?"). A plain trade
+  of KO with "一股70美金" is sent instead, its money left empty and marked
+  suspicious ("美金" may mean USDT or the US dollar, but the last KO trade
+  used EUR), to be filled in on the ledger's page. "70美元" or "70 USD" is
+  neither asked nor left empty. With no euro trade of KO before, "美金" is
+  taken as the US dollar of the last KO trade, marked assumed ("\"美金\"
+  for the share price follows the asset's last trade").
+- **One go and two answers can record different moneys, with a ledger
+  that takes no cards.** "每股400刀" with the fee "1 USDT" said in the same
+  sentence is all USDT; with the fee given only as an answer to the
+  question for it, the price stays the guessed US dollar and the fee is
+  USDT, its money marked suspicious ("the fee is in USDT, but this trade
+  is recorded as paid in USD"). A ledger that takes cards (the demo ledger,
+  and the real one now) asks no fee: the fee is sent empty, so this is not
+  met there ("Vague words for money: what the rule does not cover").
+- **A time said with "时间" or "时区" in the sentence may be left empty.**
+  "成交的时间是二六年十一月二十号下午三点，……" keeps its Chinese time as said;
+  when the model cannot read it, the card is sent with its date empty, and
+  the reply names it, to be filled in on the ledger's page (a ledger that
+  takes no cards asks for the time instead). "匈牙利时间" and a time with
+  neither word are read ("A time said with another zone is not tidied").
 - **Some money moved is not recognised.** "把0.1个ETH提到了钱包" is not
   read as a withdrawal and goes to the model like any sentence; a deposit
   or a dividend that names a coin or share ("入金了0.5个BTC", "KO分红了2.1美元")
@@ -858,11 +879,20 @@ price said in the asset's own money (`flows/paid_apart.py`,
 - **"美金" for the share price follows the asset's last trade.** After a
   trade of KO paid in euros, "一股70美金" is no longer read as dollars: the
   user is asked which money, as the owner's rule of 2026-11-25 says
-  (`81A`, part 2, item 2). Reading a vague word by the asset's own money
-  would widen that rule, which is the product owner's to do.
+  (`81A`, part 2, item 2), when the new trade is paid in euros too. A
+  plain trade ("2026年11月21号10点在IBKR买了1股 KO，一股70美金", invented),
+  to a ledger that takes cards, is sent with its money empty and marked
+  suspicious, the reason naming the last KO trade's EUR (tried 2026-11-26).
+  Reading a vague word by the asset's own money would widen that rule,
+  which is the product owner's to do.
 - **USDT and the US dollar are never set against each other.** Dollars
   paid for a coin priced in USDT, or USDT for a share priced in dollars,
   go on as before (asked which money, or the three amounts in doubt).
+- **"一" of "一股" is said as a number not used.** "……买了2股 KO，一股69.5美元，……"
+  (the euro sentence for a demo) is sent as it should be, but the reply
+  ends with a reminder that a number of what was said was not used and a
+  trade may be missing: "一". It is the "one" of "one share", not a trade
+  left out. Not mended here.
 - **One price a trade.** "一股64欧元，也就是69.5美元" keeps only the number
   the model put in the price cell: the dollars, or, with the euros there,
   the user is asked the price in dollars. The other number is not looked
@@ -1050,7 +1080,13 @@ price said in the asset's own money (`flows/paid_apart.py`,
 - **A quantity said in another unit that is not money is still held back.**
   "25U" of ETH is taken as the total once the ledger takes cards; a
   quantity whose unit is an asset other than the one traded, or names two
-  moneys, is held back and said as before.
+  moneys, is held back and said as before. With a price said as well
+  ("Bought 30 USDT of ADA at 0.31 …", a sentence for a demo), the quantity
+  is worked out and marked worked out, but the total taken from the
+  quantity carries no "assumed" mark, which only a card with an empty cell
+  gets; and the reply still ends with the reminder that the quantity
+  carries a unit that is not the asset, as if nothing had been done with
+  it. Not mended here.
 - **A price is never compared across two moneys.** When the trade is in
   USDT and the ledger's market price of its asset is in US dollars, or the
   other way round, nothing is compared and nothing converted; the reply
@@ -1139,8 +1175,11 @@ price said in the asset's own money (`flows/paid_apart.py`,
   - only the first thing said counts as the same trade: said in one go
     ("买了3股MSFT，每股400刀，手续费1 USDT"), the price follows the fee's
     USDT; said in two ("买了3股MSFT，每股400刀", then "1 USDT" when the fee
-    is asked, as a ledger that takes no cards asks it), the price was already guessed from the last MSFT trade (US
-    dollars, said as a guess) and only the fee is in USDT;
+    is asked, as only a ledger that takes no cards asks it), the price
+    was already guessed from the last MSFT trade (US dollars, said as a
+    guess), the fee is in USDT, and the fee's money is marked suspicious
+    as paid in another money than the trade; a ledger that takes cards
+    sends the fee empty instead, and the case is not met;
   - the question asked while a guessed trade still lacks a figure names
     the guessed money ("in USDT?") without saying it is a guess;
   - with the real ledger: a trade's time may be known only to the day,
@@ -1239,7 +1278,8 @@ price said in the asset's own money (`flows/paid_apart.py`,
   So every thing said carries the program's own word on what reached the
   ledger, which the script prints as one line each time ("sent to the
   ledger: nothing"), and which an interface is to show the same way.
-- **A time said with another zone is not tidied, and is asked about.**
+- **A time said with another zone is not tidied, and may still be read in
+  the ledger's zone.**
   What is said is tidied before the model sees it (`core/spoken_text.py`).
   When a sentence says, anywhere in it and not only beside a time, a zone
   other than the one trades are recorded in, no time in that sentence is
@@ -1255,14 +1295,26 @@ price said in the asset's own money (`flows/paid_apart.py`,
   hours), and also "成交的时间是……" (the time it was filled is ...) or
   "下午时间" (afternoon time), which name no zone. **This is a price paid on
   purpose:** a sentence with 时间 in it, other than the ledger's own zone,
-  has its Chinese time read as before, not at all, and the user is asked
-  for it. A list of words let through was tried and dropped (2026-11-25):
-  every word on it let some zone through ("时间是美东", "按纽约那个时间").
-  So a time is sometimes held back that need not
-  be. The program does not read a zone said in words, so tidying the year
-  alone would let the model copy the clock time without the zone, and the
-  time would be read in the ledger's zone, hours off. Left as said, the time
-  is not read and the user is asked for it, as before. The ledger's own zone
+  keeps its Chinese time as said. A list of words let through was tried
+  and dropped (2026-11-25): every word on it let some zone through
+  ("时间是美东", "按纽约那个时间"). So a time is sometimes held back that
+  need not be. What then happens depends on whether the model can read the
+  time as said, and was tried with `qwen2.5:7b` on the demo ledger, which
+  takes cards (2026-11-26, invented figures):
+  - the model cannot read it
+    ("成交的时间是二六年十一月二十号下午三点，在OKX买了0.1个ETH，成交价2700 USDT，手续费0.1 USDT"):
+    the card is sent with its
+    date empty, and the reply names it, to be filled in on the ledger's
+    page; a ledger that takes no cards asks "When did the trade happen?";
+  - the model reads it, the zone being another
+    ("按北京时间算，二零二六年十一月二十号下午三点……", or the same with
+    "2026年11月20号下午3点"): the trade is
+    sent at 2026-11-20 15:00 +01:00, the ledger's zone, with no mark on
+    the time and no reminder, hours off the time meant. Tidying held the
+    words back, but the program does not read a zone said in words, and
+    the model copies the clock time without it. Not mended: it needs the
+    reading of times to learn zones.
+  The ledger's own zone
   said apart from the time ("按匈牙利时间算，……") is kept in the words, and
   the time is tidied. To take another zone, the reading of times has to
   learn zones. A zone said with neither 时间 nor 时区 nor a Latin name
