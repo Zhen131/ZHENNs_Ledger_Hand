@@ -1238,6 +1238,8 @@ wording is a new version.
 | `answer-1` (`extraction/prompts/answer.py`) | Reading an answer the rules could not: copy the one piece that gives what was asked | No example at all (zero-shot) |
 | `read-1` (`extraction/prompts/read.py`) | Reading a screenshot out as text, before extraction: each value with the label the screen gives it, as it stands | No example at all (zero-shot) |
 | `bookkeeper-1` (`asking/prompts/bookkeeper.py`) | Wording a follow-up question | A role (persona): a meticulous bookkeeper who asks for one thing at a time |
+| `spoken-1`, `spoken-2`, `spoken-3` (`extraction/prompts/spoken1.py`, `spoken2.py`, `spoken3.py`) | Extraction of words with a Chinese character in them, for experiments only | A changed content: `first-3`'s instructions and examples, then rules and examples written the way the owner speaks, already tidied (`spoken1_examples.py` and after); the version is chosen by whether the words hold a Chinese character (`extraction/prompt_language.py`), English keeping `first-3`. None was picked: the assistant extracts with `first-3` |
+| `assistant-5` (`assistant/prompts/assistant_fifth.py`) | The assistant's system prompt, for experiments only | A changed content: `assistant-4` with its rule on finding a trade to change said as the tools say (call the tool straight away). It met the rule it was held to, but `assistant-4` stays the default for now (`evals/RESULTS.md`) |
 
 `zero_shot`, `persona`, `stepwise` and `price_total` each differ from
 `first` in that one thing only, and a test checks it. `second` differs from
@@ -1299,6 +1301,23 @@ measures read the same two keys at a set's top: `"book": "exam"` holds the
 exam book, and `"half": "hidden"` keeps the run to its totals; a set that
 names neither runs as before.
 
+`--extract` names the extraction version for words with a Chinese
+character in them (`first-3`, the assistant's own, or `spoken-1` to
+`spoken-3`); English is extracted with `first-3` either way, through the
+same choice the assistant makes (`extraction/prompt_language.py`).
+`evals.stock_run` takes the same switch, and `evals.judged_run` sends a
+version for Chinese through that choice too. The three versions were
+written on the practice halves only, and a gate checks that none copies a
+sentence of either half
+(`tests/extraction/test_spoken_prompts_copy_no_exam_sentence.py`). How
+they were measured and why none was picked is in `evals/RESULTS.md`.
+
+```sh
+.venv/bin/python -m evals.spoken_run --set evals/sets/spoken/spoken-r80-practice.json --extract spoken-2
+.venv/bin/python -m evals.stock_run --extract spoken-2
+.venv/bin/python -m evals.judged_run --screen screen-2 --extract spoken-2 --hold-other-unit --tidy
+```
+
 ### The commands
 
 ```sh
@@ -1317,7 +1336,8 @@ names neither runs as before.
 .venv/bin/python -m evals.compare_methods evals/results/<one list>.jsonl evals/results/<split first>.jsonl [--choose]
 .venv/bin/python -m evals.compare_models evals/results/<one model>.jsonl evals/results/<other model>.jsonl [--parameter <name>]
 .venv/bin/python -m evals.compare_sets evals/results/<run of first>.jsonl evals/results/<run of a candidate>.jsonl ... [--choose | --final]
-.venv/bin/python -m evals.spoken_run --set evals/sets/spoken/spoken-<r100|r80|r70>-<practice|hidden>.json
+.venv/bin/python -m evals.spoken_run --set evals/sets/spoken/spoken-<r100|r80|r70>-<practice|hidden>.json [--extract <first-3|spoken-1|spoken-2|spoken-3>]
+.venv/bin/python -m evals.stock_run [--extract <first-3|spoken-1|spoken-2|spoken-3>]
 .venv/bin/python -m evals.ask_run --set evals/sets/spoken/spoken-asks-<practice|hidden>.json
 .venv/bin/python -m evals.edit_run --set evals/sets/spoken/spoken-edits-<practice|hidden>.json
 ```

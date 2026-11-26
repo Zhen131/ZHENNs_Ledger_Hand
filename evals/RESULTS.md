@@ -9885,3 +9885,182 @@ Before, at `cce730e`: 15 of 18, 1 silently wrong (K10)
 (`run-20261125T232908Z-stocks-assistant-4.jsonl`). After, at `386e2e9`:
 16 of 18, 0 silently wrong; K14 and K15, open orders the model answered
 in words, not done (`run-20261125T234644Z-stocks-assistant-4.jsonl`).
+
+### Three versions for Chinese, and the pick
+
+The product owner decided that where both cannot be served, the way he
+speaks comes first: a passage with a Chinese character in it, once tidied,
+is extracted with examples written his way, and an English one keeps
+`first-3`. One function makes that choice
+(`src/ledger_hand/extraction/prompt_language.py`), and the measures name
+the version for Chinese with `--extract`. Three versions were written on
+the practice halves only, each `first-3`'s words and examples with rules
+and examples of its own after them, written already tidied:
+
+- `spoken-1` (`d1ee9a9`): money spent on a coin with no word for buying is
+  a buy; money spent after the quantity, or said before "的" and the coin,
+  is the total; every amount said is copied; a quantity in number words is
+  copied whole. Three examples.
+- `spoken-2` (`1f27e3a`): `spoken-1`'s rule to copy every amount narrowed
+  to the trade's own; the words for a price and a total listed more
+  fully; a time zone is never the platform; a remark about the market is
+  not the opinion. Three more examples.
+- `spoken-3` (`417c4ff`): `spoken-2`, the opinion copied only when the
+  person says why or how they feel. One more example.
+
+A gate checks that nothing a version for Chinese adds copies a sentence of
+either half: twelve characters in a row, twenty once numbers are written
+as "#", an amount of three significant digits, or a whole clause
+(`tests/extraction/test_spoken_prompts_copy_no_exam_sentence.py`).
+
+The rule fixed before the runs: a version is out if the final set has a
+field wrong with nothing said, if the share set has a proposal silently
+wrong, or if the practice halves together hold more ③ than `first-3` for
+Chinese measured at the same code. Of the rest, the best by the hidden
+halves together (fewest ③, then most ①, then the practice halves, then
+the lower number) is held against `first-3`: it is picked unless it has
+more ③, or as many ③ and fewer ①.
+
+| Version | Practice ③ (r100 + r80 + r70) | Practice ① share (r100 / r80 / r70) | Final set whole / fields wrong, nothing said | Share set right / silently wrong | Debug set | Voice set | Out? |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `first-3` | 0 + 1 + 1 = 2 | 60.0% / 36.4% / 92.3% | 22 of 22 / 0 | 16 of 18 / 0 | 30 of 34 / 1 | 2 of 10 / 6 | — |
+| `spoken-1` | 0 + 1 + 1 = 2 | 90.0% / 45.5% / 92.3% | 21 of 22 / 1 | 16 of 18 / 0 | 31 of 34 / 0 | 2 of 10 / 4 | out: the final set |
+| `spoken-2` | 0 + 0 + 0 = 0 | 90.0% / 54.5% / 92.3% | 21 of 22 / 1 | 16 of 18 / 0 | 31 of 34 / 0 | 4 of 10 / 3 | out: the final set |
+| `spoken-3` | 1 + 1 + 0 = 2 | 80.0% / 36.4% / 84.6% | 22 of 22 / 0 | 16 of 18 / 0 | 28 of 34 / 0 | 6 of 10 / 2 | in |
+
+The final, share, debug and voice runs of `first-3` are those of the
+baseline above; its practice halves were run again at `417c4ff`
+(`spoken-20261126T013751Z-spoken-r100-practice-first-3-assistant-4.jsonl`,
+`spoken-20261126T014024Z-spoken-r80-practice-first-3-assistant-4.jsonl`,
+`spoken-20261126T014300Z-spoken-r70-practice-first-3-assistant-4.jsonl`)
+and gave the baseline's counts again. The one field of `spoken-1` and
+`spoken-2` on the final set is f04: a remark about the market copied as
+the trade's opinion, a value the gold answer does not have. `spoken-3`'s
+two practice ③s are R100-29 and R80-05, money spent after the quantity
+copied as the price, which `spoken-1` and `spoken-2` had right.
+
+Results, in order of the table's rows from `spoken-1`: practice
+`spoken-20261126T003617Z-spoken-r100-practice-spoken-1-assistant-4.jsonl`,
+`spoken-20261126T004007Z-spoken-r80-practice-spoken-1-assistant-4.jsonl`,
+`spoken-20261126T004323Z-spoken-r70-practice-spoken-1-assistant-4.jsonl`,
+`judged-20261126T004601Z-final-screen-2-spoken-1-hold-tidy.jsonl`,
+`run-20261126T004804Z-stocks-spoken-1-assistant-4.jsonl`,
+`judged-20261126T005026Z-debug-screen-2-spoken-1-hold-tidy.jsonl`,
+`judged-20261126T005325Z-voice-screen-2-spoken-1-hold-tidy.jsonl`;
+`spoken-20261126T005932Z-spoken-r100-practice-spoken-2-assistant-4.jsonl`,
+`spoken-20261126T010213Z-spoken-r80-practice-spoken-2-assistant-4.jsonl`,
+`spoken-20261126T010547Z-spoken-r70-practice-spoken-2-assistant-4.jsonl`,
+`judged-20261126T010814Z-final-screen-2-spoken-2-hold-tidy.jsonl`,
+`run-20261126T011013Z-stocks-spoken-2-assistant-4.jsonl`,
+`judged-20261126T011329Z-debug-screen-2-spoken-2-hold-tidy.jsonl`,
+`judged-20261126T011630Z-voice-screen-2-spoken-2-hold-tidy.jsonl`;
+`spoken-20261126T012027Z-spoken-r100-practice-spoken-3-assistant-4.jsonl`,
+`spoken-20261126T012319Z-spoken-r80-practice-spoken-3-assistant-4.jsonl`,
+`spoken-20261126T012550Z-spoken-r70-practice-spoken-3-assistant-4.jsonl`,
+`judged-20261126T012854Z-final-screen-2-spoken-3-hold-tidy.jsonl`,
+`run-20261126T013127Z-stocks-spoken-3-assistant-4.jsonl`,
+`judged-20261126T013355Z-debug-screen-2-spoken-3-hold-tidy.jsonl`,
+`judged-20261126T013645Z-voice-screen-2-spoken-3-hold-tidy.jsonl`.
+
+Once all three were committed, `spoken-3` and `first-3` ran the hidden
+halves once each at `0f70a2a`, totals only:
+
+| Tier | `spoken-3` ③ | `spoken-3` ① / ①a (share, of) | `first-3` ③ | `first-3` ① / ①a (share, of) |
+| --- | --- | --- | --- | --- |
+| r100 | 0 | 7 / 0 (58.3%, 12) | 1 | 4 / 0 (33.3%, 12) |
+| r80 | 1 | 7 / 0 (63.6%, 11) | 0 | 7 / 0 (63.6%, 11) |
+| r70 | 1 | 5 / 1 (75.0%, 8) | 0 | 6 / 2 (100.0%, 8) |
+| All three | 2 | 19 / 1 | 1 | 17 / 2 |
+
+(`spoken-20261126T014525Z-spoken-r100-hidden-spoken-3-assistant-4.jsonl`,
+`spoken-20261126T014850Z-spoken-r80-hidden-spoken-3-assistant-4.jsonl`,
+`spoken-20261126T015049Z-spoken-r70-hidden-spoken-3-assistant-4.jsonl`,
+`spoken-20261126T015306Z-spoken-r100-hidden-first-3-assistant-4.jsonl`,
+`spoken-20261126T015636Z-spoken-r80-hidden-first-3-assistant-4.jsonl`,
+`spoken-20261126T015834Z-spoken-r70-hidden-first-3-assistant-4.jsonl`.)
+`first-3`'s hidden counts are the baseline's again. `spoken-3` has more ③
+than `first-3`, so `first-3` stays the version for Chinese, and the
+assistant extracts every passage with `first-3` as before.
+
+### The system prompt's rule on changes, before and after
+
+`assistant-4` says "To change or delete a trade, first call list_trades to
+find it", while the tools that change and delete say to call them straight
+away. `assistant-5` (`7fb2eab`) changes that line only, to say what the
+tools say; the words of the tools, `list_trades`'s among them, are not
+changed. Both were run on everything below, before at `4bbd6b8` and
+after at `7fb2eab`, the code otherwise the same; the hidden halves, totals
+only. The rule fixed before: `assistant-5` stays only if no change is sent
+wrong and no fewer are done right on the three sets of changes; recording,
+practice and hidden together, has no more ③ and no fewer ① (with ①a); no
+question on `asks.json` is answered off and no more on the two exam sets;
+and the first tool is right no fewer times on `tools.json`.
+
+| Ruler | Set | Before (`assistant-4`) | After (`assistant-5`) |
+| --- | --- | --- | --- |
+| Changes | `edits.json` | 13 right, 0 wrong, 4 not done (N4, N8, N9, N10) | 14 right, 0 wrong, 3 not done (N4, N9, N10) |
+| Changes | `spoken-edits-practice.json` | 4 right | 4 right |
+| Changes | `spoken-edits-hidden.json` | 2 right, 0 wrong, 2 not done | 2 right, 0 wrong, 2 not done |
+| Questions | `asks.json` | 23 right, 0 off, 4 no table | 23 right, 0 off, 4 no table |
+| Questions | `spoken-asks-practice.json` | 3 right, 0 off, 3 no table | 3 right, 0 off, 3 no table |
+| Questions | `spoken-asks-hidden.json` | 6 right, 0 off | 5 right, 0 off, 1 no table |
+| First tool | `tools.json` | 19 of 19 | 19 of 19 |
+| Recording | practice, three tiers | ③ 2, ① 19 and ①a 3 | ③ 2, ① 19 and ①a 3 |
+| Recording | hidden, three tiers | ③ 1, ① 17 and ①a 2 | ③ 1, ① 17 and ①a 2 |
+
+N8 ("把10月卖出的那笔删掉"), where `assistant-4` listed the trades and asked in
+words, is done with `assistant-5`. One practice sentence of `r80` (R80-23, a
+payment in euros, not enabled) could not reach the model twice after
+`assistant-5` and was not measured; less than a tenth, so the run stands.
+
+`assistant-5` met every line, but is not the default: the gate that pins
+how the question and change measures run the older sets
+(`tests/evals/test_old_sets_unchanged.py`) was taken with `assistant-4`
+as the default, and changes with it. Changing that gate is left to be
+agreed, so `assistant-4` was put back as the default (`7e89b76`), and
+`assistant-5`'s file and its own test stay.
+
+Results, before: `spoken-20261126T020156Z-spoken-r100-practice-first-3-assistant-4.jsonl`,
+`spoken-20261126T020427Z-spoken-r80-practice-first-3-assistant-4.jsonl`,
+`spoken-20261126T020656Z-spoken-r70-practice-first-3-assistant-4.jsonl`,
+`spoken-20261126T020912Z-spoken-r100-hidden-first-3-assistant-4.jsonl`,
+`spoken-20261126T021341Z-spoken-r80-hidden-first-3-assistant-4.jsonl`,
+`spoken-20261126T021600Z-spoken-r70-hidden-first-3-assistant-4.jsonl`,
+`run-20261126T021802Z-edits-assistant-4.jsonl`,
+`run-20261126T021938Z-spoken-edits-practice-assistant-4.jsonl`,
+`run-20261126T021950Z-spoken-edits-hidden-assistant-4.jsonl`,
+`run-20261126T022003Z-asks-assistant-4.jsonl`,
+`run-20261126T022324Z-spoken-asks-practice-assistant-4.jsonl`,
+`run-20261126T022347Z-spoken-asks-hidden-assistant-4.jsonl`,
+`run-20261126T022434Z-tools-assistant-4.jsonl`. After: the same with
+`assistant-5`: `spoken-20261126T022723Z-…`, `spoken-20261126T023118Z-…`,
+`spoken-20261126T023710Z-…`, `spoken-20261126T023911Z-…`,
+`spoken-20261126T024209Z-…`, `spoken-20261126T024404Z-…`,
+`run-20261126T024548Z-edits-assistant-5.jsonl`,
+`run-20261126T024640Z-spoken-edits-practice-assistant-5.jsonl`,
+`run-20261126T024649Z-spoken-edits-hidden-assistant-5.jsonl`,
+`run-20261126T024702Z-asks-assistant-5.jsonl`,
+`run-20261126T025005Z-spoken-asks-practice-assistant-5.jsonl`,
+`run-20261126T025032Z-spoken-asks-hidden-assistant-5.jsonl`,
+`run-20261126T025110Z-tools-assistant-5.jsonl`.
+
+### At the end
+
+At the end the assistant extracts with `first-3` and turns with
+`assistant-4`, as before the tuning, so the runs that count are those
+before `assistant-5` (`4bbd6b8`), and the final set's is the baseline's.
+Against the lines fixed for the hidden halves:
+
+| Tier | ③ (line) | ① share with ①a (line) | Met? |
+| --- | --- | --- | --- |
+| r70, tidy | 0 (0) | 100.0% of 8, 2 once the code was given (at least 90%) | yes |
+| r80, a little tidier | 0 (0) | 63.6% of 11 (at least 80%) | no: the share |
+| r100, as said | 1 (0) | 33.3% of 12 (reported only) | no: the ③ |
+
+The final set: 22 of 22 trades whole, 0 fields wrong with nothing said
+(`judged-20261125T232018Z-final-screen-2-first-3-hold-tidy.jsonl`). The
+first tool on every enabled sentence of the three hidden halves: 35 of 35
+(15, 11 and 9), against a line of 95% that is only reported. As at the
+baseline, the one ③ of the hidden `r100` came with a reminder about the
+whole passage only. The hidden halves' sentence-by-sentence results are
+not written here.

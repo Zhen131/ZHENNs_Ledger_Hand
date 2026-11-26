@@ -232,6 +232,22 @@ final set against 22 / 22 for `first`, so it did not pass and extraction
 still uses `first`. Its defaults have not been
 changed, and any change is the project owner's decision.
 
+**Examples chosen by the language of the passage.** The assistant can
+extract with one version for words that hold a Chinese character and
+another for words that hold none (`src/ledger_hand/extraction/prompt_language.py`,
+one function, asked by the assistant and by every measure). The project
+owner decided that, where both cannot be served, the way he speaks comes
+first: Chinese gets examples written his way, English keeps `first-3`,
+which was measured on English and is not touched. Three versions for
+Chinese were written on the practice half of an exam said his way
+(`spoken-1` to `spoken-3`): `first-3`'s words and examples, then a few
+rules and examples in his way of speaking, written as the program hands
+them to the model, already tidied. A gate checks that none copies a
+sentence of the exam (`tests/extraction/test_spoken_prompts_copy_no_exam_sentence.py`).
+Two did not pass the final set, and the third, on the hidden half, sent
+more wrong figures without a mark than `first-3`, so by the rule fixed
+beforehand the assistant still extracts with `first-3` (section 6).
+
 Every measured prompt version is a file of its own and is never changed
 once measured; a new wording is a new version. The state of every recorded
 passage names the version used for each step.
@@ -741,6 +757,9 @@ sent that is not the gold one.
 | The exam said the owner's way, recording as said, before tuning | practice 15, hidden 15 sentences; 12 and 17 gold trades (`evals/sets/spoken/spoken-r100-practice.json`, `evals/sets/spoken/spoken-r100-hidden.json`) | saved with no cell changed: practice 6, hidden 4 | a wrong figure with no mark: practice 0, hidden 1 | the rest asked a question (practice 5, hidden 10) or were not sent (1, 2); 3 euro sentences not enabled, each said it cannot be recorded | `evals/tool_results/spoken-20261125T225944Z-spoken-r100-practice-first-3-assistant-4.jsonl`, `evals/tool_results/spoken-20261125T230244Z-spoken-r100-hidden-first-3-assistant-4.jsonl`; `evals/RESULTS.md`, "2026-11-26: the owner's way of speaking, three tiers, `qwen2.5:7b`" |
 | The same, a little tidier | practice 13, hidden 12; 13 and 11 gold trades (`evals/sets/spoken/spoken-r80-practice.json`, `evals/sets/spoken/spoken-r80-hidden.json`) | practice 4, hidden 7 | practice 1, hidden 0 | asked: practice 8, hidden 4; 3 euro sentences not enabled | `evals/tool_results/spoken-20261125T230554Z-spoken-r80-practice-first-3-assistant-4.jsonl`, `evals/tool_results/spoken-20261125T230917Z-spoken-r80-hidden-first-3-assistant-4.jsonl`; the same section |
 | The same, tidy | practice 13, hidden 12; 14 and 9 gold trades (`evals/sets/spoken/spoken-r70-practice.json`, `evals/sets/spoken/spoken-r70-hidden.json`) | practice 12, hidden 8 (of them 3 and 2 once the asset's code was given) | practice 1, hidden 0 | asked: practice 1, hidden 1; 3 euro sentences not enabled | `evals/tool_results/spoken-20261125T231209Z-spoken-r70-practice-first-3-assistant-4.jsonl`, `evals/tool_results/spoken-20261125T231520Z-spoken-r70-hidden-first-3-assistant-4.jsonl`; the same section |
+| The exam's hidden halves, three tiers, with `spoken-3`, the one version for Chinese left after the final set | 35 enabled sentences, 37 gold trades | saved with no cell changed: 19, and 1 once the code was given (`first-3`: 17 and 2) | 2 (`first-3`: 1) | the rest asked or not sent | `evals/tool_results/spoken-20261126T014525Z-spoken-r100-hidden-spoken-3-assistant-4.jsonl` and the two after it; `evals/RESULTS.md`, "Three versions for Chinese, and the pick" |
+| The exam's hidden halves at the end (`first-3`, `assistant-4`), against their lines | as said 15, a little tidier 11, tidy 9 enabled sentences | as said 33.3% of 12, a little tidier 63.6% of 11 (line 80%), tidy 100.0% of 8 (line 90%) | as said 1, a little tidier 0, tidy 0 (line 0 each) | tidy met both lines; a little tidier missed its share; as said missed the line of no ③ | `evals/tool_results/spoken-20261126T020912Z-spoken-r100-hidden-first-3-assistant-4.jsonl` and the two after it; `evals/RESULTS.md`, "At the end" |
+| The system prompt's rule on changes, `assistant-4` against `assistant-5` | the three sets of changes (17, 4 and 4), the three of questions (27, 6 and 6), `evals/sets/tools.json` (19) and the exam's recording | changes 19 against 20 right; questions 32 against 31; first tool 19 against 19; recording the same | changes 0 sent wrong either way; questions 0 off either way | `assistant-5` met every line but is not the default yet: a gate pinned with `assistant-4` would have to change with it | `evals/tool_results/run-20261126T021802Z-edits-assistant-4.jsonl`, `evals/tool_results/run-20261126T024548Z-edits-assistant-5.jsonl` and the runs beside them; `evals/RESULTS.md`, "The system prompt's rule on changes, before and after" |
 
 What did not pass its own line: on the twenty-seven questions, "Q1 to Q6
 all right" (Q6 is not); on the eleven, 80% right; on the changes and
@@ -758,9 +777,11 @@ nothing held back
 (`evals/tool_results/judged-20261125T042710Z-final-screen-2-first-3-hold.jsonl`,
 `evals/tool_results/judged-20261125T042134Z-debug-screen-2-first-3-hold.jsonl`).
 
-Not measured: whether the model picks the right kind of work for 95% of
-new sentences, which is to be judged on sentences the owner says in their
-own way, not written yet; how the assistant does with the real ledger,
+Whether the model picks the right kind of work, on new sentences said the
+owner's way: the first tool was the right one on 35 of 35 enabled
+sentences of the exam's hidden halves, which no prompt was written
+against (`evals/RESULTS.md`, "At the end"); the line of 95% is reported,
+not held. Not measured: how the assistant does with the real ledger,
 which is not connected. The sentences for a demo in the README are
 checked by `tests/live/test_live_demo_sentences.py`; that they come out
 the same again shows nothing about other words for the same thing.
@@ -817,7 +838,8 @@ rough edges are known and listed, each with why it stands.
 | A model failure while reading an answer is said by its kind only | The page says the kind in plain words and asks the question again, but not by status code or wait, so a refused key or a rate limit's wait is said there in the kind's general sentence. The command line still prints the kind's code word, such as `(timed_out)` (`docs/known-gaps.md`). |
 | A model setting refused in the environment cannot be corrected on the Settings page | The page opens and names the setting and its rule; the environment has to be corrected and the program started again (`docs/known-gaps.md`). |
 | The measures use the demo ledger only | The Assistant page can reach the person's own ledger page (walked through once by hand with `qwen2.5:7b`, 2026-11-25), but every measure, the script and the tests use the invented book in memory; what reaching the ledger page leaves out (cash, a rate between two moneys, a day-only trade, looking through the trades after a timeout or a reload) is in `docs/known-gaps.md`, "The assistant page and your ledger page". |
-| Choosing what to do is not measured on new sentences | The line of 95% is to be judged on sentences the owner says in their own way, not written yet; every sentence measured so far was seen while the prompts were written ("The assistant, measured"). |
+| Choosing what to do is measured on few new sentences | On the exam's hidden halves the first tool was right on 35 of 35 enabled recording sentences; only recording sentences, and one run ("The assistant, measured"). |
+| The owner's way of speaking does not meet its lines | On the exam's hidden halves at the end, the tier as said sent one wrong figure with no mark, and the tier a little tidier saved 63.6% with no cell changed against a line of 80%; three versions with examples in the owner's way did not beat `first-3` (`evals/RESULTS.md`, "Three versions for Chinese, and the pick" and "At the end"). Trying another local model is the step set for this case. |
 | A time said with a zone other than the ledger's is asked about | The program reads no zone said in words, so such a time is left as said, not tidied, and the user is asked for it; tidying it alone would let the time be read in the ledger's zone, hours off (`docs/known-gaps.md`, "The assistant: recording a trade"). |
 | An English question with a time in it often gets no table | The model writes the time in Chinese, which is not the user's words, so nothing is looked up; two of the four questions not right are of this kind (`docs/known-gaps.md`). |
 | About one change or deletion in four is not done the first time | 13 of 17, none sent wrong; the rest ask back or ask for the date again ("The assistant, measured"; `docs/known-gaps.md`). |

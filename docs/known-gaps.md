@@ -921,6 +921,22 @@ tools handed to the model and is left for a batch of its own. Until then:
   `evals/RESULTS.md`, "2026-11-26: the owner's way of speaking, three
   tiers, `qwen2.5:7b`"). One ③ of the hidden half came with a reminder
   about the whole passage only, which marks no cell.
+- **The owner's way of speaking, after tuning: two lines not met
+  (2026-11-26).** Three versions of the extraction prompt for words with
+  Chinese in them, with rules and examples written the owner's way
+  (`spoken-1` to `spoken-3`), were measured; two did not pass the final
+  set (a remark about the market copied as the trade's opinion), and the
+  third sent two wrong figures with no mark on the hidden halves against
+  one for `first-3`, so the assistant still extracts with `first-3`. At
+  the end, on the hidden halves: as said, one wrong figure with no mark
+  (the line is none), 33.3% saved with no cell changed; a little tidier,
+  none, but 63.6% saved against a line of 80%; tidy, none and 100%, both
+  lines met (`evals/RESULTS.md`, "Three versions for Chinese, and the
+  pick" and "At the end"). The rules that helped on the practice halves
+  (money spent on a coin is a buy; money spent after the quantity is the
+  total) were not kept steadily by `qwen2.5:7b` once more rules were
+  added: `spoken-3` put "花了…U" into the price again on two practice
+  sentences that `spoken-1` and `spoken-2` had right.
 - **A cell that should be empty is asked about, and the draft waits.** A
   fee not looked at, or a time with no time of day, is asked about rather
   than sent empty, until the ledger takes a card with empty cells. While
@@ -939,7 +955,9 @@ tools handed to the model and is left for a batch of its own. Until then:
 - **The tools' words still say to list trades before a change.** The
   system prompt's rule and `list_trades`'s own words both say to find the
   trade first; the tools that change and delete say to call them straight
-  away. Not changed here.
+  away. `list_trades`'s words are not changed. The system prompt's rule is
+  changed in `assistant-5`, which is not the default yet (see "The
+  assistant: changing and deleting").
 
 ## The assistant: changing and deleting
 
@@ -973,6 +991,19 @@ tools handed to the model and is left for a batch of its own. Until then:
   time), which changes two tests that hold the default version and means
   measuring every ruler again; that is left for tuning on the owner's own
   sentences.
+- **`assistant-5` says to call the tools straight away, and is not the
+  default yet (2026-11-26).** Its one changed line says what the tools
+  that change and delete say. Measured against `assistant-4` it did 14 of
+  the 17 changes right instead of 13 (N8, where the model listed the
+  trades and asked in words, is now done), none sent wrong on any set,
+  recording and the first tool the same, and no question answered off; one
+  question of the exam's hidden half got no table where it had one
+  (`evals/RESULTS.md`, "The system prompt's rule on changes, before and
+  after"). It is not the default because the gate that pins how the
+  question and change measures run the older sets was taken with
+  `assistant-4` as the default and has to change with it; until that is
+  agreed, `assistant-4` stays. N4, N9 and N10 are still not done with
+  either.
 - **A time cut short is a wrong step, not a narrower lookup.** A period
   the model copied that stands cut out of a longer time in the sentence
   just said ("9月", September, out of "9月13号", 13 September) is not
