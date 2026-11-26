@@ -54,7 +54,7 @@ from evals.stock_set import (
 )
 from evals.tool_run import REPO_ROOT, TOOL_RESULTS_DIR, _git
 from ledger_hand.core.followup import AskCell, AskWhichCell, ConfirmCoin
-from ledger_hand.core.ledger_records import Pricing
+from ledger_hand.core.ledger_records import Pricing, TradeFacts
 from ledger_hand.extraction.prompt_language import ENGLISH_EXTRACT_PROMPT
 from ledger_hand.extraction.prompting import PromptVersion
 from ledger_hand.flows import assisting
@@ -121,12 +121,17 @@ def _came(said: Said, outcome: Outcome) -> str:
     if outcome.sent:
         return "sent: " + "; ".join(
             f"{one.side.value} {one.quantity} {one.asset} at {one.price} {one.quote}, "
-            f"fee {one.fee} {one.fee_asset}, {one.occurred.strftime('%H:%M')}, {one.platform}"
+            f"fee {one.fee} {one.fee_asset}, {_when(one)}, {one.platform}"
             for one in outcome.sent
         )
     if outcome.asked is not None:
         return f"asked the {outcome.asked}"
     return ("nothing sent: " + ", ".join(sorted(outcome.reasons))).replace("|", "/")
+
+
+def _when(trade: TradeFacts) -> str:
+    """The trade's time of day, or "day only" when only its day is known (never 00:00)."""
+    return "day only" if trade.date_only else trade.occurred.strftime("%H:%M")
 
 
 def _line(
@@ -158,7 +163,7 @@ def _line(
                 "quote": one.quote,
                 "fee": str(one.fee),
                 "fee_asset": one.fee_asset,
-                "occurred": one.occurred.isoformat(),
+                "occurred": one.day.isoformat() if one.date_only else one.occurred.isoformat(),
                 "platform": one.platform,
             }
             for one in outcome.sent

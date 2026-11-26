@@ -400,11 +400,16 @@ def trade_line(trade: TradeFacts) -> str:
         format(value, "f") for value in (trade.quantity, trade.price, trade.total, trade.fee)
     )
     return (
-        f"{trade.occurred.isoformat()} {trade.side.value} {quantity} {trade.asset} "
+        f"{_when(trade)} {trade.side.value} {quantity} {trade.asset} "
         f"at {price} {trade.quote}, total {total} {trade.quote}, "
         f"fee {fee} {trade.fee_asset}, platform {trade.platform or '-'}, "
         f"note {trade.note or '-'}"
     )
+
+
+def _when(trade: TradeFacts) -> str:
+    """The trade's moment in full, or its day alone when only the day is known."""
+    return trade.day.isoformat() if trade.date_only else trade.occurred.isoformat()
 
 
 def money_line(trade: TradeState) -> str:

@@ -314,7 +314,8 @@ def _trades(said: Said) -> list[dict[str, Any]]:
 
 def _facts(facts: TradeFacts) -> dict[str, str]:
     return {
-        "occurred": facts.occurred.isoformat(),
+        # A trade known only to its day keeps its day alone, never a made-up 00:00.
+        "occurred": facts.day.isoformat() if facts.date_only else facts.occurred.isoformat(),
         "side": facts.side.value,
         "asset": facts.asset,
         "quantity": _amount(facts.quantity),
