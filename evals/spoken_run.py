@@ -28,10 +28,12 @@ What came of each sentence is judged trade by trade (``spoken_judge``)
 and added up (``spoken_tally``). A trade sent as a card with empty cells
 (the exam book takes them, as the real ledger does) is sent with those
 cells empty (①b where the gold has them none); a suspicious or assumed
-mark on its card is a mark of the cell's own. When the model cannot be
-reached, the sentence is said again once, after a wait (three minutes,
-for another process to let the model go); twice unreachable, it is not
-measured. When
+mark on its card is a mark of the cell's own; and once the ledger takes
+cards, only the asset and buy or sell are rightly asked by default, as
+the flow's own setting shows (``Progress.setting.unfinished``). When the
+model cannot be reached, the sentence is said again once, after a wait
+(three minutes, for another process to let the model go); twice
+unreachable, it is not measured. When
 more than a tenth of a file's sentences are not measured, the run says so
 and should be run again.
 
@@ -320,6 +322,7 @@ def observe(saids: Sequence[Said], answered: frozenset[int], zone: str) -> Obser
         reasons=frozenset() if question is not None else _reasons(last),
         passage_reminders=passage,
         answered=answered,
+        cards=recorded.progress.setting.unfinished,
     )
 
 

@@ -27,6 +27,7 @@ from evals.spoken_judge import (
     Observed,
     SentTrade,
     TradeResult,
+    Waiting,
     judge,
 )
 from evals.spoken_judge import disabled_ending as disabled
@@ -663,7 +664,7 @@ def test_a_fee_not_said_is_sent_empty_and_counts_as_left_empty(tmp_path: Path) -
         one_set(tmp_path, MSFT_NO_FEE, [gold]), model(MSFT_NO_FEE, [MSFT_ROW])
     )
 
-    assert observed.waiting is None
+    assert observed.cards is True and observed.waiting is None
     (sent,) = observed.sent
     assert (sent.values["fee"], sent.values["fee_asset"]) == (None, None)
     assert result.ending is Ending.EMPTY_LEFT
@@ -685,3 +686,30 @@ def test_three_figures_that_disagree_are_marked_on_the_card_not_silent(tmp_path:
     assert sent.values["total"] is None
     assert {"quantity", "price", "total"} <= sent.marked
     assert result.ending is Ending.MARKED
+
+
+@pytest.mark.parametrize(
+    ("cells", "ask_ok", "ending"),
+    [
+        (frozenset({"side"}), (), Ending.ASKED_OK),
+        (frozenset({"asset"}), (), Ending.ASKED_OK),
+        (frozenset({"fee"}), (), Ending.ASKED_NOT_OK),
+        (frozenset({"quote"}), (), Ending.ASKED_NOT_OK),
+        (frozenset({"quote"}), ("quote",), Ending.ASKED_OK),
+    ],
+)
+def test_once_cards_are_taken_only_the_asset_and_side_are_rightly_asked_by_default(
+    tmp_path: Path, cells: frozenset[str], ask_ok: tuple[str, ...], ending: Ending
+) -> None:
+    trade = _msft(fee=NONE, fee_asset=NONE) | ({"ask_ok": list(ask_ok)} if ask_ok else {})
+    sentence = one_set(tmp_path, MSFT_NO_FEE, [trade]).sentences[0]
+
+    with_cards = Observed(waiting=Waiting(trade=0, cells=cells), cards=True)
+    before = Observed(waiting=Waiting(trade=0, cells=frozenset({"fee"})), cards=False)
+
+    (result,) = judge(sentence, with_cards, "Europe/Budapest")
+    assert result.ending is ending
+    if not ask_ok:
+        # Before cards were taken, a question about the fee no one said was rightly asked.
+        (asked_before,) = judge(sentence, before, "Europe/Budapest")
+        assert asked_before.ending is Ending.ASKED_OK

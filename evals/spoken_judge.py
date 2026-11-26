@@ -18,7 +18,12 @@ for each gold trade, and one for each trade sent beyond them:
   filled carries no mark of its own; a trade sent beyond the gold ones
   counts every cell as wrong;
 - ``ASKED_OK``, ``ASKED_NOT_OK`` (④): nothing sent, the question waits,
-  and it is about this trade; about a cell the gold lets be asked, or not;
+  and it is about this trade; about a cell the gold lets be asked, or not.
+  A cell the gold lets be asked is one its ``ask_ok`` names; when it names
+  none, every none and suspect cell, but only the asset and buy or sell
+  once the ledger takes a card with empty cells (``Observed.cards``, read
+  from the flow's own setting): then every other gap is sent, not asked
+  (``ASKED_ONCE_CARDS_ARE_TAKEN``, the contract of 2026-11-25);
 - ``NOT_ITS_TURN`` (④): nothing sent, a question waits about another trade;
 - ``NOT_SENT`` (⑤): nothing sent and nothing waits, for the reasons given;
 - ``NOT_MEASURED``: the model could not be reached, twice.
@@ -26,8 +31,9 @@ for each gold trade, and one for each trade sent beyond them:
 A cell's own mark is one of: a reminder the reply said, about this trade
 and this cell (``evals.cells.issues_about``); the mark that its money was
 guessed (the pricing money, the fee's money); the line saying the model
-picked the asset from the ledger's list (the asset alone). What the
-program worked out is no mark.
+picked the asset from the ledger's list (the asset alone); a mark on the
+card the trade was sent as, suspicious or assumed (``spoken_run``). What
+the program worked out is no mark.
 
 For a trade asked about, or waiting its turn, the draft as it stands is
 also compared with every gold cell that has a value (computed, none and
@@ -41,8 +47,8 @@ A sentence not enabled has no gold trade: anything it sends is judged as
 trades beyond the gold ones; otherwise it said it cannot be recorded, it
 asked, or something else (``disabled_ending``).
 
-Names defined here: ``Ending``, ``SentTrade``, ``Waiting``, ``Observed``,
-``TradeResult``, ``judge``, ``disabled_ending``, ``first_tool_right`` and
+Names defined here: ``ASKED_ONCE_CARDS_ARE_TAKEN``, ``Ending``, ``SentTrade``,
+``Waiting``, ``Observed``, ``TradeResult``, ``judge``, ``disabled_ending``, ``first_tool_right`` and
 ``same_value``.
 """
 
@@ -64,6 +70,10 @@ from evals.spoken_set import (
     gold_moment,
     gold_value,
 )
+
+# The only cells a question is rightly about, by default, once the ledger takes
+# a card with empty cells: the ledger takes neither empty (81A section 2 item 1).
+ASKED_ONCE_CARDS_ARE_TAKEN = frozenset({"asset", "side"})
 
 
 class Ending(enum.Enum):
@@ -118,7 +128,8 @@ class Observed:
 
     ``passage_reminders`` says the reply held a reminder about the passage
     as a whole; ``answered`` the trades (from 0) whose asset the ruler
-    answered with its code once.
+    answered with its code once; ``cards`` that the ledger took a card with
+    empty cells, so only the asset and buy or sell are rightly asked.
     """
 
     sent: tuple[SentTrade, ...] = ()
@@ -127,6 +138,7 @@ class Observed:
     passage_reminders: bool = False
     answered: frozenset[int] = frozenset()
     model_unreachable: bool = False
+    cards: bool = False
 
 
 @dataclass(frozen=True)
@@ -253,11 +265,14 @@ def _draft_unmarked(index: int, gold: GoldTrade, waiting: Waiting, zone: str) ->
 
 
 def _waiting_result(
-    index: int, gold: GoldTrade, waiting: Waiting, zone: str, *, answered: bool
+    index: int, gold: GoldTrade, waiting: Waiting, zone: str, *, answered: bool, cards: bool
 ) -> TradeResult:
+    askable = gold.askable
+    if cards and not gold.ask_ok:
+        askable = ASKED_ONCE_CARDS_ARE_TAKEN
     if waiting.trade != index:
         ending = Ending.NOT_ITS_TURN
-    elif waiting.cells & gold.askable:
+    elif waiting.cells & askable:
         ending = Ending.ASKED_OK
     else:
         ending = Ending.ASKED_NOT_OK
@@ -281,7 +296,11 @@ def judge(sentence: SpokenSentence, observed: Observed, zone: str) -> list[Trade
         if index in by_place:
             results.append(_sent_result(index, gold, by_place[index], zone, answered=answered))
         elif observed.waiting is not None:
-            results.append(_waiting_result(index, gold, observed.waiting, zone, answered=answered))
+            results.append(
+                _waiting_result(
+                    index, gold, observed.waiting, zone, answered=answered, cards=observed.cards
+                )
+            )
         else:
             results.append(TradeResult(trade=index, ending=Ending.NOT_SENT, answered=answered))
     results.extend(_extra_result(one) for one in observed.sent if one.number - 1 >= len(golds))
