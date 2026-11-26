@@ -54,7 +54,7 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from ledger_hand.core.assets import BUILT_IN_ASSETS, AssetTable
-from ledger_hand.core.trade import TradeDraft
+from ledger_hand.core.trade import MoneysSaid, TradeDraft
 from ledger_hand.core.zones import is_zone_name
 from ledger_hand.extraction.issues import Issue, IssueKind
 from ledger_hand.extraction.passage import Passage
@@ -74,11 +74,18 @@ MAX_ASKS_AGAIN = 5
 
 @dataclass(frozen=True)
 class Extracted:
-    """The drafts the passage gave, the issues, and a record of each call to the model."""
+    """The drafts the passage gave, the issues, and a record of each call to the model.
+
+    ``moneys_said`` holds, for each draft in order, the words for money its
+    amounts were written with (``MoneysSaid``) or ``None``; it is empty
+    when no draft has any, which is every table not made from the
+    ledger's list.
+    """
 
     drafts: tuple[TradeDraft, ...]
     issues: tuple[Issue, ...]
     calls: tuple[ReplyRecord, ...]
+    moneys_said: tuple[MoneysSaid | None, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -166,6 +173,7 @@ def _extracted(
     rows: Sequence[ReplyRow], around: Surroundings, calls: tuple[ReplyRecord, ...]
 ) -> Extracted:
     drafts: list[TradeDraft] = []
+    moneys: list[MoneysSaid | None] = []
     issues: list[Issue] = []
     used: collections.Counter[str] = collections.Counter()
     first_of: dict[object, int] = {}
@@ -182,12 +190,14 @@ def _extracted(
         first_of.setdefault(key, position)
         made = draft_from_row(row, position, around)
         drafts.append(made.draft)
+        moneys.append(made.moneys)
         issues.extend(made.issues)
         used.update(made.numbers)
     left_over = _left_over(around.passage.numbers, used)
     if left_over:
         issues.append(Issue(kind=IssueKind.NUMBERS_LEFT_OVER, numbers=left_over))
-    return Extracted(tuple(drafts), tuple(issues), calls)
+    said = tuple(moneys) if any(one is not None for one in moneys) else ()
+    return Extracted(tuple(drafts), tuple(issues), calls, said)
 
 
 def _left_over(

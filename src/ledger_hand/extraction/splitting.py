@@ -327,7 +327,7 @@ def _by_segments(
     merged = reading.extract(passage, _MergedTable(rows))
     if not isinstance(merged, Extracted):
         return _whole(passage, reading, Route.MERGED_TOO_LONG, segments, made)
-    extracted = Extracted(merged.drafts, merged.issues, tuple(made.calls))
+    extracted = Extracted(merged.drafts, merged.issues, tuple(made.calls), merged.moneys_said)
     steps = tuple(made.steps)
     return SplitExtraction(
         extracted, Route.SEGMENTS, made.listed, segments, steps, tuple(drafts_from)

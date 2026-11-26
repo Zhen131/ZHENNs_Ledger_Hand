@@ -45,6 +45,13 @@ original text of every draft is the whole passage, unchanged.
 
 Nothing is guessed: a field that none of the above fills stays empty.
 
+With a table made from the ledger's list, when the total's unit names one
+money, the one word for money of the price's, the total's and the fee's
+units is kept beside the draft (``RowDraft.moneys``, a ``MoneysSaid``), as
+written, so that the recording flow can tell a trade paid in one money for
+an asset priced in another ("花了128欧元买了2股KO，一股69.5美元"). Nothing
+else of the draft or its issues changes for it.
+
 Names defined here: ``draft_from_row``, ``RowDraft`` and ``Surroundings``.
 """
 
@@ -59,7 +66,7 @@ from ledger_hand.core.assets import AssetTable, MoneyReading
 from ledger_hand.core.coins import spoken_key
 from ledger_hand.core.numbers import NotANumber, Recognised, Unsure, read_number
 from ledger_hand.core.timeparse import TimeRecognised, TwoCandidates, read_time
-from ledger_hand.core.trade import OccurredTime, TradeDraft
+from ledger_hand.core.trade import MoneysSaid, OccurredTime, TradeDraft
 from ledger_hand.extraction.issues import Issue, IssueKind
 from ledger_hand.extraction.passage import Passage, Piece, PieceMiss
 from ledger_hand.extraction.reply_parser import ReplyRow
@@ -91,6 +98,7 @@ class RowDraft:
     draft: TradeDraft
     issues: tuple[Issue, ...]
     numbers: tuple[str, ...]
+    moneys: MoneysSaid | None = None
 
 
 @dataclass
@@ -138,7 +146,39 @@ def draft_from_row(row: ReplyRow, position: int, around: Surroundings) -> RowDra
         raw_text=around.passage.text,
     )
     numbers = tuple(number for piece in pieces.values() for number in piece.numbers)
-    return RowDraft(draft, tuple(work.issues), numbers)
+    return RowDraft(draft, tuple(work.issues), numbers, _moneys_said(said, around.assets, allowed))
+
+
+def _moneys_said(
+    said: Mapping[Field, str], assets: AssetTable, allowed: tuple[str, ...]
+) -> MoneysSaid | None:
+    """The one word for money of the price's, total's and fee's units, when the total names one.
+
+    Only for a table made from the ledger's list. A unit naming no money,
+    or more than one word, gives ``None`` for that amount. Example: "128欧元"
+    and "69.5美元" give the total "欧元" and the price "美元".
+    """
+    if not assets.from_ledger:
+        return None
+    words = {name: _one_money(said.get(name), assets, allowed) for name in _MONEY_FIELDS}
+    if words[Field.TOTAL] is None:
+        return None
+    return MoneysSaid(price=words[Field.PRICE], total=words[Field.TOTAL], fee=words[Field.FEE])
+
+
+_MONEY_FIELDS = (Field.PRICE, Field.TOTAL, Field.FEE)
+
+
+def _one_money(unit: str | None, assets: AssetTable, allowed: tuple[str, ...]) -> str | None:
+    if unit is None:
+        return None
+    named = currencies_in_unit(unit, assets, allowed)
+    if len(named) != 1:
+        return None
+    text = named[0].text
+    if assets.money(text).reading is MoneyReading.NOT_MONEY and assets.missing_money(text) is None:
+        return None
+    return text
 
 
 def _allowed_words(texts: Mapping[Field, str]) -> tuple[str, ...]:
