@@ -244,7 +244,7 @@ NOT_CHECKED_WORDS: Mapping[PriceVerdict, str | None] = MappingProxyType(
             "one money"
         ),
         PriceVerdict.NO_MONEY: "the money the trade used is not settled yet",
-        PriceVerdict.NO_PRICE: None,
+        PriceVerdict.NO_PRICE: "the price is left empty",
         PriceVerdict.NOT_ASKED: "the ledger could not be asked for its market prices ({failure})",
     }
 )
@@ -262,7 +262,7 @@ LEDGER_PROBLEM_WORDS = "Trade {number}: the ledger says: {message}"
 # The line for a card the ledger found nothing wrong with while some cell it
 # would check is empty: never said as nothing found (72C1, 2026-11-25).
 NOT_CHECKED_YET_WORDS = (
-    "Trade {number}: the ledger cannot check it in full while {fields} are empty; it checks "
+    "Trade {number}: the ledger cannot check it in full while {fields} {verb} empty; it checks "
     "again when you save."
 )
 
@@ -397,7 +397,9 @@ def _card_lines(
         return lines
     unchecked = [name for name in card.missing if name in _CHECKED_ONLY_WHEN_GIVEN]
     if unchecked:
-        words = NOT_CHECKED_YET_WORDS.format(number=number, fields=", ".join(unchecked))
+        words = NOT_CHECKED_YET_WORDS.format(
+            number=number, fields=", ".join(unchecked), verb="is" if len(unchecked) == 1 else "are"
+        )
         if card.side is Side.SELL:
             words += SELL_NOT_CHECKED_WORDS
         lines.append(words)

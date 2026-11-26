@@ -36,6 +36,7 @@ from ledger_hand.core.proposals import CheckOutcome
 from ledger_hand.core.trade_card import TradeCard
 from ledger_hand.flows.assistant_record import entry_for
 from ledger_hand.flows.conversation import AssistantChat, Said, say
+from ledger_hand.flows.record_words import price_check_words
 from ledger_hand.flows.recorded import MarkedTrade, RecordEnding
 from ledger_hand.flows.standing import DemoOutcome, demo_save
 from ledger_hand.ledger.demo_book import demo_ledger
@@ -803,3 +804,20 @@ def test_the_try_out_script_prints_none_for_an_empty_cell_and_one_line_more() ->
     assert "buy 0.1 ETH at 2600 USDT, total 260 USDT, fee none none" in printed
     assert "    empty: fee, feeAssetId; the ledger: cannot be saved yet" in printed
     assert "money: price said, fee empty" in printed
+
+
+def test_one_empty_cell_the_ledger_would_check_is_said_with_is() -> None:
+    said = one(
+        "明天上午10点买了0.1个ETH，价格2600 USDT，手续费0",
+        ETH | {"time": "明天上午10点", "price": "2600 USDT", "fee": "0"},
+    )
+
+    assert "cannot check it in full while occurredDate is empty" in said.reply
+
+
+def test_a_price_left_empty_is_said_as_not_compared_for_that_reason() -> None:
+    said = one("今天上午10点买了0.1个ETH，手续费0", ETH | {"fee": "0"})
+
+    _, marked = card(said)
+    assert price_check_words(marked.price) == "not compared: the price is left empty"
+    assert NOT_COMPARED not in said.reply
