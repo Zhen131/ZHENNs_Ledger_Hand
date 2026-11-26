@@ -29,12 +29,15 @@ cells that one problem lies between). What happens to the answer is not
 decided here.
 
 ``value_of`` gives the value a cell holds, for showing it in a question, and
-``with_value`` gives the draft with one cell replaced.
+``with_value`` gives the draft with one cell replaced. ``follow_up_for``
+gives what one problem of the table leads to, for a caller that takes up
+only some of them (the assistant, once the ledger takes a trade with cells
+left empty, asks only which asset and buy or sell).
 
 Names defined here: ``Cell``, ``Destination``, ``FOLLOW_UP_ORDER``,
 ``AMOUNT_CELLS``, ``AskCell``, ``ConfirmCoin``, ``AskWhichCell``,
-``CannotRecord``, ``FollowUp``, ``next_follow_up``, ``value_of`` and
-``with_value``.
+``CannotRecord``, ``FollowUp``, ``next_follow_up``, ``follow_up_for``,
+``value_of`` and ``with_value``.
 """
 
 from __future__ import annotations
@@ -226,6 +229,12 @@ def next_follow_up(draft: TradeDraft, problems: DraftProblems) -> FollowUp:
         if problem in found:
             return _follow_up(destination, problem, draft)
     raise ValueError("there is nothing to ask about a draft without problems")
+
+
+def follow_up_for(problem: Problem, draft: TradeDraft) -> FollowUp:
+    """What ``problem`` of ``draft`` leads to, by ``FOLLOW_UP_ORDER``, taken on its own."""
+    destination = next(where for one, where in FOLLOW_UP_ORDER if one is problem)
+    return _follow_up(destination, problem, draft)
 
 
 def _follow_up(destination: Destination, problem: Problem, draft: TradeDraft) -> FollowUp:

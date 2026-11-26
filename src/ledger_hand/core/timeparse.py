@@ -68,8 +68,11 @@ date and the moment:
 as ``2026-10-03``; a moment always with its seconds and its offset, as
 ``2026-10-04T09:40:00+02:00``.
 
-Names defined here: ``read_time``, ``write_time``, ``TimeReading``,
-``TimeRecognised``, ``TwoCandidates`` and ``TimeRefused``. ``Refusal`` and
+``day_named`` gives the calendar day a phrase names, even one after today,
+so that a time refused for lying in the future can be said by its day.
+
+Names defined here: ``read_time``, ``write_time``, ``day_named``,
+``TimeReading``, ``TimeRecognised``, ``TwoCandidates`` and ``TimeRefused``. ``Refusal`` and
 ``TimeCaution`` come from ``time_wording`` and are named here as well.
 """
 
@@ -182,6 +185,24 @@ def read_time(
     except OverflowError:
         # Counted back or ahead past the first or the last date Python holds.
         return TimeRefused(Refusal.UNKNOWN_WORDING)
+
+
+def day_named(text: str, now: datetime, zone: str) -> date | None:
+    """The calendar day ``text`` names, as seen from ``now`` in ``zone``, future or not.
+
+    ``None`` when the phrase names no day this program reads. Example:
+    "明天上午10点" seen from 2026-11-24 23:55 in Budapest is 2026-11-25.
+    """
+    if not isinstance(now, datetime) or now.utcoffset() is None:
+        raise ValueError("the current moment must be a datetime that carries an offset")
+    phrase = read_phrase(text)
+    if not isinstance(phrase, OnADay):
+        return None
+    try:
+        day = _date_of(phrase.day, now.astimezone(zone_named(zone)).date())
+    except OverflowError:
+        return None
+    return None if isinstance(day, Refusal) else day
 
 
 def write_time(occurred: OccurredTime) -> str:

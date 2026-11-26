@@ -32,15 +32,22 @@ reason kept. A time zone, a year or "today" the program filled in is not
 marked: nearly every trade has one, and marking them all would leave the
 marks unread (decided by the contract's author, 2026-11-25).
 
+A card sent with cells left empty or in doubt (``core/card_record.py``)
+adds marks of its own: each cell the check found wrong in itself, or the
+three amounts that do not agree, is suspicious with the user's own value
+in the reason (``marks_from``). When one cell is suspicious twice, the two
+reasons become one: first why the cell itself is wrong, then how far it
+is from the market price; a reason too long is cut from the second.
+
 ``as_sent`` is the guard before marks leave for the ledger: a cell sent
 empty, or not at all, keeps only a suspicious mark, the time of day and
 the time zone keep none when they are not sent, and each mark is the
-three keys the ledger takes.
+three keys the ledger takes (``SentMark``, ``sent_marks``).
 
 Names defined here: ``MarkKind``, ``Field``, ``REASON_MOST``,
 ``reason_length``, ``cut_reason``, ``FieldMark``, ``TradeMarks``,
-``FAR_REASON_START``, ``marks_for``, ``far_reason``, ``fields_sent`` and
-``as_sent``.
+``FAR_REASON_START``, ``marks_for``, ``marks_from``, ``far_reason``,
+``fields_sent``, ``SentMark``, ``sent_marks`` and ``as_sent``.
 """
 
 from __future__ import annotations
@@ -48,10 +55,11 @@ from __future__ import annotations
 import enum
 from collections.abc import Iterable
 from dataclasses import dataclass
+from datetime import datetime
 from decimal import Decimal
+from typing import Protocol
 
 from ledger_hand.core.ledger_limits import text_length
-from ledger_hand.core.ledger_records import TradeFacts
 from ledger_hand.core.price_check import PriceCheck, PriceVerdict
 from ledger_hand.core.trade import Amount, Inferred, InferredFrom, TradeRecord
 
@@ -192,21 +200,59 @@ def marks_for(
     worked out, BTC at 64880 USDT: the total worked out, the price
     suspicious.
     """
+    return marks_from(
+        coin=record.coin,
+        derived=record.derived,
+        inferred=record.inferred,
+        inferred_from=record.inferred_from,
+        picked=record.picked,
+        check=check,
+        asset_name=asset_name,
+    )
+
+
+def marks_from(
+    *,
+    coin: str,
+    derived: Amount | None,
+    inferred: frozenset[Inferred],
+    inferred_from: InferredFrom | None,
+    picked: str | None,
+    check: PriceCheck | None,
+    asset_name: str | None = None,
+    doubts: tuple[FieldMark, ...] = (),
+    assumed: tuple[FieldMark, ...] = (),
+    empty: frozenset[Field] = frozenset(),
+) -> TradeMarks:
+    """Every mark of one trade, from what it rests on; ``marks_for`` hands a record's in.
+
+    ``doubts`` are the suspicious marks the check of a card found (a cell
+    wrong in itself, three amounts that do not agree), each with the
+    user's value in its reason; ``assumed`` any other mark a card earns
+    ("25U" taken as the total). ``empty`` names the cells sent empty. A
+    worked out or assumed mark on an empty cell is not made at all.
+    Example: a price both in a disagreement and far: one suspicious mark,
+    the disagreement said first.
+    """
     found: list[FieldMark] = []
-    if record.derived is not None:
-        field, reason = _WORKED_OUT[record.derived]
+    if derived is not None:
+        field, reason = _WORKED_OUT[derived]
         found.append(FieldMark(field, MarkKind.COMPUTED, reason))
-    source = record.inferred_from
-    for guess in sorted(record.inferred, key=lambda one: one.name):
-        if source is not None:
-            found.append(FieldMark(_GUESSED[guess], MarkKind.INFERRED, _guess_reason(source)))
-    if record.picked is not None:
+    for guess in sorted(inferred, key=lambda one: one.name):
+        if inferred_from is not None:
+            found.append(
+                FieldMark(_GUESSED[guess], MarkKind.INFERRED, _guess_reason(inferred_from))
+            )
+    if picked is not None:
         found.append(
-            FieldMark(Field.ASSET_ID, MarkKind.INFERRED, _picked_reason(record, asset_name))
+            FieldMark(Field.ASSET_ID, MarkKind.INFERRED, _picked_reason(coin, picked, asset_name))
         )
+    found.extend(assumed)
+    found.extend(doubts)
     if check is not None and check.verdict is PriceVerdict.FAR:
-        found.append(FieldMark(Field.PRICE, MarkKind.SUSPICIOUS, far_reason(record.coin, check)))
-    return TradeMarks(marks=_one_a_cell(found))
+        found.append(FieldMark(Field.PRICE, MarkKind.SUSPICIOUS, far_reason(coin, check)))
+    kept = [mark for mark in found if mark.field not in empty or mark.kind is MarkKind.SUSPICIOUS]
+    return TradeMarks(marks=_one_a_cell(kept), empty=empty)
 
 
 def _guess_reason(source: InferredFrom) -> str:
@@ -217,10 +263,10 @@ def _guess_reason(source: InferredFrom) -> str:
     )
 
 
-def _picked_reason(record: TradeRecord, name: str | None) -> str:
-    named = f"{record.coin} ({name})" if name and name != record.coin else record.coin
+def _picked_reason(coin: str, picked: str, name: str | None) -> str:
+    named = f"{coin} ({name})" if name and name != coin else coin
     return cut_reason(
-        f'"{record.picked}" was matched to {named} from the ledger\'s list of assets by the model'
+        f'"{picked}" was matched to {named} from the ledger\'s list of assets by the model'
     )
 
 
@@ -263,6 +309,8 @@ def _stronger(one: FieldMark, other: FieldMark) -> FieldMark:
     Example: a price worked out and far: suspicious, "worked out as total ÷
     quantity; far from the market price ...".
     """
+    if one.kind is MarkKind.SUSPICIOUS and other.kind is MarkKind.SUSPICIOUS:
+        return _both_suspicious(one, other)
     if _KEPT_FIRST.index(other.kind) < _KEPT_FIRST.index(one.kind):
         one, other = other, one
     if other.reason is None:
@@ -275,12 +323,79 @@ def _stronger(one: FieldMark, other: FieldMark) -> FieldMark:
     return FieldMark(one.field, one.kind, f"{dropped}{_JOIN}{own}" if own else dropped)
 
 
-def fields_sent(facts: TradeFacts) -> frozenset[Field]:
-    """The cells of ``facts`` that are sent with a value: a day alone sends no time of day,
-    and an empty platform or note, or no rate, is sent as none."""
+def _both_suspicious(own: FieldMark, far: FieldMark) -> FieldMark:
+    """One suspicious mark of two on one cell: the cell's own wrong first, then the far one.
+
+    The far reason (which starts ``FAR_REASON_START``) always goes second,
+    whichever came first; when the two do not fit, the second is cut
+    first. Example: "you said the total was 200 USDT, ...; far from the
+    market price of SOL ...".
+    """
+    if own.reason is not None and own.reason.startswith(FAR_REASON_START):
+        own, far = far, own
+    first = cut_reason(own.reason or "")
+    room = REASON_MOST - reason_length(first) - reason_length(_JOIN)
+    if far.reason is None or room < reason_length(_ELLIPSIS) + 1:
+        return FieldMark(own.field, MarkKind.SUSPICIOUS, first)
+    return FieldMark(
+        own.field, MarkKind.SUSPICIOUS, f"{first}{_JOIN}{cut_reason(far.reason, room)}"
+    )
+
+
+class _Sendable(Protocol):
+    """What ``fields_sent`` reads of a trade: a ledger's trade or a card alike."""
+
+    @property
+    def occurred(self) -> datetime | None: ...
+    @property
+    def date_only(self) -> bool: ...
+    @property
+    def quantity(self) -> Decimal | None: ...
+    @property
+    def price(self) -> Decimal | None: ...
+    @property
+    def total(self) -> Decimal | None: ...
+    @property
+    def quote(self) -> str | None: ...
+    @property
+    def fee(self) -> Decimal | None: ...
+    @property
+    def fee_asset(self) -> str | None: ...
+    @property
+    def platform(self) -> str: ...
+    @property
+    def note(self) -> str: ...
+    @property
+    def cost_rate(self) -> Decimal | None: ...
+
+
+# The cells a card may leave empty, beside the day, and what holds each.
+_MAY_BE_EMPTY = (
+    (Field.QUANTITY, "quantity"),
+    (Field.PRICE, "price"),
+    (Field.TOTAL_VALUE, "total"),
+    (Field.QUOTE_ASSET_ID, "quote"),
+    (Field.FEE, "fee"),
+    (Field.FEE_ASSET_ID, "fee_asset"),
+)
+
+
+def fields_sent(facts: _Sendable) -> frozenset[Field]:
+    """The cells of a trade or a card that are sent with a value.
+
+    A day alone sends no time of day; no day sends no time at all; an
+    empty platform or note, or no rate, is sent as none; a card's empty
+    cell is sent as none. Example: a card with no fee said sends neither
+    ``fee`` nor ``feeAssetId``.
+    """
     given = set(Field) - {Field.PLATFORM, Field.NOTE, Field.COST_RATE}
-    if facts.date_only:
+    if facts.occurred is None:
+        given -= {Field.OCCURRED_DATE, *_TIME_OF_DAY}
+    elif facts.date_only:
         given -= _TIME_OF_DAY
+    for field, name in _MAY_BE_EMPTY:
+        if getattr(facts, name) is None:
+            given.discard(field)
     if facts.platform:
         given.add(Field.PLATFORM)
     if facts.note:
@@ -290,18 +405,43 @@ def fields_sent(facts: TradeFacts) -> frozenset[Field]:
     return frozenset(given)
 
 
-def as_sent(marks: TradeMarks, sent: frozenset[Field]) -> tuple[dict[str, str | None], ...]:
-    """The marks as the ledger takes them, for a trade whose cells ``sent`` hold a value.
+@dataclass(frozen=True)
+class SentMark:
+    """One mark as the ledger takes it: its three keys, as text, and nothing checked here.
+
+    It is what goes on the wire; the ledger (or the fake ledger) checks it
+    by its own rules. Example: ("price", "suspicious", "far from ...").
+    """
+
+    field: str
+    kind: str
+    reason: str | None = None
+
+    def as_dict(self) -> dict[str, str | None]:
+        """The mark as the three keys ``field``, ``kind``, ``reason``."""
+        return {"field": self.field, "kind": self.kind, "reason": self.reason}
+
+
+def sent_marks(marks: TradeMarks, sent: frozenset[Field]) -> tuple[SentMark, ...]:
+    """The marks as they leave for the ledger, for a trade whose cells ``sent`` hold a value.
 
     A cell not in ``sent`` (sent empty, or not at all) keeps only a
     suspicious mark; the time of day and the time zone keep none when they
-    are not sent. Each mark is the three keys ``field``, ``kind``, ``reason``.
+    are not sent.
     """
-    kept: list[dict[str, str | None]] = []
+    kept: list[SentMark] = []
     for mark in marks.marks:
         if mark.field not in sent and (
             mark.kind is not MarkKind.SUSPICIOUS or mark.field in _TIME_OF_DAY
         ):
             continue
-        kept.append({"field": mark.field.value, "kind": mark.kind.value, "reason": mark.reason})
+        kept.append(SentMark(mark.field.value, mark.kind.value, mark.reason))
     return tuple(kept)
+
+
+def as_sent(marks: TradeMarks, sent: frozenset[Field]) -> tuple[dict[str, str | None], ...]:
+    """The marks as the ledger takes them, each the three keys ``field``, ``kind``, ``reason``.
+
+    The same guard as ``sent_marks``.
+    """
+    return tuple(mark.as_dict() for mark in sent_marks(marks, sent))

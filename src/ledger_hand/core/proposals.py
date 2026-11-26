@@ -12,13 +12,18 @@ sentence (in the language of the ledger's page) why it was turned down.
 
 - ``CheckOutcome``: passed or failed.
 - ``TradeCheck``: the check of one trade, and its proposal's identifier
-  when it passed.
+  when it passed. A trade sent with cells left empty (a card, the
+  ledger's ``allowUnfinished``) that the ledger took also says whether it
+  can be saved as it is, which cells are empty, and what the ledger's
+  checks found in the cells given (``LedgerProblem``).
+- ``LedgerProblem``: what the ledger's checks found in a card it took
+  anyway: a fixed code, its kind, the ledger's sentence, and the cell.
 - ``ProposalResult``: the checks of every trade of one call, in order.
 - ``ProposalStatus``: where a kept proposal stands.
 - ``ProposalState``: that, with the trade written when it was saved, and
   why it became void when it did.
 
-Names defined here: ``TARGET_NOT_FOUND``, ``CheckOutcome``, ``TradeCheck``,
+Names defined here: ``TARGET_NOT_FOUND``, ``CheckOutcome``, ``LedgerProblem``, ``TradeCheck``,
 ``ProposalResult``, ``ProposalStatus`` and ``ProposalState``.
 """
 
@@ -44,16 +49,47 @@ def _is_text(value: object) -> bool:
 
 
 @dataclass(frozen=True, kw_only=True)
+class LedgerProblem:
+    """What the ledger's checks found in the cells given of a card it took anyway.
+
+    ``code`` is the ledger's fixed code (``INSUFFICIENT_HOLDINGS``),
+    ``category`` its kind (``check-failed``), ``message`` its sentence, in
+    the language of its page, carried as it came; ``field`` the cell, when
+    the ledger names one.
+    """
+
+    code: str
+    message: str
+    category: str | None = None
+    field: str | None = None
+
+    def __post_init__(self) -> None:
+        if not _is_text(self.code) or not _is_text(self.message):
+            raise ValueError("a problem the ledger found has a code and a sentence, both text")
+
+
+@dataclass(frozen=True, kw_only=True)
 class TradeCheck:
     """The check of one trade: passed, waiting as ``proposal_id``; or failed, with a fixed
-    code and a sentence."""
+    code and a sentence.
+
+    A card the ledger took also says, when it was sent so (``allowUnfinished``):
+    ``ready``, whether it can be saved as it is; ``missing``, the ledger's
+    names of the cells left empty, in the ledger's order; ``problem``, what
+    the ledger's checks found in the cells given, or ``None``. ``ready`` is
+    ``None`` for a trade sent the old way, which says none of it.
+    """
 
     outcome: CheckOutcome
     proposal_id: str | None = None
     code: str | None = None
     message: str | None = None
+    ready: bool | None = None
+    missing: tuple[str, ...] = ()
+    problem: LedgerProblem | None = None
 
     def __post_init__(self) -> None:
+        self._require_card_fits()
         if not isinstance(self.outcome, CheckOutcome):
             raise TypeError(f"a check's outcome is a CheckOutcome, not {self.outcome!r}")
         said = (self.code, self.message)
@@ -67,6 +103,15 @@ class TradeCheck:
                 raise ValueError("a trade that failed has a code and a message, both text")
             if self.proposal_id is not None:
                 raise ValueError("a trade that failed waits under no identifier")
+
+    def _require_card_fits(self) -> None:
+        """What a card's check says fits it: taken, and empty cells only when not ready."""
+        if self.ready is None and (self.missing or self.problem is not None):
+            raise ValueError("only a card sent with empty cells allowed says what is missing")
+        if self.ready is not None and self.outcome is not CheckOutcome.PASSED:
+            raise ValueError("only a card the ledger took says whether it can be saved")
+        if self.ready is True and self.missing:
+            raise ValueError("a card that can be saved as it is has no empty cell")
 
 
 @dataclass(frozen=True, kw_only=True)

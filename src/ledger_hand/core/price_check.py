@@ -15,7 +15,9 @@ back one of these (``PriceVerdict``), with what the words about it need:
   (USDT against USD); the two are never compared, never converted, and
   never taken as one money;
 - no money: the money the trade used is not known; nothing stands in
-  for it, not the asset's own money and not the last trade's.
+  for it, not the asset's own money and not the last trade's;
+- no price: the price itself is left empty on a card (``no_price``);
+  there is nothing to compare.
 
 A fifth outcome is the caller's, not this function's: the ledger could
 not be asked for its market prices (``PriceVerdict.NOT_ASKED``, made by
@@ -31,8 +33,8 @@ All of it is exact decimal arithmetic; nothing reads the ledger or the
 clock. Example: 950 USDT against BTC's 64880 USDT, five times apart:
 far, about 68 times lower.
 
-Names defined here: ``PriceVerdict``, ``PriceCheck``, ``check_price``
-and ``not_asked``.
+Names defined here: ``PriceVerdict``, ``PriceCheck``, ``check_price``,
+``not_asked`` and ``no_price``.
 """
 
 from __future__ import annotations
@@ -57,6 +59,7 @@ class PriceVerdict(enum.Enum):
     NO_MARKET_PRICE = "the ledger has no market price of the asset"
     OTHER_MONEY = "the market price is in another money than the trade"
     NO_MONEY = "the money the trade used is not known yet"
+    NO_PRICE = "the price is left empty, so there is nothing to compare"
     NOT_ASKED = "the ledger could not be asked for its market prices"
 
     @property
@@ -123,6 +126,11 @@ def check_price(
 def not_asked(price: Decimal | None, money: str | None, failure: str) -> PriceCheck:
     """The outcome when the ledger could not be asked: ``failure`` is its sentence."""
     return PriceCheck(verdict=PriceVerdict.NOT_ASKED, price=price, money=money, failure=failure)
+
+
+def no_price(money: str | None) -> PriceCheck:
+    """The outcome for a card whose price is left empty: nothing to compare, nothing said."""
+    return PriceCheck(verdict=PriceVerdict.NO_PRICE, money=money)
 
 
 def _times_apart(price: Decimal, market: Decimal) -> Decimal:

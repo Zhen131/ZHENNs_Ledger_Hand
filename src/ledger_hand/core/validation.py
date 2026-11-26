@@ -67,10 +67,15 @@ change of a trade already in the ledger: when one of the three amounts is
 changed, the program asks which of the other two follows, and works that
 one out here, by the very rules a draft's third amount is worked out by.
 
+``coin_of``, ``quote_of`` and ``fee_coin_of`` read one cell of a draft
+by the very rules above, each on its own, for a card sent with other
+cells left empty (``card_record``); ``None`` where the check would note
+a problem.
+
 Names defined here: ``check_draft``, ``Missing``, ``Violation``,
 ``DraftProblems``, ``CheckSettings``, ``DEFAULT_SETTINGS``,
-``DEFAULT_DERIVED_PLACES``, ``DEFAULT_FUTURE_GRACE``, ``third_amount`` and
-``amounts_agree``.
+``DEFAULT_DERIVED_PLACES``, ``DEFAULT_FUTURE_GRACE``, ``third_amount``,
+``amounts_agree``, ``coin_of``, ``quote_of`` and ``fee_coin_of``.
 """
 
 from __future__ import annotations
@@ -286,6 +291,24 @@ def _in_fixed_order(found: list[_Problem]) -> DraftProblems:
 
 
 # --- the coin and the pricing currency --------------------------------------
+
+
+def coin_of(spoken: str | None, assets: AssetTable) -> str | None:
+    """The symbol of the asset ``spoken`` names, as the check reads it; ``None`` when it would
+    note a problem."""
+    return _coin_symbol(spoken, assets, [])
+
+
+def quote_of(spoken: str | None, assets: AssetTable) -> str | None:
+    """The code of the money a trade is priced in, as the check reads ``spoken``; ``None``
+    when it is not settled (not said with several moneys, vague, or one the table lacks)."""
+    return _quote(spoken, assets, [])
+
+
+def fee_coin_of(draft: TradeDraft, assets: AssetTable) -> str | None:
+    """The symbol or code of what a fee above zero was taken in, as the check reads the
+    draft's word for it; ``None`` when it is not settled."""
+    return _fee_coin_symbol(draft, assets, [])
 
 
 def _coin_symbol(spoken: str | None, assets: AssetTable, found: list[_Problem]) -> str | None:
