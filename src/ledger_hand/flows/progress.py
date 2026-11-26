@@ -30,8 +30,15 @@ from ledger_hand.asking.question_text import Writer
 from ledger_hand.core.assets import AssetTable
 from ledger_hand.core.book import EarlierSave
 from ledger_hand.core.card_record import CardRecord
-from ledger_hand.core.followup import AskCell, AskWhichCell, Cell, ConfirmCoin, Problem
-from ledger_hand.core.trade import OccurredTime, TradeDraft, TradeRecord
+from ledger_hand.core.followup import (
+    AskCell,
+    AskSaidPrice,
+    AskWhichCell,
+    Cell,
+    ConfirmCoin,
+    Problem,
+)
+from ledger_hand.core.trade import MoneysSaid, OccurredTime, SaidPrice, TradeDraft, TradeRecord
 from ledger_hand.extraction.asset_picking import AssetPick
 from ledger_hand.extraction.extractor import DEFAULT_ASKS_AGAIN, PassageProblem
 from ledger_hand.extraction.issues import Issue, IssueKind
@@ -39,7 +46,7 @@ from ledger_hand.extraction.screening import Report
 from ledger_hand.flows.last_money import LastMoney
 from ledger_hand.ports import ModelError, ModelErrorKind, ModelParameters, ReplyRecord
 
-type Asked = AskCell | ConfirmCoin | AskWhichCell
+type Asked = AskCell | ConfirmCoin | AskWhichCell | AskSaidPrice
 
 
 class Stage(enum.Enum):
@@ -250,6 +257,12 @@ class Progress:
     by the asset's code, so that one asset is asked about once in a
     passage. ``clash`` is an answer whose money is not the trade's, while
     the user is asked which money it is; ``None`` otherwise.
+
+    ``moneys_said`` holds, for each trade in order, the words for money
+    its amounts were written with (``MoneysSaid``), or is empty when no
+    trade has any. ``said_prices`` holds, by the trade's position, the
+    price of one unit said in the asset's own money for a trade paid in
+    another money (``SaidPrice``, ``paid_apart``).
     """
 
     stage: Stage
@@ -271,6 +284,8 @@ class Progress:
     last_moneys: tuple[tuple[str, LastMoney], ...] = ()
     clash: MoneyClash | None = None
     totals_from_units: tuple[tuple[int, str], ...] = ()
+    moneys_said: tuple[MoneysSaid | None, ...] = ()
+    said_prices: tuple[tuple[int, SaidPrice], ...] = ()
 
     @property
     def records(self) -> tuple[TradeRecord, ...]:

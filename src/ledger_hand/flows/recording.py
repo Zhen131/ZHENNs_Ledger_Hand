@@ -44,6 +44,14 @@ The steps, each handing back a new ``Progress``:
   quantity said in money ("25U" of ETH) is then taken as the total, not
   held back (``totals_from_units``). Without ``unfinished`` every gap is
   asked, as before.
+- A trade paid in one money for an asset the ledger prices in another
+  ("花了128欧元买了2股KO，一股69.5美元") is settled before it is checked
+  (``paid_apart``): its money is the one paid, its price is worked out as
+  the total over the quantity, and the price said in the asset's own money
+  is kept apart (``Progress.said_prices``) and goes into its record or
+  card. When that price was not said, it is asked by the program's own
+  question, and its answer read by the program (``said_price_asking``);
+  a quantity not said is asked even when the ledger takes cards.
 - ``answer`` reads the answer (``extraction.answer_phrase``), puts it back
   into the trade (``filling``) and checks the trade again; then the next
   question follows. An answer that cannot be used gets the same question
@@ -87,6 +95,7 @@ from ledger_hand.core.coins import spoken_key
 from ledger_hand.core.followup import (
     FOLLOW_UP_ORDER,
     AskCell,
+    AskSaidPrice,
     CannotRecord,
     Cell,
     ConfirmCoin,
@@ -99,7 +108,7 @@ from ledger_hand.core.ledger_table import VAGUE_MONEY_CODES
 from ledger_hand.core.marks import Field
 from ledger_hand.core.time_wording import Refusal
 from ledger_hand.core.timeparse import day_named
-from ledger_hand.core.trade import OccurredTime, TradeDraft, TradeRecord
+from ledger_hand.core.trade import Amount, OccurredTime, SaidPrice, TradeDraft, TradeRecord
 from ledger_hand.core.validation import DraftProblems, Missing, check_draft
 from ledger_hand.core.zones import is_zone_name
 from ledger_hand.extraction.answer_phrase import (
@@ -138,6 +147,7 @@ from ledger_hand.flows.filling import confirm, fill, fill_from_ledger, settle_cl
 from ledger_hand.flows.fingerprint import passage_fingerprint
 from ledger_hand.flows.guessing import guessed
 from ledger_hand.flows.last_money import LastMoneyLookup, LastMoneyMiss
+from ledger_hand.flows.paid_apart import AskPrice, Taken, paid_apart
 from ledger_hand.flows.progress import (
     DEFAULT_TUNING,
     Asked,
@@ -154,6 +164,7 @@ from ledger_hand.flows.progress import (
     Tuning,
 )
 from ledger_hand.flows.questions import make_question
+from ledger_hand.flows.said_price_asking import read_said_price, said_price_question
 from ledger_hand.ports import ModelErrorKind, ModelParameters, ModelPort, ReplyRecord, StoragePort
 from ledger_hand.settings import (
     DEFAULT_CONTEXT_TOKENS,
@@ -320,7 +331,11 @@ def _extracted(
         for position, draft in enumerate(drafts)
     )
     progress = dataclasses.replace(
-        progress, trades=trades, issues=extraction.issues, totals_from_units=tuple(totals)
+        progress,
+        trades=trades,
+        issues=extraction.issues,
+        totals_from_units=tuple(totals),
+        moneys_said=extraction.moneys_said,
     )
     return _next_question(progress, model, last)
 
@@ -522,8 +537,17 @@ def _next_question(
         if trade.status is not TradeStatus.OPEN:
             continue
         draft, progress = guessed(progress, position, trade.draft, last)
+        draft, said, asked, progress = _paid_apart(progress, position, draft, last)
         checked = check_draft(draft, assets, progress.setting.now)
+        if asked is None and said is None:
+            asked = _worked_across(progress, position, draft, checked)
+        if asked is not None:
+            trades[position] = TradeState(draft, TradeStatus.OPEN)
+            progress = dataclasses.replace(progress, trades=tuple(trades))
+            return _asking(progress, position, asked, model)
         if isinstance(checked, TradeRecord):
+            if said is not None:
+                checked = dataclasses.replace(checked, said_price=said)
             trades[position] = TradeState(draft, TradeStatus.RECORDED, checked)
             continue
         follow_up = next_follow_up(draft, checked)
@@ -534,23 +558,104 @@ def _next_question(
             )
             continue
         if progress.setting.unfinished:
-            asked, doubts = _still_asked(progress, position, draft, checked)
-            if asked is None:
-                card = card_record(
-                    draft,
-                    checked,
-                    assets,
-                    progress.setting.now,
-                    money_doubts=doubts,
-                    taken_as_total=dict(progress.totals_from_units).get(position),
-                    after_today=_after_today(progress, position),
-                )
-                trades[position] = TradeState(draft, TradeStatus.UNFINISHED, card=card)
+            carded = _carded(progress, position, draft, checked, said)
+            if isinstance(carded, TradeState):
+                trades[position] = carded
                 continue
-            follow_up = asked
+            follow_up = carded
         progress = dataclasses.replace(progress, trades=tuple(trades))
         return _asking(progress, position, follow_up, model)
     return dataclasses.replace(progress, stage=Stage.REVIEWING, trades=tuple(trades), question=None)
+
+
+def _carded(
+    progress: Progress,
+    position: int,
+    draft: TradeDraft,
+    checked: DraftProblems,
+    said: SaidPrice | None,
+) -> TradeState | Asked:
+    """The trade settled as a card, once the ledger takes cards; or what is still asked."""
+    asked, doubts = _still_asked(progress, position, draft, checked)
+    if asked is not None:
+        return asked
+    card = card_record(
+        draft,
+        checked,
+        progress.setting.assets,
+        progress.setting.now,
+        money_doubts=doubts,
+        taken_as_total=dict(progress.totals_from_units).get(position),
+        after_today=_after_today(progress, position),
+    )
+    if said is not None:
+        card = dataclasses.replace(card, said_price=said)
+    return TradeState(draft, TradeStatus.UNFINISHED, card=card)
+
+
+def _paid_apart(
+    progress: Progress, position: int, draft: TradeDraft, last: LastMoneyLookup | None
+) -> tuple[TradeDraft, SaidPrice | None, Asked | None, Progress]:
+    """The draft of a trade paid in another money, settled; the price said apart; what to ask.
+
+    A trade that does not go that way comes back as it was. One that would,
+    with no price said in its asset's own money, asks for it; one that
+    does, with no quantity, asks the quantity, even when the ledger takes
+    cards: the rate cannot be worked out without it (``paid_apart``).
+    """
+    apart, progress = paid_apart(progress, position, draft, last)
+    if isinstance(apart, AskPrice):
+        return draft, None, apart.asked, progress
+    if not isinstance(apart, Taken):
+        return draft, None, None, progress
+    if apart.draft.quantity is None:
+        asked = AskCell(Cell.QUANTITY, Missing.ONE_MORE_OF_QUANTITY_PRICE_TOTAL)
+        return apart.draft, apart.said, asked, progress
+    return apart.draft, apart.said, None, progress
+
+
+# The cell asked for in place of an amount that would be worked out across two moneys.
+_AMOUNT_CELL = {Amount.QUANTITY: Cell.QUANTITY, Amount.PRICE: Cell.PRICE, Amount.TOTAL: Cell.TOTAL}
+
+# The issues that say a trade's price or total named another money than the trade's own.
+_ACROSS = frozenset({IssueKind.UNIT_NOT_THE_PRICE_CURRENCY, IssueKind.MONEY_NOT_CLEAR})
+
+
+def _worked_across(
+    progress: Progress, position: int, draft: TradeDraft, checked: TradeRecord | DraftProblems
+) -> AskCell | None:
+    """The amount to ask for instead of working it out, when it would be across two moneys.
+
+    This function looks at a trade whose price or total named another
+    money than the trade's own (extraction said so: a unit of another
+    money, or a vague word beside another money), with only two of
+    quantity, price and total said. The third is then not worked out from
+    figures in two moneys: it is asked, even when the ledger takes cards.
+    Example: "用欧元买了2股KO，一股69.5美元" asks the total, never 139.
+
+    Why: "任何时候不许跨两种钱去算第三样" (87B, part 4, item 4,
+    2026-11-25). A trade paid in another money that goes the way of
+    ``paid_apart`` never gets here: its price is not said in the money paid.
+    """
+    if isinstance(checked, TradeRecord):
+        blank = checked.derived
+    else:
+        stated = [amount for amount in Amount if draft.stated(amount) is not None]
+        blank = next(iter(set(Amount) - set(stated))) if len(stated) == 2 else None
+    if blank is None:
+        return None
+    across = any(
+        issue.draft == position
+        and issue.kind in _ACROSS
+        and (
+            issue.kind is IssueKind.UNIT_NOT_THE_PRICE_CURRENCY
+            or issue.field is ReplyField.PRICE_CURRENCY
+        )
+        for issue in progress.issues
+    )
+    if not across:
+        return None
+    return AskCell(_AMOUNT_CELL[blank], Missing.ONE_MORE_OF_QUANTITY_PRICE_TOTAL)
 
 
 # Where a problem still leads to a question once the ledger takes cards: which
@@ -662,6 +767,36 @@ def _vague_verdict(
     return _ASK
 
 
+def _asking_said_price(
+    progress: Progress, position: int, asked: AskSaidPrice, again: str | None = None
+) -> Progress:
+    """Ask the price of one unit in the asset's own money: the program's question, no model."""
+    question = said_price_question(position, len(progress.trades), asked, again)
+    return dataclasses.replace(progress, stage=Stage.ASKING, question=question, note=None)
+
+
+def _said_price_answered(
+    progress: Progress,
+    question: Question,
+    asked: AskSaidPrice,
+    text: str,
+    model: ModelPort,
+    last: LastMoneyLookup | None,
+) -> Progress:
+    """The answer to the price asked in the asset's own money, read by the program."""
+    read = read_said_price(text, asked, progress.setting.assets)
+    if read.command is Command.CANCEL:
+        return cancel(progress)
+    if read.command is Command.SKIP:
+        return _settle(progress, question.trade, TradeStatus.SKIPPED, model, last)
+    if read.price is None:
+        return _asking_said_price(progress, question.trade, asked, again=read.not_used)
+    said = SaidPrice(amount=read.price, money=asked.money, paid=asked.paid)
+    prices = tuple(pair for pair in progress.said_prices if pair[0] != question.trade)
+    progress = dataclasses.replace(progress, said_prices=(*prices, (question.trade, said)))
+    return _next_question(progress, model, last)
+
+
 def _asking(
     progress: Progress,
     position: int,
@@ -669,6 +804,8 @@ def _asking(
     model: ModelPort,
     candidates: tuple[OccurredTime, ...] = (),
 ) -> Progress:
+    if isinstance(asked, AskSaidPrice):
+        return _asking_said_price(progress, position, asked)
     question, calls = make_question(
         position,
         len(progress.trades),
@@ -703,6 +840,8 @@ def answer(
     question = progress.question
     if progress.stage is not Stage.ASKING or question is None:
         raise ValueError(f"nothing is being asked: {progress.stage.value}")
+    if isinstance(question.asked, AskSaidPrice):
+        return _said_price_answered(progress, question, question.asked, text, model, last_money)
     trade = progress.trades[question.trade]
     setting = progress.setting
     reading = read_answer(

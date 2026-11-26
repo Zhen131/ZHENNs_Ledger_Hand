@@ -24,6 +24,11 @@ from that trade. BTC bought for US dollars on 2026-08-01 and for USDT on
 2026-08-02 gives USDT. SOL bought for USDT and for US dollars on the same
 day gives nothing.
 
+What the ledger listed of the asset is kept with the answer (``listed``),
+so that the rate of a trade paid in another money can be compared with
+the asset's own last such trade without asking the ledger again
+(``proposing``, 2026-11-26); it plays no part in which money is found.
+
 An asset with no trade gives nothing (``NO_TRADE``); so does a ledger
 that cannot be asked, or says it does not know the asset
 (``LEDGER_FAILED``). Whether the money found may be used (USDT or the US
@@ -37,7 +42,7 @@ from __future__ import annotations
 
 import enum
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 
 from ledger_hand.core.ledger_records import LedgerTrade, TradeFilter
@@ -57,11 +62,15 @@ class LastMoneyMiss(enum.Enum):
 class LastMoney:
     """What the ledger's trades of one asset say: the trade a money is taken from, or why none.
 
-    Exactly one of ``found`` and ``miss`` is there.
+    Exactly one of ``found`` and ``miss`` is there. ``listed`` holds the
+    asset's trades as the ledger listed them, none when it could not be
+    asked; it is not part of what the answer is, and two answers that
+    differ only in it are the same.
     """
 
     found: InferredFrom | None = None
     miss: LastMoneyMiss | None = None
+    listed: tuple[LedgerTrade, ...] = field(default=(), compare=False)
 
     def __post_init__(self) -> None:
         if (self.found is None) == (self.miss is None):
@@ -94,13 +103,14 @@ def last_money_of(ledger: LedgerPort, now: datetime) -> LastMoneyLookup:
 
 def _last_money(code: str, trades: tuple[LedgerTrade, ...], now: datetime) -> LastMoney:
     """The money of the latest day's trades of ``code`` up to ``now``, when that day used one."""
-    past = [trade for trade in trades if trade.facts.asset == code and trade.facts.occurred <= now]
+    own = tuple(trade for trade in trades if trade.facts.asset == code)
+    past = [trade for trade in own if trade.facts.occurred <= now]
     if not past:
-        return LastMoney(miss=LastMoneyMiss.NO_TRADE)
+        return LastMoney(miss=LastMoneyMiss.NO_TRADE, listed=own)
     latest_day = max(trade.facts.day for trade in past)
     that_day = [trade for trade in past if trade.facts.day == latest_day]
     if len({trade.facts.quote for trade in that_day}) > 1:
-        return LastMoney(miss=LastMoneyMiss.TWO_MONEYS)
+        return LastMoney(miss=LastMoneyMiss.TWO_MONEYS, listed=own)
     last = max(that_day, key=lambda trade: trade.facts.occurred)
     return LastMoney(
         found=InferredFrom(
@@ -108,5 +118,6 @@ def _last_money(code: str, trades: tuple[LedgerTrade, ...], now: datetime) -> La
             occurred=last.facts.occurred,
             money=last.facts.quote,
             asset=code,
-        )
+        ),
+        listed=own,
     )
