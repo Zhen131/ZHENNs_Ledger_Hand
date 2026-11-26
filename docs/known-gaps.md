@@ -741,6 +741,18 @@ tools handed to the model and is left for a batch of its own. Until then:
   (`MONEY_NOT_CLEAR`), or when the asset's last trade used USDT or the US
   dollar but that money prices nothing in the ledger now. Neither is in
   the rules for cards, and both are still asked, as decided on 2026-11-26.
+- **A figure worked out is put back to a number said only when it rounds
+  to it.** When a figure worked out (the third of quantity, price and
+  total) rounds, at the places of a number the user said and no cell
+  used, to that number, and they are within one ten-thousandth of it
+  (`LEDGER_HAND_SAID_NUMBER_GAP`, chosen on 2026-11-26 with no source),
+  the number said is kept. A figure further off, a number said for
+  something else that happens to round the same, two such numbers, or one
+  a cell already used leave the figure worked out as it was; only a
+  figure worked out is ever changed, never one the model copied, and the
+  time, the fee and the money are not looked at. A number said that
+  rounds the same way by chance (a price of 150 said beside a total
+  worked out as 150.00078) would be taken for the total.
 - **A cell the model wrote that is not in the words is left empty, unmarked.**
   On a card, a figure or a time the model wrote that is not a piece of what
   was said, or that could not be read as a number, is left empty with no
