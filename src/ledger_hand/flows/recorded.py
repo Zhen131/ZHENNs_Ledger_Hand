@@ -15,13 +15,18 @@ later an interface to show; it works nothing out.
   sent, and why.
 - ``Sent``: the program's own word on what reached the ledger: one proposal
   for each trade the ledger took.
+- ``MarkedTrade``: what the program noticed about one trade proposed: the
+  marks on its cells (``core/marks.py``) and how its price compared with
+  the ledger's market price (``core/price_check.py``). For now they stay
+  on this side: the ledger is not handed them.
 - ``Recorded``: all of it: the ending, the flow's progress as it stands
   (with every call the flow made to the model, counted apart from the
-  assistant's steps), the trades proposed, the trades left out, the
-  ledger's checks when it turned the proposal down, and the failure.
+  assistant's steps), the trades proposed and each one's marks, the
+  trades left out, the ledger's checks when it turned the proposal down,
+  and the failure.
 
 Names defined here: ``RecordEnding``, ``STAGE_ENDINGS``, ``SETTLED_STAGES``,
-``LeftOut``, ``LeftOutTrade``, ``Sent`` and ``Recorded``.
+``LeftOut``, ``LeftOutTrade``, ``Sent``, ``MarkedTrade`` and ``Recorded``.
 """
 
 from __future__ import annotations
@@ -33,6 +38,8 @@ from decimal import Decimal
 from types import MappingProxyType
 
 from ledger_hand.core.ledger_records import TradeFacts
+from ledger_hand.core.marks import TradeMarks
+from ledger_hand.core.price_check import PriceCheck
 from ledger_hand.core.proposals import TradeCheck
 from ledger_hand.flows.progress import Progress, Question, Stage
 from ledger_hand.ports import LedgerError
@@ -93,7 +100,8 @@ class LeftOut(enum.Enum):
     CANNOT_RECORD = "cannot_record"
     """The flow found it cannot be recorded, and says why."""
     DAY_ONLY = "day_only"
-    """Only its day was said, not the time of day; no time is made up for it."""
+    """Only its day was said, not the time of day. No path leads here now: such a trade is
+    sent with its day alone. Kept so that the words for it, and older records, stay."""
     NOT_IN_LEDGER = "not_in_ledger"
     """An asset it names, or its fee's, is not in the ledger."""
     MONEY_TRADED = "money_traded"
@@ -150,13 +158,22 @@ class Sent:
 
 
 @dataclass(frozen=True, kw_only=True)
+class MarkedTrade:
+    """What the program noticed about one trade proposed: its marks, and its price check."""
+
+    marks: TradeMarks
+    price: PriceCheck
+
+
+@dataclass(frozen=True, kw_only=True)
 class Recorded:
     """How recording what was said ended this time, and everything it rests on.
 
     ``trades`` are the trades proposed, in the order said, and ``numbers``
     the number of each in what was said; ``checks`` are the ledger's checks
     of them, one each, in the same order: a proposal's identifier, or why
-    the ledger turned it down. ``missing_money`` is the code
+    the ledger turned it down. ``marked`` holds, in the same order, the
+    marks of each and how its price compared. ``missing_money`` is the code
     of a money the ledger lacks, for a caller that names one; recording
     what the user said to the assistant leaves it empty.
     """
@@ -165,6 +182,7 @@ class Recorded:
     progress: Progress
     trades: tuple[TradeFacts, ...] = ()
     numbers: tuple[int, ...] = ()
+    marked: tuple[MarkedTrade, ...] = ()
     left_out: tuple[LeftOutTrade, ...] = ()
     checks: tuple[TradeCheck, ...] = ()
     sent: Sent | None = None

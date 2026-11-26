@@ -125,6 +125,7 @@ from __future__ import annotations
 import enum
 from dataclasses import dataclass, replace
 from datetime import datetime
+from decimal import Decimal
 
 from ledger_hand.assistant.edit_calls import EDIT_TOOLS
 from ledger_hand.assistant.edit_words import not_done_words
@@ -157,6 +158,7 @@ from ledger_hand.flows.recorded import (
 )
 from ledger_hand.flows.screenshot import joined_passage, start_from_reading
 from ledger_hand.ports import LedgerError, LedgerPort, Message, ModelPort, Role, ToolCall
+from ledger_hand.settings import DEFAULT_PRICE_GAP_TIMES
 
 # The prompt versions the assistant judges and extracts what the user said
 # with. The record page keeps the first ones. Measured on 2026-11-25 on
@@ -298,6 +300,7 @@ class _Around:
     ``raw_text`` is the words as the user said them, when tidying changed
     them; a trade recorded from them is sent with these words.
     ``chinese`` is the version words with Chinese in them are extracted with.
+    ``gap`` is how many times apart a price and the market price are far.
     """
 
     model: ModelPort
@@ -307,6 +310,7 @@ class _Around:
     tuning: Tuning
     raw_text: str | None = None
     chinese: PromptVersion = ASSISTANT_CHINESE_EXTRACT_PROMPT
+    gap: Decimal = DEFAULT_PRICE_GAP_TIMES
 
 
 def say(
@@ -320,6 +324,7 @@ def say(
     max_steps: int,
     tuning: Tuning = DEFAULT_TUNING,
     extract_for_chinese: PromptVersion | None = None,
+    price_gap: Decimal = DEFAULT_PRICE_GAP_TIMES,
 ) -> Said:
     """What comes of the user saying ``said`` after ``state``.
 
@@ -328,11 +333,13 @@ def say(
     ``said`` is tidied first, and the words tidied go on in its place.
     ``extract_for_chinese``, when given, is the version words with Chinese
     in them are extracted with, in place of the assistant's own.
+    ``price_gap`` is how many times apart a trade's price and the ledger's
+    market price are far (``settings.load_price_gap_times``).
     """
     read_as = tidy_spoken(said, zone)
     chinese = extract_for_chinese or ASSISTANT_CHINESE_EXTRACT_PROMPT
     raw_text = said if read_as.changed else None
-    around = _Around(model, ledger, now, zone, tuning, raw_text, chinese)
+    around = _Around(model, ledger, now, zone, tuning, raw_text, chinese, price_gap)
     done = _said(state, read_as.text, around, max_steps)
     return replace(done, read_as=read_as)
 
@@ -397,6 +404,7 @@ def say_from_reading(
     now: datetime,
     zone: str,
     tuning: Tuning = DEFAULT_TUNING,
+    price_gap: Decimal = DEFAULT_PRICE_GAP_TIMES,
 ) -> Said:
     """What comes of recording ``shot`` after ``state``, as if the passage were typed.
 
@@ -405,7 +413,7 @@ def say_from_reading(
     """
     if state.recording is not None or state.editing is not None:
         raise ValueError("something waits for the user's answer; answer it first")
-    around = _Around(model, ledger, now, zone, tuning)
+    around = _Around(model, ledger, now, zone, tuning, gap=price_gap)
     recorded = _begun("", around, shot)
     passage = recorded.progress.passage
     reply = reply_for(recorded, begun=True)
@@ -440,7 +448,7 @@ def _begun(said: str, around: _Around, shot: ScreenshotText | None = None) -> Re
     if table is None:
         unbegun = recording.unbegun(said, now=around.now, zone=around.zone, tuning=around.tuning)
         return Recorded(ending=RecordEnding.NO_PRICING_MONEY, progress=unbegun)
-    return _onward(_start(said, around, table, shot), around.ledger, listed)
+    return _onward(_start(said, around, table, shot), around, listed)
 
 
 def _start(said: str, around: _Around, table: AssetTable, shot: ScreenshotText | None) -> Progress:
@@ -486,7 +494,7 @@ def _start(said: str, around: _Around, table: AssetTable, shot: ScreenshotText |
 
 
 def _onward(
-    progress: Progress, ledger: LedgerPort, listed: tuple[Asset, ...] | None = None
+    progress: Progress, around: _Around, listed: tuple[Asset, ...] | None = None
 ) -> Recorded:
     """Settled trades go to the ledger; anything else ends where the flow stands.
 
@@ -495,14 +503,14 @@ def _onward(
     while a question waited.
     """
     if progress.stage in SETTLED_STAGES:
-        return propose(progress, ledger, listed)
+        return propose(progress, around.ledger, listed, gap=around.gap)
     return Recorded(ending=STAGE_ENDINGS[progress.stage], progress=progress)
 
 
 def _answered(state: AssistantChat, waiting: Progress, said: str, around: _Around) -> Said:
     last_money = last_money_of(around.ledger, around.now)
     progress = recording.answer(waiting, said, around.model, last_money=last_money)
-    recorded = _onward(progress, around.ledger)
+    recorded = _onward(progress, around)
     reply = reply_for(recorded)
     chat = _with_words(state.chat, (Message(Role.USER, said), Message(Role.ASSISTANT, reply)))
     chat = _with_proposal(chat, recorded)

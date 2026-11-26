@@ -11,7 +11,7 @@ and trade is invented.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 
 from ledger_hand.assistant.outcome import (
@@ -325,7 +325,7 @@ def test_a_read_call_beside_a_call_to_record_is_not_run() -> None:
     assert '"status":"not_run"' in not_run.result
     assert isinstance(taken, TakenCall)
     assert not said.turn.steps[0].wrong
-    assert ledger.calls == ["list_assets", "propose_add"]
+    assert ledger.calls == ["list_assets", "market_prices", "propose_add"]
     results = [item for item in said.state.chat.items if isinstance(item, ToolResult)]
     assert [item.name for item in results] == ["list_assets", "propose_trade_add"]
 
@@ -357,7 +357,7 @@ def test_a_trade_whose_asset_is_not_in_the_ledger_is_left_out_and_the_other_sent
     assert len(pending(ledger)) == 1
 
 
-def test_a_trade_known_only_to_the_day_is_not_sent_and_given_no_time_of_day() -> None:
+def test_a_trade_known_only_to_the_day_is_sent_with_its_day_alone() -> None:
     words = (
         "昨天买了0.5 ETH，价格2700，手续费1.35 USDT；"
         "今天上午9:40买了0.02 BTC，价格94900，手续费2 USDT"
@@ -372,11 +372,14 @@ def test_a_trade_known_only_to_the_day_is_not_sent_and_given_no_time_of_day() ->
     )
 
     assert said.recorded is not None
-    assert [trade.asset for trade in said.recorded.trades] == ["BTC"]
-    (left,) = said.recorded.left_out
-    assert (left.number, left.why, left.code) == (1, LeftOut.DAY_ONLY, "ETH")
-    assert "Trade 1 (ETH) was not sent: it has no time of day." in said.reply
-    assert all(trade.asset != "ETH" for trade in said.recorded.trades)
+    assert [trade.asset for trade in said.recorded.trades] == ["ETH", "BTC"]
+    assert said.recorded.left_out == ()
+    assert "has no time of day" not in said.reply
+    eth = said.recorded.trades[0]
+    assert eth.date_only
+    assert eth.day == date(2026, 11, 23)
+    assert (eth.occurred.hour, eth.occurred.minute) == (0, 0)
+    assert not said.recorded.trades[1].date_only
 
 
 def test_without_usdt_in_the_ledger_nothing_is_sent() -> None:

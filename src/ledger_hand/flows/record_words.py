@@ -38,9 +38,24 @@ the ending's sentence (``GUESSED_WORDS``): which money, from which asset's
 last trade, and that it is a guess to check. The words are fixed here,
 never the model's. (Decided on 2026-11-25.)
 
+Each trade sent whose price was compared with the ledger's market price
+and found far from it, or could not be compared, gets one line after
+those (``PRICE_WORDS``, one for each ``PriceVerdict``, ``None`` where
+nothing is said): far says the price, the market price with its day, how
+many times apart and which way, and that it is marked suspicious; not
+compared says why. A price within reach, or an asset with no market
+price, is not spoken of. (Decided on 2026-11-25.)
+
+``price_check_words`` says what came of the comparison in a few words,
+for every outcome, and ``not_checked_words`` why a price was not compared
+at all, for the try-out script and the line under a trade's card: a card
+carries no mark when nothing was compared, and the user should not take
+it as checked.
+
 Names defined here: ``ENDING_WORDS``, ``LEFT_OUT_WORDS``,
-``SPOKEN_REMINDERS``, ``PICKED_WORDS``, ``GUESSED_WORDS``, ``reply_for``
-and ``spoken_reminders``.
+``SPOKEN_REMINDERS``, ``PICKED_WORDS``, ``GUESSED_WORDS``, ``PRICE_WORDS``,
+``NOT_CHECKED_WORDS``, ``reply_for``, ``price_line``, ``price_check_words``,
+``not_checked_words`` and ``spoken_reminders``.
 """
 
 from __future__ import annotations
@@ -48,6 +63,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from types import MappingProxyType
 
+from ledger_hand.core.price_check import PriceCheck, PriceVerdict
 from ledger_hand.core.proposals import CheckOutcome
 from ledger_hand.core.trade import Inferred
 from ledger_hand.extraction.issues import Issue, IssueKind
@@ -167,6 +183,50 @@ GUESSED_WORDS: Mapping[frozenset[Inferred], str] = MappingProxyType(
     }
 )
 
+# The line for a trade sent whose price was compared with the ledger's market
+# price, or could not be; None where nothing is said. "far from the market
+# price" and "not compared with the market price" are the words to look for.
+PRICE_WORDS: Mapping[PriceVerdict, str | None] = MappingProxyType(
+    {
+        PriceVerdict.FAR: (
+            "Trade {number}: the price {price} {money} is far from the market price of "
+            "{asset} in the ledger, {market} {market_money}{day} (about {times} times "
+            "{way}). It is marked suspicious; check it before you confirm."
+        ),
+        PriceVerdict.WITHIN: None,
+        PriceVerdict.NO_MARKET_PRICE: None,
+        PriceVerdict.OTHER_MONEY: (
+            "Trade {number}: the price was not compared with the market price: the trade is "
+            "in {money}, the ledger's market price of {asset} is in {market_money}, and the "
+            "two are never taken as one money."
+        ),
+        PriceVerdict.NO_MONEY: (
+            "Trade {number}: the price was not compared with the market price: the money "
+            "it was paid in is not settled yet."
+        ),
+        PriceVerdict.NOT_ASKED: (
+            "Trade {number}: the price was not compared with the market price: the ledger "
+            "could not be asked for it ({failure})."
+        ),
+    }
+)
+
+# Why a price was not compared with the market price, in a few words; None
+# for the two outcomes that were compared.
+NOT_CHECKED_WORDS: Mapping[PriceVerdict, str | None] = MappingProxyType(
+    {
+        PriceVerdict.FAR: None,
+        PriceVerdict.WITHIN: None,
+        PriceVerdict.NO_MARKET_PRICE: "no market price in the ledger",
+        PriceVerdict.OTHER_MONEY: (
+            "the market price is in {market_money} and the trade in {money}, never taken as "
+            "one money"
+        ),
+        PriceVerdict.NO_MONEY: "the money the trade used is not settled yet",
+        PriceVerdict.NOT_ASKED: "the ledger could not be asked for its market prices ({failure})",
+    }
+)
+
 # The endings after which a guessed money is said: a trade waits, or may.
 _SAYS_GUESSES = frozenset({RecordEnding.SENT, RecordEnding.PARTLY_SENT, RecordEnding.MAYBE_SENT})
 
@@ -197,7 +257,7 @@ def reply_for(recorded: Recorded, *, begun: bool = False) -> str:
     first = ENDING_WORDS[recorded.ending].format(
         question=_question(recorded), code=recorded.missing_money or "", reason=_reason(recorded)
     )
-    lines = [first, *_guessed(recorded)]
+    lines = [first, *_guessed(recorded), *_priced(recorded)]
     if begun or recorded.ending is not RecordEnding.ASKING:
         lines.extend(_picked(recorded))
     lines.extend(_left_out(trade) for trade in recorded.left_out)
@@ -229,6 +289,82 @@ def _guessed(recorded: Recorded) -> list[str]:
             )
         )
     return lines
+
+
+def _waiting_trades(recorded: Recorded) -> list[tuple[int, int]]:
+    """Each trade sent that waits in the ledger, or may: its place among those sent, its number."""
+    if recorded.ending not in _SAYS_GUESSES:
+        return []
+    passed = (
+        [check.outcome is CheckOutcome.PASSED for check in recorded.checks]
+        if recorded.checks
+        else [True] * len(recorded.numbers)
+    )
+    return [
+        (place, number)
+        for place, (number, waits) in enumerate(zip(recorded.numbers, passed, strict=True))
+        if waits
+    ]
+
+
+def _priced(recorded: Recorded) -> list[str]:
+    """One line for each trade waiting whose price was far, or was not compared."""
+    if len(recorded.marked) != len(recorded.numbers):
+        return []
+    lines: list[str] = []
+    for place, number in _waiting_trades(recorded):
+        trade = recorded.trades[place]
+        line = price_line(number, trade.asset, recorded.marked[place].price)
+        if line is not None:
+            lines.append(line)
+    return lines
+
+
+def price_line(number: int, asset: str, check: PriceCheck) -> str | None:
+    """The line about trade ``number``'s price against the market price; ``None`` for none."""
+    words = PRICE_WORDS[check.verdict]
+    return None if words is None else words.format(**_price_fields(number, asset, check))
+
+
+def _price_fields(number: int, asset: str, check: PriceCheck) -> dict[str, object]:
+    """What the words about ``check`` are filled in with."""
+    market = check.market
+    return {
+        "number": number,
+        "asset": asset,
+        "price": format(check.price, "f") if check.price is not None else "",
+        "money": check.money or "",
+        "market": format(market.price.amount, "f") if market is not None else "",
+        "market_money": market.price.currency if market is not None else "",
+        "day": f" on {market.day.isoformat()}" if market is not None and market.day else "",
+        "times": format(check.times, "f") if check.times is not None else "",
+        "way": "higher" if check.higher else "lower",
+        "failure": check.failure or "",
+    }
+
+
+def not_checked_words(check: PriceCheck) -> str | None:
+    """Why the price was not compared, in a few words; ``None`` when it was."""
+    words = NOT_CHECKED_WORDS[check.verdict]
+    return None if words is None else words.format(**_price_fields(0, "", check))
+
+
+def price_check_words(check: PriceCheck) -> str:
+    """What came of comparing the price, in a few words.
+
+    Example: "far from the market price: 64880 USDT on 2026-11-24, about 68
+    times lower"; "not compared: the ledger could not be asked ...".
+    """
+    if check.verdict.compared:
+        start = "far from" if check.verdict is PriceVerdict.FAR else "within reach of"
+        fields = _price_fields(0, "", check)
+        return (
+            f"{start} the market price: {fields['market']} {fields['market_money']}"
+            f"{fields['day']}, about {fields['times']} times {fields['way']}"
+        )
+    if check.verdict is PriceVerdict.NO_MARKET_PRICE:
+        return NOT_CHECKED_WORDS[check.verdict] or ""
+    return f"not compared: {not_checked_words(check)}"
 
 
 def _picked(recorded: Recorded) -> list[str]:

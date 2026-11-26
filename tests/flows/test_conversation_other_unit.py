@@ -127,7 +127,7 @@ def test_of_two_trades_the_one_in_another_unit_is_held_and_the_other_sent() -> N
     (left,) = recorded.left_out
     assert (left.number, left.why) == (1, LeftOut.QUANTITY_IN_OTHER_UNIT)
     assert said.reply.splitlines()[1].startswith("Trade 1 was not sent:")
-    assert ledger.calls == ["list_assets", "propose_add"]
+    assert ledger.calls == ["list_assets", "market_prices", "propose_add"]
 
 
 def test_the_other_trade_is_still_asked_about_and_the_held_one_said_when_it_ends() -> None:

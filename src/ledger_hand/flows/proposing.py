@@ -22,8 +22,6 @@ A trade is left out, and the others still sent, when:
 - the flow held it back at the start, its quantity said in a unit that is
   not the asset traded ("25U" of ETH); it is told by that unit and the
   number as read, before any other reason it may also have;
-- only its day was said: the ledger needs a moment, and no time of day is
-  made up for it;
 - the money it is priced in, or its fee was taken in, is a money the
   ledger does not have at all ("欧元" with no euro): it is told so, by
   that money's code, never as an asset the ledger lacks;
@@ -40,6 +38,18 @@ to be an exchange of currencies, which the assistant does not record.
 A trade that names a code two assets of the ledger share (a coin and a
 stock) is not sent either: both are named, and none is picked.
 
+A trade known only to its day is sent with its day alone (``date_only``):
+no time of day is made up for it, and the ledger takes it so.
+
+Once the trades to send are known, and only then, the ledger is asked
+once for its market prices. Each trade's price is compared with its
+asset's (``core/price_check.py``), far at ``gap`` times apart
+(``settings.LEDGER_HAND_PRICE_GAP_TIMES``), and the marks on its cells
+are worked out (``core/marks.py``): they come back with the proposal
+(``Recorded.marked``), for the user to see, and are not sent to the
+ledger. A ledger that cannot be asked for its market prices leaves every
+price not compared, and the trades are sent all the same.
+
 Each trade is priced in the money its record names. The ledger checks each
 trade on its own: those it takes wait there, each as a proposal of its
 own, and those it turns down are told with its reason; it may take all,
@@ -53,30 +63,47 @@ Names defined here: ``propose``.
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from datetime import datetime
+from datetime import date, datetime, time, timezone
+from decimal import Decimal
+from zoneinfo import ZoneInfo
 
 from ledger_hand.core.asset_words import problem_words
 from ledger_hand.core.assets import AssetTable, MoneyReading
-from ledger_hand.core.ledger_records import Asset, Pricing, TradeFacts
+from ledger_hand.core.ledger_records import Asset, MarketPrice, Pricing, TradeFacts
 from ledger_hand.core.ledger_table import SameCode, same_code_words, same_codes
-from ledger_hand.core.trade import TimePrecision, TradeDraft, TradeRecord
+from ledger_hand.core.marks import marks_for
+from ledger_hand.core.price_check import check_price, not_asked
+from ledger_hand.core.trade import TradeDraft, TradeRecord
 from ledger_hand.core.validation import Violation
 from ledger_hand.extraction.issues import Issue
 from ledger_hand.flows.progress import Progress, Stage, TradeState, TradeStatus
-from ledger_hand.flows.recorded import LeftOut, LeftOutTrade, Recorded, RecordEnding, Sent
+from ledger_hand.flows.recorded import (
+    LeftOut,
+    LeftOutTrade,
+    MarkedTrade,
+    Recorded,
+    RecordEnding,
+    Sent,
+)
 from ledger_hand.flows.recording import finish, held_other_unit
 from ledger_hand.ports import LedgerError, LedgerErrorKind, LedgerPort
+from ledger_hand.settings import DEFAULT_PRICE_GAP_TIMES
 
 type _Numbered = tuple[int, TradeRecord]
 
 
 def propose(
-    progress: Progress, ledger: LedgerPort, listed: Sequence[Asset] | None = None
+    progress: Progress,
+    ledger: LedgerPort,
+    listed: Sequence[Asset] | None = None,
+    *,
+    gap: Decimal = DEFAULT_PRICE_GAP_TIMES,
 ) -> Recorded:
     """Send the settled trades of ``progress`` to ``ledger`` as one proposal, as far as can be.
 
     ``listed`` is the ledger's list of assets when the caller asked for it
     already this turn; it is used as it is, and the ledger is not asked again.
+    ``gap`` is how many times apart a price and the market price are far.
     """
     if progress.stage is Stage.REVIEWING:
         progress = finish(progress)
@@ -98,7 +125,40 @@ def propose(
     left_out = tuple(sorted((*left_out, *not_sent), key=lambda trade: trade.number))
     if not trades:
         return Recorded(ending=RecordEnding.NOTHING_TO_SEND, progress=progress, left_out=left_out)
-    return _sent(progress, ledger, numbers, trades, left_out)
+    marked = _marked(numbers, dict(records), ledger, assets, gap)
+    return _sent(progress, ledger, numbers, trades, left_out, marked)
+
+
+def _marked(
+    numbers: tuple[int, ...],
+    records: Mapping[int, TradeRecord],
+    ledger: LedgerPort,
+    assets: Mapping[str, Asset],
+    gap: Decimal,
+) -> tuple[MarkedTrade, ...]:
+    """Each trade to send, its price compared with the market price and its cells marked.
+
+    The ledger is asked for its market prices once. When it cannot be asked,
+    no price is compared and the trades are still sent (85B, 2026-11-25).
+    """
+    markets: tuple[MarketPrice, ...] = ()
+    failure: str | None = None
+    try:
+        markets = ledger.market_prices()
+    except LedgerError as error:
+        failure = error.message
+    marked: list[MarkedTrade] = []
+    for number in numbers:
+        record = records[number]
+        if failure is not None:
+            check = not_asked(record.price, record.quote, failure)
+        else:
+            own = [market for market in markets if market.asset == record.coin]
+            check = check_price(record.price, record.quote, own, gap)
+        asset = assets.get(record.coin)
+        marks = marks_for(record, check, asset_name=asset.name if asset is not None else None)
+        marked.append(MarkedTrade(marks=marks, price=check))
+    return tuple(marked)
 
 
 def _sent(
@@ -107,6 +167,7 @@ def _sent(
     numbers: tuple[int, ...],
     trades: tuple[TradeFacts, ...],
     left_out: tuple[LeftOutTrade, ...],
+    marked: tuple[MarkedTrade, ...],
 ) -> Recorded:
     try:
         said = progress.raw_text if progress.raw_text is not None else progress.passage
@@ -119,6 +180,7 @@ def _sent(
                 progress=progress,
                 trades=trades,
                 numbers=numbers,
+                marked=marked,
                 left_out=left_out,
                 failure=error,
             )
@@ -134,6 +196,7 @@ def _sent(
         progress=progress,
         trades=trades,
         numbers=numbers,
+        marked=marked,
         left_out=left_out,
         checks=result.checks,
         sent=Sent(proposals=result.proposal_ids) if result.proposal_ids else None,
@@ -284,10 +347,6 @@ def _codes(record: TradeRecord) -> tuple[str, ...]:
 
 
 def _why_not(number: int, record: TradeRecord, assets: Mapping[str, Asset]) -> LeftOutTrade | None:
-    if record.occurred.precision is TimePrecision.DAY or not isinstance(
-        record.occurred.value, datetime
-    ):
-        return LeftOutTrade(number=number, why=LeftOut.DAY_ONLY, code=record.coin)
     for code in (record.coin, record.fee_coin, record.quote):
         if code not in assets:
             return LeftOutTrade(number=number, why=LeftOut.NOT_IN_LEDGER, code=code)
@@ -297,10 +356,16 @@ def _why_not(number: int, record: TradeRecord, assets: Mapping[str, Asset]) -> L
 
 
 def _facts(record: TradeRecord, assets: Mapping[str, Asset], said: str) -> TradeFacts:
-    """The record as the ledger takes it: every figure as the flow gave it."""
+    """The record as the ledger takes it: every figure as the flow gave it.
+
+    A trade known only to its day holds the start of that day, with that
+    day's offset in its zone, and says so (``date_only``).
+    """
     moment = record.occurred.value
-    if not isinstance(moment, datetime):
-        raise ValueError("a trade known only to the day is never sent")
+    date_only = not isinstance(moment, datetime)
+    if date_only:
+        moment = _start_of(moment, record.occurred.time_zone)
+    assert isinstance(moment, datetime)
     return TradeFacts(
         occurred=moment,
         side=record.side,
@@ -315,6 +380,14 @@ def _facts(record: TradeRecord, assets: Mapping[str, Asset], said: str) -> Trade
         note=record.note if record.note is not None else "",
         raw_text=said,
         zone=record.occurred.time_zone,
-        date_only=False,
+        date_only=date_only,
         cost_rate=None,
     )
+
+
+def _start_of(day: date, zone: str) -> datetime:
+    """The start of ``day`` in ``zone``, held with that moment's fixed offset."""
+    start = datetime.combine(day, time(0), tzinfo=ZoneInfo(zone))
+    offset = start.utcoffset()
+    assert offset is not None
+    return start.replace(tzinfo=timezone(offset))

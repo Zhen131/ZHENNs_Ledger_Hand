@@ -117,7 +117,7 @@ def test_a_share_bought_with_dollars_is_one_proposal_priced_in_usd() -> None:
         Decimal("1"),
     )
     assert trade.platform == "IBKR"
-    assert ledger.calls == ["list_assets", "propose_add"]
+    assert ledger.calls == ["list_assets", "market_prices", "propose_add"]
 
 
 def test_a_price_with_no_money_is_asked_about_and_the_answer_prices_the_trade() -> None:
