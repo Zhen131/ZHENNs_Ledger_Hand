@@ -1540,6 +1540,17 @@ Assistant page reads it when the program starts; a value it refuses stops
 that page alone, which says why, and the Record and Settings pages work as
 before.
 
+### How far a price may be from the market price
+
+| Variable | Default | What it sets | Why this default |
+| --- | --- | --- | --- |
+| `LEDGER_HAND_PRICE_GAP_TIMES` | `5` | How many times apart a trade's price and the ledger's market price of its asset must be, either way, for the price to be marked suspicious; a number above 1 and at most 1000, such as `3` or `2.5`. Exactly that many times counts. | Five was chosen on 2026-11-25 with no source behind it; the product owner may change it. At 1 or below every price would be marked, and beyond 1000 it is the same as not comparing; both bounds are taken for now and wait for a reason. |
+
+Like the step limit, this is not one of the model settings and is not
+shown on the settings page. The Assistant page and
+`scripts/try_assistant.py` read it when they start; a value it refuses
+stops the Assistant page alone, which says why.
+
 ### Variables the scripts read
 
 | Variable | Default | What it sets | Why this default |

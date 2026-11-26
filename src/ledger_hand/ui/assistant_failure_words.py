@@ -44,7 +44,13 @@ from ledger_hand.flows.recorded import RecordEnding
 from ledger_hand.flows.standing import DemoDone, DemoOutcome
 from ledger_hand.flows.uploading import UploadNotRead, UploadProblem
 from ledger_hand.ports import LedgerError, LedgerErrorKind, ModelError, ModelErrorKind
-from ledger_hand.settings import ASSISTANT_STEPS_VARIABLE, ModelSettings, Plug, Variable
+from ledger_hand.settings import (
+    ASSISTANT_STEPS_VARIABLE,
+    PRICE_GAP_TIMES_VARIABLE,
+    ModelSettings,
+    Plug,
+    Variable,
+)
 from ledger_hand.ui import failure_words
 
 
@@ -56,6 +62,7 @@ class Stop(enum.Enum):
     NO_LEDGER = "no ledger is connected"
     CLOUD_PLUG = "the cloud plug is set, and the assistant runs on the local plug only"
     STEPS_REFUSED = "the setting of how many steps the assistant may take was refused"
+    PRICE_GAP_REFUSED = "the setting of how far a price may be from the market price was refused"
 
 
 # {steps} is how many times the model may be asked in one turn.
@@ -82,6 +89,11 @@ STOPS: Mapping[Stop, str] = MappingProxyType(
         Stop.STEPS_REFUSED: (
             "The assistant cannot start: {detail}. Correct "
             f"{ASSISTANT_STEPS_VARIABLE}, or remove it to use its default, then start the "
+            "program again. Nothing typed here is sent."
+        ),
+        Stop.PRICE_GAP_REFUSED: (
+            "The assistant cannot start: {detail}. Correct "
+            f"{PRICE_GAP_TIMES_VARIABLE}, or remove it to use its default, then start the "
             "program again. Nothing typed here is sent."
         ),
     }

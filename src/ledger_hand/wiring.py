@@ -26,7 +26,9 @@ the demo book of ``ledger.demo_book``, a new one each time the parts are
 built), which kind of ledger it is (``ledger_kind``,
 ``flows.standing.LedgerKind``), and how many times the assistant may ask
 the model in one turn (``assistant_steps``, from
-``settings.load_assistant_steps``). Parts handed in without a ledger hold
+``settings.load_assistant_steps``), and how many times apart a price and
+the ledger's market price are far (``price_gap``, from
+``settings.load_price_gap_times``). Parts handed in without a ledger hold
 ``None`` for both, and the page then sends nothing.
 
 The interface's settings page hands in the changes made on it (variable to
@@ -88,6 +90,7 @@ import secrets
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
+from decimal import Decimal
 
 import tzlocal
 
@@ -108,6 +111,7 @@ from ledger_hand.llm.ollama_identity import ask_identity
 from ledger_hand.ports import LedgerPort, ModelError, ModelErrorKind, ModelPort, StoragePort
 from ledger_hand.settings import (
     DEFAULT_ASSISTANT_STEPS,
+    DEFAULT_PRICE_GAP_TIMES,
     LEDGER_DIRECTORY_VARIABLE,
     AssistantLedger,
     DataPlaces,
@@ -122,6 +126,7 @@ from ledger_hand.settings import (
     load_data_places,
     load_ledger_link_settings,
     load_model_settings,
+    load_price_gap_times,
 )
 from ledger_hand.storage.sqlite_store import SqliteStore
 
@@ -145,7 +150,10 @@ class Parts:
     for parts handed in without one; ``assistant_steps`` is how many times
     the assistant may ask the model in one turn, and ``steps_refused`` why
     that setting was refused, when it was (the assistant page then sends
-    nothing and says why; the other pages do not use it). ``first_ledger``
+    nothing and says why; the other pages do not use it). ``price_gap`` is
+    how many times apart a price and the market price are far, and
+    ``price_gap_refused`` why that setting was refused, when it was (the
+    assistant page then sends nothing and says why). ``first_ledger``
     is which ledger a new tab of the assistant page reaches first, and
     ``first_ledger_refused`` why the setting was refused, when it was.
     """
@@ -164,6 +172,8 @@ class Parts:
     ledger_kind: LedgerKind | None = None
     assistant_steps: int = DEFAULT_ASSISTANT_STEPS
     steps_refused: str | None = None
+    price_gap: Decimal = DEFAULT_PRICE_GAP_TIMES
+    price_gap_refused: str | None = None
     first_ledger: AssistantLedger = AssistantLedger.DEMO
     first_ledger_refused: str | None = None
 
@@ -207,6 +217,7 @@ def assemble(changes: Mapping[Variable, str] | None = None) -> Parts:
         raise AssemblyError(AssemblyProblem.NO_ZONE_NAME)
     local = settings.plug is Plug.LOCAL
     steps, steps_refused = _steps()
+    gap, gap_refused = _price_gap()
     first, first_refused = _first_ledger()
     return Parts(
         model=model,
@@ -223,6 +234,8 @@ def assemble(changes: Mapping[Variable, str] | None = None) -> Parts:
         ledger_kind=LedgerKind.DEMO,
         assistant_steps=steps,
         steps_refused=steps_refused,
+        price_gap=gap,
+        price_gap_refused=gap_refused,
         first_ledger=first,
         first_ledger_refused=first_refused,
     )
@@ -246,6 +259,17 @@ def _steps() -> tuple[int, str | None]:
         return load_assistant_steps(), None
     except SettingsError as error:
         return DEFAULT_ASSISTANT_STEPS, str(error)
+
+
+def _price_gap() -> tuple[Decimal, str | None]:
+    """How many times apart a price is far, or the default and why the setting was refused.
+
+    Like a refused step limit, it stops only the assistant page, which says why.
+    """
+    try:
+        return load_price_gap_times(), None
+    except SettingsError as error:
+        return DEFAULT_PRICE_GAP_TIMES, str(error)
 
 
 def _vision_model_check(settings: ModelSettings) -> VisionModelCheck:

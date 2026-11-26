@@ -36,6 +36,11 @@ model in one turn: ``LEDGER_HAND_ASSISTANT_STEPS``, six when it is not set.
 Like the data folder, it is not a model setting and is not shown on the
 settings page; its default, its bounds and why are kept beside it below.
 
+``load_price_gap_times`` reads how many times apart a trade's price and
+the ledger's market price must be for the price to be marked suspicious:
+``LEDGER_HAND_PRICE_GAP_TIMES``, five when it is not set. It is not a
+model setting either, and is not shown on the settings page.
+
 ``load_ledger_link_settings`` reads what is needed to start the ledger's
 assistant link (the small Node.js program in the ledger's own folder that
 passes the assistant's tool calls to the ledger page): the ledger's folder
@@ -69,7 +74,9 @@ constants, ``MAX_RETRIES``, ``MAX_SCREENSHOT_MB``, ``Secret``, ``SettingsError``
 ``DATA_DIRECTORY_VARIABLE``, ``BOOK_FILE_NAME``, ``EXPORTS_DIRECTORY_NAME``,
 ``ASSISTANT_RECORD_FILE_NAME``, ``DataPlaces``, ``load_data_places``, ``ASSISTANT_STEPS_VARIABLE``,
 ``DEFAULT_ASSISTANT_STEPS``, ``FEWEST_ASSISTANT_STEPS``, ``MOST_ASSISTANT_STEPS``,
-``load_assistant_steps``, ``LEDGER_DIRECTORY_VARIABLE``, ``LEDGER_LINK_PORT_VARIABLE``,
+``load_assistant_steps``, ``PRICE_GAP_TIMES_VARIABLE``, ``DEFAULT_PRICE_GAP_TIMES``,
+``LEAST_PRICE_GAP_TIMES``, ``MOST_PRICE_GAP_TIMES``, ``load_price_gap_times``,
+``LEDGER_DIRECTORY_VARIABLE``, ``LEDGER_LINK_PORT_VARIABLE``,
 ``LEDGER_PAGE_PORT_VARIABLE``, ``DEFAULT_LEDGER_LINK_PORT``, ``DEFAULT_LEDGER_PAGE_PORT``,
 ``LedgerLinkSettings``, ``load_ledger_link_settings``, ``ASSISTANT_LEDGER_VARIABLE``,
 ``AssistantLedger`` and ``load_assistant_ledger``.
@@ -83,6 +90,7 @@ import os
 import re
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, replace
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from types import MappingProxyType
 from urllib.parse import urlsplit
@@ -702,6 +710,49 @@ def load_assistant_steps(environ: Mapping[str, str] | None = None) -> int:
             f"to {MOST_ASSISTANT_STEPS}, not {written!r}"
         )
     return int(written)
+
+
+# --- how far a price may be from the market price -----------------------------
+
+PRICE_GAP_TIMES_VARIABLE = "LEDGER_HAND_PRICE_GAP_TIMES"
+# Five: decided on 2026-11-25 by the session that hands out the work, with
+# no source behind it; the product owner may change it (81A, part 5, item 7).
+# A price at least five times the market price, or at most a fifth of it, is
+# marked suspicious; exactly five times counts.
+DEFAULT_PRICE_GAP_TIMES = Decimal("5")
+# Above 1: at 1 or below every price would be marked. At most 1000: beyond
+# that it is the same as not comparing. Both are taken for now, and wait for
+# a reason (85B, 2026-11-25).
+LEAST_PRICE_GAP_TIMES = Decimal("1")
+MOST_PRICE_GAP_TIMES = Decimal("1000")
+
+
+def load_price_gap_times(environ: Mapping[str, str] | None = None) -> Decimal:
+    """How many times apart a price and the market price are far, from ``environ``.
+
+    The process's environment when ``None``. Not set, or blank: the default.
+    A value that is not a decimal above ``LEAST_PRICE_GAP_TIMES`` and at
+    most ``MOST_PRICE_GAP_TIMES`` ("5", "2.5") is a ``SettingsError``
+    naming the variable.
+    """
+    source = os.environ if environ is None else environ
+    value = source.get(PRICE_GAP_TIMES_VARIABLE)
+    if value is None or not value.strip():
+        return DEFAULT_PRICE_GAP_TIMES
+    written = value.strip()
+    refused = SettingsError(
+        f"{PRICE_GAP_TIMES_VARIABLE}: a number above {LEAST_PRICE_GAP_TIMES} and at most "
+        f"{MOST_PRICE_GAP_TIMES}, such as 5 or 2.5, not {written!r}"
+    )
+    if not re.fullmatch(r"[0-9]{1,4}(\.[0-9]{1,6})?", written, flags=re.ASCII):
+        raise refused
+    try:
+        times = Decimal(written)
+    except InvalidOperation:
+        raise refused from None
+    if not LEAST_PRICE_GAP_TIMES < times <= MOST_PRICE_GAP_TIMES:
+        raise refused
+    return times
 
 
 # --- how the ledger's assistant link is started ------------------------------
