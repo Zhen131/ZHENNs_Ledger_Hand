@@ -1000,7 +1000,7 @@ five times.
 6. `Which assets does my ledger have?`
    Gets: A table of the ledger's assets: 13 rows, USDT, USD, BTC, ETH, ADA, MSFT, SOL, INTC, KO, AAPL, NVDA, PEP and DOT.
 7. `Which coins and shares am I holding at the moment?`
-   Gets: A table of what is held: 9 rows, AAPL, ADA, BTC, ETH, INTC, KO, MSFT, NVDA and SOL, each with its cost and its profit or loss on paper (not worked out for ADA, SOL, INTC, KO, AAPL and NVDA, which have no market price).
+   Gets: A table of what is held: 9 rows, AAPL, ADA, BTC, ETH, INTC, KO, MSFT, NVDA and SOL, each with its cost and its profit or loss on paper (not worked out for ADA, which has no market price).
 8. `Change the platform of the ADA buy on 25 September 2026 to Binance.`
    Gets: A change sent to the ledger, waiting there: the ADA buy of 25 September 2026, its platform from OKX to Binance, shown before and after.
 9. `Delete the MSFT sell on 12 November 2026.`

@@ -142,7 +142,7 @@
           "SOL"
         ]
       },
-      "shows": "A table of what is held: 9 rows, AAPL, ADA, BTC, ETH, INTC, KO, MSFT, NVDA and SOL, each with its cost and its profit or loss on paper (not worked out for ADA, SOL, INTC, KO, AAPL and NVDA, which have no market price)."
+      "shows": "A table of what is held: 9 rows, AAPL, ADA, BTC, ETH, INTC, KO, MSFT, NVDA and SOL, each with its cost and its profit or loss on paper (not worked out for ADA, which has no market price)."
     },
     {
       "id": "change-platform",
