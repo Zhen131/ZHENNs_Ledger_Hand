@@ -17,14 +17,16 @@ from pathlib import Path
 from evals.exam_book import EXAM_ADDED, EXAM_TRADES, exam_ledger
 from evals.spoken_set import load_spoken_set
 from ledger_hand.flows.last_money import last_money_of
-from ledger_hand.ledger.demo_book import DEMO_TRADES, demo_ledger
+from ledger_hand.ledger.demo_book import DEMO_ASSETS, DEMO_TRADES, demo_ledger
 
 REPO = Path(__file__).resolve().parents[2]
 SETS = sorted((REPO / "evals" / "sets" / "spoken").glob("spoken-r*.json"))
-# The two books' files as they stood before the exam book was added.
+# The two books' files: the invented book as it stood before the exam book
+# was added; the demo book as it stands since five market prices were added
+# to it (2026-11-25), its assets and trades as they were.
 BOOK_FILES = {
     "src/ledger_hand/ledger/demo_book.py": (
-        "05c89a7c33fdc4bfa878aeb5d762f5035a2c7c37aea82744beadaa1ab57bfe47"
+        "a2d528ace7a011e642c8b38922e53c81dd930c46dcbe2a4983963e005f85504b"
     ),
     "src/ledger_hand/ledger/invented_book.py": (
         "ee5c36c5876b22f35d282cdda21079bb2f12aedde9d125385d97cb5d06aa4b63"
@@ -35,6 +37,21 @@ BOOK_FILES = {
 def test_the_demo_and_invented_books_are_unchanged() -> None:
     for name, pinned in BOOK_FILES.items():
         assert hashlib.sha256((REPO / name).read_bytes()).hexdigest() == pinned, name
+
+
+# The demo book's assets and trades as they stood before the exam book was
+# added, so that a new digest above cannot hide a change to either.
+DEMO_ASSET_CODES = [
+    "USDT", "USD", "BTC", "ETH", "ADA", "MSFT", "SOL", "INTC", "KO", "AAPL", "NVDA", "PEP", "DOT",
+]  # fmt: skip
+DEMO_TRADE_KEYS = [f"t-{number}" for number in range(12, 21)] + [
+    f"t-{number:02d}" for number in range(1, 12)
+]
+
+
+def test_the_demo_books_assets_and_trades_are_as_they_were() -> None:
+    assert [asset.code for asset in DEMO_ASSETS] == DEMO_ASSET_CODES
+    assert [key for key, _ in DEMO_TRADES] == DEMO_TRADE_KEYS
 
 
 def test_the_exam_book_is_the_demo_book_and_seven_trades_after_it() -> None:

@@ -292,6 +292,7 @@ def test_draft_fields_are_the_ones_later_steps_rely_on() -> None:
         "derived",
         "inferred",
         "inferred_from",
+        "picked",
     ]
 
 
