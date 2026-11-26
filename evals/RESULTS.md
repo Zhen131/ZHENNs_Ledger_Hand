@@ -10145,3 +10145,29 @@ is ② (or ①b when the gold has the cell none), never ① and never ③.
 `stock_run` and `name_run` still say their sentences to a ledger that
 takes no card with empty cells, so they measure the way of asking each
 gap; sending cards is measured by `spoken_run`, three tiers, above.
+
+### A figure worked out put back to the number said
+
+On 2026-11-26 the coordinating session added a rule: a figure the program
+worked out that only rounds to a number the user said and no cell used
+(`NUMBERS_LEFT_OVER`) is put back to that number, when exactly one such
+number rounds to it at its places and is within one ten-thousandth of it
+(`LEDGER_HAND_SAID_NUMBER_GAP`, no source behind it), and the three
+figures still agree (`core/said_numbers.py`). Measured again at `c9cf9e6`:
+
+| Tier | Half | ① | ①a | ①b | ② (code) | ③ (code) | ④ rightly | ④ not rightly | ④ not its turn | ⑤ | Results |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| r100 | practice | 6 | 0 | 1 | 2 (1) | 0 | 2 | 0 | 0 | 1 | `spoken-20261126T064403Z-spoken-r100-practice-first-3-assistant-5.jsonl` |
+| r80 | practice | 4 | 0 | 1 | 6 (5) | 1 (0) | 1 | 0 | 0 | 0 | `spoken-20261126T064657Z-spoken-r80-practice-first-3-assistant-5.jsonl` |
+| r70 | practice | 9 | 3 | 1 | 0 | 1 | 0 | 0 | 0 | 0 | `spoken-20261126T064940Z-spoken-r70-practice-first-3-assistant-5.jsonl` |
+
+One sentence moved: R100-09, its quantity now 0.2314547 as said, is ②
+(the fee said but sent empty), no longer ③. R70-05 kept its total of
+150.00078: no 150 is among the numbers left over, extraction having
+counted it used. R80-07 is another kind: 950 U put as the price, the
+total worked out from it, no number said for it. The final set
+(`judged-20261126T065222Z-final-screen-2-first-3-hold-tidy.jsonl`): 22 of
+22 trades whole, 0 silently wrong. `stocks.json`
+(`run-20261126T065450Z-stocks-assistant-5.jsonl`): 16 of 18, 0 silently
+wrong.
+
