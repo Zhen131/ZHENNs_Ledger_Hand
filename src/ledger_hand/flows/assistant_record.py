@@ -17,7 +17,9 @@ the model gave, whether it was taken and why not), each trade proposed
 with its marks, what came of comparing its price with the market price
 and its cells sent empty, how it ended, the money moved said that the
 assistant does not record, what the ledger said of its cash (its balances
-as laid out, or that it has no tool for them), and the
+as laid out, or that it has no tool for them), each trade paid in another
+money than its asset's own with the rate it was sent with, the price said
+it came from and what it was compared with, and the
 model and prompt versions used. Amounts are
 written as text, each beside the money the result names. A screenshot's
 picture is never written: only that it came from a screenshot, and the
@@ -103,7 +105,13 @@ from ledger_hand.ports import LedgerError, ModelError
 # could not be asked, the money named, and the balances laid out, each
 # beside its money), or null. Entries of versions 1 to 6 are still read as
 # they are.
-RECORD_VERSION = 7
+# Version 8 (2026-11-26) added "rates": for each trade proposed that was paid
+# in another money than its asset's own, its number, the rate sent, the two
+# moneys, the price said in the asset's own money (and the trade its money
+# was guessed from), the rate it was compared with, whether either was far,
+# and a price said in the money paid that was not used. Entries of versions
+# 1 to 7 are still read as they are.
+RECORD_VERSION = 8
 
 # One thousand: an entry is a few thousand bytes, so the file stays at a few
 # megabytes and is read whole in a blink each time an entry is added; at
@@ -212,6 +220,7 @@ def entry_for(
         "marks": _marks(said),
         "manual": _manual(said),
         "cash": _cash(said),
+        "rates": _rates(said),
         "models": {"tools": model, "vision": vision_model if screenshot else None},
         "prompts": _prompts(said),
     }
@@ -474,6 +483,53 @@ def _cash(said: Said) -> dict[str, Any] | None:
             for row in (shown.balances if shown is not None else ())
         ],
     }
+
+
+def _rates(said: Said) -> list[dict[str, Any]]:
+    """For each trade proposed that was paid in another money: its rate and what it rests on.
+
+    Example: number 1, rate "1.0859375", USD for 1 EUR, from 69.5 USD a
+    share said, compared with nothing.
+    """
+    recorded = said.recorded
+    if recorded is None or len(recorded.marked) != len(recorded.numbers):
+        return []
+    found: list[dict[str, Any]] = []
+    for number, marked in zip(recorded.numbers, recorded.marked, strict=True):
+        note = marked.rate
+        if note is None:
+            continue
+        price = note.said
+        source = price.guessed_from
+        reference = note.reference
+        found.append(
+            {
+                "number": number,
+                "rate": _amount(note.rate),
+                "money": price.money,
+                "paid": price.paid,
+                "said_price": _amount(price.amount),
+                "guessed_from": {
+                    "trade": source.trade_id,
+                    "day": source.occurred.date().isoformat(),
+                    "money": source.money,
+                }
+                if source is not None
+                else None,
+                "reference": {
+                    "rate": _amount(reference.rate),
+                    "trade": reference.trade_id,
+                    "day": reference.day.isoformat(),
+                    "asset": reference.asset,
+                }
+                if reference is not None
+                else None,
+                "reference_far": note.reference_far,
+                "said_price_far": note.market_far,
+                "dropped": _amount(price.dropped) if price.dropped is not None else None,
+            }
+        )
+    return found
 
 
 def _price_check(check: PriceCheck) -> dict[str, Any]:

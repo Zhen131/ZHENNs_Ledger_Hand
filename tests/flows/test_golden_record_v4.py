@@ -82,10 +82,10 @@ def test_an_entry_made_now_has_the_names_of_the_golden_ones() -> None:
 
     # Version 5 added "ledger" and nothing else; the names of an entry made now
     # are checked against version 5's golden record, in test_golden_record_v5.py.
-    assert RECORD_VERSION == 7
+    assert RECORD_VERSION == 8
     for entry in entries:
         assert list(entry) == [
-            name for name in made if name not in ("ledger", "marks", "manual", "cash")
+            name for name in made if name not in ("ledger", "marks", "manual", "cash", "rates")
         ]
     assert list(entries[0]["asset_picks"][0]) == list(made["asset_picks"][0])
     assert list(entries[0]["trades"][0]) == list(made["trades"][0])

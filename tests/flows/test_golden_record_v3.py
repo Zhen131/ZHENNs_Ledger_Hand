@@ -77,7 +77,7 @@ def test_an_entry_of_version_three_keeps_every_name_an_entry_of_version_four_has
         assert list(entry) == [
             name
             for name in made
-            if name not in ("asset_picks", "ledger", "marks", "manual", "cash")
+            if name not in ("asset_picks", "ledger", "marks", "manual", "cash", "rates")
         ]
     assert list(entries[0]["trades"][0]) == list(made["trades"][0])
     assert list(entries[0]["sent"][0]) == list(made["sent"][0])

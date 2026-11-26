@@ -124,7 +124,7 @@ def test_an_entry_of_version_one_keeps_every_name_an_entry_of_version_two_has() 
         assert list(entry) == [
             name
             for name in made
-            if name not in ("read_as", "asset_picks", "ledger", "marks", "manual", "cash")
+            if name not in ("read_as", "asset_picks", "ledger", "marks", "manual", "cash", "rates")
         ]
 
 
