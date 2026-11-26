@@ -821,6 +821,13 @@ price said in the asset's own money (`flows/paid_apart.py`,
 - **The fake ledger keeps one pool for each asset and money.** Selling
   KO for euros there needs KO bought for euros; the real ledger holds the
   asset as one.
+- **The owner's long euro sentences are first asked buy or sell.** On the
+  practice halves' four such sentences the model reached, extraction left
+  the side empty ("……还花了0.46欧买了0.0061629股"), so the program asks
+  whether it was a buy or a sell, then which asset ("可口可乐"); answered,
+  each was sent as its gold answer says (`evals/RESULTS.md`, "The five
+  sentences of euros paid"). The fifth (R80-23) comes back empty from the
+  model, as it has since `assistant-5`. The prompts are not changed here.
 - **The hidden halves' sentences of euros paid are not enabled.** See
   "The assistant: recording a trade".
 
