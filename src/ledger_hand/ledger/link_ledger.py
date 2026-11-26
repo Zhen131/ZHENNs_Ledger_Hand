@@ -1,7 +1,7 @@
 """The real ledger's plug: the ledger port, spoken through the ledger's assistant link.
 
 ``LinkLedger`` does all the ledger port promises against the ledger the
-person keeps, through its eight tools (the ledger's
+person keeps, through its eight tools and the one for cash balances (the ledger's
 ``assistant-link/README.md``, ``dev@a6ba639``; what they really hand back is
 kept in ``tests/ledger/samples/``, 2026-11-25). It turns this program's
 shapes into the ledger's arguments and the ledger's answers back into this
@@ -56,9 +56,14 @@ What it turns, and how (68B2, part 13):
   its asset by the ledger's identifier and named by that asset's code; a
   code two assets share gives no market price, since neither is picked.
 - Holdings that are sold out (quantity 0) are left out. No cash balance is
-  ever handed back, and none is worked out from trades: a holding whose
-  asset the ledger lists as cash ("currency") is left out too, whatever
-  the ledger's holdings come to hold.
+  ever handed back with the holdings, and none is worked out from trades:
+  a holding whose asset the ledger lists as cash ("currency") is left out
+  too, whatever the ledger's holdings come to hold.
+- Cash balances are the ledger's own (``get_cash_balances``, taken with
+  ``{}``, added to the ledger on 2026-11-25): one row a money, as it hands
+  them back, in its order. A ledger older than that tool answers
+  ``UNKNOWN_TOOL``, which is said as ``NO_CASH_TOOL``: this ledger cannot,
+  not "it could not be asked" (decided on 2026-11-26).
 - What the user said and the model's name are measured before anything is
   sent, as the ledger measures them: words longer than
   ``SOURCE_TEXT_MOST`` or a name longer than ``MODEL_NAME_MOST`` send
@@ -97,9 +102,12 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from ledger_hand.core.ledger_limits import text_length
 from ledger_hand.core.ledger_records import (
     MOST_TRADES_LISTED,
+    NO_CASH_TOOL,
     Asset,
     AssetKind,
     AssetRealized,
+    CashBalance,
+    CashBalances,
     CurrencyTotals,
     Figure,
     LedgerTrade,
@@ -328,6 +336,19 @@ class LinkLedger:
         codes = {str(row.get("assetId")): str(row.get("assetCode")) for row in assets}
         found = (_market_price(row, codes, shared) for row in _list(answer, "positions"))
         return tuple(market for market in found if market is not None)
+
+    def cash_balances(self) -> CashBalances:
+        try:
+            answer = self._answer("get_cash_balances", {})
+        except LedgerError as error:
+            if error.code != "UNKNOWN_TOOL":
+                raise
+            raise LedgerError(
+                _O,
+                NO_CASH_TOOL,
+                "This ledger has no tool for cash balances: it is older than that tool.",
+            ) from error
+        return _cash(answer)
 
     # --- proposing --------------------------------------------------------------
 
@@ -637,6 +658,25 @@ def _money(code: str, value: object, reasons: object, fallback: str = _NOT_ADDED
     if value is None:
         return NotWorkedOut(reason=_reasons(reasons, fallback))
     return MoneyAmount(currency=code, amount=_decimal(value))
+
+
+def _cash(answer: Mapping[str, Any]) -> CashBalances:
+    """The ledger's cash balances as it handed them back, each in its own money."""
+    try:
+        day = date.fromisoformat(str(answer.get("todayDate")))
+        rows = tuple(
+            CashBalance(
+                code=str(row["currencyCode"]),
+                name=str(row["currencyName"]),
+                balance=_decimal(row["balance"]),
+            )
+            for row in _list(answer, "balances")
+        )
+        return CashBalances(day=day, balances=rows)
+    except (KeyError, ValueError, TypeError) as error:
+        raise LedgerError(
+            _O, "HAND_ANSWER_UNEXPECTED", f"The ledger's cash balances are not as due: {error}"
+        ) from None
 
 
 def _asset(row: Mapping[str, Any]) -> Asset:

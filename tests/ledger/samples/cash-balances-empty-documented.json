@@ -1,0 +1,15 @@
+{
+  "case": "cash-balances-empty-documented",
+  "_source": "Written from the ledger's assistant-link/README.md (get_cash_balances: every cash currency is listed, so none when the ledger holds none), not captured from a running ledger.",
+  "what": "a ledger with no cash money at all",
+  "tool": "get_cash_balances",
+  "arguments": {},
+  "answer": {
+    "kind": "result",
+    "content": {
+      "kind": "cash-balances",
+      "todayDate": "2026-11-25",
+      "balances": []
+    }
+  }
+}

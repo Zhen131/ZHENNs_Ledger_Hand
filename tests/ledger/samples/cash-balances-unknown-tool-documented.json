@@ -1,0 +1,15 @@
+{
+  "case": "cash-balances-unknown-tool-documented",
+  "_source": "Written from the ledger's assistant-link/README.md (error table, UNKNOWN_TOOL), as a ledger older than get_cash_balances would answer; not captured from a running ledger.",
+  "what": "an older ledger, with no tool for cash balances",
+  "tool": "get_cash_balances",
+  "arguments": {},
+  "answer": {
+    "kind": "error",
+    "content": {
+      "code": "UNKNOWN_TOOL",
+      "category": "invalid-arguments",
+      "message": "There is no tool with this name. Use only the tools listed."
+    }
+  }
+}

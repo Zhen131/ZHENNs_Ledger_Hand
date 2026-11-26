@@ -1,0 +1,34 @@
+{
+  "case": "cash-balances-documented",
+  "_source": "Written from the ledger's assistant-link/README.md (get_cash_balances) and its test assistantToolCall.cash.test.ts, not captured from a running ledger. Invented figures.",
+  "what": "every cash money one row, one at 0 and one below 0",
+  "tool": "get_cash_balances",
+  "arguments": {},
+  "answer": {
+    "kind": "result",
+    "content": {
+      "kind": "cash-balances",
+      "todayDate": "2026-11-25",
+      "balances": [
+        {
+          "currencyAssetId": "asset-usdt",
+          "currencyCode": "USDT",
+          "currencyName": "Tether USD",
+          "balance": "1200.5"
+        },
+        {
+          "currencyAssetId": "asset-usd",
+          "currencyCode": "USD",
+          "currencyName": "US Dollar",
+          "balance": "-30"
+        },
+        {
+          "currencyAssetId": "asset-cny",
+          "currencyCode": "CNY",
+          "currencyName": "Chinese Yuan",
+          "balance": "0"
+        }
+      ]
+    }
+  }
+}
