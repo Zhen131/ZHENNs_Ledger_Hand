@@ -33,8 +33,13 @@ with any other ledger; the assistant's model is never handed them.
 Cost and profit are worked out the fake ledger's own way
 (``moving_average``), which says nothing about the real ledger's way.
 
+Its market prices are the ones it is handed (``prices``, one amount for
+each asset and money), each for the day ``prices_on``: by default the day
+of the invented book's "now", 24 November 2026.
+
 ``failure``, when given, is raised by every call of the port, so that a test
-can see what becomes of a ledger that fails. ``calls`` names every call of
+can see what becomes of a ledger that fails; ``market_failure`` is raised
+by the call for market prices alone. ``calls`` names every call of
 the port made, in order; ``said`` keeps the words each proposal came with.
 
 Names defined here: ``FakeLedger``.
@@ -45,12 +50,15 @@ from __future__ import annotations
 import enum
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from datetime import date
 from decimal import Decimal
 
 from ledger_hand.core.ledger_records import (
     MOST_TRADES_LISTED,
     Asset,
     LedgerTrade,
+    MarketPrice,
+    MoneyAmount,
     PeriodRequest,
     PeriodSummary,
     Position,
@@ -71,12 +79,16 @@ from ledger_hand.ledger.fake_sums import period_summary, positions
 from ledger_hand.ledger.invented_book import (
     INVENTED_ASSETS,
     INVENTED_MARKET_PRICES,
+    INVENTED_NOW,
     INVENTED_TRADES,
 )
 from ledger_hand.ledger.moving_average import replay
 from ledger_hand.ports import LedgerError, LedgerErrorKind
 
 type Book = tuple[tuple[str, TradeFacts], ...]
+
+# The day the invented book's market prices are for: that of its "now".
+_INVENTED_DAY = INVENTED_NOW.date()
 
 _OVERSOLD_CODE = "sells_more_than_held"
 _OVERSOLD_WORDS = "With this, a sell would take out more than was held at the time."
@@ -109,10 +121,14 @@ class FakeLedger:
         prices: Mapping[tuple[str, str], Decimal] = INVENTED_MARKET_PRICES,
         failure: LedgerError | None = None,
         most_listed: int = MOST_TRADES_LISTED,
+        prices_on: date | None = _INVENTED_DAY,
+        market_failure: LedgerError | None = None,
     ) -> None:
         self._assets = tuple(assets)
         self._trades: Book = tuple(trades)
         self._prices = dict(prices)
+        self._prices_on = prices_on
+        self._market_failure = market_failure
         self._failure = failure
         self._most_listed = most_listed
         self._proposals: dict[str, _Proposal] = {}
@@ -154,6 +170,19 @@ class FakeLedger:
     def positions(self) -> tuple[Position, ...]:
         self._called("positions")
         return positions(replay(self._trades), self._prices)
+
+    def market_prices(self) -> tuple[MarketPrice, ...]:
+        self._called("market_prices")
+        if self._market_failure is not None:
+            raise self._market_failure
+        return tuple(
+            MarketPrice(
+                asset=asset,
+                price=MoneyAmount(currency=money, amount=amount),
+                day=self._prices_on,
+            )
+            for (asset, money), amount in sorted(self._prices.items())
+        )
 
     def propose_add(self, trades: tuple[TradeFacts, ...], said: str) -> ProposalResult:
         self._called("propose_add", said)

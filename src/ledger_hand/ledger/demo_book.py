@@ -16,8 +16,9 @@ PepsiCo and DOT have no trade at all, so that an asset the ledger lists
 but was never traded can be tried. The nine buys all fall before the
 invented book's first trade (12 September 2026), so every trade of the
 invented book keeps its place in time; only what is held, the costs and
-the profits of the later sells come out otherwise. The new assets and ADA
-have no market price, so their profit on paper is not worked out.
+the profits of the later sells come out otherwise. SOL, Intel, Coca-Cola,
+Apple and NVIDIA have a market price near their August buy; ADA, PepsiCo
+and DOT have none, so ADA's profit on paper is not worked out.
 
 Every number here is made up, as in the invented book, and copies no real
 trade and no test sentence. Why it exists: the assistant is shown on
@@ -220,8 +221,18 @@ DEMO_TRADES = (
     *INVENTED_TRADES,
 )
 
-# The invented book's market prices; the new assets have none.
-DEMO_MARKET_PRICES = INVENTED_MARKET_PRICES
+# The invented book's market prices, and five more near each asset's August
+# buy, so that a price said at about that level is never far from it. ADA,
+# PepsiCo and DOT have none on purpose: an asset held with no market price,
+# and two never traded (decided on 2026-11-25; every figure made up).
+DEMO_MARKET_PRICES = {
+    **INVENTED_MARKET_PRICES,
+    ("SOL", "USDT"): Decimal("150"),
+    ("INTC", "USD"): Decimal("24"),
+    ("KO", "USD"): Decimal("70"),
+    ("AAPL", "USD"): Decimal("230"),
+    ("NVDA", "USD"): Decimal("130"),
+}
 
 
 def demo_ledger() -> FakeLedger:

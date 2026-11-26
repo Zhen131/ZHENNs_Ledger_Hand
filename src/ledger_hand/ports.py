@@ -34,7 +34,8 @@ carry moments, so they are declared in ``core.book`` and only named here.
 
 The ledger itself, the one the person keeps their trades in, is reached
 through a ``LedgerPort``: list its assets and trades, sum a stretch of time
-up, say what is held, and propose to record, change or delete trades. A
+up, say what is held and at what market price, and propose to record,
+change or delete trades. A
 proposal writes nothing: it waits in the ledger for the person to save or
 reject it there, one proposal for each trade. Every failure is one
 ``LedgerError`` carrying one of seven kinds, a fixed code and a sentence; a
@@ -74,6 +75,7 @@ from ledger_hand.core.book import (
 )
 from ledger_hand.core.ledger_records import (
     Asset,
+    MarketPrice,
     PeriodRequest,
     PeriodSummary,
     Position,
@@ -608,6 +610,14 @@ class LedgerPort(Protocol):
 
     def positions(self) -> tuple[Position, ...]:
         """What is held now, one holding for each asset; none that is sold out."""
+        ...
+
+    def market_prices(self) -> tuple[MarketPrice, ...]:
+        """The ledger's market price of each asset that has one, sold-out assets included.
+
+        Only read. An asset with a market price in two moneys has one for
+        each; a code two assets share has none, since neither is picked.
+        """
         ...
 
     def propose_add(self, trades: tuple[TradeFacts, ...], said: str) -> ProposalResult:

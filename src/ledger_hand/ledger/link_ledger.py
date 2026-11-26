@@ -15,9 +15,11 @@ What it turns, and how (68B2, part 13):
   needed the ledger's list is asked for, and the code turned into it; a
   code two assets share is never picked from (``HAND_SAME_CODE``).
 - Recording sends the day, the time to the minute and the time zone's
-  name. A time with seconds that are not 0 is not sent; neither is a trade
-  whose money differs from the asset's own (the ledger then needs a rate
-  this program does not ask for), nor one with no time zone. Each is a
+  name; a trade known only to its day sends the day alone, which the
+  ledger takes (sample propose-add-date-only). A time with seconds that
+  are not 0 is not sent; neither is a trade whose money differs from the
+  asset's own (the ledger then needs a rate this program does not ask
+  for), nor one with no time zone. Each is a
   failed check of this program's own (``HAND_...``), and the others go on.
   A fee of 0 is taken in the money traded. An empty platform or note is
   sent as ``null``. At most ``MOST_PER_CALL`` trades go in one call; when
@@ -40,6 +42,10 @@ What it turns, and how (68B2, part 13):
   from another, leaving out trades dated after today; one that the ledger
   could not work out leaves the sum not worked out, with its reason. Its
   profit or loss is the ledger's own row for that asset.
+- Market prices are read from the holdings (``get_positions``), sold-out
+  ones included, since an asset sold out still has one. Each is matched to
+  its asset by the ledger's identifier and named by that asset's code; a
+  code two assets share gives no market price, since neither is picked.
 - Holdings that are sold out (quantity 0) are left out. No cash balance is
   ever handed back, and none is worked out from trades: a holding whose
   asset the ledger lists as cash ("currency") is left out too, whatever
@@ -88,6 +94,7 @@ from ledger_hand.core.ledger_records import (
     CurrencyTotals,
     Figure,
     LedgerTrade,
+    MarketPrice,
     MoneyAmount,
     NotWorkedOut,
     PeriodRequest,
@@ -299,6 +306,14 @@ class LinkLedger:
             for row in _list(answer, "positions")
             if _decimal(row["quantity"]) and str(row.get("assetId")) not in cash
         )
+
+    def market_prices(self) -> tuple[MarketPrice, ...]:
+        answer = self._answer("get_positions", {})
+        assets = self._raw_assets()
+        shared = {same.code for same in same_codes([_asset(row) for row in assets])}
+        codes = {str(row.get("assetId")): str(row.get("assetCode")) for row in assets}
+        found = (_market_price(row, codes, shared) for row in _list(answer, "positions"))
+        return tuple(market for market in found if market is not None)
 
     # --- proposing --------------------------------------------------------------
 
@@ -757,6 +772,37 @@ def _position(row: Mapping[str, Any]) -> Position:
     )
 
 
+def _market_price(
+    row: Mapping[str, Any], codes: Mapping[str, str], shared: set[str]
+) -> MarketPrice | None:
+    """The market price of one holding's asset, by its identifier; ``None`` when it has none.
+
+    A code two assets share gives none: neither is picked (85B, 2026-11-25).
+    """
+    price = row.get("marketPrice")
+    if not isinstance(price, Mapping):
+        return None
+    code = codes.get(str(row.get("assetId")))
+    money = _text(price.get("priceCurrencyCode"))
+    if code is None or code in shared or money is None:
+        return None
+    return MarketPrice(
+        asset=code,
+        price=MoneyAmount(currency=money, amount=_decimal(price.get("price"))),
+        day=_price_day(price.get("priceDate")),
+    )
+
+
+def _price_day(value: object) -> date | None:
+    """The day of a market price, written as a day or a moment; ``None`` when unreadable."""
+    if not isinstance(value, str):
+        return None
+    try:
+        return date.fromisoformat(value[:10])
+    except ValueError:
+        return None
+
+
 def _check(result: Mapping[str, Any]) -> TradeCheck:
     if result.get("ok") is True:
         return TradeCheck(outcome=CheckOutcome.PASSED, proposal_id=str(result["proposalId"]))
@@ -904,12 +950,11 @@ def _same_time(facts: TradeFacts, row: Mapping[str, Any]) -> bool:
 
 
 def _time(facts: TradeFacts) -> dict[str, Any] | TradeCheck:
-    """The day, the time to the minute and the zone's name; or why they cannot be sent."""
+    """The day, the time to the minute and the zone's name, or the day alone for a trade
+    known only to its day; or why they cannot be sent."""
     if facts.date_only:
-        return _refused(
-            "HAND_DATE_ONLY",
-            "This trade has no time of day; this program does not send such a trade yet.",
-        )
+        # The day alone: the ledger takes no time or zone without a time said.
+        return {"occurredDate": facts.occurred.date().isoformat()}
     moment = facts.occurred
     if moment.second or moment.microsecond:
         return _refused(
