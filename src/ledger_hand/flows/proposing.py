@@ -139,7 +139,8 @@ def propose(
     left_out = tuple(sorted((*left_out, *not_sent), key=lambda trade: trade.number))
     if not trades:
         return Recorded(ending=RecordEnding.NOTHING_TO_SEND, progress=progress, left_out=left_out)
-    marked = _marked(numbers, dict(records), ledger, assets, gap)
+    said = {position + 1: kept.reason for position, kept in progress.said_numbers}
+    marked = _marked(numbers, dict(records), ledger, assets, gap, said)
     trades = tuple(
         dataclasses.replace(card, marks=sent_marks(one.marks, fields_sent(card)))
         for card, one in zip(trades, marked, strict=True)
@@ -153,6 +154,7 @@ def _marked(
     ledger: LedgerPort,
     assets: Mapping[str, Asset],
     gap: Decimal,
+    said: Mapping[int, str] | None = None,
 ) -> tuple[MarkedTrade, ...]:
     """Each trade to send, its price compared with the market price and its cells marked.
 
@@ -171,10 +173,12 @@ def _marked(
         check = _price_check(record, markets, failure, gap)
         asset = assets.get(record.coin)
         name = asset.name if asset is not None else None
+        # A figure worked out put back to the number said says so (``core/said_numbers.py``).
+        worked = (said or {}).get(number)
         if isinstance(record, CardRecord):
-            marks = card_marks(record, check, asset_name=name)
+            marks = card_marks(record, check, asset_name=name, worked_reason=worked)
         else:
-            marks = marks_for(record, check, asset_name=name)
+            marks = marks_for(record, check, asset_name=name, worked_reason=worked)
         marked.append(MarkedTrade(marks=marks, price=check))
     return tuple(marked)
 

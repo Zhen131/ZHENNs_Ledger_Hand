@@ -31,6 +31,7 @@ from ledger_hand.core.assets import AssetTable
 from ledger_hand.core.book import EarlierSave
 from ledger_hand.core.card_record import CardRecord
 from ledger_hand.core.followup import AskCell, AskWhichCell, Cell, ConfirmCoin, Problem
+from ledger_hand.core.said_numbers import SaidInstead
 from ledger_hand.core.trade import OccurredTime, TradeDraft, TradeRecord
 from ledger_hand.extraction.asset_picking import AssetPick
 from ledger_hand.extraction.extractor import DEFAULT_ASKS_AGAIN, PassageProblem
@@ -123,6 +124,9 @@ class Setting:
     ``unfinished`` says the ledger takes a trade with cells left empty
     (the assistant's way, when the ledger offers it): then only which
     asset and buy or sell are asked, and every other gap becomes a card.
+    ``said_gap``, when given (the assistant's way), is how close a figure
+    worked out must be to a number said and not used for the said one to
+    be kept in its place (``core.said_numbers``); ``None`` keeps none.
     """
 
     now: datetime
@@ -130,6 +134,7 @@ class Setting:
     assets: AssetTable
     tuning: Tuning = DEFAULT_TUNING
     unfinished: bool = False
+    said_gap: Decimal | None = None
 
 
 @dataclass(frozen=True)
@@ -250,6 +255,11 @@ class Progress:
     by the asset's code, so that one asset is asked about once in a
     passage. ``clash`` is an answer whose money is not the trade's, while
     the user is asked which money it is; ``None`` otherwise.
+    ``totals_from_units`` names, by position, each trade whose quantity was
+    said in money ("25U" of ETH) and taken as its total instead, with the
+    words said (``Setting.unfinished``). ``said_numbers`` names, by
+    position, each trade whose figure worked out was put back to the number
+    said (``Setting.said_gap``).
     """
 
     stage: Stage
@@ -271,6 +281,7 @@ class Progress:
     last_moneys: tuple[tuple[str, LastMoney], ...] = ()
     clash: MoneyClash | None = None
     totals_from_units: tuple[tuple[int, str], ...] = ()
+    said_numbers: tuple[tuple[int, SaidInstead], ...] = ()
 
     @property
     def records(self) -> tuple[TradeRecord, ...]:

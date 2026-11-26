@@ -158,7 +158,7 @@ from ledger_hand.flows.recorded import (
 )
 from ledger_hand.flows.screenshot import joined_passage, start_from_reading
 from ledger_hand.ports import LedgerError, LedgerPort, Message, ModelPort, Role, ToolCall
-from ledger_hand.settings import DEFAULT_PRICE_GAP_TIMES
+from ledger_hand.settings import DEFAULT_PRICE_GAP_TIMES, DEFAULT_SAID_NUMBER_GAP
 
 # The prompt versions the assistant judges and extracts what the user said
 # with. The record page keeps the first ones. Measured on 2026-11-25 on
@@ -301,6 +301,8 @@ class _Around:
     them; a trade recorded from them is sent with these words.
     ``chinese`` is the version words with Chinese in them are extracted with.
     ``gap`` is how many times apart a price and the market price are far.
+    ``said_gap`` is how close a figure worked out must be to a number said
+    and not used for the said one to be kept (``core.said_numbers``).
     """
 
     model: ModelPort
@@ -311,6 +313,7 @@ class _Around:
     raw_text: str | None = None
     chinese: PromptVersion = ASSISTANT_CHINESE_EXTRACT_PROMPT
     gap: Decimal = DEFAULT_PRICE_GAP_TIMES
+    said_gap: Decimal = DEFAULT_SAID_NUMBER_GAP
 
 
 def say(
@@ -325,6 +328,7 @@ def say(
     tuning: Tuning = DEFAULT_TUNING,
     extract_for_chinese: PromptVersion | None = None,
     price_gap: Decimal = DEFAULT_PRICE_GAP_TIMES,
+    said_gap: Decimal = DEFAULT_SAID_NUMBER_GAP,
 ) -> Said:
     """What comes of the user saying ``said`` after ``state``.
 
@@ -334,12 +338,14 @@ def say(
     ``extract_for_chinese``, when given, is the version words with Chinese
     in them are extracted with, in place of the assistant's own.
     ``price_gap`` is how many times apart a trade's price and the ledger's
-    market price are far (``settings.load_price_gap_times``).
+    market price are far (``settings.load_price_gap_times``). ``said_gap``
+    is how close a figure worked out must be to a number said and not used
+    for the said one to be kept (``settings.load_said_number_gap``).
     """
     read_as = tidy_spoken(said, zone)
     chinese = extract_for_chinese or ASSISTANT_CHINESE_EXTRACT_PROMPT
     raw_text = said if read_as.changed else None
-    around = _Around(model, ledger, now, zone, tuning, raw_text, chinese, price_gap)
+    around = _Around(model, ledger, now, zone, tuning, raw_text, chinese, price_gap, said_gap)
     done = _said(state, read_as.text, around, max_steps)
     return replace(done, read_as=read_as)
 
@@ -405,6 +411,7 @@ def say_from_reading(
     zone: str,
     tuning: Tuning = DEFAULT_TUNING,
     price_gap: Decimal = DEFAULT_PRICE_GAP_TIMES,
+    said_gap: Decimal = DEFAULT_SAID_NUMBER_GAP,
 ) -> Said:
     """What comes of recording ``shot`` after ``state``, as if the passage were typed.
 
@@ -413,7 +420,7 @@ def say_from_reading(
     """
     if state.recording is not None or state.editing is not None:
         raise ValueError("something waits for the user's answer; answer it first")
-    around = _Around(model, ledger, now, zone, tuning, gap=price_gap)
+    around = _Around(model, ledger, now, zone, tuning, gap=price_gap, said_gap=said_gap)
     recorded = _begun("", around, shot)
     passage = recorded.progress.passage
     reply = reply_for(recorded, begun=True)
@@ -468,6 +475,7 @@ def _start(said: str, around: _Around, table: AssetTable, shot: ScreenshotText |
         "pick_prompt": ASSISTANT_PICK_PROMPT,
         "last_money": last_money_of(around.ledger, around.now),
         "unfinished": around.ledger.takes_unfinished(),
+        "said_gap": around.said_gap,
     }
     if shot is None:
         progress = recording.start(

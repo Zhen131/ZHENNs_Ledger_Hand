@@ -41,6 +41,12 @@ the ledger's market price must be for the price to be marked suspicious:
 ``LEDGER_HAND_PRICE_GAP_TIMES``, five when it is not set. It is not a
 model setting either, and is not shown on the settings page.
 
+``load_said_number_gap`` reads how close, as a part of the figure said, a
+figure the program worked out must be to a number the user said and no
+cell used, for the said one to be kept in its place:
+``LEDGER_HAND_SAID_NUMBER_GAP``, one ten-thousandth when it is not set.
+Not a model setting, and not on the settings page.
+
 ``load_ledger_link_settings`` reads what is needed to start the ledger's
 assistant link (the small Node.js program in the ledger's own folder that
 passes the assistant's tool calls to the ledger page): the ledger's folder
@@ -76,6 +82,8 @@ constants, ``MAX_RETRIES``, ``MAX_SCREENSHOT_MB``, ``Secret``, ``SettingsError``
 ``DEFAULT_ASSISTANT_STEPS``, ``FEWEST_ASSISTANT_STEPS``, ``MOST_ASSISTANT_STEPS``,
 ``load_assistant_steps``, ``PRICE_GAP_TIMES_VARIABLE``, ``DEFAULT_PRICE_GAP_TIMES``,
 ``LEAST_PRICE_GAP_TIMES``, ``MOST_PRICE_GAP_TIMES``, ``load_price_gap_times``,
+``SAID_NUMBER_GAP_VARIABLE``, ``DEFAULT_SAID_NUMBER_GAP``, ``MOST_SAID_NUMBER_GAP``,
+``load_said_number_gap``,
 ``LEDGER_DIRECTORY_VARIABLE``, ``LEDGER_LINK_PORT_VARIABLE``,
 ``LEDGER_PAGE_PORT_VARIABLE``, ``DEFAULT_LEDGER_LINK_PORT``, ``DEFAULT_LEDGER_PAGE_PORT``,
 ``LedgerLinkSettings``, ``load_ledger_link_settings``, ``ASSISTANT_LEDGER_VARIABLE``,
@@ -753,6 +761,44 @@ def load_price_gap_times(environ: Mapping[str, str] | None = None) -> Decimal:
     if not LEAST_PRICE_GAP_TIMES < times <= MOST_PRICE_GAP_TIMES:
         raise refused
     return times
+
+
+# --- how close a figure worked out must be to a number said ------------------
+
+SAID_NUMBER_GAP_VARIABLE = "LEDGER_HAND_SAID_NUMBER_GAP"
+# One ten-thousandth: decided on 2026-11-26 by the session that hands out
+# the work, with no source behind it; the product owner may change it. A
+# figure worked out (150.00078) is replaced by a number said and not used
+# (150) only when they are this close, as a part of the number said.
+DEFAULT_SAID_NUMBER_GAP = Decimal("0.0001")
+# Above 0, at most one hundredth: beyond that a number said for something
+# else could stand in. Taken for now, and waits for a reason (2026-11-26).
+MOST_SAID_NUMBER_GAP = Decimal("0.01")
+
+
+def load_said_number_gap(environ: Mapping[str, str] | None = None) -> Decimal:
+    """How close a figure worked out must be to a number said, from ``environ``.
+
+    The process's environment when ``None``. Not set, or blank: the default.
+    A value that is not a decimal above 0 and at most
+    ``MOST_SAID_NUMBER_GAP`` ("0.0001", "0.00005") is a ``SettingsError``
+    naming the variable.
+    """
+    source = os.environ if environ is None else environ
+    value = source.get(SAID_NUMBER_GAP_VARIABLE)
+    if value is None or not value.strip():
+        return DEFAULT_SAID_NUMBER_GAP
+    written = value.strip()
+    refused = SettingsError(
+        f"{SAID_NUMBER_GAP_VARIABLE}: a number above 0 and at most {MOST_SAID_NUMBER_GAP}, "
+        f"such as 0.0001, not {written!r}"
+    )
+    if not re.fullmatch(r"0(\.[0-9]{1,10})?", written, flags=re.ASCII):
+        raise refused
+    gap = Decimal(written)
+    if not 0 < gap <= MOST_SAID_NUMBER_GAP:
+        raise refused
+    return gap
 
 
 # --- how the ledger's assistant link is started ------------------------------

@@ -476,7 +476,11 @@ def _free_text(
 
 
 def card_marks(
-    card: CardRecord, check: PriceCheck | None, *, asset_name: str | None = None
+    card: CardRecord,
+    check: PriceCheck | None,
+    *,
+    asset_name: str | None = None,
+    worked_reason: str | None = None,
 ) -> TradeMarks:
     """Every mark of ``card``: a record's, its doubts, and a total taken from "25U".
 
@@ -498,4 +502,5 @@ def card_marks(
         doubts=card.doubts,
         assumed=assumed,
         empty=card.empty,
+        worked_reason=worked_reason,
     )

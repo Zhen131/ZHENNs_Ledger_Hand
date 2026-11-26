@@ -42,6 +42,7 @@ from __future__ import annotations
 
 import dataclasses
 from datetime import datetime
+from decimal import Decimal
 
 from ledger_hand.core.assets import BUILT_IN_ASSETS, AssetTable
 from ledger_hand.core.zones import is_zone_name
@@ -109,12 +110,13 @@ def start_from_reading(
     pick_prompt: AssetPickPrompt = ASSET_PICK_PROMPT,
     last_money: LastMoneyLookup | None = None,
     unfinished: bool = False,
+    said_gap: Decimal | None = None,
 ) -> Progress:
     """Start the passage joined from ``reading`` (or ``text``) and ``note``, with ``model``.
 
     ``text`` is the text to use, when the person changed what was read.
     ``screen_prompt``, ``extract_prompt``, ``hold_other_unit``,
-    ``pick_assets``, ``pick_prompt``, ``last_money`` and ``unfinished`` go to
+    ``pick_assets``, ``pick_prompt``, ``last_money``, ``unfinished`` and ``said_gap`` go to
     ``recording.start`` as they are. Raises ``ValueError`` for a reading
     that was not made, and as ``recording.start`` does for the moment and
     the zone.
@@ -139,6 +141,7 @@ def start_from_reading(
         pick_prompt=pick_prompt,
         last_money=last_money,
         unfinished=unfinished,
+        said_gap=said_gap,
     )
     return dataclasses.replace(
         progress,
