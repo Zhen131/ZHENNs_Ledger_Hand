@@ -13,26 +13,40 @@ and number is invented.
 
 from __future__ import annotations
 
-from datetime import date, datetime
+import io
+import json
+from datetime import date
 from decimal import Decimal
 from zoneinfo import ZoneInfo
 
+import pytest
+
 from ledger_hand.core.card_record import Doubt
-from ledger_hand.core.ledger_records import Asset, AssetKind, Pricing
-from ledger_hand.core.marks import Field, FieldMark, MarkKind, TradeMarks
+from ledger_hand.core.ledger_records import AssetKind, Pricing, TradeFilter
+from ledger_hand.core.marks import (
+    REASON_MOST,
+    Field,
+    FieldMark,
+    MarkKind,
+    TradeMarks,
+    reason_length,
+)
 from ledger_hand.core.price_check import PriceVerdict
 from ledger_hand.core.proposals import CheckOutcome
 from ledger_hand.core.trade_card import TradeCard
+from ledger_hand.flows.assistant_record import entry_for
 from ledger_hand.flows.conversation import AssistantChat, Said, say
 from ledger_hand.flows.recorded import MarkedTrade, RecordEnding
-from ledger_hand.ledger.demo_book import DEMO_ASSETS, DEMO_MARKET_PRICES, DEMO_TRADES, demo_ledger
+from ledger_hand.flows.standing import DemoOutcome, demo_save
+from ledger_hand.ledger.demo_book import demo_ledger
 from ledger_hand.ledger.fake_ledger import FakeLedger
 from ledger_hand.ledger.invented_book import INVENTED_NOW, INVENTED_ZONE
 from ledger_hand.ports import ToolCall, ToolReply
+from scripts import try_assistant
 from tests.fakes.routed_model import RoutedModel
 from tests.fakes.scripted_model import Step, scripted_record
 from tests.flows.scripted_flow import copied, row, screened, table
-from tests.flows.vague_money_books import JIA_ASSETS, JIA_TRADES, asset, bought
+from tests.flows.vague_money_books import JIA_ASSETS, JIA_TRADES, FailingTrades, asset, bought
 
 RECORD = ToolReply(
     text="", calls=(ToolCall(name="propose_trade_add", arguments={}),), record=scripted_record()
@@ -434,8 +448,6 @@ def test_row_15b_dao_when_eth_was_last_traded_in_cny_is_empty_and_says_cny() -> 
 
 
 def test_row_15c_dao_when_the_ledger_cannot_be_asked_is_still_asked() -> None:
-    from tests.flows.vague_money_books import FailingTrades  # noqa: PLC0415
-
     ledger = FailingTrades(assets=JIA_ASSETS, trades=JIA_TRADES).taking_cards()
     (said,), _ = talk(
         "今天10点花了30刀买了ETH，均价240，手续费0", rows=[row(**ETH_30_DAO)], ledger=ledger
@@ -655,18 +667,139 @@ def test_a_card_with_an_empty_cell_cannot_be_saved_and_the_book_stays() -> None:
 
     assert said.sent is not None
     before = len(ledger.list_trades(_ALL).trades)
-    from ledger_hand.flows.standing import DemoOutcome, demo_save  # noqa: PLC0415
-
     done = demo_save(ledger, said.sent.proposals[0])
     assert done.outcome is DemoOutcome.FAILED
     assert done.failure is not None and "fee, feeAssetId" in done.failure.message
     assert len(ledger.list_trades(_ALL).trades) == before
 
 
-from ledger_hand.core.ledger_records import TradeFilter  # noqa: E402
-
 _ALL = TradeFilter()
 
 
-def _unused() -> tuple[object, ...]:
-    return (Asset, datetime, _BUDAPEST, DEMO_ASSETS, DEMO_MARKET_PRICES, DEMO_TRADES)
+# --- what leaves for the ledger, for every row that sends a card ------------------------------
+
+SENT_ROWS = {
+    "2 no fee": ("今天上午10点买了0.1个ETH，价格2600 USDT", ETH | {"price": "2600 USDT"}),
+    "3 no fee money": (
+        "今天上午10点买了0.1个ETH，价格2600 USDT，手续费0.5",
+        ETH | {"price": "2600 USDT", "fee": "0.5"},
+    ),
+    "4 no time": (
+        "买了0.1个ETH，价格2600 USDT，手续费0",
+        {"side": "buy", "coin": "ETH", "quantity": "0.1个ETH", "price": "2600 USDT", "fee": "0"},
+    ),
+    "6 25U": (
+        "今天上午10点用25U买了点ETH，手续费0",
+        {"side": "buy", "coin": "ETH", "quantity": "25U", "fee": "0", "time": "今天上午10点"},
+    ),
+    "7 no price": ("今天上午10点买了0.1个ETH，手续费0", ETH | {"fee": "0"}),
+    "9 disagree": (
+        "今天上午8:25花了200 USDT买入了0.094326个SOL，均价212.03 USDT，手续费0",
+        SOL_200,
+    ),
+    "14 no money": (
+        "今天上午10点买了0.1个ETH，价格2600，手续费0",
+        ETH | {"price": "2600", "fee": "0"},
+    ),
+    "22 price 0": (
+        "今天上午10点买了0.1个ETH，价格0 USDT，手续费0",
+        ETH | {"price": "0 USDT", "fee": "0"},
+    ),
+    "23 tomorrow": (
+        "明天上午10点买了0.1个ETH，价格2600 USDT，手续费0",
+        ETH | {"time": "明天上午10点", "price": "2600 USDT", "fee": "0"},
+    ),
+    "24 fee not below": (
+        "今天上午10点买了0.001个BTC，价格60000 USDT，手续费0.002 BTC",
+        {"side": "buy", "coin": "BTC", "quantity": "0.001个BTC", "price": "60000 USDT",
+         "fee": "0.002 BTC", "time": "今天上午10点"},
+    ),
+    "26 disagree and far": (
+        "今天上午8:25花了200 USDT买入了0.094326个SOL，均价21.2 USDT，手续费0",
+        SOL_200 | {"price": "21.2 USDT"},
+    ),
+}  # fmt: skip
+
+
+@pytest.mark.parametrize(("words", "cells"), SENT_ROWS.values(), ids=SENT_ROWS.keys())
+def test_what_the_ledger_is_handed_keeps_its_rules_and_no_empty_cell_is_0(
+    words: str, cells: dict[str, str]
+) -> None:
+    (said,), ledger = talk(words, rows=[row(**cells)])
+
+    sent, _ = card(said)
+    assert said.sent is not None
+    kept = ledger.card_of(said.sent.proposals[0])
+    assert kept == sent
+    for name, value in {
+        "quantity": sent.quantity, "price": sent.price, "totalValue": sent.total,
+        "quoteAssetId": sent.quote, "fee": sent.fee, "feeAssetId": sent.fee_asset,
+    }.items():  # fmt: skip
+        if name in sent.missing:
+            assert value is None
+        assert value != ""
+    fields = [one.field for one in sent.marks]
+    assert len(fields) == len(set(fields))
+    for one in sent.marks:
+        assert one.kind in {"computed", "inferred", "suspicious"}
+        if one.field in sent.missing or one.field in {"occurredTime", "occurredTimeZone"}:
+            assert one.kind == "suspicious"
+        if one.kind == "suspicious":
+            assert one.reason is not None and one.reason.strip()
+        if one.reason is not None:
+            assert reason_length(one.reason) <= REASON_MOST
+        assert set(one.as_dict()) == {"field", "kind", "reason"}
+
+
+# --- the record kept on this machine, rows 2 and 9 --------------------------------------------
+
+
+def test_the_record_keeps_a_cards_empty_cells_as_null_and_names_them() -> None:
+    words = "今天上午10点买了0.1个ETH，价格2600 USDT"
+    said = one(words, ETH | {"price": "2600 USDT"})
+
+    entry = entry_for(said, words=words, at=INVENTED_NOW, model="invented-model")
+
+    (trade,) = entry["trades"]
+    assert (trade["fee"], trade["fee_asset"]) == (None, None)
+    (kept,) = entry["marks"]
+    assert kept["empty"] == ["fee", "feeAssetId"]
+    assert json.loads(json.dumps(entry)) == entry
+
+
+def test_the_record_keeps_the_three_suspicious_marks_of_figures_that_disagree() -> None:
+    words = "今天上午8:25花了200 USDT买入了0.094326个SOL，均价212.03 USDT，手续费0"
+    said = one(words, SOL_200)
+
+    entry = entry_for(said, words=words, at=INVENTED_NOW, model="invented-model")
+
+    (trade,) = entry["trades"]
+    assert trade["total"] is None and trade["quantity"] == "0.094326"
+    (kept,) = entry["marks"]
+    assert kept["empty"] == ["totalValue"]
+    assert {(one["field"], one["kind"]) for one in kept["marks"]} == {
+        ("quantity", "suspicious"),
+        ("price", "suspicious"),
+        ("totalValue", "suspicious"),
+    }
+
+
+# --- the try-out script -------------------------------------------------------------------------
+
+
+def test_the_try_out_script_prints_none_for_an_empty_cell_and_one_line_more() -> None:
+    words = "今天上午10点买了0.1个ETH，价格2600 USDT"
+    model = RoutedModel(
+        tools=[RECORD],
+        screen=[screened(("spot_trade", "ETH"))],
+        extraction=[table(row(**(ETH | {"price": "2600 USDT"})))],
+    )
+    out = io.StringIO()
+
+    status = try_assistant.main([words], out=out, model=model, max_steps=6)
+
+    printed = out.getvalue()
+    assert status == 0
+    assert "buy 0.1 ETH at 2600 USDT, total 260 USDT, fee none none" in printed
+    assert "    empty: fee, feeAssetId; the ledger: cannot be saved yet" in printed
+    assert "money: price said, fee empty" in printed
