@@ -794,7 +794,9 @@ the ledger's own three kinds: **worked out** by the program (the total
 from the quantity and the price, for one), **assumed** by the program (a
 money guessed from the asset's last trade, below, or an asset the model
 matched from the ledger's list), and **suspicious**, always with its
-reason. A price is suspicious when it is at least five times the ledger's
+reason. A fee taken in a money other than the one the trade is paid in
+(paid in USD, fee in EUR) has its fee's money marked suspicious, and the
+reply says so; nothing else changes. A price is suspicious when it is at least five times the ledger's
 market price of the asset, or at most a fifth of it (exactly five counts;
 `LEDGER_HAND_PRICE_GAP_TIMES` changes five, see "Settings"). Before the
 trades are sent the ledger is asked once for its market prices. The reply

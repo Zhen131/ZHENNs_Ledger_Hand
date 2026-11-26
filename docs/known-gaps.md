@@ -542,10 +542,11 @@ part of batch 68 the Assistant page reaches it too. What it does not do:
 - **A change needs the trade listed first in the same session.** The plug
   keeps the trades as last listed to copy back what did not change; the
   change flow always lists first, so this holds for the assistant.
-- **Cash is never handed back.** The plug uses no tool for cash balances
-  and works none out from trades; a holding of an asset the ledger lists as
-  cash is left out as well. What the user is told is under "The
-  assistant: cash".
+- **Cash balances are read, never worked out.** Since 2026-11-26 the plug
+  reads the ledger's cash balances (`get_cash_balances`), and an older
+  ledger with no such tool is said to have none (`NO_CASH_TOOL`); it works
+  no balance out from trades, and a holding of an asset the ledger lists as
+  cash is left out. What the user is told is under "The assistant: cash".
 - **The cost of a holding marked not exact carries a sentence of this
   program's.** The ledger says only that it is not exact; the reason
   shown is taken from the ledger's README (a fee paid in another asset).
@@ -821,11 +822,25 @@ price said in the asset's own money (`flows/paid_apart.py`,
 - **The fake ledger keeps one pool for each asset and money.** Selling
   KO for euros there needs KO bought for euros; the real ledger holds the
   asset as one.
+- **Euros and dollars both said as the total: marked, not settled.**
+  "今天15:30花了128欧元买了2股KO，合139美元，……换汇费0.19欧元": when the
+  model copies the dollars as the total, the trade does not go this way: it
+  is sent paid in USD, 139 USD, and the ledger would take the dollars from
+  the US dollar cash. Its fee in euros then marks the fee's money suspicious
+  ("the fee is in EUR, but this trade is recorded as paid in USD"), and the
+  reply says so; nothing is changed or asked. With no fee in euros ("128欧元
+  （约139美元）" and no FX fee), there is no mark at all: at most a reminder
+  that a number of what was said was not used (128).
+- **A rate of 0 in the ledger stops the sentence.** An earlier trade whose
+  rate is 0 is taken as the reference, and comparing with it raises an
+  error, so what was said ends in a failure. The real ledger keeps no rate
+  of 0 or below, so it is not met there.
 - **The owner's long euro sentences are first asked buy or sell.** On the
   practice halves' four such sentences the model reached, extraction left
   the side empty ("……还花了0.46欧买了0.0061629股"), so the program asks
-  whether it was a buy or a sell, then which asset ("可口可乐"); answered,
-  each was sent as its gold answer says (`evals/RESULTS.md`, "The five
+  whether it was a buy or a sell, then which asset ("可口可乐"): two
+  questions before a card. Answered ("买", then the code), each was sent as
+  its gold answer says (`evals/RESULTS.md`, "The five
   sentences of euros paid"). The fifth (R80-23) comes back empty from the
   model, as it has since `assistant-5`. The prompts are not changed here.
 - **The hidden halves' sentences of euros paid are not enabled.** See

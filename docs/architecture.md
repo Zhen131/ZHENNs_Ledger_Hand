@@ -956,7 +956,9 @@ check and the ledger's name of the asset) marks the cells the user did not
 say: the amount the program worked out (`computed`), a money guessed from
 the asset's last trade or an asset the model matched from the list
 (`inferred`, kept on the draft and the record as `picked`), and a price
-far from the market price (`suspicious`, with its reason); one mark a
+far from the market price (`suspicious`, with its reason), and, in
+`flows/proposing.py`, a fee's money that is a money other than the one the
+trade is paid in (`suspicious`, `marks.fee_money_mark`); one mark a
 cell, the stronger kept and the other's reason put first. The kinds and
 the cells are the ledger's own names, and the ledger's rules for marks
 hold from the moment one is made, a reason counted and cut in UTF-16
