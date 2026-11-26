@@ -10065,3 +10065,29 @@ first tool on every enabled sentence of the three hidden halves: 35 of 35
 baseline, the one ③ of the hidden `r100` came with a reminder about the
 whole passage only. The hidden halves' sentence-by-sentence results are
 not written here.
+
+## 2026-11-26: a trade said with its day only is sent; K6 and K7's gold answers, `qwen2.5:7b`
+
+On 2026-11-26, at `992e888`, the gold answers of K6 and K7 of
+`evals/sets/stocks.json` ("昨天在IBKR买了2股MSFT，410美元一股，手续费1美元"
+and "Bought 2 MSFT shares yesterday at 410 USD each on IBKR, fee 1 USD.")
+were changed, and no other sentence. They were written to send nothing,
+the trade left out for having only its day ("send nothing: day_only"),
+before the product owner's rule of 2026-11-25 that a trade said with its
+day and no time of day is sent all the same, with no time of day made up.
+The assistant now sends such a trade with its day alone, so the gold
+answers now send buy 2 MSFT at 410 USD, total 820 USD, fee 1 USD, on
+2026-11-23 with no time of day, IBKR. A gold time may now be written as a
+day alone (`YYYY-MM-DD`, `evals/stock_set.py`); a trade sent against it
+with a time of day, midnight included, or on another day is silently
+wrong (`tests/evals/test_stock_set_day_alone.py`). The set's own "about"
+line still describes the gold time as a moment; the module's description
+says both.
+
+Before, with the old gold answers: 16 of 18, 0 silently wrong, K6 and K7
+right as left out (`run-20261125T234644Z-stocks-assistant-4.jsonl`).
+After, at `992e888`, with the system prompt `assistant-5`: 16 of 18, 0
+silently wrong (`run-20261126T050434Z-stocks-assistant-5.jsonl`). K6 and
+K7 are right: each sent buy 2 MSFT at 410 USD, fee 1 USD, its day alone,
+IBKR. K14 and K15, open orders the model answered in words, are not done,
+as before.
