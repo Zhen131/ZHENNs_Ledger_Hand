@@ -16,6 +16,7 @@ Every sentence and number is invented; the ledgers are made in
 from __future__ import annotations
 
 from collections.abc import Callable
+from decimal import Decimal
 
 import pytest
 
@@ -259,3 +260,26 @@ def test_a_trade_that_does_not_go_this_way_says_nothing_of_an_fx_fee_or_a_rate(
     assert "(USD for 1" not in result.reply and "(USDT for 1" not in result.reply
     assert result.recorded is not None
     assert all(card.cost_rate is None for card in result.recorded.trades)
+
+
+def test_a_price_said_in_the_money_paid_that_does_not_agree_is_said_not_to_be_used() -> None:
+    said = "今天15:30花了128欧元买了2股KO，一股60欧元，换汇费0.19欧元"
+    cells = KO | {"price": "60欧元", "total": "128欧元", "fee": "0.19欧元"}
+    first, then = talk(said, "69.5", rows=[cells], ledger=books.jia())
+
+    assert first.reply.startswith("[Trade 1 of 1: price in USD]")
+    assert then.recorded is not None
+    (card,) = then.recorded.trades
+    assert (card.price, card.cost_rate) == (Decimal(64), Decimal("1.0859375"))
+    assert "the 60 EUR a share you said was not used" in then.reply
+
+
+def test_a_price_said_in_the_money_paid_that_agrees_is_not_said() -> None:
+    first, then = talk(
+        E17,
+        "69.5",
+        rows=[KO | {"price": "64欧元", "total": "128欧元", "fee": "0.19欧"}],
+        ledger=books.jia(),
+    )
+
+    assert "was not used" not in then.reply
