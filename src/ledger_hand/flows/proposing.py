@@ -45,10 +45,20 @@ Once the trades to send are known, and only then, the ledger is asked
 once for its market prices. Each trade's price is compared with its
 asset's (``core/price_check.py``), far at ``gap`` times apart
 (``settings.LEDGER_HAND_PRICE_GAP_TIMES``), and the marks on its cells
-are worked out (``core/marks.py``): they come back with the proposal
-(``Recorded.marked``), for the user to see, and are not sent to the
-ledger. A ledger that cannot be asked for its market prices leaves every
-price not compared, and the trades are sent all the same.
+are worked out (``core/marks.py``, ``core/card_record.py``): they come
+back with the proposal (``Recorded.marked``), for the user to see. A
+ledger that cannot be asked for its market prices leaves every price not
+compared, and the trades are sent all the same. A card whose price or
+money used is empty is not compared.
+
+Each trade goes as a card (``core/trade_card.py``). When the flow was
+told the ledger takes cards (``Setting.unfinished``), every card is sent
+that way (``propose_cards``), with its marks after the guard
+(``marks.sent_marks``): a cell sent empty keeps only a suspicious mark,
+and no time of day is marked when none is sent. A trade the flow settled
+with cells left empty or marked (``TradeStatus.UNFINISHED``) is sent
+with those cells empty (``null``), never 0. Otherwise every trade is
+whole and is sent as before (``propose_add``), its marks kept here.
 
 Each trade is priced in the money its record names. The ledger checks each
 trade on its own: those it takes wait there, each as a proposal of its
@@ -62,6 +72,7 @@ Names defined here: ``propose``.
 
 from __future__ import annotations
 
+import dataclasses
 from collections.abc import Mapping, Sequence
 from datetime import date, datetime, time, timezone
 from decimal import Decimal
@@ -69,11 +80,13 @@ from zoneinfo import ZoneInfo
 
 from ledger_hand.core.asset_words import problem_words
 from ledger_hand.core.assets import AssetTable, MoneyReading
+from ledger_hand.core.card_record import CardRecord, card_marks
 from ledger_hand.core.ledger_records import Asset, MarketPrice, Pricing, TradeFacts
 from ledger_hand.core.ledger_table import SameCode, same_code_words, same_codes
-from ledger_hand.core.marks import marks_for
-from ledger_hand.core.price_check import check_price, not_asked
+from ledger_hand.core.marks import fields_sent, marks_for, sent_marks
+from ledger_hand.core.price_check import PriceCheck, check_price, no_price, not_asked
 from ledger_hand.core.trade import TradeDraft, TradeRecord
+from ledger_hand.core.trade_card import TradeCard, card_of
 from ledger_hand.core.validation import Violation
 from ledger_hand.extraction.issues import Issue
 from ledger_hand.flows.progress import Progress, Stage, TradeState, TradeStatus
@@ -89,7 +102,8 @@ from ledger_hand.flows.recording import finish, held_other_unit
 from ledger_hand.ports import LedgerError, LedgerErrorKind, LedgerPort
 from ledger_hand.settings import DEFAULT_PRICE_GAP_TIMES
 
-type _Numbered = tuple[int, TradeRecord]
+type _Sendable = TradeRecord | CardRecord
+type _Numbered = tuple[int, _Sendable]
 
 
 def propose(
@@ -126,12 +140,16 @@ def propose(
     if not trades:
         return Recorded(ending=RecordEnding.NOTHING_TO_SEND, progress=progress, left_out=left_out)
     marked = _marked(numbers, dict(records), ledger, assets, gap)
+    trades = tuple(
+        dataclasses.replace(card, marks=sent_marks(one.marks, fields_sent(card)))
+        for card, one in zip(trades, marked, strict=True)
+    )
     return _sent(progress, ledger, numbers, trades, left_out, marked)
 
 
 def _marked(
     numbers: tuple[int, ...],
-    records: Mapping[int, TradeRecord],
+    records: Mapping[int, _Sendable],
     ledger: LedgerPort,
     assets: Mapping[str, Asset],
     gap: Decimal,
@@ -150,28 +168,46 @@ def _marked(
     marked: list[MarkedTrade] = []
     for number in numbers:
         record = records[number]
-        if failure is not None:
-            check = not_asked(record.price, record.quote, failure)
-        else:
-            own = [market for market in markets if market.asset == record.coin]
-            check = check_price(record.price, record.quote, own, gap)
+        check = _price_check(record, markets, failure, gap)
         asset = assets.get(record.coin)
-        marks = marks_for(record, check, asset_name=asset.name if asset is not None else None)
+        name = asset.name if asset is not None else None
+        if isinstance(record, CardRecord):
+            marks = card_marks(record, check, asset_name=name)
+        else:
+            marks = marks_for(record, check, asset_name=name)
         marked.append(MarkedTrade(marks=marks, price=check))
     return tuple(marked)
+
+
+def _price_check(
+    record: _Sendable, markets: Sequence[MarketPrice], failure: str | None, gap: Decimal
+) -> PriceCheck:
+    """One trade's price against its asset's market price; a card with no price, none."""
+    if record.price is None:
+        return no_price(record.quote)
+    if failure is not None:
+        return not_asked(record.price, record.quote, failure)
+    own = [market for market in markets if market.asset == record.coin]
+    return check_price(record.price, record.quote, own, gap)
 
 
 def _sent(
     progress: Progress,
     ledger: LedgerPort,
     numbers: tuple[int, ...],
-    trades: tuple[TradeFacts, ...],
+    trades: tuple[TradeCard, ...],
     left_out: tuple[LeftOutTrade, ...],
     marked: tuple[MarkedTrade, ...],
 ) -> Recorded:
     try:
         said = progress.raw_text if progress.raw_text is not None else progress.passage
-        result = ledger.propose_add(trades, said)
+        if progress.setting.unfinished:
+            result = ledger.propose_cards(trades, said)
+        else:
+            whole = tuple(card.facts for card in trades if card.facts is not None)
+            if len(whole) != len(trades):
+                raise ValueError("a trade with an empty cell goes only to a ledger that takes it")
+            result = ledger.propose_add(whole, said)
     except LedgerError as error:
         if error.kind is LedgerErrorKind.TIMED_OUT:
             # The ledger's rule 4: it may have taken them; never send them again.
@@ -211,6 +247,8 @@ def _flow_left_out(progress: Progress) -> tuple[tuple[LeftOutTrade, ...], tuple[
     for number, trade in enumerate(progress.trades, start=1):
         if trade.status is TradeStatus.RECORDED and trade.record is not None:
             records.append((number, trade.record))
+        elif trade.status is TradeStatus.UNFINISHED and trade.card is not None:
+            records.append((number, trade.card))
         elif trade.status is TradeStatus.CANNOT_RECORD:
             left_out.append(_cannot_record(number, trade, assets, progress.issues))
         else:
@@ -320,10 +358,10 @@ def _sendable(
     assets: Mapping[str, Asset],
     shared: Mapping[str, SameCode],
     said: str,
-) -> tuple[tuple[int, ...], tuple[TradeFacts, ...], tuple[LeftOutTrade, ...]]:
-    """The records that can be sent, as trades, with their numbers; the rest, with why."""
+) -> tuple[tuple[int, ...], tuple[TradeCard, ...], tuple[LeftOutTrade, ...]]:
+    """The records that can be sent, as cards, with their numbers; the rest, with why."""
     numbers: list[int] = []
-    trades: list[TradeFacts] = []
+    trades: list[TradeCard] = []
     not_sent: list[LeftOutTrade] = []
     for number, record in records:
         named = next((code for code in _codes(record) if code in shared), None)
@@ -338,21 +376,59 @@ def _sendable(
             not_sent.append(why)
             continue
         numbers.append(number)
-        trades.append(_facts(record, assets, said))
+        if isinstance(record, CardRecord):
+            trades.append(_card(record, assets, said))
+        else:
+            trades.append(card_of(_facts(record, assets, said)))
     return tuple(numbers), tuple(trades), tuple(not_sent)
 
 
-def _codes(record: TradeRecord) -> tuple[str, ...]:
+def _codes(record: _Sendable) -> tuple[str, ...]:
     return tuple(code for code in (record.coin, record.fee_coin, record.quote) if code)
 
 
-def _why_not(number: int, record: TradeRecord, assets: Mapping[str, Asset]) -> LeftOutTrade | None:
+def _why_not(number: int, record: _Sendable, assets: Mapping[str, Asset]) -> LeftOutTrade | None:
     for code in (record.coin, record.fee_coin, record.quote):
-        if code not in assets:
+        if code is not None and code not in assets:
             return LeftOutTrade(number=number, why=LeftOut.NOT_IN_LEDGER, code=code)
-    if assets[record.quote].pricing is not Pricing.CAN_PRICE:
-        return LeftOutTrade(number=number, why=LeftOut.QUOTE_CANNOT_PRICE, code=record.quote)
+    quote = record.quote
+    if quote is not None and assets[quote].pricing is not Pricing.CAN_PRICE:
+        return LeftOutTrade(number=number, why=LeftOut.QUOTE_CANNOT_PRICE, code=quote)
     return None
+
+
+def _card(record: CardRecord, assets: Mapping[str, Asset], said: str) -> TradeCard:
+    """A trade settled with cells left empty, as the ledger takes it: each empty cell ``None``.
+
+    A day alone holds the start of that day, as for a record; no day
+    holds no time and no zone.
+    """
+    occurred = record.occurred
+    moment: datetime | None = None
+    date_only = False
+    zone: str | None = None
+    if occurred is not None:
+        zone = occurred.time_zone
+        value = occurred.value
+        date_only = not isinstance(value, datetime)
+        moment = value if isinstance(value, datetime) else _start_of(value, zone)
+    return TradeCard(
+        occurred=moment,
+        side=record.side,
+        asset=assets[record.coin].code,
+        quantity=record.quantity,
+        price=record.price,
+        total=record.total,
+        quote=assets[record.quote].code if record.quote is not None else None,
+        fee=record.fee,
+        fee_asset=assets[record.fee_coin].code if record.fee_coin is not None else None,
+        platform=record.platform if record.platform is not None else "",
+        note=record.note if record.note is not None else "",
+        raw_text=said,
+        zone=zone,
+        date_only=date_only,
+        cost_rate=None,
+    )
 
 
 def _facts(record: TradeRecord, assets: Mapping[str, Asset], said: str) -> TradeFacts:

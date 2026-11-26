@@ -66,6 +66,7 @@ from ledger_hand.core.ledger_records import TradeFacts
 from ledger_hand.core.marks import Field
 from ledger_hand.core.price_check import PriceCheck
 from ledger_hand.core.proposals import CheckOutcome, ProposalStatus
+from ledger_hand.core.trade_card import TradeCard
 from ledger_hand.flows.assisting import DEFAULT_PROMPT
 from ledger_hand.flows.conversation import Route, Said
 from ledger_hand.flows.record_words import spoken_reminders
@@ -89,9 +90,10 @@ from ledger_hand.ports import LedgerError, ModelError
 # Entries of versions 1 to 4 are still read as they are.
 # Version 6 (2026-11-25) added "marks": for each trade proposed, its number,
 # the marks on its cells (cell, kind, reason), what came of comparing its
-# price with the ledger's market price, and the cells sent empty (none yet,
-# kept now so that sending empty cells needs no new version). Entries of
-# versions 1 to 5 are still read as they are.
+# price with the ledger's market price, and the cells sent empty (filled in
+# since cards with empty cells are sent, 2026-11-26, with no new version: a
+# trade's cell sent empty is null in "trades", and its name is in "empty").
+# Entries of versions 1 to 5 are still read as they are.
 RECORD_VERSION = 6
 
 # One thousand: an entry is a few thousand bytes, so the file stays at a few
@@ -312,20 +314,29 @@ def _trades(said: Said) -> list[dict[str, Any]]:
     return kept
 
 
-def _facts(facts: TradeFacts) -> dict[str, str]:
-    return {
+def _facts(facts: TradeFacts | TradeCard) -> dict[str, str | None]:
+    """A trade proposed, each cell as text; a cell a card left empty is ``None`` (null)."""
+    occurred = facts.occurred
+    when: str | None = None
+    if occurred is not None:
         # A trade known only to its day keeps its day alone, never a made-up 00:00.
-        "occurred": facts.day.isoformat() if facts.date_only else facts.occurred.isoformat(),
+        when = occurred.date().isoformat() if facts.date_only else occurred.isoformat()
+    return {
+        "occurred": when,
         "side": facts.side.value,
         "asset": facts.asset,
-        "quantity": _amount(facts.quantity),
-        "price": _amount(facts.price),
-        "total": _amount(facts.total),
+        "quantity": _maybe(facts.quantity),
+        "price": _maybe(facts.price),
+        "total": _maybe(facts.total),
         "quote": facts.quote,
-        "fee": _amount(facts.fee),
+        "fee": _maybe(facts.fee),
         "fee_asset": facts.fee_asset,
         "platform": facts.platform,
     }
+
+
+def _maybe(value: Decimal | None) -> str | None:
+    return _amount(value) if value is not None else None
 
 
 def _amount(value: Decimal) -> str:

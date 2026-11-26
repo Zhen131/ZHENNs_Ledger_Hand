@@ -108,12 +108,13 @@ def start_from_reading(
     pick_assets: bool = False,
     pick_prompt: AssetPickPrompt = ASSET_PICK_PROMPT,
     last_money: LastMoneyLookup | None = None,
+    unfinished: bool = False,
 ) -> Progress:
     """Start the passage joined from ``reading`` (or ``text``) and ``note``, with ``model``.
 
     ``text`` is the text to use, when the person changed what was read.
     ``screen_prompt``, ``extract_prompt``, ``hold_other_unit``,
-    ``pick_assets``, ``pick_prompt`` and ``last_money`` go to
+    ``pick_assets``, ``pick_prompt``, ``last_money`` and ``unfinished`` go to
     ``recording.start`` as they are. Raises ``ValueError`` for a reading
     that was not made, and as ``recording.start`` does for the moment and
     the zone.
@@ -137,6 +138,7 @@ def start_from_reading(
         pick_assets=pick_assets,
         pick_prompt=pick_prompt,
         last_money=last_money,
+        unfinished=unfinished,
     )
     return dataclasses.replace(
         progress,

@@ -17,8 +17,9 @@ later an interface to show; it works nothing out.
   for each trade the ledger took.
 - ``MarkedTrade``: what the program noticed about one trade proposed: the
   marks on its cells (``core/marks.py``) and how its price compared with
-  the ledger's market price (``core/price_check.py``). For now they stay
-  on this side: the ledger is not handed them.
+  the ledger's market price (``core/price_check.py``). A ledger that
+  takes cards is handed the marks with each card, after the guard; one
+  that does not is not handed them.
 - ``Recorded``: all of it: the ending, the flow's progress as it stands
   (with every call the flow made to the model, counted apart from the
   assistant's steps), the trades proposed and each one's marks, the
@@ -37,10 +38,10 @@ from dataclasses import dataclass
 from decimal import Decimal
 from types import MappingProxyType
 
-from ledger_hand.core.ledger_records import TradeFacts
 from ledger_hand.core.marks import TradeMarks
 from ledger_hand.core.price_check import PriceCheck
 from ledger_hand.core.proposals import TradeCheck
+from ledger_hand.core.trade_card import TradeCard
 from ledger_hand.flows.progress import Progress, Question, Stage
 from ledger_hand.ports import LedgerError
 
@@ -169,8 +170,9 @@ class MarkedTrade:
 class Recorded:
     """How recording what was said ended this time, and everything it rests on.
 
-    ``trades`` are the trades proposed, in the order said, and ``numbers``
-    the number of each in what was said; ``checks`` are the ledger's checks
+    ``trades`` are the trades proposed, as cards, in the order said (a
+    cell left empty is ``None``), and ``numbers`` the number of each in
+    what was said; ``checks`` are the ledger's checks
     of them, one each, in the same order: a proposal's identifier, or why
     the ledger turned it down. ``marked`` holds, in the same order, the
     marks of each and how its price compared. ``missing_money`` is the code
@@ -180,7 +182,7 @@ class Recorded:
 
     ending: RecordEnding
     progress: Progress
-    trades: tuple[TradeFacts, ...] = ()
+    trades: tuple[TradeCard, ...] = ()
     numbers: tuple[int, ...] = ()
     marked: tuple[MarkedTrade, ...] = ()
     left_out: tuple[LeftOutTrade, ...] = ()

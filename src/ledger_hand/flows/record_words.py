@@ -46,6 +46,20 @@ many times apart and which way, and that it is marked suspicious; not
 compared says why. A price within reach, or an asset with no market
 price, is not spoken of. (Decided on 2026-11-25.)
 
+A trade sent as a card with cells left empty (the ledger takes such a
+card since 2026-11-25) gets one line saying which cells are empty and to
+fill them in on the ledger's page before saving (``EMPTY_WORDS``). When
+the ledger found a problem in the cells given, its own sentence is said
+as it came (``LEDGER_PROBLEM_WORDS``); when it found none while the day,
+an amount or the money used is empty, it is never said to have found
+nothing: it could not check those (``NOT_CHECKED_YET_WORDS``), and of a
+sell, whether enough was held (``SELL_NOT_CHECKED_WORDS``). Three
+amounts that do not agree are said with the three figures, the total
+left empty, and that the program does not guess which is wrong
+(``DISAGREE_WORDS``); each other cell left empty for being wrong, or
+marked suspicious for it, is said with its reason (``DOUBT_WORDS``).
+(The product owner's rule, 81A section 2 item 1; decided 2026-11-25.)
+
 ``price_check_words`` says what came of the comparison in a few words,
 for every outcome, and ``not_checked_words`` why a price was not compared
 at all, for the try-out script and the line under a trade's card: a card
@@ -54,18 +68,24 @@ it as checked.
 
 Names defined here: ``ENDING_WORDS``, ``LEFT_OUT_WORDS``,
 ``SPOKEN_REMINDERS``, ``PICKED_WORDS``, ``GUESSED_WORDS``, ``PRICE_WORDS``,
-``NOT_CHECKED_WORDS``, ``reply_for``, ``price_line``, ``price_check_words``,
+``NOT_CHECKED_WORDS``, ``EMPTY_WORDS``, ``LEDGER_PROBLEM_WORDS``,
+``NOT_CHECKED_YET_WORDS``, ``SELL_NOT_CHECKED_WORDS``, ``DISAGREE_WORDS``,
+``DOUBT_WORDS``, ``reply_for``, ``price_line``, ``price_check_words``,
 ``not_checked_words`` and ``spoken_reminders``.
 """
 
 from __future__ import annotations
 
 from collections.abc import Mapping
+from decimal import Decimal
 from types import MappingProxyType
 
+from ledger_hand.core.card_record import Doubt
+from ledger_hand.core.marks import FAR_REASON_START
 from ledger_hand.core.price_check import PriceCheck, PriceVerdict
-from ledger_hand.core.proposals import CheckOutcome
-from ledger_hand.core.trade import Inferred
+from ledger_hand.core.proposals import CheckOutcome, TradeCheck
+from ledger_hand.core.trade import Inferred, Side
+from ledger_hand.core.trade_card import TradeCard
 from ledger_hand.extraction.issues import Issue, IssueKind
 from ledger_hand.flows.progress import REMINDER_KINDS
 from ledger_hand.flows.recorded import LeftOut, LeftOutTrade, Recorded, RecordEnding
@@ -204,6 +224,7 @@ PRICE_WORDS: Mapping[PriceVerdict, str | None] = MappingProxyType(
             "Trade {number}: the price was not compared with the market price: the money "
             "it was paid in is not settled yet."
         ),
+        PriceVerdict.NO_PRICE: None,
         PriceVerdict.NOT_ASKED: (
             "Trade {number}: the price was not compared with the market price: the ledger "
             "could not be asked for it ({failure})."
@@ -223,9 +244,47 @@ NOT_CHECKED_WORDS: Mapping[PriceVerdict, str | None] = MappingProxyType(
             "one money"
         ),
         PriceVerdict.NO_MONEY: "the money the trade used is not settled yet",
+        PriceVerdict.NO_PRICE: None,
         PriceVerdict.NOT_ASKED: "the ledger could not be asked for its market prices ({failure})",
     }
 )
+
+# The line for a card sent with cells left empty; "with empty fields" is the
+# word to look for. The cells are the ledger's own names for them.
+EMPTY_WORDS = (
+    "Trade {number} was sent with empty fields: {fields}. It waits on the ledger's pending "
+    "list; fill them in on the ledger's own page before you save it."
+)
+
+# The line for what the ledger found in the cells given of a card, its own words.
+LEDGER_PROBLEM_WORDS = "Trade {number}: the ledger says: {message}"
+
+# The line for a card the ledger found nothing wrong with while some cell it
+# would check is empty: never said as nothing found (72C1, 2026-11-25).
+NOT_CHECKED_YET_WORDS = (
+    "Trade {number}: the ledger cannot check it in full while {fields} are empty; it checks "
+    "again when you save."
+)
+
+# Added for a sell: whether enough was held is checked only once it is filled in.
+SELL_NOT_CHECKED_WORDS = (
+    " Whether you held enough to sell can be checked only once they are filled in."
+)
+
+# The line for three amounts that do not agree: the three figures, what was left
+# empty, and that the program does not guess which is wrong.
+DISAGREE_WORDS = (
+    "Trade {number}: you said {quantity} at {price} for a total of {total}, but quantity × "
+    "price is {product}. The total was left empty and all three are marked suspicious; the "
+    "program does not guess which is wrong."
+)
+
+# The line for any other cell marked suspicious for being wrong, with its reason.
+DOUBT_WORDS = "Trade {number}: {field} is marked suspicious: {reason}."
+
+# The cells whose emptiness keeps the ledger from checking a card in full:
+# the day, the amounts and the money used (72C1, "the holdings cannot be checked").
+_CHECKED_ONLY_WHEN_GIVEN = ("occurredDate", "quantity", "price", "totalValue", "quoteAssetId")
 
 # The endings after which a guessed money is said: a trade waits, or may.
 _SAYS_GUESSES = frozenset({RecordEnding.SENT, RecordEnding.PARTLY_SENT, RecordEnding.MAYBE_SENT})
@@ -257,7 +316,7 @@ def reply_for(recorded: Recorded, *, begun: bool = False) -> str:
     first = ENDING_WORDS[recorded.ending].format(
         question=_question(recorded), code=recorded.missing_money or "", reason=_reason(recorded)
     )
-    lines = [first, *_guessed(recorded), *_priced(recorded)]
+    lines = [first, *_guessed(recorded), *_priced(recorded), *_cards(recorded)]
     if begun or recorded.ending is not RecordEnding.ASKING:
         lines.extend(_picked(recorded))
     lines.extend(_left_out(trade) for trade in recorded.left_out)
@@ -279,16 +338,93 @@ def _guessed(recorded: Recorded) -> list[str]:
     trades = recorded.progress.trades
     lines: list[str] = []
     for number, waits in zip(recorded.numbers, passed, strict=True):
-        record = trades[number - 1].record
+        state = trades[number - 1]
+        record = state.record if state.record is not None else state.card
         if not waits or record is None or record.inferred_from is None:
             continue
         source = record.inferred_from
-        lines.append(
-            GUESSED_WORDS[record.inferred].format(
-                number=number, money=source.money, asset=source.asset
+        inferred = record.inferred
+        if state.card is not None:
+            # A guessed money sent empty is not said as used.
+            sent = recorded.trades[recorded.numbers.index(number)]
+            inferred = frozenset(
+                one
+                for one in inferred
+                if (sent.quote if one is Inferred.QUOTE else sent.fee_asset) is not None
             )
+        if inferred not in GUESSED_WORDS:
+            continue
+        lines.append(
+            GUESSED_WORDS[inferred].format(number=number, money=source.money, asset=source.asset)
         )
     return lines
+
+
+def _cards(recorded: Recorded) -> list[str]:
+    """The lines for each card waiting: its empty cells, what the ledger found, its doubts."""
+    lines: list[str] = []
+    for place, number in _waiting_trades(recorded):
+        card = recorded.trades[place]
+        check = recorded.checks[place] if len(recorded.checks) == len(recorded.trades) else None
+        lines.extend(_card_lines(recorded, number, card, check))
+    return lines
+
+
+def _card_lines(
+    recorded: Recorded, number: int, card: TradeCard, check: TradeCheck | None
+) -> list[str]:
+    lines: list[str] = []
+    state = recorded.progress.trades[number - 1]
+    found = state.card
+    if found is not None:
+        doubts = [(mark, Doubt.of(mark.reason or "")) for mark in found.doubts]
+        if any(doubt is Doubt.DISAGREE for _, doubt in doubts):
+            draft = state.draft
+            lines.append(
+                _disagree_line(number, draft.quantity, draft.price, draft.total, found.quote)
+            )
+        for mark, doubt in doubts:
+            reason = mark.reason or ""
+            if doubt is Doubt.DISAGREE or reason.startswith(FAR_REASON_START):
+                continue
+            lines.append(DOUBT_WORDS.format(number=number, field=mark.field.value, reason=reason))
+    if card.complete:
+        return lines
+    lines.append(EMPTY_WORDS.format(number=number, fields=", ".join(card.missing)))
+    problem = check.problem if check is not None else None
+    if problem is not None:
+        lines.append(LEDGER_PROBLEM_WORDS.format(number=number, message=problem.message))
+        return lines
+    unchecked = [name for name in card.missing if name in _CHECKED_ONLY_WHEN_GIVEN]
+    if unchecked:
+        words = NOT_CHECKED_YET_WORDS.format(number=number, fields=", ".join(unchecked))
+        if card.side is Side.SELL:
+            words += SELL_NOT_CHECKED_WORDS
+        lines.append(words)
+    return lines
+
+
+def _disagree_line(
+    number: int,
+    quantity: Decimal | None,
+    price: Decimal | None,
+    total: Decimal | None,
+    quote: str | None,
+) -> str:
+    """The three figures said that do not agree, and quantity times price."""
+    money = f" {quote}" if quote else ""
+
+    def shown(value: Decimal | None, unit: str = "") -> str:
+        return format(value, "f") + unit if value is not None else "none"
+
+    product = quantity * price if quantity is not None and price is not None else None
+    return DISAGREE_WORDS.format(
+        number=number,
+        quantity=shown(quantity),
+        price=shown(price, money),
+        total=shown(total, money),
+        product=shown(product, money),
+    )
 
 
 def _waiting_trades(recorded: Recorded) -> list[tuple[int, int]]:

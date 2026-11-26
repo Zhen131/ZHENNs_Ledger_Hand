@@ -455,8 +455,11 @@ def _start(said: str, around: _Around, table: AssetTable, shot: ScreenshotText |
     """The recording flow begun the assistant's way, for words typed and a screenshot alike.
 
     The judging prompt version, the holding back, the picking of an asset from
-    the ledger's list and the looking up of an asset's last money in the
-    ledger are named here once, so the two ways cannot drift apart.
+    the ledger's list, the looking up of an asset's last money in the
+    ledger and whether the ledger takes cards with cells left empty are
+    named here once, so the two ways cannot drift apart. When the ledger
+    takes cards, only which asset and buy or sell are asked (81A section 2
+    item 1); otherwise every gap is asked, as before.
     """
     assistant_way = {
         "screen_prompt": ASSISTANT_SCREEN_PROMPT,
@@ -464,6 +467,7 @@ def _start(said: str, around: _Around, table: AssetTable, shot: ScreenshotText |
         "pick_assets": ASSISTANT_PICKS_ASSETS,
         "pick_prompt": ASSISTANT_PICK_PROMPT,
         "last_money": last_money_of(around.ledger, around.now),
+        "unfinished": around.ledger.takes_unfinished(),
     }
     if shot is None:
         progress = recording.start(

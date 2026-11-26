@@ -32,6 +32,18 @@ The steps, each handing back a new ``Progress``:
   it at a time, in the order ``core.followup`` fixes. The question is put
   together and worded (``questions``); a trade that cannot be recorded is
   set aside with its reason, without a question.
+- With ``unfinished`` (the assistant's way, when the ledger takes a trade
+  with cells left empty), only which asset and buy or sell are asked,
+  and a vague word for money ("美金", "刀") when the ledger has no trade
+  of the asset or could not be asked (the product owner's rules, 81A
+  section 2 items 1 and 2). Every other gap does not stop the trade: it
+  is settled as ``TradeStatus.UNFINISHED`` with a card
+  (``core.card_record``), its cells not said, or said wrong, left empty
+  and marked. A vague word the ledger's last trade cannot settle (that
+  day used both moneys, or another money) is left empty and marked. A
+  quantity said in money ("25U" of ETH) is then taken as the total, not
+  held back (``totals_from_units``). Without ``unfinished`` every gap is
+  asked, as before.
 - ``answer`` reads the answer (``extraction.answer_phrase``), puts it back
   into the trade (``filling``) and checks the trade again; then the next
   question follows. An answer that cannot be used gets the same question
@@ -70,10 +82,25 @@ from datetime import datetime
 from ledger_hand.asking.prompts.bookkeeper import BOOKKEEPER_PROMPT
 from ledger_hand.core.assets import BUILT_IN_ASSETS, AssetTable, MoneyReading, UnknownAssets
 from ledger_hand.core.book import EarlierSave
+from ledger_hand.core.card_record import card_record, money_doubt_other, money_doubt_two
 from ledger_hand.core.coins import spoken_key
-from ledger_hand.core.followup import AskCell, CannotRecord, Cell, ConfirmCoin, next_follow_up
+from ledger_hand.core.followup import (
+    FOLLOW_UP_ORDER,
+    AskCell,
+    CannotRecord,
+    Cell,
+    ConfirmCoin,
+    Destination,
+    FollowUp,
+    follow_up_for,
+    next_follow_up,
+)
+from ledger_hand.core.ledger_table import VAGUE_MONEY_CODES
+from ledger_hand.core.marks import Field
+from ledger_hand.core.time_wording import Refusal
+from ledger_hand.core.timeparse import day_named
 from ledger_hand.core.trade import OccurredTime, TradeDraft, TradeRecord
-from ledger_hand.core.validation import Missing, check_draft
+from ledger_hand.core.validation import DraftProblems, Missing, check_draft
 from ledger_hand.core.zones import is_zone_name
 from ledger_hand.extraction.answer_phrase import (
     AnswerProblem,
@@ -103,13 +130,14 @@ from ledger_hand.extraction.prompts.answer import ANSWER_PROMPT
 from ledger_hand.extraction.prompts.asset_pick import ASSET_PICK_PROMPT, AssetPickPrompt
 from ledger_hand.extraction.prompts.first import FIRST_PROMPT
 from ledger_hand.extraction.prompts.screen import SCREEN_PROMPT
+from ledger_hand.extraction.reply_table import Field as ReplyField
 from ledger_hand.extraction.screening import Decision, Screened, screen
 from ledger_hand.extraction.unit_currency import currencies_in_unit
 from ledger_hand.flows.coin_book import with_confirmed_coins
 from ledger_hand.flows.filling import confirm, fill, fill_from_ledger, settle_clash
 from ledger_hand.flows.fingerprint import passage_fingerprint
 from ledger_hand.flows.guessing import guessed
-from ledger_hand.flows.last_money import LastMoneyLookup
+from ledger_hand.flows.last_money import LastMoneyLookup, LastMoneyMiss
 from ledger_hand.flows.progress import (
     DEFAULT_TUNING,
     Asked,
@@ -174,6 +202,7 @@ def start(
     pick_assets: bool = False,
     pick_prompt: AssetPickPrompt = ASSET_PICK_PROMPT,
     last_money: LastMoneyLookup | None = None,
+    unfinished: bool = False,
 ) -> Progress:
     """Judge ``passage``, extract its trades, check them, and ask the first question.
 
@@ -201,6 +230,11 @@ def start(
     ``last_money`` looks up the money of an asset's last trade in the
     ledger, to guess what a vague word for money meant (``guessing``);
     only the assistant hands one in, and without it nothing is guessed.
+
+    ``unfinished`` says the ledger takes a trade with cells left empty:
+    only which asset and buy or sell (and a vague word for money the
+    ledger cannot settle) are asked; every other gap becomes a card. Only
+    the assistant turns it on, and only when the ledger offers it.
     """
     if not isinstance(now, datetime) or now.utcoffset() is None:
         raise ValueError("the current moment must be a datetime that carries an offset")
@@ -214,7 +248,10 @@ def start(
                 assets, coins=with_confirmed_coins(assets.coins, book.confirmed_coins())
             )
     progress = Progress(
-        Stage.REFUSED, passage, Setting(now, zone, assets, tuning), seen_before=seen_before
+        Stage.REFUSED,
+        passage,
+        Setting(now, zone, assets, tuning, unfinished=unfinished),
+        seen_before=seen_before,
     )
     screening = screen(passage, model, prompt=screen_prompt, asks_again=tuning.asks_again)
     progress = _with_calls(progress, Step.SCREENING, _calls_of(screening), screen_prompt.name)
@@ -265,14 +302,71 @@ def _extracted(
         for found in picks:
             progress = _with_calls(progress, Step.ASSET_PICK, found.calls, found.prompt)
         progress = dataclasses.replace(progress, picks=picks)
+    totals: list[tuple[int, str]] = []
+    if hold and setting.unfinished:
+        drafts, totals = _totals_from_units(drafts, extraction.issues, setting.assets)
+    taken = {position for position, _ in totals}
     trades = tuple(
         TradeState(
-            draft, _held_status(position, draft, extraction.issues, setting.assets, hold=hold)
+            draft,
+            _held_status(
+                position,
+                draft,
+                extraction.issues,
+                setting.assets,
+                hold=hold and position not in taken,
+            ),
         )
         for position, draft in enumerate(drafts)
     )
-    progress = dataclasses.replace(progress, trades=trades, issues=extraction.issues)
+    progress = dataclasses.replace(
+        progress, trades=trades, issues=extraction.issues, totals_from_units=tuple(totals)
+    )
     return _next_question(progress, model, last)
+
+
+def _totals_from_units(
+    drafts: tuple[TradeDraft, ...], issues: tuple[Issue, ...], assets: AssetTable
+) -> tuple[tuple[TradeDraft, ...], list[tuple[int, str]]]:
+    """The drafts with each quantity said in money ("25U" of ETH) taken as the total instead.
+
+    This function reads a quantity held back for its unit as what was
+    paid or got in all, when the unit is one money and no total was said:
+    the quantity is left empty, the total is that number, and the money
+    used is the unit's when none was said. A unit of no money, or of
+    another money than the one said, stays held back. Example: "25U买了点
+    ETH" gives a total of 25 in USDT and no quantity.
+
+    Why: "数量带了别的单位 → 那个数当总花费" (81A section 5 item 9, the
+    contract of 2026-11-25); the ledger then takes the quantity empty.
+    """
+    changed = list(drafts)
+    taken: list[tuple[int, str]] = []
+    for position, draft in enumerate(drafts):
+        issue = held_other_unit(position, draft, issues, assets)
+        if issue is None or issue.phrase is None or draft.quantity is None:
+            continue
+        if draft.total is not None:
+            continue
+        words = currencies_in_unit(issue.phrase, assets)
+        if len(words) != 1:
+            continue
+        unit = words[0].text
+        found = assets.money(unit)
+        if found.reading not in (MoneyReading.ONE, MoneyReading.VAGUE):
+            continue
+        if draft.quote is not None and assets.money(draft.quote).code != found.code:
+            continue
+        said = f"{format(draft.quantity, 'f')}{issue.phrase}"
+        changed[position] = dataclasses.replace(
+            draft,
+            quantity=None,
+            total=draft.quantity,
+            quote=draft.quote if draft.quote is not None else unit,
+            derived=frozenset(),
+        )
+        taken.append((position, said))
+    return tuple(changed), taken
 
 
 def _picked(
@@ -439,9 +533,133 @@ def _next_question(
                 draft, TradeStatus.CANNOT_RECORD, reason=follow_up.because
             )
             continue
+        if progress.setting.unfinished:
+            asked, doubts = _still_asked(progress, position, draft, checked)
+            if asked is None:
+                card = card_record(
+                    draft,
+                    checked,
+                    assets,
+                    progress.setting.now,
+                    money_doubts=doubts,
+                    taken_as_total=dict(progress.totals_from_units).get(position),
+                    after_today=_after_today(progress, position),
+                )
+                trades[position] = TradeState(draft, TradeStatus.UNFINISHED, card=card)
+                continue
+            follow_up = asked
         progress = dataclasses.replace(progress, trades=tuple(trades))
         return _asking(progress, position, follow_up, model)
     return dataclasses.replace(progress, stage=Stage.REVIEWING, trades=tuple(trades), question=None)
+
+
+# Where a problem still leads to a question once the ledger takes cards: which
+# asset, and buy or sell; the ledger never takes either empty (81A section 2
+# item 1). A vague word for money is decided apart (``_vague_verdict``).
+_STILL_ASKED = frozenset({Destination.ASK_SIDE, Destination.ASK_COIN, Destination.CONFIRM_COIN})
+
+# The cell a vague word for money stands in, by the problem the check noted.
+_VAGUE_CELLS = {
+    Missing.QUOTE: (Field.QUOTE_ASSET_ID, ReplyField.PRICE_CURRENCY),
+    Missing.FEE_COIN: (Field.FEE_ASSET_ID, ReplyField.FEE_CURRENCY),
+}
+
+
+def _still_asked(
+    progress: Progress, position: int, draft: TradeDraft, problems: DraftProblems
+) -> tuple[Asked | None, dict[Field, str]]:
+    """The question still asked about a trade once the ledger takes cards, or none.
+
+    When none is, the reasons each vague word for money is doubted come
+    back, by the card's cell, for the card. Example: "30刀" for ETH whose
+    latest day used both USDT and the US dollar: no question, and the
+    money used doubted.
+    """
+    found = set(problems.missing) | set(problems.violations)
+    doubts: dict[Field, str] = {}
+    for problem, destination in FOLLOW_UP_ORDER:
+        if problem not in found:
+            continue
+        if destination in _STILL_ASKED:
+            return _asked(follow_up_for(problem, draft)), doubts
+        if problem in _VAGUE_CELLS:
+            field, reply_field = _VAGUE_CELLS[problem]
+            word = draft.quote if problem is Missing.QUOTE else draft.fee_coin
+            verdict = _vague_verdict(progress, position, draft, word, reply_field)
+            if verdict is _ASK:
+                return _asked(follow_up_for(problem, draft)), doubts
+            if isinstance(verdict, str):
+                doubts[field] = verdict
+    return None, doubts
+
+
+def _asked(follow_up: FollowUp) -> Asked:
+    """``follow_up`` as a question; a problem the table sends to no question is a mistake."""
+    if isinstance(follow_up, CannotRecord):
+        raise AssertionError(f"{follow_up.because} leads to no question")
+    return follow_up
+
+
+def _after_today(progress: Progress, position: int) -> str | None:
+    """The day of a time said for the trade at ``position`` that reading refused for lying
+    after today ("2026-11-25"), or its words when no day is named; ``None`` for none."""
+    setting = progress.setting
+    for issue in progress.issues:
+        if (
+            issue.kind is IssueKind.TIME_REFUSED
+            and issue.draft == position
+            and issue.cause is Refusal.IN_THE_FUTURE
+            and issue.phrase is not None
+        ):
+            day = day_named(issue.phrase, setting.now, setting.zone)
+            return day.isoformat() if day is not None else f'"{issue.phrase}"'
+    return None
+
+
+class _Ask:
+    """The word for money is asked about, as before."""
+
+
+_ASK = _Ask()
+
+
+def _vague_verdict(
+    progress: Progress,
+    position: int,
+    draft: TradeDraft,
+    word: str | None,
+    reply_field: ReplyField,
+) -> _Ask | str | None:
+    """Whether a vague word for money is asked about, doubted (why), or not vague at all.
+
+    It is asked about, as before, when the ledger has no trade of the
+    asset, or could not be asked (then "no trade" cannot be ruled out),
+    and in every case these rules do not name (81A section 2 item 2; the
+    contract's review, must-fix 5). It is doubted when the asset's latest
+    day used both USDT and the US dollar, or its last trade used another
+    money (the contract's table B, 2026-11-25).
+    """
+    assets = progress.setting.assets
+    if word is None or assets.money(word).reading is not MoneyReading.VAGUE:
+        return None
+    not_clear = any(
+        issue.kind is IssueKind.MONEY_NOT_CLEAR
+        and issue.draft == position
+        and issue.field is reply_field
+        for issue in progress.issues
+    )
+    coin = assets.find(draft.coin) if draft.coin is not None else None
+    if not_clear or coin is None:
+        return _ASK
+    last = dict(progress.last_moneys).get(coin.symbol)
+    if last is None:
+        return _ASK
+    if last.miss is LastMoneyMiss.TWO_MONEYS:
+        return money_doubt_two(word, coin.symbol)
+    found = last.found
+    if found is not None and found.money not in VAGUE_MONEY_CODES:
+        return money_doubt_other(word, found)
+    return _ASK
 
 
 def _asking(

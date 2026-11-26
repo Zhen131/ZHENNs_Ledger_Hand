@@ -29,6 +29,7 @@ from decimal import Decimal
 from ledger_hand.asking.question_text import Writer
 from ledger_hand.core.assets import AssetTable
 from ledger_hand.core.book import EarlierSave
+from ledger_hand.core.card_record import CardRecord
 from ledger_hand.core.followup import AskCell, AskWhichCell, Cell, ConfirmCoin, Problem
 from ledger_hand.core.trade import OccurredTime, TradeDraft, TradeRecord
 from ledger_hand.extraction.asset_picking import AssetPick
@@ -67,6 +68,7 @@ class TradeStatus(enum.Enum):
     RECORDED = "complete"
     SKIPPED = "left out"
     CANNOT_RECORD = "cannot be recorded"
+    UNFINISHED = "to be sent as a card, cells not said or wrong left empty and marked"
 
 
 class Step(enum.Enum):
@@ -118,12 +120,16 @@ class Setting:
 
     ``now`` and ``zone`` are those the passage was given with. ``assets`` is
     the asset table, with every coin the user confirmed during this run.
+    ``unfinished`` says the ledger takes a trade with cells left empty
+    (the assistant's way, when the ledger offers it): then only which
+    asset and buy or sell are asked, and every other gap becomes a card.
     """
 
     now: datetime
     zone: str
     assets: AssetTable
     tuning: Tuning = DEFAULT_TUNING
+    unfinished: bool = False
 
 
 @dataclass(frozen=True)
@@ -131,13 +137,15 @@ class TradeState:
     """One trade: its draft as it stands, and what became of it.
 
     ``record`` is there when the trade is recorded; ``reason`` says why a
-    trade cannot be recorded.
+    trade cannot be recorded; ``card`` is there when the trade is to be
+    sent as a card, with cells left empty or marked (``UNFINISHED``).
     """
 
     draft: TradeDraft
     status: TradeStatus
     record: TradeRecord | None = None
     reason: Problem | None = None
+    card: CardRecord | None = None
 
 
 @dataclass(frozen=True)
@@ -262,6 +270,7 @@ class Progress:
     picks: tuple[AssetPick, ...] = ()
     last_moneys: tuple[tuple[str, LastMoney], ...] = ()
     clash: MoneyClash | None = None
+    totals_from_units: tuple[tuple[int, str], ...] = ()
 
     @property
     def records(self) -> tuple[TradeRecord, ...]:
