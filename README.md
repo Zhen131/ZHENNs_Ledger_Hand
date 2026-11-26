@@ -942,7 +942,11 @@ off it) straight to the step that picks an asset, and
 `.venv/bin/python -m evals.name_run` says each sentence to the whole
 assistant against the demo book; both run one half of the set at a time
 (`--half practice`, the default, or `--half locked`, which prints the
-counts alone) and judge every asset picked, named or sent;
+counts alone) and judge every asset picked, named or sent. `stock_run` and
+`name_run` say their sentences to a ledger that takes no trade with cells
+left empty, as every ledger before 2026-11-25, so they measure the way of
+asking each gap; sending a card with cells left empty is measured by the
+exam said the owner's way (`evals.spoken_run`), whose exam book takes them;
 `.venv/bin/python -m evals.judged_run --screen screen-2
 --extract first-3` runs the debug set (or, with `--final-exam`, the final
 set) through the start of recording, judging step and all, to hold a

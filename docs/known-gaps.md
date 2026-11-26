@@ -731,17 +731,16 @@ tools handed to the model and is left for a batch of its own. Until then:
   of tools (`allowUnfinished` on `propose_trade_add`). The fake ledger is a
   ledger from before unless made to take cards (the demo ledger, the
   try-out script's and the exam book are). The real plug reads the list
-  only from a link that lists its tools: the link kept by the Assistant
-  page (`link_keeper`, its caller `_Current`) does not offer the list to
-  the plug, so the Assistant page with your ledger page still asks each
-  gap, and sends no marks, until the keeper hands the list on.
+  from the link (the link kept by the Assistant page hands it on, since
+  2026-11-26); while no link runs it is not read and asked again next
+  time. A ledger page from before 2026-11-25 is asked each gap as before.
 - **A vague word for money that no rule names is still asked.** Besides
   "the ledger has no trade of the asset" and "the ledger cannot be asked"
   (both asked, as the product owner's rule says), a vague word is still
   asked about when the trade itself names two moneys beside it
   (`MONEY_NOT_CLEAR`), or when the asset's last trade used USDT or the US
   dollar but that money prices nothing in the ledger now. Neither is in
-  the rules for cards; they were left as they were.
+  the rules for cards, and both are still asked, as decided on 2026-11-26.
 - **A cell the model wrote that is not in the words is left empty, unmarked.**
   On a card, a figure or a time the model wrote that is not a piece of what
   was said, or that could not be read as a number, is left empty with no

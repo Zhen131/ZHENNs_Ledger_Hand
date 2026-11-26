@@ -10137,3 +10137,11 @@ r80, r70; `spoken-20261126T060136Z-…`, `…T060510Z-…`, `…T060745Z-…`).
 R80-23, a payment in euros not enabled, came back empty again and is
 counted ⑤ (not enabled: something else), not "not measured".
 
+How the ruler counts a cell sent empty (decided by the coordinating
+session on 2026-11-26): a cell the words said that is sent empty on a card
+carries a mark of its own, since the card shows `none`, the reply names
+it and the ledger saves the trade only once it is filled in; such a trade
+is ② (or ①b when the gold has the cell none), never ① and never ③.
+`stock_run` and `name_run` still say their sentences to a ledger that
+takes no card with empty cells, so they measure the way of asking each
+gap; sending cards is measured by `spoken_run`, three tiers, above.

@@ -365,19 +365,24 @@ class LinkLedger:
 
     def takes_unfinished(self) -> bool:
         if self._unfinished is None:
-            self._unfinished = self._lists_unfinished()
+            read = self._lists_unfinished()
+            if read is None:
+                # Not read now (no link running): asked again next time, never kept.
+                return False
+            self._unfinished = read
         return self._unfinished
 
-    def _lists_unfinished(self) -> bool:
+    def _lists_unfinished(self) -> bool | None:
         """Whether the link's list of tools says ``propose_trade_add`` takes
-        ``allowUnfinished``; ``False`` when it lists none here or cannot be asked."""
+        ``allowUnfinished``; ``False`` when it lists none here; ``None`` when it
+        cannot be asked now."""
         listing = getattr(self._link, "tools", None)
         if not callable(listing):
             return False
         try:
             tools = listing()
         except (LedgerLinkError, OSError):
-            return False
+            return None
         for tool in tools if isinstance(tools, list) else ():
             if isinstance(tool, Mapping) and tool.get("name") == "propose_trade_add":
                 schema = tool.get("inputSchema")

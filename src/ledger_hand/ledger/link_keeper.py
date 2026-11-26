@@ -64,6 +64,13 @@ class _Current:
             raise LedgerLinkError(LinkFailure.NOT_STARTED)
         return link.call(name, arguments)
 
+    def tools(self) -> list[dict[str, Any]]:
+        """The tools the running link lists, so the plug can tell what the ledger takes."""
+        link = self._keeper.running_link()
+        if link is None:
+            raise LedgerLinkError(LinkFailure.NOT_STARTED)
+        return link.tools()
+
 
 class LinkKeeper:
     """The program's one assistant link, and the plugs over it."""
