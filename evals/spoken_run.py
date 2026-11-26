@@ -28,7 +28,7 @@ What came of each sentence is judged trade by trade (``spoken_judge``)
 and added up (``spoken_tally``). A trade sent as a card with empty cells
 (the exam book takes them, as the real ledger does) is sent with those
 cells empty (①b where the gold has them none); a suspicious or assumed
-mark on its card is a mark of the cell's own; and once the ledger takes
+mark on its card, or the cell sent empty, is a mark of the cell's own; and once the ledger takes
 cards, only the asset and buy or sell are rightly asked by default, as
 the flow's own setting shows (``Progress.setting.unfinished``). When the
 model cannot be reached (a call that failed or timed out, not a reply
@@ -187,6 +187,20 @@ _MARKED_CELL = {
 _OWN_MARKS = frozenset({MarkKind.SUSPICIOUS, MarkKind.INFERRED})
 
 
+def _sent_empty(facts: TradeFacts | TradeCard) -> frozenset[str]:
+    """The cells a card was sent with empty, by the ruler's names.
+
+    An empty cell is a mark of the cell's own: the reply names it ("sent
+    with empty fields"), the card shows ``none``, and the ledger saves the
+    trade only once it is filled in. So a cell said and sent empty is ②,
+    never ③, a wrong figure with no mark (decided 2026-11-26, for the
+    contract's "空着或带标记", empty or marked, both seen).
+    """
+    if not isinstance(facts, TradeCard):
+        return frozenset()
+    return frozenset(_MARKED_CELL[name] for name in facts.missing if name in _MARKED_CELL)
+
+
 def _card_marked(marked: MarkedTrade | None) -> frozenset[str]:
     """The cells a trade's card marks suspicious or assumed, by the ruler's names."""
     if marked is None:
@@ -215,7 +229,7 @@ def _sent(recorded: Recorded, zone: str) -> tuple[SentTrade, ...]:
         state = progress.trades[number - 1]
         record = state.record if state.record is not None else state.card
         guessed = frozenset(_GUESSED[one] for one in record.inferred) if record else frozenset()
-        on_card = _card_marked(marks[place] if marks else None)
+        on_card = _card_marked(marks[place] if marks else None) | _sent_empty(facts)
         said = _marked_by(reminders, number - 1) | guessed | on_card
         pick = frozenset({"asset"}) if facts.asset in picked else frozenset()
         sent.append(

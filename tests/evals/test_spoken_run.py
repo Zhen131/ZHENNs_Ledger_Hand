@@ -734,3 +734,19 @@ def test_a_reply_that_came_back_empty_is_not_sent_with_why_not_unmeasured(tmp_pa
     lines = [json.loads(one) for one in (tmp_path / "out.jsonl").read_text("utf-8").splitlines()]
     (line,) = [one for one in lines if "reasons" in one]
     assert any("malformed_reply" in reason for reason in line["reasons"]), line
+
+
+def test_a_cell_said_but_sent_empty_on_a_card_is_marked_not_silent(tmp_path: Path) -> None:
+    text = f"{WHEN}买入0.5 SOL，成交价200 USDT，总额100 USDT，手续费是零"
+    rows = [
+        row(side="buy", coin="SOL", quantity="0.5 SOL", price="200 USDT", total="100 USDT",
+            time=WHEN)
+    ]  # fmt: skip
+    gold = gold_trade(fee={"value": "0", "said": "零", "zero": True})
+
+    observed, (result,) = came(one_set(tmp_path, text, [gold]), model(text, rows))
+
+    (sent,) = observed.sent
+    assert sent.values["fee"] is None and "fee" in sent.marked
+    assert result.ending is Ending.MARKED
+    assert result.wrong == frozenset({"fee"}) and result.unmarked == frozenset()
