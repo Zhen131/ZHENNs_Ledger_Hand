@@ -127,6 +127,9 @@ class AssetTable:
     money's code ("欧元" and EUR, with no euro in the ledger).
     ``money_units`` are the words for money the number reader is given
     on top of its own, so that "60000欧元" and "30 bucks" are read.
+    ``priced_in`` pairs each asset's code with the code of the money the
+    ledger says it is itself priced in (KO and USD), for the assets the
+    ledger names one for; an asset the ledger says nothing of is not there.
 
     A table whose unknown assets may be confirmed on the spot holds no
     money that trades cannot be priced in: confirming such money as a new
@@ -143,6 +146,7 @@ class AssetTable:
     vague_words: frozenset[str] = frozenset()
     absent_moneys: tuple[tuple[str, str], ...] = ()
     money_units: tuple[str, ...] = ()
+    priced_in: tuple[tuple[str, str], ...] = ()
 
     def __post_init__(self) -> None:
         if not self.pricing_codes:
@@ -202,6 +206,14 @@ class AssetTable:
     def kind_of(self, code: str) -> str | None:
         """The kind of the asset ``code`` names in the ledger ("stock", "crypto"), if known."""
         return next((kind for known, kind in self.kinds if known == code), None)
+
+    def price_money_of(self, code: str) -> str | None:
+        """The money the asset ``code`` is itself priced in, as the ledger says: KO gives USD.
+
+        ``None`` when the ledger says none for it, or the table is not made
+        from the ledger's list.
+        """
+        return next((money for known, money in self.priced_in if known == code), None)
 
     def find(self, spoken: str) -> Coin | None:
         """The asset ``spoken`` names, or ``None`` when the table does not know it."""

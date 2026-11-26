@@ -23,8 +23,16 @@ This module only states shapes and the conditions a value must meet to exist
 at all. The rules of a trade are in ``validation``. Record identifiers,
 creation times and the export format are not handled here.
 
+A trade may be paid in one money for an asset the ledger prices in
+another: two shares of KO, priced in US dollars, bought for 128 euros.
+Its price and total are then in the money paid, and the price of one
+share the user said in the asset's own money ("一股69.5美元") is kept
+apart (``SaidPrice``), never in the price, the total, the quantity or the
+fee (2026-11-26).
+
 Names defined here: ``Side``, ``TimePrecision``, ``Amount``, ``OccurredTime``,
-``Inferred``, ``InferredFrom``, ``TradeDraft`` and ``TradeRecord``.
+``Inferred``, ``InferredFrom``, ``MoneysSaid``, ``SaidPrice``, ``TradeDraft``
+and ``TradeRecord``.
 ``NOT_ZONE_NAMES`` comes from ``zones`` and is named here as well.
 """
 
@@ -162,6 +170,50 @@ class InferredFrom:
     asset: str
 
 
+@dataclass(frozen=True, kw_only=True)
+class MoneysSaid:
+    """The one word for money written with each amount of a row, as said, or ``None``.
+
+    Extraction keeps them beside the drafts (``Extracted.moneys_said``), for
+    a table made from the ledger's list, when the total names a money, so
+    that the recording flow can tell a trade paid in one money for an asset
+    priced in another. Example: "花了128欧元买了2股KO，
+    一股69.5美元，换汇费0.19欧元" gives the price "美元", the total "欧元"
+    and the fee "欧元".
+    """
+
+    price: str | None = None
+    total: str | None = None
+    fee: str | None = None
+
+
+@dataclass(frozen=True, kw_only=True)
+class SaidPrice:
+    """The price of one unit the user said in the asset's own money, for a trade paid in another.
+
+    ``amount`` is that price, ``money`` the code of the asset's own money
+    and ``paid`` the code of the money paid. ``guessed_from`` is the
+    ledger's trade a vague word for it ("美金") was taken from, or ``None``
+    when the user named the money. ``dropped`` is a price the user said in
+    the money paid, not used, since the price is always the total over the
+    quantity. Example: 69.5 USD a share of KO, paid in EUR.
+    """
+
+    amount: Decimal
+    money: str
+    paid: str
+    guessed_from: InferredFrom | None = None
+    dropped: Decimal | None = None
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.amount, Decimal) or not self.amount.is_finite():
+            raise TypeError("a price said is an exact, finite decimal")
+        if self.amount <= 0:
+            raise ValueError("a price said is above 0")
+        if self.money == self.paid:
+            raise ValueError("a price said apart is in a money other than the one paid")
+
+
 def _require_guess_and_source(inferred: frozenset[Inferred], source: InferredFrom | None) -> None:
     """A guessed money comes with the trade it was taken from, and only then."""
     if bool(inferred) != (source is not None):
@@ -233,6 +285,8 @@ class TradeRecord:
     money. ``derived`` names the one amount the program calculated from the
     other two, or is ``None`` when the user gave all three. ``inferred``,
     ``inferred_from`` and ``picked`` are the draft's, as they were.
+    ``said_price`` is the price said in the asset's own money, for a trade
+    paid in another, which the recording flow puts in (``SaidPrice``).
     """
 
     side: Side
@@ -251,6 +305,7 @@ class TradeRecord:
     inferred: frozenset[Inferred] = frozenset()
     inferred_from: InferredFrom | None = None
     picked: str | None = None
+    said_price: SaidPrice | None = None
 
     def __post_init__(self) -> None:
         _require_guess_and_source(self.inferred, self.inferred_from)

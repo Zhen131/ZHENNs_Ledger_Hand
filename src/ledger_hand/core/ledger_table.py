@@ -38,7 +38,10 @@ The table (``table_of``):
 - with a stock in the ledger, "股", "share" and "shares" may stand after a
   number as its unit;
 - each asset traded keeps its kind ("stock", "crypto"), so that the words
-  said to the user call a share a share and a coin a coin.
+  said to the user call a share a share and a coin a coin;
+- each asset traded keeps the money the ledger says it is itself priced in
+  (``priceCurrencyCode``, KO in USD), when the ledger says one, so that a
+  trade paid in another money can be told (2026-11-26).
 
 An asset that cannot go into the table is left out of it, and the rest are
 kept: a code that cannot be written as a ledger symbol (such as "BRK.B"),
@@ -264,6 +267,7 @@ def table_of(assets: Sequence[Asset]) -> AssetTable | None:
         vague_words=vague,
         absent_moneys=absent,
         money_units=(*(word for word, _ in MONEY_WORDS), *VAGUE_MONEY_WORDS),
+        priced_in=_priced_in(coins, assets),
     )
 
 
@@ -306,6 +310,16 @@ def _coin(asset: Asset, names: AssetNames) -> Coin | None:
 def _kind(code: str, assets: Sequence[Asset]) -> str:
     """The kind of the asset ``code`` names: its own kind's word; one code names one asset here."""
     return next(asset.kind.value for asset in assets if asset.code == code)
+
+
+def _priced_in(coins: Sequence[Coin], assets: Sequence[Asset]) -> tuple[tuple[str, str], ...]:
+    """Each asset of the table and the money the ledger says it is priced in, where it says."""
+    kept = _codes(coins)
+    return tuple(
+        (asset.code, asset.price_currency)
+        for asset in assets
+        if asset.code in kept and asset.price_currency is not None
+    )
 
 
 def _codes(coins: Sequence[Coin]) -> frozenset[str]:

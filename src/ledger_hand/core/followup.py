@@ -13,6 +13,13 @@ in it (``validation.DraftProblems``) and gives back one ``FollowUp``:
   passage did not give it, which empties that cell;
 - ``CannotRecord``: the trade cannot be recorded at all, and why.
 
+One more kind is asked by the recording flow itself, outside the table
+below: ``AskSaidPrice``, the price of one unit in the asset's own money,
+for a trade paid in another money that said none ("花了128欧元买了2股KO"
+for KO, priced in US dollars). The rate the ledger needs is worked out
+from it (``cost_rate``), so such a trade is never sent without it
+(decided on 2026-11-25, 88 item 30).
+
 Which problem is taken up first is fixed by one table, ``FOLLOW_UP_ORDER``,
 not by the order the check found them in. Every ``Missing`` and every
 ``Violation`` has exactly one place in it, with where it leads
@@ -36,7 +43,7 @@ left empty, asks only which asset and buy or sell).
 
 Names defined here: ``Cell``, ``Destination``, ``FOLLOW_UP_ORDER``,
 ``AMOUNT_CELLS``, ``AskCell``, ``ConfirmCoin``, ``AskWhichCell``,
-``CannotRecord``, ``FollowUp``, ``next_follow_up``, ``follow_up_for``,
+``AskSaidPrice``, ``CannotRecord``, ``FollowUp``, ``next_follow_up``, ``follow_up_for``,
 ``value_of`` and ``with_value``.
 """
 
@@ -206,6 +213,21 @@ class AskWhichCell:
 
     cells: tuple[Cell, ...]
     because: Violation
+
+
+@dataclass(frozen=True)
+class AskSaidPrice:
+    """Ask the price of one unit in ``money``, the asset's own, for a trade paid in ``paid``.
+
+    ``asset`` is the asset's code and ``unit`` the word for one unit of it
+    ("share", or the coin's code). Example: KO paid in EUR: "How much was
+    one share in USD?".
+    """
+
+    money: str
+    paid: str
+    asset: str
+    unit: str
 
 
 @dataclass(frozen=True)
