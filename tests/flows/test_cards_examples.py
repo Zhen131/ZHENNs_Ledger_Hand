@@ -747,6 +747,8 @@ def test_what_the_ledger_is_handed_keeps_its_rules_and_no_empty_cell_is_0(
             assert one.kind == "suspicious"
         if one.kind == "suspicious":
             assert one.reason is not None and one.reason.strip()
+            # Only the kinds this program names: far from the market price, or a Doubt.
+            assert FAR in one.reason or Doubt.of(one.reason) is not None, one.reason
         if one.reason is not None:
             assert reason_length(one.reason) <= REASON_MOST
         assert set(one.as_dict()) == {"field", "kind", "reason"}
