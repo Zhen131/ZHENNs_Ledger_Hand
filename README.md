@@ -665,7 +665,7 @@ the cloud plug, or the zone).
 .venv/bin/python scripts/try_assistant.py "我现在手里有哪些币"
 .venv/bin/python scripts/try_assistant.py "我10月一共买了多少钱的币" "那9月呢"
 .venv/bin/python scripts/try_assistant.py "What do I hold?" "Which assets are there?"
-.venv/bin/python scripts/try_assistant.py "今天上午9:40在币安买了0.02 BTC，价格94900" "手续费 0.1 USDT"
+.venv/bin/python scripts/try_assistant.py "2026年11月20号9点40分在IBKR买了2股微软，每股410美元，手续费1美元" "MSFT"
 .venv/bin/python scripts/try_assistant.py --save "Bought 0.02 BTC at 94900 on Binance at 9:40 this morning, fee 2 USDT."
 .venv/bin/python scripts/try_assistant.py --save "把9月25号那笔ADA的平台改成Binance"
 .venv/bin/python scripts/try_assistant.py "把10月6号那笔的手续费改成0.000009" "第二笔"
