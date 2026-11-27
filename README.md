@@ -57,10 +57,14 @@ does not do yet:
   judge such files.
 - **The model.** `qwen2.5:7b` through Ollama on this machine by default; a
   cloud service through its OpenAI-style chat endpoint when chosen. Every
-  parameter is a setting with a default and the reason for it. Two local
-  models have been measured side by side, `qwen2.5:7b` and `qwen3-vl:8b`
-  (`evals/RESULTS.md`, "2026-10-13: second model, `qwen2.5:7b` and
-  `qwen3-vl:8b`"); the default is still `qwen2.5:7b`. Another model is
+  parameter is a setting with a default and the reason for it. Eight
+  models, six local ones and DeepSeek's two, were run on the same rulers on
+  2026-11-27 (`docs/choosing-a-model.md`; `evals/RESULTS.md`, "2026-11-27:
+  eight models on the same rulers"): on a Mac with 16 GB, keep
+  `qwen2.5:7b`; where privacy does not matter, `deepseek-v4-pro`. That is
+  a recommendation, not a change: the default is still `qwen2.5:7b`. An
+  earlier comparison of `qwen2.5:7b` and `qwen3-vl:8b` is in the same file
+  ("2026-10-13: second model, `qwen2.5:7b` and `qwen3-vl:8b`"). Another model is
   chosen with `LEDGER_HAND_MODEL_NAME`, or in the model field of the
   Settings page (for that browser tab only), and in an experiment with
   `--model`. `qwen3-vl:8b` has run the debug, final and voice sets through
@@ -123,18 +127,48 @@ does not do yet:
   looked up right, 14 of 17 changes and deletions done right with none
   done wrong, and 16 of 18 sentences recording a share done right with
   none recorded wrong (see "Sentences for a demo" and
-  `docs/project-report.md`, section 6).
+  `docs/project-report.md`, section 6). Since 2026-11-27 it also matches
+  the name of a share the user answered once ("微软", answered MSFT, kept
+  in `asset-names.json`), marked assumed the next time; the program's
+  table of about eighty common company names is there but off by default,
+  since with it on a sentence naming two companies was sent as two
+  trades. It marks the time as suspicious when the words name another
+  time zone ("按北京时间算"), and does not convert it; takes "美金" for a
+  share last paid for in euros as the share's own currency, marked
+  assumed; finds a trade to change or delete by a day said without its
+  year; sends three figures that do not agree (quantity, price and total)
+  as said, all three marked suspicious, which the ledger keeps from being
+  saved until they are put right; and compares the rate of a trade paid
+  in euros with the ledger's own exchange rate, marking it suspicious when
+  they are more than 10% apart. The last two need a ledger of 2026-11-27
+  or later. With a cloud plug, a line at the top of each page says what
+  is sent to which service. Each of these is shown in "Sentences for a
+  demo" or "Showing what takes more than one sentence"; what each still
+  gets wrong is in `docs/known-gaps.md`, "What you will meet".
+- **Where it runs.** Built and checked on macOS until 2026-11-27, and
+  from then on Windows 11, from Git Bash (see "Setting up from scratch"):
+  every change of 2026-11-27 was checked there, with the quick and live
+  tiers, and none of them has been run on a Mac yet. The eight models
+  above were timed on Windows only: how many seconds a sentence takes on a
+  Mac is not measured.
 - **Not done yet.** Measuring how well real screenshots are read: none has
   been read yet. Measuring the assistant against the real ledger: the page
   reaches your ledger page, and that was walked through twice: by hand
   once, and on 2026-11-27 with 21 sentences, from typing on the Assistant
   page to Save on the ledger page, with no figure saved wrong and unmarked
   (`docs/walkthrough-with-the-ledger-page.md`); a walk is not a measure,
-  and every measure still uses the demo ledger. The exam said the owner's way (`evals/sets/spoken/`) is written
-  and measured, and two of its lines are not met with `qwen2.5:7b` (see
-  "The exam said the owner's way" and `docs/known-gaps.md`, "What you will
-  meet"); comparing other local models is left to the owner. Known limits
-  are in `docs/known-gaps.md`.
+  and every measure still uses the demo ledger. The things the walk found
+  not right are written down there and in `docs/known-gaps.md`, and none
+  is mended yet. The exam said the owner's way (`evals/sets/spoken/`) is
+  written and measured, and two of its lines are not met with
+  `qwen2.5:7b`: on its hidden halves, 2 trades with a wrong figure and no
+  mark on the tier said as the owner says it, where the line is none, and
+  63.6% saved with no cell changed on the tier a little tidier, where the
+  line is 80%; none of the eight models measured met that second line (see
+  "The exam said the owner's way", `evals/RESULTS.md`, "2026-11-27: eight
+  models on the same rulers", and `docs/known-gaps.md`, "What you will
+  meet"). Whether to change the default model is left to the owner. Known
+  limits are in `docs/known-gaps.md`.
 
 How each part works is described in "How it works, part by part" below.
 
@@ -599,6 +633,7 @@ the step that failed.
 | The key refused (status 401 or 403) | The address; check `LEDGER_HAND_MODEL_KEY` in the environment and that the key may use the model, then start the program again |
 | The request refused (status 400) | The address and the start of what the server answered; check the model's name; a service that does not take the reply table refuses every call this way |
 | The server failed | Its status code, when it gave one; try again, or look at the server's own log |
+| The server failed, with the cloud or the deepseek plug | The service and its address, and the status code when it gave one; wait a while, then try again; nothing was sent to the local model instead. Said for every server error that has no sentence of its own (500, 502, 503, a 404 that is not a missing model, 422, or no status at all); nothing the service answered is quoted |
 | A reply not in the agreed form | The reply could not be used; try again, or put the passage another way |
 | Replies that cannot be read as a table | The same, said apart |
 | An empty passage | Nothing was sent to the model: the passage is empty |
@@ -624,7 +659,11 @@ the step that failed.
 The sentences are in `src/ledger_hand/ui/failure_words.py`, one for each
 kind of each failure, one for each status a cloud service turns a call
 down with (401, 403, 400), and one for a model the cloud service does not
-have, which says nothing of Ollama; and one for each way a screenshot is
+have, which says nothing of Ollama; with the cloud or the deepseek plug,
+no answer, a timeout, a rate limit and every server error have the
+service's own sentences, which never point at Ollama or at a server's own
+log and say that nothing was sent to the local model instead (a reply not
+in the agreed form is said as with the local plug); and one for each way a screenshot is
 not read, where a model's failure is said with the vision model's name, and,
 while reading, a request turned down with status 400 or a reply not in the
 agreed form has a sentence of its own, since nothing there is about a reply
@@ -1194,6 +1233,85 @@ the owner's way") to the whole assistant against the exam book and judges
 every gold trade; all of them write
 into `evals/tool_results/`; see the last sections of `evals/RESULTS.md`.
 
+### Showing what takes more than one sentence
+
+Five more things the assistant does, each shown in a few steps. They are
+not in "Sentences for a demo", because the live tier says each sentence
+once, in a chat of its own, to a demo ledger with no tool for exchange
+rates; so no test keeps these in step with the program. Each was said five
+times on 2026-11-27, with `qwen2.5:7b` at temperature 0, against the demo
+ledger the Assistant page and the try-out script start (with its two
+made-up exchange rates), and each came out the same every time: what was
+sent, the mark on each cell and the reminder line. Every figure is
+invented; say them as written, with their dates in full. On the page, do
+not reload the browser tab between the steps: a new tab starts a new demo
+ledger, and what was saved in the old one is gone. "New chat" forgets the
+chat only, not the demo ledger.
+
+**A name of a share answered once, then remembered.** With the table of
+company names off, as it is by default:
+
+1. Say `2026年11月20号9点40分在IBKR买了2股微软，每股410美元，手续费1美元`.
+   Nothing is sent; the assistant asks which asset '微软' is.
+2. Answer `MSFT`. One trade is sent: a buy of 2 MSFT at 410 USD, total
+   820 USD, fee 1 USD, on 20 November 2026 at 09:40, IBKR. The answer is
+   kept in `asset-names.json` in the data folder, under the demo ledger.
+3. Press "New chat" and say the first sentence again. Nothing is asked:
+   the trade is sent as MSFT, the asset cell marked assumed, its reason
+   naming the answer and the day it was given, and the reply says "Took
+   "微软" as MSFT (Microsoft) from your answer on ..." and to check it.
+
+With the try-out script, each run is a chat of its own:
+`.venv/bin/python scripts/try_assistant.py --names-file data/try-names.json "2026年11月20号9点40分在IBKR买了2股微软，每股410美元，手续费1美元" "MSFT"`,
+then the same command without `"MSFT"`. To show the first two steps
+again, take the line for 微软 out of the file of answers, or delete the
+file.
+
+**"美金" after a share was paid for in euros.** On the Assistant page:
+
+1. Say the fourteenth sentence for a demo,
+   `2026年11月20号15点30分在IBKR花了128欧元买了2股 KO，一股69.5美元，换汇费0.19欧元`,
+   and press "Save in the demo ledger" on its card. The demo ledger's last
+   KO trade is now paid in euros.
+2. Press "New chat" and say
+   `2026年11月21号10点在IBKR买了1股 KO，一股70美金，手续费1美金`. One
+   trade is sent: a buy of 1 KO at 70 USD, total 70 USD, fee 1 USD, on 21
+   November 2026 at 10:00, IBKR. The money used and the fee's money are
+   both marked assumed, the reason saying they are KO's own currency in
+   the ledger, USD, since the last KO trade used EUR, and the reply says it
+   is a guess. (The reply also says "no currency was said", which is not
+   quite so: "美金" was said, but is not taken as the US dollar for
+   certain; see `docs/known-gaps.md`.)
+
+The try-out script cannot show this one: `--save` saves only once every
+sentence is said. Said with the fee as "1美元" instead, the fee names the
+US dollar outright, and the trade goes in USD with no mark on the money.
+
+**A rate far from the ledger's exchange rate.** Say
+`2026年11月20号15点30分在IBKR花了150欧元买了2股 KO，一股54美元，换汇费0.2欧元`.
+One trade is sent: a buy of 2 KO paid 150 EUR, 75 EUR a share worked out,
+fee 0.2 EUR, with the rate 0.72 USD for 1 EUR worked out from the 54 USD a
+share said (2 × 54 ÷ 150). The demo ledger's made-up rate of 2026-11-20,
+typed in by hand, is 1 EUR = 1.08 USD: 33.3% apart, more than the 10%
+allowed (`LEDGER_HAND_RATE_GAP_PERCENT`), so the rate is marked
+suspicious and the reply says what it was compared with and how far
+apart. Said without the FX fee, the model left the 150 euros out, and the
+trade went as 2 KO at 54 USD, the reminder line naming 150 as a number no
+trade used.
+
+**A change and a deletion with no year said.** Say
+`把9月25号那笔 ADA 买入的平台改成Binance`: a change is sent, the ADA buy of
+25 September 2026, its platform from OKX to Binance, shown before and
+after. Say `把11月12号那笔 MSFT 卖出删掉`: a deletion is sent, the sell of 1
+MSFT on 12 November 2026. The day is found without the year because the
+model copies "9月25号" as said and the program looks for it in the ledger.
+When the model itself puts this year to such a date, the program lets it
+through only if everything else is as said; the model never did so in
+these runs, so that way has been tried by the program's tests alone.
+
+The question about cash and money moved recorded by hand are shown above,
+in "Trying the assistant by hand".
+
 ### Recording trades by hand
 
 ```sh
@@ -1303,9 +1421,9 @@ traded, have none either. Every figure is invented.
 
 These sentences show the assistant at work on the Assistant page or with
 `scripts/try_assistant.py`. Each is said on its own, in a new chat, to the
-demo ledger as both start it (the demo book with its cash and a euro,
-taking cards with cells left empty; see "The demo book" above); under each
-is what it gets.
+demo ledger as both start it (the demo book with its cash, a euro and two
+made-up exchange rates, taking cards with cells left empty; see "The demo
+book" above); under each is what it gets.
 Every figure, platform and date is invented. None names a time relative to
 now ("yesterday", "this month"): the try-out script takes the invented
 book's moment, 24 November 2026, 23:55 in Budapest, as now, and the page
@@ -1321,12 +1439,18 @@ first nine were run five times each when they were written, three of them
 before the demo book; the last five (Chinese number words tidied, a vague
 word for money guessed, a price far from the market price, a fee not
 said, a share paid for in euros) were run five times each on 2026-11-26
-against the demo ledger as it is now. Each got what is written under it
+against the demo ledger as it was then; the last two (three figures that
+do not agree, a time said in another zone) five times each on 2026-11-27,
+through the live tier's own call. Each got what is written under it
 every time. That shows the same sentence comes out the same again; it
 does not show that other words for the same thing would. The live tier
 says each of them once more (`tests/live/test_live_demo_sentences.py`,
-against `tests/live/demo_sentences.json`), with the same demo ledger, and
-a quick test keeps this list and that file the same, word for word. Since
+against `tests/live/demo_sentences.json`), and a quick test keeps this
+list and that file the same, word for word. The live tier's demo ledger
+is the same but for one thing: it has no tool for exchange rates, so the
+fourteenth sentence's rate is compared with nothing there; the live tier
+checks the trade sent, its rate and its marks, which come out the same,
+not the reply's line about the rate. Since
 the ledger now takes cards, the fourth sentence, money said where the
 quantity goes, is sent with the money as the total instead of being held
 back, and the assets list EUR as well. A question about cash and money
@@ -1361,6 +1485,10 @@ hand"; they are not on this list.
    Gets: One trade sent to the ledger, waiting there with its fee empty: a buy of 0.5 ETH at 2650 USDT, total 1325 USDT, on 21 November 2026 at 10:15, Binance. No fee was said, so nothing is asked: the fee and its money are sent empty, and the reply names them, to be filled in on the ledger's page before saving. A reminder line says 10点15分 was read on a 24-hour clock.
 14. `2026年11月20号15点30分在IBKR花了128欧元买了2股 KO，一股69.5美元，换汇费0.19欧元`
    Gets: One trade sent to the ledger, waiting there, paid in euros for a share priced in US dollars: a buy of 2 KO at 64 EUR (worked out as 128 ÷ 2), total 128 EUR, the FX fee 0.19 EUR as its fee, on 20 November 2026 at 15:30, IBKR, with the rate 1.0859375 USD for 1 EUR worked out from the 69.5 USD a share said (2 × 69.5 ÷ 128). The reply says the euro amount is taken without the FX fee, and that the rate was compared with the demo ledger's made-up exchange rate of 2026-11-20, typed in by hand (1 EUR = 1.08 USD), 0.5% apart: not marked. A reminder line names a number no trade used (一).
+15. `2026年11月20号14点20分在OKX买了0.1个BTC，成交价65000 USDT，总共6000 USDT，手续费5 USDT`
+   Gets: One trade sent to the ledger, waiting there, that cannot be saved as it is: a buy of 0.1 BTC at 65000 USDT, total 6000 USDT, fee 5 USDT, on 20 November 2026 at 14:20, OKX. 0.1 × 65000 is 6500, not 6000, so all three figures are sent as said and all three are marked suspicious; the program does not guess which is wrong. The reply says the ledger took it but it cannot be saved yet: on the ledger's page, Edit, put the figures right, then save. Saving it in the demo ledger is refused and it stays pending. No reminder line.
+16. `按北京时间算，2026年11月20号下午3点在OKX买了0.1个ETH，成交价2700 USDT，手续费0.1 USDT`
+   Gets: One trade sent to the ledger, waiting there: a buy of 0.1 ETH at 2700 USDT, total 270 USDT worked out by the program, fee 0.1 USDT, on 20 November 2026 at 15:00, OKX. "北京时间" names another time zone, so the time is marked suspicious: 15:00 is written as said, in the ledger's zone (Budapest), not converted, and the reply says so. No reminder line.
 
 With the try-out script, `--save` before a sentence saves what it sent in
 the demo ledger, as confirming would on the ledger's page:
@@ -2088,9 +2216,14 @@ model it does not have (400 or 404 saying so) and a request it turns down
 (400) are said in plain words at once and not tried again. Each sentence
 names the service and what to do, and says that nothing was sent to the
 local model instead: the program never falls back to another model, or to
-another service, on its own. What the service answered is not quoted:
-DeepSeek writes the last four characters of a key it refuses back, which
-could not be hidden.
+another service, on its own. A server error of the service (500, 502,
+503) is tried again as for the local model; it, and any other status with
+no sentence of its own (a 422, say, which is not tried again), is then
+said as that service's error, with its status, and to try again in a
+while. What the service answered is not quoted, not
+even the start of a reply with status 200 that could not be read: DeepSeek
+writes the last four characters of a key it refuses back, which could not
+be hidden.
 
 The experiment tools (`evals/`) run with a cloud plug as with the local
 one. The service gives no fingerprint of its model and no version of its

@@ -352,6 +352,71 @@
         "reminder_line": true
       },
       "shows": "One trade sent to the ledger, waiting there, paid in euros for a share priced in US dollars: a buy of 2 KO at 64 EUR (worked out as 128 ÷ 2), total 128 EUR, the FX fee 0.19 EUR as its fee, on 20 November 2026 at 15:30, IBKR, with the rate 1.0859375 USD for 1 EUR worked out from the 69.5 USD a share said (2 × 69.5 ÷ 128). The reply says the euro amount is taken without the FX fee, and that the rate was compared with the demo ledger's made-up exchange rate of 2026-11-20, typed in by hand (1 EUR = 1.08 USD), 0.5% apart: not marked. A reminder line names a number no trade used (一)."
+    },
+    {
+      "id": "record-figures-disagree",
+      "kind": "record",
+      "said": "2026年11月20号14点20分在OKX买了0.1个BTC，成交价65000 USDT，总共6000 USDT，手续费5 USDT",
+      "expect": {
+        "trades": [
+          {
+            "side": "buy",
+            "asset": "BTC",
+            "quantity": "0.1",
+            "price": "65000",
+            "total": "6000",
+            "quote": "USDT",
+            "fee": "5",
+            "fee_asset": "USDT",
+            "occurred": "2026-11-20T14:20:00+01:00",
+            "platform": "OKX"
+          }
+        ],
+        "marked": [
+          {
+            "empty": [],
+            "marks": {
+              "quantity": "suspicious",
+              "price": "suspicious",
+              "totalValue": "suspicious"
+            }
+          }
+        ],
+        "reminder_line": false
+      },
+      "shows": "One trade sent to the ledger, waiting there, that cannot be saved as it is: a buy of 0.1 BTC at 65000 USDT, total 6000 USDT, fee 5 USDT, on 20 November 2026 at 14:20, OKX. 0.1 × 65000 is 6500, not 6000, so all three figures are sent as said and all three are marked suspicious; the program does not guess which is wrong. The reply says the ledger took it but it cannot be saved yet: on the ledger's page, Edit, put the figures right, then save. Saving it in the demo ledger is refused and it stays pending. No reminder line."
+    },
+    {
+      "id": "record-other-zone",
+      "kind": "record",
+      "said": "按北京时间算，2026年11月20号下午3点在OKX买了0.1个ETH，成交价2700 USDT，手续费0.1 USDT",
+      "expect": {
+        "trades": [
+          {
+            "side": "buy",
+            "asset": "ETH",
+            "quantity": "0.1",
+            "price": "2700",
+            "total": "270",
+            "quote": "USDT",
+            "fee": "0.1",
+            "fee_asset": "USDT",
+            "occurred": "2026-11-20T15:00:00+01:00",
+            "platform": "OKX"
+          }
+        ],
+        "marked": [
+          {
+            "empty": [],
+            "marks": {
+              "occurredTime": "suspicious",
+              "totalValue": "computed"
+            }
+          }
+        ],
+        "reminder_line": false
+      },
+      "shows": "One trade sent to the ledger, waiting there: a buy of 0.1 ETH at 2700 USDT, total 270 USDT worked out by the program, fee 0.1 USDT, on 20 November 2026 at 15:00, OKX. \"北京时间\" names another time zone, so the time is marked suspicious: 15:00 is written as said, in the ledger's zone (Budapest), not converted, and the reply says so. No reminder line."
     }
   ]
 }
