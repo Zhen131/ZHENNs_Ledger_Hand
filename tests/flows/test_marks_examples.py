@@ -300,6 +300,8 @@ def test_row_09_all_three_kinds_on_one_trade() -> None:
 
 def test_row_10_an_asset_the_model_matched_is_assumed(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(conversation, "ASSISTANT_PICKS_ASSETS", True)
+    # The program's table of company names would match the name first; turned off here.
+    monkeypatch.setattr(conversation, "ASSISTANT_NAME_TABLE", False)
     cells = {
         "side": "buy",
         "coin": "微软的股票",

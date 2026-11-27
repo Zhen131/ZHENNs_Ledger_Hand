@@ -42,6 +42,7 @@ from evals.spoken_set import (
     load_spoken_set,
 )
 from evals.spoken_tally import SentenceRow, tally
+from ledger_hand.flows import conversation
 from ledger_hand.flows.progress import DEFAULT_TUNING
 from ledger_hand.ledger.demo_book import DEMO_ASSETS, DEMO_MARKET_PRICES
 from ledger_hand.ledger.fake_ledger import FakeLedger
@@ -179,7 +180,11 @@ def test_every_cell_right_is_saved_with_no_cell_changed(tmp_path: Path) -> None:
     assert observed.answered == frozenset()
 
 
-def test_the_asset_code_is_answered_once_and_the_trade_saved_counts_apart(tmp_path: Path) -> None:
+def test_the_asset_code_is_answered_once_and_the_trade_saved_counts_apart(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The program's table of company names would match "微软" first; turned off here.
+    monkeypatch.setattr(conversation, "ASSISTANT_NAME_TABLE", False)
     text = f"{WHEN}买入1股微软，成交价400美元，总额400美元，手续费0"
     rows = [
         row(
@@ -407,7 +412,11 @@ def test_the_other_trade_waits_its_turn_and_a_wrong_draft_cell_is_counted(tmp_pa
     assert observed.waiting is not None and observed.waiting.trade == 0
 
 
-def test_a_question_after_the_asset_code_is_left_unanswered(tmp_path: Path) -> None:
+def test_a_question_after_the_asset_code_is_left_unanswered(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The program's table of company names would match "微软" first; turned off here.
+    monkeypatch.setattr(conversation, "ASSISTANT_NAME_TABLE", False)
     text = f"{WHEN}买入1股微软，成交价400美元，总额400美元"
     rows = [
         row(side="buy", coin="微软", quantity="1股", price="400美元", total="400美元", time=WHEN)

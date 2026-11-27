@@ -57,6 +57,10 @@ class SentenceRow:
     results: tuple[TradeResult, ...]
     first_tool: str | None
     came: str
+    # The trades whose asset the program matched by its table of company names
+    # or by an answer remembered, as an asset that is not the gold one
+    # (``spoken_run.matched_wrong``).
+    matched_wrong: int = 0
 
 
 _ENDING_COLUMNS = {

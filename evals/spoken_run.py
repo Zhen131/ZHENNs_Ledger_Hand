@@ -45,10 +45,17 @@ counts. A set whose file says it is the hidden half prints its counts
 alone, never a sentence, and its run is added to the hidden-run log
 (``hidden_runs``); a practice half prints one row a sentence as well.
 
+The counts, the ``end`` line and the hidden-run log also hold
+``asset_matched_wrong``: the trades whose asset the program matched by
+its table of company names or by an answer remembered, as an asset that
+is not the gold one, marked or not (``matched_wrong``), printed on a line
+of its own after the counts.
+
 Exit status: 0 the run finished; 2 it could not start.
 
 Names defined here: ``RETRY_WAIT_SECONDS``, ``MOST_NOT_MEASURED``, ``Ports``,
 ``observe``, ``say_sentence``, ``run``, ``voided``, ``finish`` and ``main``.
+``matched_wrong`` is defined here too.
 """
 
 from __future__ import annotations
@@ -65,6 +72,7 @@ from decimal import Decimal
 from pathlib import Path
 from typing import TextIO
 
+import ledger_hand.flows.recording
 from evals.cells import issues_about
 from evals.exam_book import exam_ledger, exam_ledger_with_euro
 from evals.hidden_runs import log_hidden_run
@@ -425,6 +433,30 @@ def say_sentence(
     return saids, frozenset(answered)
 
 
+def matched_wrong(saids: Sequence[Said], sentence: SpokenSentence) -> int:
+    """How many trades of what was said had their asset matched by the program, not the model,
+    by its table of company names or an answer remembered, as an asset that is not the gold
+    trade's in the same place; a trade beyond the gold ones counts too.
+
+    Example: "苹果" matched as AAPL for a trade whose gold asset is KO: 1.
+    """
+    golds = sentence.gold.trades
+    wrong: set[int] = set()
+    for said in saids:
+        recorded = said.recorded
+        if recorded is None:
+            continue
+        for position, state in enumerate(recorded.progress.trades):
+            draft = state.draft
+            source = ledger_hand.flows.recording.matched_source(recorded.progress, draft)
+            if source is None or draft.coin is None:
+                continue
+            gold = golds[position].cells["asset"].value if position < len(golds) else None
+            if draft.coin != gold:
+                wrong.add(position)
+    return len(wrong)
+
+
 def _first_tool(said: Said) -> str | None:
     turn = said.turn
     if turn is None or not turn.steps or not turn.steps[0].calls:
@@ -495,6 +527,9 @@ def _one(
         results=tuple(judge(sentence, observed, spoken.zone)),
         first_tool=_first_tool(saids[0][1]),
         came=_came(observed),
+        matched_wrong=0
+        if observed.model_unreachable
+        else matched_wrong([said for _, said in saids], sentence),
     )
     return row, saids, tries
 
@@ -571,6 +606,8 @@ def finish(
 ) -> None:
     """The ``end`` line, the hidden-run log for a hidden half, and the tables printed."""
     counts = tally(rows)
+    matched = sum(row.matched_wrong for row in rows)
+    counts = {**counts, "asset_matched_wrong": matched}
     end = {"record": "end", **counts, "void": voided(counts)}
     with path.open("a", encoding="utf-8", newline="\n") as tail:
         tail.write(json.dumps(end, ensure_ascii=False) + "\n")
@@ -586,6 +623,7 @@ def finish(
     if end["void"]:
         print("more than a tenth of the sentences were not measured: run it again", file=out)
     print(markdown_totals(counts, head), file=out)
+    print(f"asset matched by the program, not the gold one: {matched}", file=out)
     if not spoken.hidden:
         print("", file=out)
         print(markdown_sentences(rows), file=out)

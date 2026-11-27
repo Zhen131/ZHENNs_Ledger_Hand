@@ -33,6 +33,12 @@ to say. A record that cannot be added to never stops what was said from
 being done. Parts without a data folder keep no record, and the page says
 so.
 
+What is said, typed or from a screenshot, is handed the two switches of
+matching names of assets (``Parts.name_table``, ``Parts.remember_names``)
+and, when answers are remembered, the file of answers in the data folder
+for the kind of ledger this tab reaches (``names_file``): the demo
+ledger's answers are never used on the ledger page, nor the other way.
+
 Every control hands the flows the parts with the ledger this tab reaches
 (``assistant_ledger.parts_now``). Nothing is handed to the flows while the
 parts hold no ledger, choose the cloud plug, or carry a refused step
@@ -45,8 +51,8 @@ the record says which kind of ledger it was said to.
 
 Names defined here: ``SentCard``, ``usable``, ``take_typed``, ``take_text``,
 ``start_new_chat``, ``check_with_ledger``, ``save_in_demo``, ``reject_in_demo``,
-``take_screenshot``, ``keep_box``, ``continue_screenshot`` and
-``drop_screenshot``.
+``take_screenshot``, ``keep_box``, ``continue_screenshot``,
+``drop_screenshot`` and ``names_file``.
 """
 
 from __future__ import annotations
@@ -54,6 +60,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 
+from ledger_hand.flows.asset_names import NamesFile
 from ledger_hand.flows.assistant_record import Kept, NotKept, entry_for, keep
 from ledger_hand.flows.conversation import Route, Said, ScreenshotText, say, say_from_reading
 from ledger_hand.flows.standing import (
@@ -104,7 +111,17 @@ def usable(parts: Parts) -> Stop | None:
         return Stop.PRICE_GAP_REFUSED
     if parts.rate_gap_refused is not None:
         return Stop.RATE_GAP_REFUSED
+    if parts.names_refused is not None:
+        return Stop.NAMES_REFUSED
     return None
+
+
+def names_file(parts: Parts) -> NamesFile | None:
+    """The file of the user's answers for the kind of ledger the parts reach, or ``None``
+    when answers are not remembered, or the parts keep no data folder."""
+    if not parts.remember_names or parts.places is None:
+        return None
+    return NamesFile(parts.places.asset_names, parts.ledger_kind or LedgerKind.DEMO)
 
 
 def take_typed(key: str) -> None:
@@ -137,6 +154,8 @@ def take_text(text: str) -> None:
         tuning=parts.tuning,
         price_gap=parts.price_gap,
         rate_gap=parts.rate_gap,
+        name_table=parts.name_table,
+        names=names_file(parts),
     )
     _kept(text, said, now)
 
@@ -280,6 +299,8 @@ def continue_screenshot(read_key: str, note_key: str) -> None:
         tuning=parts.tuning,
         price_gap=parts.price_gap,
         rate_gap=parts.rate_gap,
+        name_table=parts.name_table,
+        names=names_file(parts),
     )
     session.keep_reading(None, ASSISTANT_SPOT)
     _fill_boxes(read_key, note_key, "")

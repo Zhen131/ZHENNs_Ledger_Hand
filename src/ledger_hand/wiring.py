@@ -112,8 +112,10 @@ from ledger_hand.llm.ollama_identity import ask_identity
 from ledger_hand.ports import LedgerPort, ModelError, ModelErrorKind, ModelPort, StoragePort
 from ledger_hand.settings import (
     DEFAULT_ASSISTANT_STEPS,
+    DEFAULT_NAME_TABLE,
     DEFAULT_PRICE_GAP_TIMES,
     DEFAULT_RATE_GAP_PERCENT,
+    DEFAULT_REMEMBER_NAMES,
     LEDGER_DIRECTORY_VARIABLE,
     AssistantLedger,
     DataPlaces,
@@ -121,6 +123,7 @@ from ledger_hand.settings import (
     ModelSettings,
     Plug,
     SettingsError,
+    Switch,
     Variable,
     apply_changes,
     load_assistant_ledger,
@@ -128,8 +131,10 @@ from ledger_hand.settings import (
     load_data_places,
     load_ledger_link_settings,
     load_model_settings,
+    load_name_table,
     load_price_gap_times,
     load_rate_gap_percent,
+    load_remember_names,
 )
 from ledger_hand.storage.sqlite_store import SqliteStore
 
@@ -159,6 +164,12 @@ class Parts:
     assistant page then sends nothing and says why). ``rate_gap`` and
     ``rate_gap_refused`` are the same for how far apart, in a hundred, the
     rate of a trade paid in another money and the last such rate are.
+    ``name_table`` and ``remember_names`` say whether the assistant matches
+    a name the ledger's list does not know by the program's table of company
+    names, and by the user's earlier answers (kept in
+    ``places.asset_names``); ``names_refused`` why either setting was
+    refused, when one was (the assistant page then sends nothing and says
+    why).
     ``first_ledger``
     is which ledger a new tab of the assistant page reaches first, and
     ``first_ledger_refused`` why the setting was refused, when it was.
@@ -182,6 +193,9 @@ class Parts:
     price_gap_refused: str | None = None
     rate_gap: Decimal = DEFAULT_RATE_GAP_PERCENT
     rate_gap_refused: str | None = None
+    name_table: bool = DEFAULT_NAME_TABLE is Switch.ON
+    remember_names: bool = DEFAULT_REMEMBER_NAMES is Switch.ON
+    names_refused: str | None = None
     first_ledger: AssistantLedger = AssistantLedger.DEMO
     first_ledger_refused: str | None = None
 
@@ -227,6 +241,7 @@ def assemble(changes: Mapping[Variable, str] | None = None) -> Parts:
     steps, steps_refused = _steps()
     gap, gap_refused = _price_gap()
     rate_gap, rate_gap_refused = _rate_gap()
+    table, remembering, names_refused = _names()
     first, first_refused = _first_ledger()
     return Parts(
         model=model,
@@ -250,6 +265,9 @@ def assemble(changes: Mapping[Variable, str] | None = None) -> Parts:
         price_gap_refused=gap_refused,
         rate_gap=rate_gap,
         rate_gap_refused=rate_gap_refused,
+        name_table=table,
+        remember_names=remembering,
+        names_refused=names_refused,
         first_ledger=first,
         first_ledger_refused=first_refused,
     )
@@ -295,6 +313,15 @@ def _rate_gap() -> tuple[Decimal, str | None]:
         return load_rate_gap_percent(), None
     except SettingsError as error:
         return DEFAULT_RATE_GAP_PERCENT, str(error)
+
+
+def _names() -> tuple[bool, bool, str | None]:
+    """Whether names are matched by the table and by the user's answers, or the defaults and
+    why a setting was refused. Like a refused price gap, it stops only the assistant page."""
+    try:
+        return load_name_table(), load_remember_names(), None
+    except SettingsError as error:
+        return DEFAULT_NAME_TABLE is Switch.ON, DEFAULT_REMEMBER_NAMES is Switch.ON, str(error)
 
 
 def _vision_model_check(settings: ModelSettings) -> VisionModelCheck:

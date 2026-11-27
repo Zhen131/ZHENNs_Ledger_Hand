@@ -55,6 +55,13 @@ reads), the port the link listens on and the port the ledger page is opened
 on, and the few environment variables the link is started with. Like the
 data folder, none of them is a model setting.
 
+``load_name_table`` and ``load_remember_names`` read the two switches of
+how the assistant matches the name of an asset the ledger's own list does
+not know ("微软"): ``LEDGER_HAND_NAME_TABLE`` (by the program's table of
+common company names) and ``LEDGER_HAND_REMEMBER_NAMES`` (by the user's
+earlier answers, kept in ``asset-names.json`` in the data folder). Each is
+``on`` or ``off``, ``on`` when it is not set. Neither is a model setting.
+
 ``load_assistant_ledger`` reads which ledger the assistant page reaches
 first in a new browser tab: ``LEDGER_HAND_ASSISTANT_LEDGER``, ``demo`` (the
 invented book in memory) when it is not set, or ``page`` (the person's own
@@ -83,7 +90,10 @@ constants, ``MAX_RETRIES``, ``MAX_SCREENSHOT_MB``, ``Secret``, ``SettingsError``
 ``load_assistant_steps``, ``PRICE_GAP_TIMES_VARIABLE``, ``DEFAULT_PRICE_GAP_TIMES``,
 ``LEAST_PRICE_GAP_TIMES``, ``MOST_PRICE_GAP_TIMES``, ``load_price_gap_times``,
 ``RATE_GAP_PERCENT_VARIABLE``, ``DEFAULT_RATE_GAP_PERCENT``, ``LEAST_RATE_GAP_PERCENT``,
-``MOST_RATE_GAP_PERCENT``, ``load_rate_gap_percent``,
+``MOST_RATE_GAP_PERCENT``, ``load_rate_gap_percent``, ``ASSET_NAMES_FILE_NAME``,
+``NAME_TABLE_VARIABLE``, ``REMEMBER_NAMES_VARIABLE``, ``Switch``,
+``DEFAULT_NAME_TABLE``, ``DEFAULT_REMEMBER_NAMES``, ``load_name_table``,
+``load_remember_names``,
 ``LEDGER_DIRECTORY_VARIABLE``, ``LEDGER_LINK_PORT_VARIABLE``,
 ``LEDGER_PAGE_PORT_VARIABLE``, ``DEFAULT_LEDGER_LINK_PORT``, ``DEFAULT_LEDGER_PAGE_PORT``,
 ``LedgerLinkSettings``, ``load_ledger_link_settings``, ``ASSISTANT_LEDGER_VARIABLE``,
@@ -639,12 +649,15 @@ EXPORTS_DIRECTORY_NAME = "exports"
 # The assistant's record on this machine: one line of JSON for each thing
 # said to it, in plain text, never in Git and never in the book.
 ASSISTANT_RECORD_FILE_NAME = "assistant-record.jsonl"
+# The names of assets the user answered with a code, in plain JSON, never in
+# Git and never in the book; deleting it forgets them.
+ASSET_NAMES_FILE_NAME = "asset-names.json"
 
 
 @dataclass(frozen=True)
 class DataPlaces:
-    """Where the data is kept: the folder, the book inside it, the folder of exports, and
-    the assistant's record."""
+    """Where the data is kept: the folder, the book inside it, the folder of exports, the
+    assistant's record, and the names of assets the user answered."""
 
     directory: Path
 
@@ -659,6 +672,10 @@ class DataPlaces:
     @property
     def assistant_record(self) -> Path:
         return self.directory / ASSISTANT_RECORD_FILE_NAME
+
+    @property
+    def asset_names(self) -> Path:
+        return self.directory / ASSET_NAMES_FILE_NAME
 
 
 def load_data_places(
@@ -903,3 +920,57 @@ def load_assistant_ledger(environ: Mapping[str, str] | None = None) -> Assistant
             return choice
     allowed = " or ".join(choice.value for choice in AssistantLedger)
     raise SettingsError(f"{ASSISTANT_LEDGER_VARIABLE}: {allowed}, not {value!r}")
+
+
+# --- how the assistant matches the name of an asset ---------------------------
+
+NAME_TABLE_VARIABLE = "LEDGER_HAND_NAME_TABLE"
+REMEMBER_NAMES_VARIABLE = "LEDGER_HAND_REMEMBER_NAMES"
+
+
+class Switch(enum.StrEnum):
+    """A setting that is on or off; the values are what the variable is set to."""
+
+    ON = "on"
+    OFF = "off"
+
+
+# On: the table matches only whole names of common companies, and a code the
+# ledger lacks is told, never sent (decided on 2026-11-27); off, a name such
+# as "微软" is asked about, as before.
+DEFAULT_NAME_TABLE = Switch.ON
+# On: only a name the user said and then answered with a code of the ledger
+# is kept, so it cannot be one the model made up (decided on 2026-11-27).
+DEFAULT_REMEMBER_NAMES = Switch.ON
+
+
+def load_name_table(environ: Mapping[str, str] | None = None) -> bool:
+    """Whether the assistant matches names by the program's table of company names.
+
+    From ``environ``, or the process's environment when ``None``. Not set,
+    or blank: the default. A value other than ``on`` or ``off`` is a
+    ``SettingsError`` naming the variable.
+    """
+    return _switch(environ, NAME_TABLE_VARIABLE, DEFAULT_NAME_TABLE)
+
+
+def load_remember_names(environ: Mapping[str, str] | None = None) -> bool:
+    """Whether the assistant matches names by the user's earlier answers, and keeps them.
+
+    As ``load_name_table`` reads its variable.
+    """
+    return _switch(environ, REMEMBER_NAMES_VARIABLE, DEFAULT_REMEMBER_NAMES)
+
+
+def _switch(environ: Mapping[str, str] | None, variable: str, default: Switch) -> bool:
+    source = os.environ if environ is None else environ
+    value = source.get(variable)
+    if value is None or not value.strip():
+        return default is Switch.ON
+    written = value.strip()
+    try:
+        return Switch(written) is Switch.ON
+    except ValueError:
+        raise SettingsError(
+            f"{variable}: {Switch.ON.value} or {Switch.OFF.value}, not {written!r}"
+        ) from None

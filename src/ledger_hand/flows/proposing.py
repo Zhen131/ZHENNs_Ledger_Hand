@@ -126,6 +126,7 @@ from ledger_hand.core.marks import (
     with_mark,
 )
 from ledger_hand.core.price_check import PriceCheck, check_price, no_price, not_asked
+from ledger_hand.core.stock_names import NameAbsent
 from ledger_hand.core.trade import TradeDraft, TradeRecord
 from ledger_hand.core.trade_card import TradeCard, card_of
 from ledger_hand.core.validation import Violation, amounts_agree
@@ -139,7 +140,7 @@ from ledger_hand.flows.recorded import (
     RecordEnding,
     Sent,
 )
-from ledger_hand.flows.recording import finish, held_other_unit
+from ledger_hand.flows.recording import absent_named, finish, held_other_unit
 from ledger_hand.ports import LedgerError, LedgerErrorKind, LedgerPort
 from ledger_hand.settings import DEFAULT_PRICE_GAP_TIMES, DEFAULT_RATE_GAP_PERCENT
 
@@ -417,10 +418,22 @@ def _flow_left_out(progress: Progress) -> tuple[tuple[LeftOutTrade, ...], tuple[
         elif trade.status is TradeStatus.UNFINISHED and trade.card is not None:
             records.append((number, trade.card))
         elif trade.status is TradeStatus.CANNOT_RECORD:
+            absent = absent_named(progress, number - 1)
+            if absent is not None and isinstance(absent.found, NameAbsent):
+                left_out.append(_name_absent(number, absent.word, absent.found.codes))
+                continue
             left_out.append(_cannot_record(number, trade, assets, progress.issues))
         else:
             left_out.append(LeftOutTrade(number=number, why=LeftOut.SKIPPED))
     return tuple(left_out), tuple(records)
+
+
+def _name_absent(number: int, word: str, codes: tuple[str, ...]) -> LeftOutTrade:
+    """A trade held back because the program's table gives its name only codes the ledger
+    lacks: the codes, and the name as said. Example: "特斯拉" with no TSLA."""
+    return LeftOutTrade(
+        number=number, why=LeftOut.NAME_NOT_IN_LEDGER, code=codes[0], reason=word, codes=codes
+    )
 
 
 def _cannot_record(
@@ -500,7 +513,7 @@ def _told_by_same_code(
     """When nothing is sent: each trade the ledger seemed to lack, told by the two assets
     sharing its code when that is why. The ledger is asked for its list only then, and a
     ledger that cannot be asked leaves the words as they were."""
-    if not any(trade.why is LeftOut.NOT_IN_LEDGER for trade in left_out):
+    if not any(trade.why in _SAME_CODE_MAY_TELL for trade in left_out):
         return left_out
     if listed is None:
         try:
@@ -511,13 +524,23 @@ def _told_by_same_code(
     return tuple(_same_code(trade, shared) for trade in left_out)
 
 
+# The reasons a trade left out for an asset the ledger seemed to lack may be told instead
+# by two assets that share its code.
+_SAME_CODE_MAY_TELL = frozenset({LeftOut.NOT_IN_LEDGER, LeftOut.NAME_NOT_IN_LEDGER})
+
+
 def _same_code(trade: LeftOutTrade, shared: Mapping[str, SameCode]) -> LeftOutTrade:
     """A trade left out for an asset the ledger lacks, told instead by the two assets that
-    share its code, when that is why the table did not have it."""
-    if trade.why is not LeftOut.NOT_IN_LEDGER or trade.code is None or trade.code not in shared:
+    share its code, when that is why the table did not have it. For a name of the program's
+    table of company names, any of its codes may be the one shared."""
+    if trade.why not in _SAME_CODE_MAY_TELL:
         return trade
-    words = same_code_words(shared[trade.code])
-    return LeftOutTrade(number=trade.number, why=LeftOut.SAME_CODE, code=trade.code, reason=words)
+    codes = trade.codes or ((trade.code,) if trade.code is not None else ())
+    named = next((code for code in codes if code in shared), None)
+    if named is None:
+        return trade
+    words = same_code_words(shared[named])
+    return LeftOutTrade(number=trade.number, why=LeftOut.SAME_CODE, code=named, reason=words)
 
 
 def _sendable(

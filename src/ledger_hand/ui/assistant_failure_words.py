@@ -46,8 +46,10 @@ from ledger_hand.flows.uploading import UploadNotRead, UploadProblem
 from ledger_hand.ports import LedgerError, LedgerErrorKind, ModelError, ModelErrorKind
 from ledger_hand.settings import (
     ASSISTANT_STEPS_VARIABLE,
+    NAME_TABLE_VARIABLE,
     PRICE_GAP_TIMES_VARIABLE,
     RATE_GAP_PERCENT_VARIABLE,
+    REMEMBER_NAMES_VARIABLE,
     ModelSettings,
     Plug,
     Variable,
@@ -65,6 +67,7 @@ class Stop(enum.Enum):
     STEPS_REFUSED = "the setting of how many steps the assistant may take was refused"
     PRICE_GAP_REFUSED = "the setting of how far a price may be from the market price was refused"
     RATE_GAP_REFUSED = "the setting of how far a rate between two moneys may be was refused"
+    NAMES_REFUSED = "a setting of how the names of assets are matched was refused"
 
 
 # {steps} is how many times the model may be asked in one turn.
@@ -102,6 +105,11 @@ STOPS: Mapping[Stop, str] = MappingProxyType(
             "The assistant cannot start: {detail}. Correct "
             f"{RATE_GAP_PERCENT_VARIABLE}, or remove it to use its default, then start the "
             "program again. Nothing typed here is sent."
+        ),
+        Stop.NAMES_REFUSED: (
+            "The assistant cannot start: {detail}. Correct "
+            f"{NAME_TABLE_VARIABLE} or {REMEMBER_NAMES_VARIABLE}, or remove it to use its "
+            "default, then start the program again. Nothing typed here is sent."
         ),
     }
 )

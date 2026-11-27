@@ -9,11 +9,20 @@ ledger first; the code answered is recorded. A scripted model stands in.
 
 from __future__ import annotations
 
+import pytest
+
 from ledger_hand.flows import conversation
 from ledger_hand.flows.questions import ADD_IN_LEDGER_FIRST
 from ledger_hand.flows.recorded import RecordEnding
 from tests.flows.scripted_flow import copied
 from tests.flows.test_conversation_asset_pick import model_for, pick, row_of, said_as, talk
+
+
+@pytest.fixture(autouse=True)
+def _table_off(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The program's table of company names would match "微软" before any question; it is
+    turned off, so that the way these tests lock is reached."""
+    monkeypatch.setattr(conversation, "ASSISTANT_NAME_TABLE", False)
 
 
 def test_the_step_is_off_on_the_assistant() -> None:

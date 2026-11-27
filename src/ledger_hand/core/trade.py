@@ -31,8 +31,8 @@ apart (``SaidPrice``), never in the price, the total, the quantity or the
 fee (2026-11-26).
 
 Names defined here: ``Side``, ``TimePrecision``, ``Amount``, ``OccurredTime``,
-``Inferred``, ``InferredFrom``, ``MoneysSaid``, ``SaidPrice``, ``TradeDraft``
-and ``TradeRecord``.
+``Inferred``, ``InferredFrom``, ``MoneysSaid``, ``SaidPrice``, ``PickedBy``,
+``PickedFrom``, ``TradeDraft`` and ``TradeRecord``.
 ``NOT_ZONE_NAMES`` comes from ``zones`` and is named here as well.
 """
 
@@ -223,6 +223,33 @@ def _require_guess_and_source(inferred: frozenset[Inferred], source: InferredFro
 _NUMBER_FIELDS = ("quantity", "price", "total", "fee")
 
 
+class PickedBy(enum.Enum):
+    """What the program took an asset's name by, when it was not the model.
+
+    The value says it in words, for the reason on a card.
+    """
+
+    TABLE = "the program's table of common company names"
+    ANSWER = "your answer"
+
+
+@dataclass(frozen=True, kw_only=True)
+class PickedFrom:
+    """Where the program took the asset of a name from, when the model did not match it.
+
+    ``by`` says how; ``day`` is the day the user answered, for an answer
+    remembered, and ``None`` for the table. Example: "小可" taken as KO from
+    the answer given on 2026-11-20.
+    """
+
+    by: PickedBy
+    day: date | None = None
+
+    def __post_init__(self) -> None:
+        if (self.by is PickedBy.ANSWER) != (self.day is not None):
+            raise ValueError("an answer remembered has its day, and only an answer has one")
+
+
 @dataclass(frozen=True, kw_only=True)
 class TradeDraft:
     """A trade that may still have blanks.
@@ -232,7 +259,9 @@ class TradeDraft:
     the word used for the pricing currency, if one was said. ``derived`` names
     the amounts the program filled in by calculation. ``picked`` holds the
     user's words for the asset when the model matched them to ``coin`` from
-    the ledger's list ("微软" for MSFT), and is ``None`` otherwise.
+    the ledger's list ("微软" for MSFT), or the program did by its table of
+    company names or an earlier answer (the record says which), and is
+    ``None`` otherwise.
     """
 
     side: Side | None = None
@@ -285,6 +314,9 @@ class TradeRecord:
     money. ``derived`` names the one amount the program calculated from the
     other two, or is ``None`` when the user gave all three. ``inferred``,
     ``inferred_from`` and ``picked`` are the draft's, as they were.
+    ``picked_from`` says where the program took the asset of ``picked``
+    from, when the model did not match it: its table of company names, or
+    an answer the user gave before; the recording flow puts it in.
     ``said_price`` is the price said in the asset's own money, for a trade
     paid in another, which the recording flow puts in (``SaidPrice``).
     """
@@ -305,6 +337,7 @@ class TradeRecord:
     inferred: frozenset[Inferred] = frozenset()
     inferred_from: InferredFrom | None = None
     picked: str | None = None
+    picked_from: PickedFrom | None = None
     said_price: SaidPrice | None = None
 
     def __post_init__(self) -> None:

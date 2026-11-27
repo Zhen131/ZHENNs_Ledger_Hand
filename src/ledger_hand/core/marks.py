@@ -23,7 +23,9 @@ clock. Which cell gets which mark:
 - worked out: the amount the program calculated (``TradeRecord.derived``);
 - assumed: the money guessed from the ledger's last trade of the asset
   (``TradeRecord.inferred``), and the asset the model matched to the
-  user's words from the ledger's list (``TradeRecord.picked``);
+  user's words from the ledger's list (``TradeRecord.picked``), or the
+  program took from its table of company names or from an answer the
+  user gave before (``TradeRecord.picked_from``), the reason saying which;
 - suspicious: the price, when it is far from the market price.
 
 When one cell earns two marks, the one kept is suspicious before assumed
@@ -62,7 +64,14 @@ from typing import Protocol
 
 from ledger_hand.core.ledger_limits import text_length
 from ledger_hand.core.price_check import PriceCheck, PriceVerdict
-from ledger_hand.core.trade import Amount, Inferred, InferredFrom, TradeRecord
+from ledger_hand.core.trade import (
+    Amount,
+    Inferred,
+    InferredFrom,
+    PickedBy,
+    PickedFrom,
+    TradeRecord,
+)
 
 # The ledger's FIELD_MARK_REASON_MAX_LENGTH, counted in UTF-16 units as the
 # ledger's JavaScript counts a string's length (2026-11-25).
@@ -207,6 +216,7 @@ def marks_for(
         inferred=record.inferred,
         inferred_from=record.inferred_from,
         picked=record.picked,
+        picked_from=record.picked_from,
         check=check,
         asset_name=asset_name,
     )
@@ -221,6 +231,7 @@ def marks_from(
     picked: str | None,
     check: PriceCheck | None,
     asset_name: str | None = None,
+    picked_from: PickedFrom | None = None,
     doubts: tuple[FieldMark, ...] = (),
     assumed: tuple[FieldMark, ...] = (),
     empty: frozenset[Field] = frozenset(),
@@ -246,7 +257,11 @@ def marks_from(
             )
     if picked is not None:
         found.append(
-            FieldMark(Field.ASSET_ID, MarkKind.INFERRED, _picked_reason(coin, picked, asset_name))
+            FieldMark(
+                Field.ASSET_ID,
+                MarkKind.INFERRED,
+                _picked_reason(coin, picked, asset_name, picked_from),
+            )
         )
     found.extend(assumed)
     found.extend(doubts)
@@ -264,8 +279,18 @@ def _guess_reason(source: InferredFrom) -> str:
     )
 
 
-def _picked_reason(coin: str, picked: str, name: str | None) -> str:
+def _picked_reason(coin: str, picked: str, name: str | None, source: PickedFrom | None) -> str:
+    """Why the asset cell is assumed: the user's words, the code, the ledger's name, and who.
+
+    Example: '"微软的股票" was taken as MSFT (Microsoft) from the program's
+    table of common company names'. With no ``source`` the model matched
+    it, in the words used before the table was added.
+    """
     named = f"{coin} ({name})" if name and name != coin else coin
+    if source is not None and source.by is PickedBy.ANSWER and source.day is not None:
+        return cut_reason(f'"{picked}" was taken as {named} from your answer on {source.day}')
+    if source is not None:
+        return cut_reason(f'"{picked}" was taken as {named} from {source.by.value}')
     return cut_reason(
         f'"{picked}" was matched to {named} from the ledger\'s list of assets by the model'
     )

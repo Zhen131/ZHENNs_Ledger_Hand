@@ -38,6 +38,7 @@ from ledger_hand.core.followup import (
     ConfirmCoin,
     Problem,
 )
+from ledger_hand.core.stock_names import NameOutcome
 from ledger_hand.core.trade import MoneysSaid, OccurredTime, SaidPrice, TradeDraft, TradeRecord
 from ledger_hand.extraction.asset_picking import AssetPick
 from ledger_hand.extraction.extractor import DEFAULT_ASKS_AGAIN, PassageProblem
@@ -252,6 +253,9 @@ class Progress:
     ``picks`` holds what came of each name of an asset handed to the model
     to pick from the ledger's list at the start (the assistant's way), one
     for each name, in the order first met; empty when none was.
+    ``names`` holds what came of each name of an asset the program looked
+    up in the user's answers and its table of company names at the start
+    (``stock_names.find_name``), one for each name, in the order first met.
 
     ``last_moneys`` keeps what the ledger said of each asset's last trade,
     by the asset's code, so that one asset is asked about once in a
@@ -281,6 +285,7 @@ class Progress:
     seen_before: tuple[EarlierSave, ...] = ()
     raw_text: str | None = None
     picks: tuple[AssetPick, ...] = ()
+    names: tuple[NameOutcome, ...] = ()
     last_moneys: tuple[tuple[str, LastMoney], ...] = ()
     clash: MoneyClash | None = None
     totals_from_units: tuple[tuple[int, str], ...] = ()

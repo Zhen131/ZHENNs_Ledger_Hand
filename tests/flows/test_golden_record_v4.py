@@ -44,6 +44,9 @@ GOLDEN_SHA256 = "06065e7727572dd7adc8a129b73d30df522783748dd8f429777170661ab8f43
 def _picking_on(monkeypatch: pytest.MonkeyPatch) -> None:
     """The step is off on the assistant; these tests turn it on to try it."""
     monkeypatch.setattr(conversation, "ASSISTANT_PICKS_ASSETS", True)
+    # The program's table of company names would match these names before the model
+    # is asked; it is turned off, so that the step these tests lock is reached.
+    monkeypatch.setattr(conversation, "ASSISTANT_NAME_TABLE", False)
 
 
 def _read(place: Path) -> RecordRead:

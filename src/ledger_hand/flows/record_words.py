@@ -31,6 +31,9 @@ did not know is said in one line (``PICKED_WORDS``): the words said, the
 code, the ledger's name for it, and that the model matched it. It is said
 in the reply that begins the recording (``begun``) and in the one that
 ends it, once when they are the same reply; not in the replies between.
+Each name the program itself matched, from the user's earlier answer or
+from its table of company names, is said the same way and at the same
+times, in its own words (``NAMED_WORDS``), saying which it was.
 
 Each trade sent whose money the program guessed from the ledger's last
 trade of its asset (``TradeRecord.inferred``) gets one line right after
@@ -82,7 +85,7 @@ carries no mark when nothing was compared, and the user should not take
 it as checked.
 
 Names defined here: ``ENDING_WORDS``, ``LEFT_OUT_WORDS``,
-``SPOKEN_REMINDERS``, ``PICKED_WORDS``, ``GUESSED_WORDS``, ``RATE_WORDS``,
+``SPOKEN_REMINDERS``, ``PICKED_WORDS``, ``NAMED_WORDS``, ``GUESSED_WORDS``, ``RATE_WORDS``,
 ``WITHOUT_FX_FEE``, ``RATE_GUESS_WORDS``, ``NO_REFERENCE_WORDS``, ``FAR_RATE_WORDS``,
 ``SAID_FAR_WORDS``, ``DROPPED_WORDS``, ``rate_lines``, ``PRICE_WORDS``,
 ``NOT_CHECKED_WORDS``, ``EMPTY_WORDS``, ``LEDGER_PROBLEM_WORDS``,
@@ -102,7 +105,8 @@ from ledger_hand.core.cost_rate import RateNote, written
 from ledger_hand.core.marks import FAR_REASON_START, FEE_MONEY_REASON_START, Field, MarkKind
 from ledger_hand.core.price_check import PriceCheck, PriceVerdict
 from ledger_hand.core.proposals import CheckOutcome, TradeCheck
-from ledger_hand.core.trade import Inferred, Side
+from ledger_hand.core.stock_names import NameMatched
+from ledger_hand.core.trade import Inferred, PickedBy, Side
 from ledger_hand.core.trade_card import TradeCard
 from ledger_hand.extraction.issues import Issue, IssueKind
 from ledger_hand.flows.progress import REMINDER_KINDS
@@ -182,6 +186,10 @@ LEFT_OUT_WORDS: Mapping[LeftOut, str] = MappingProxyType(
             "ledger first."
         ),
         LeftOut.SAME_CODE: "Trade {number} was not sent: {reason}",
+        LeftOut.NAME_NOT_IN_LEDGER: (
+            "Trade {number} was not sent: the ledger has no asset {code} yet (you said "
+            '"{reason}"). Please add it in the ledger first, then say it again.'
+        ),
         LeftOut.QUANTITY_IN_OTHER_UNIT: (
             "Trade {number} was not sent: its quantity was said as {quantity} {unit}, and "
             "{unit} is not {asset}. If {quantity} {unit} is what you paid or got in all, "
@@ -196,6 +204,21 @@ LEFT_OUT_WORDS: Mapping[LeftOut, str] = MappingProxyType(
 PICKED_WORDS = (
     'Took "{said}" as {code} ({name}) from the ledger\'s list of assets. '
     "The model matched it, not the program, so please check it before you confirm."
+)
+
+# The line for an asset the program matched to a name said, by where it took it
+# from: its table of company names, or the day of the user's earlier answer.
+NAMED_WORDS: Mapping[PickedBy, str] = MappingProxyType(
+    {
+        PickedBy.TABLE: (
+            'Took "{said}" as {code} ({name}) from the program\'s table of common company '
+            "names. Please check it before you confirm."
+        ),
+        PickedBy.ANSWER: (
+            'Took "{said}" as {code} ({name}) from your answer on {day}. Please check it '
+            "before you confirm."
+        ),
+    }
 )
 
 # The line for a trade sent whose money was guessed from the ledger's last
@@ -376,6 +399,7 @@ def reply_for(recorded: Recorded, *, begun: bool = False) -> str:
         *_cards(recorded),
     ]
     if begun or recorded.ending is not RecordEnding.ASKING:
+        lines.extend(_named(recorded))
         lines.extend(_picked(recorded))
     lines.extend(_left_out(trade) for trade in recorded.left_out)
     lines.extend(_waiting(recorded))
@@ -637,6 +661,22 @@ def price_check_words(check: PriceCheck) -> str:
     return f"not compared: {not_checked_words(check)}"
 
 
+def _named(recorded: Recorded) -> list[str]:
+    """One line for each name the program matched itself, saying where it took it from."""
+    progress = recorded.progress
+    lines: list[str] = []
+    for outcome in progress.names:
+        found = outcome.found
+        if not isinstance(found, NameMatched):
+            continue
+        coin = progress.setting.assets.find(found.code)
+        name = coin.name if coin is not None else found.code
+        day = found.source.day.isoformat() if found.source.day is not None else ""
+        words = NAMED_WORDS[found.source.by]
+        lines.append(words.format(said=outcome.word, code=found.code, name=name, day=day))
+    return lines
+
+
 def _picked(recorded: Recorded) -> list[str]:
     """One line for each asset the model picked from the ledger's list."""
     progress = recorded.progress
@@ -681,7 +721,7 @@ def _left_out(trade: LeftOutTrade) -> str:
     quantity = format(trade.quantity, "f") if trade.quantity is not None else ""
     return LEFT_OUT_WORDS[trade.why].format(
         number=trade.number,
-        code=trade.code or "",
+        code=" or ".join(trade.codes) if trade.codes else trade.code or "",
         reason=trade.reason or "",
         quantity=quantity,
         unit=trade.unit or "",

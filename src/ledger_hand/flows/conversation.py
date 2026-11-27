@@ -91,6 +91,17 @@ reply that begins the recording and in the one that ends it, with that the
 model matched it (``record_words``). It is off (``ASSISTANT_PICKS_ASSETS``):
 measured, it picked listed assets for names the ledger lacks. Such a name
 is asked about, and the question says to add the asset first.
+Before that, the program matches such a name itself, with no call to the
+model (``recording.start``, ``name_table`` and ``remembered``;
+``core.stock_names``): first by the user's earlier answers kept in the
+names file handed in (``names``, ``asset_names``), then by its own table
+of common company names (``name_table``, on unless the caller says off).
+A name matched is said in the same replies, with where it was taken
+from. When the user answers the question "which asset" of a trade whose
+cell held a name with a code of the ledger, that name and code are kept
+in the names file (``stock_names.worth_remembering``), for the kind of
+ledger the file was handed in for; with no names file, nothing is read
+or kept.
 A vague word for money ("美金", "刀", "$") that the trade itself does not
 settle is guessed from the asset's last trade in the ledger: the flow is
 handed the one function that asks (``last_money.last_money_of``), each
@@ -139,8 +150,8 @@ This module reads no clock, no zone and no settings: all are handed in.
 Names defined here: ``Route``, ``WordsBy``, ``AssistantChat``, ``Said``,
 ``ScreenshotText``, ``say``, ``say_from_reading``,
 ``ASSISTANT_SCREEN_PROMPT``, ``ASSISTANT_EXTRACT_PROMPT``,
-``ASSISTANT_CHINESE_EXTRACT_PROMPT``, ``ASSISTANT_PICK_PROMPT`` and
-``ASSISTANT_PICKS_ASSETS``.
+``ASSISTANT_CHINESE_EXTRACT_PROMPT``, ``ASSISTANT_PICK_PROMPT``,
+``ASSISTANT_PICKS_ASSETS`` and ``ASSISTANT_NAME_TABLE``.
 """
 
 from __future__ import annotations
@@ -156,6 +167,7 @@ from ledger_hand.assistant.outcome import Chat, Ending, TakenCall, TurnResult
 from ledger_hand.assistant.tools import ToolName
 from ledger_hand.core.assets import AssetTable
 from ledger_hand.core.cash_words import CashAsk, held_names
+from ledger_hand.core.followup import AskCell, Cell
 from ledger_hand.core.ledger_records import Asset
 from ledger_hand.core.ledger_table import names_of, table_of
 from ledger_hand.core.money_asks import (
@@ -168,6 +180,7 @@ from ledger_hand.core.money_asks import (
     statement,
 )
 from ledger_hand.core.spoken_text import Tidied, tidy_spoken
+from ledger_hand.core.stock_names import worth_remembering
 from ledger_hand.extraction.picture_reading import PictureRead
 from ledger_hand.extraction.prompt_language import extract_prompt_for
 from ledger_hand.extraction.prompting import PromptVersion
@@ -175,6 +188,7 @@ from ledger_hand.extraction.prompts.asset_pick import ASSET_PICK_PROMPT
 from ledger_hand.extraction.prompts.first3 import FIRST_PROMPT_3
 from ledger_hand.extraction.prompts.screen2 import SCREEN_PROMPT_2
 from ledger_hand.flows import editing, recording
+from ledger_hand.flows.asset_names import NamesFile, read_names, remember
 from ledger_hand.flows.assisting import close_editing, close_recording, first_edit, take_turn
 from ledger_hand.flows.cash_answers import (
     NOT_RECORDED_EITHER,
@@ -223,6 +237,11 @@ ASSISTANT_PICK_PROMPT = ASSET_PICK_PROMPT
 # ledger lacks ("谷歌" as AAPL, "柚子币" as SOL), so a wrong asset would be
 # sent; the step stays in the code, off, until a way passes the names set.
 ASSISTANT_PICKS_ASSETS = False
+# Whether the assistant matches a name the ledger's table does not find by
+# the program's own table of common company names, when the caller does not
+# say (read each time ``say`` is called): on. Matching whole names only, it
+# cannot match a name the ledger lacks to another asset (decided on 2026-11-27).
+ASSISTANT_NAME_TABLE = True
 
 # After a takeover, only this ending means it could not be done at all.
 _NOT_A_TRADE = frozenset({RecordEnding.NO_TRADE})
@@ -359,7 +378,9 @@ class _Around:
     ``chinese`` is the version words with Chinese in them are extracted with.
     ``gap`` is how many times apart a price and the market price are far;
     ``rate_gap`` how far apart, in a hundred, the rate of a trade paid in
-    another money and the last such rate are.
+    another money and the last such rate are. ``name_table`` says whether
+    names are matched by the program's table of company names; ``names``
+    is the file of the user's answers, or ``None`` to read and keep none.
     """
 
     model: ModelPort
@@ -371,6 +392,8 @@ class _Around:
     chinese: PromptVersion = ASSISTANT_CHINESE_EXTRACT_PROMPT
     gap: Decimal = DEFAULT_PRICE_GAP_TIMES
     rate_gap: Decimal = DEFAULT_RATE_GAP_PERCENT
+    name_table: bool = ASSISTANT_NAME_TABLE
+    names: NamesFile | None = None
 
 
 def say(
@@ -386,6 +409,8 @@ def say(
     extract_for_chinese: PromptVersion | None = None,
     price_gap: Decimal = DEFAULT_PRICE_GAP_TIMES,
     rate_gap: Decimal = DEFAULT_RATE_GAP_PERCENT,
+    name_table: bool | None = None,
+    names: NamesFile | None = None,
 ) -> Said:
     """What comes of the user saying ``said`` after ``state``.
 
@@ -398,11 +423,28 @@ def say(
     market price are far (``settings.load_price_gap_times``), and
     ``rate_gap`` how far apart, in a hundred, a rate between two moneys and
     the last one are (``settings.load_rate_gap_percent``).
+    ``name_table`` says whether a name the ledger's table does not find is
+    matched by the program's table of company names; left out, as
+    ``ASSISTANT_NAME_TABLE`` says (on), read when called; and
+    ``names`` is the file of the user's answers to read and keep, or
+    ``None`` (the default) to read and keep none.
     """
     read_as = tidy_spoken(said, zone)
     chinese = extract_for_chinese or ASSISTANT_CHINESE_EXTRACT_PROMPT
     raw_text = said if read_as.changed else None
-    around = _Around(model, ledger, now, zone, tuning, raw_text, chinese, price_gap, rate_gap)
+    around = _Around(
+        model,
+        ledger,
+        now,
+        zone,
+        tuning,
+        raw_text,
+        chinese,
+        price_gap,
+        rate_gap,
+        name_table=ASSISTANT_NAME_TABLE if name_table is None else name_table,
+        names=names,
+    )
     done = _said(state, read_as.text, around, max_steps)
     return replace(_cash_known(done, ledger), read_as=read_as)
 
@@ -589,15 +631,28 @@ def say_from_reading(
     tuning: Tuning = DEFAULT_TUNING,
     price_gap: Decimal = DEFAULT_PRICE_GAP_TIMES,
     rate_gap: Decimal = DEFAULT_RATE_GAP_PERCENT,
+    name_table: bool | None = None,
+    names: NamesFile | None = None,
 ) -> Said:
     """What comes of recording ``shot`` after ``state``, as if the passage were typed.
 
     The model that chooses tools is not asked. Raises ``ValueError`` when
     something waits for the user's answer: a caller offers no screenshot then.
+    ``name_table`` and ``names`` are as for ``say``.
     """
     if state.recording is not None or state.editing is not None:
         raise ValueError("something waits for the user's answer; answer it first")
-    around = _Around(model, ledger, now, zone, tuning, gap=price_gap, rate_gap=rate_gap)
+    around = _Around(
+        model,
+        ledger,
+        now,
+        zone,
+        tuning,
+        gap=price_gap,
+        rate_gap=rate_gap,
+        name_table=ASSISTANT_NAME_TABLE if name_table is None else name_table,
+        names=names,
+    )
     recorded = _begun("", around, shot)
     passage = recorded.progress.passage
     reply = reply_for(recorded, begun=True)
@@ -652,6 +707,8 @@ def _start(said: str, around: _Around, table: AssetTable, shot: ScreenshotText |
         "pick_prompt": ASSISTANT_PICK_PROMPT,
         "last_money": last_money_of(around.ledger, around.now),
         "unfinished": around.ledger.takes_unfinished(),
+        "name_table": around.name_table,
+        "remembered": read_names(around.names).names if around.names is not None else (),
     }
     if shot is None:
         progress = recording.start(
@@ -698,6 +755,7 @@ def _onward(
 def _answered(state: AssistantChat, waiting: Progress, said: str, around: _Around) -> Said:
     last_money = last_money_of(around.ledger, around.now)
     progress = recording.answer(waiting, said, around.model, last_money=last_money)
+    _remembered(waiting, progress, around.names)
     recorded = _onward(progress, around)
     reply = reply_for(recorded)
     chat = _with_words(state.chat, (Message(Role.USER, said), Message(Role.ASSISTANT, reply)))
@@ -708,6 +766,29 @@ def _answered(state: AssistantChat, waiting: Progress, said: str, around: _Aroun
         state=AssistantChat(chat=chat, recording=_waiting(recorded)),
         recorded=recorded,
     )
+
+
+def _remembered(waiting: Progress, answered: Progress, names: NamesFile | None) -> None:
+    """Keep the name a trade's asset cell held and the code answered for it, when the
+    question waiting was which asset that trade is, and the answer was a code of the
+    ledger's table (``stock_names.worth_remembering``); nothing with no names file.
+
+    Example: "小可" asked about and answered "KO", with KO in the ledger,
+    keeps "小可" as KO, on the day of the passage's own moment.
+    """
+    question = waiting.question
+    if names is None or question is None:
+        return
+    asked = question.asked
+    if not isinstance(asked, AskCell) or asked.cell is not Cell.COIN:
+        return
+    before = waiting.trades[question.trade].draft.coin
+    after = answered.trades[question.trade].draft.coin
+    if before is None or after is None or before == after:
+        return
+    kept = worth_remembering(before, after, waiting.passage, waiting.setting.assets)
+    if kept is not None:
+        remember(names, kept[0], kept[1], waiting.setting.now.date())
 
 
 def _taken_over(turn: TurnResult, said: str, around: _Around) -> Said:

@@ -74,6 +74,7 @@ from ledger_hand.core.trade import (
     Inferred,
     InferredFrom,
     OccurredTime,
+    PickedFrom,
     SaidPrice,
     Side,
     TimePrecision,
@@ -208,7 +209,8 @@ class CardRecord:
     found, one a cell at most. ``taken_as_total`` is the user's words a
     total was read from ("25U"), when a quantity said in money was taken
     as the total. ``inferred``, ``inferred_from`` and ``picked`` are the
-    draft's, as for a record. ``said_price`` is a record's (``TradeRecord``).
+    draft's, as for a record. ``said_price`` and ``picked_from`` are as a
+    record's (``TradeRecord``).
     """
 
     side: Side
@@ -227,6 +229,7 @@ class CardRecord:
     inferred: frozenset[Inferred] = frozenset()
     inferred_from: InferredFrom | None = None
     picked: str | None = None
+    picked_from: PickedFrom | None = None
     doubts: tuple[FieldMark, ...] = ()
     taken_as_total: str | None = None
     said_price: SaidPrice | None = None
@@ -495,6 +498,7 @@ def card_marks(
         inferred=card.inferred,
         inferred_from=card.inferred_from,
         picked=card.picked,
+        picked_from=card.picked_from,
         check=check,
         asset_name=asset_name,
         doubts=card.doubts,

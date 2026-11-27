@@ -28,6 +28,17 @@ The steps, each handing back a new ``Progress``:
   say it; an asset taken stands in the trade's cell, and a miss leaves the
   trade as it was. The calls are kept as ``Step.ASSET_PICK`` and each
   outcome in ``Progress.picks``. Left off, nothing is sent that was not.
+  Before that, with ``name_table`` or ``remembered`` (the assistant's
+  way), such a name, its trailing words for "share" or "company" cut
+  off, is looked up whole in the user's earlier answers and then in the
+  program's table of company names (``core.stock_names``), with no call
+  to the model: a code the ledger has stands in the trade's cell, the
+  words in ``picked``, and its record or card says where it was taken
+  from (``matched_source``, ``TradeRecord.picked_from``); a name whose codes
+  the ledger lacks holds the trade back, asked nothing; a name with more
+  than one code in the ledger is asked about, as before, with a note
+  naming the codes. Each outcome is kept in ``Progress.names``. Both
+  left off, nothing changes.
 - Then one trade is taken up at a time, in passage order, and one field of
   it at a time, in the order ``core.followup`` fixes. The question is put
   together and worded (``questions``); a trade that cannot be recorded is
@@ -78,8 +89,8 @@ keeps them with the trades that use them (``saving``). Nothing is written
 anywhere here, and a book handed in is only read.
 
 Names defined here: ``start``, ``answer``, ``remove``, ``cancel``,
-``finish``, ``retuned``, ``tuning_from``, ``unbegun`` and
-``held_other_unit``.
+``finish``, ``retuned``, ``tuning_from``, ``unbegun``, ``held_other_unit``,
+``matched_source``, ``several_named``, ``several_note`` and ``absent_named``.
 """
 
 from __future__ import annotations
@@ -90,7 +101,12 @@ from datetime import datetime
 from ledger_hand.asking.prompts.bookkeeper import BOOKKEEPER_PROMPT
 from ledger_hand.core.assets import BUILT_IN_ASSETS, AssetTable, MoneyReading, UnknownAssets
 from ledger_hand.core.book import EarlierSave
-from ledger_hand.core.card_record import card_record, money_doubt_other, money_doubt_two
+from ledger_hand.core.card_record import (
+    CardRecord,
+    card_record,
+    money_doubt_other,
+    money_doubt_two,
+)
 from ledger_hand.core.coins import spoken_key
 from ledger_hand.core.followup import (
     FOLLOW_UP_ORDER,
@@ -106,9 +122,24 @@ from ledger_hand.core.followup import (
 )
 from ledger_hand.core.ledger_table import VAGUE_MONEY_CODES
 from ledger_hand.core.marks import Field
+from ledger_hand.core.stock_names import (
+    NameAbsent,
+    NameMatched,
+    NameOutcome,
+    NameSeveral,
+    RememberedName,
+    find_name,
+)
 from ledger_hand.core.time_wording import Refusal
 from ledger_hand.core.timeparse import day_named
-from ledger_hand.core.trade import Amount, OccurredTime, SaidPrice, TradeDraft, TradeRecord
+from ledger_hand.core.trade import (
+    Amount,
+    OccurredTime,
+    PickedFrom,
+    SaidPrice,
+    TradeDraft,
+    TradeRecord,
+)
 from ledger_hand.core.validation import DraftProblems, Missing, check_draft
 from ledger_hand.core.zones import is_zone_name
 from ledger_hand.extraction.answer_phrase import (
@@ -214,6 +245,8 @@ def start(
     pick_prompt: AssetPickPrompt = ASSET_PICK_PROMPT,
     last_money: LastMoneyLookup | None = None,
     unfinished: bool = False,
+    name_table: bool = False,
+    remembered: tuple[RememberedName, ...] = (),
 ) -> Progress:
     """Judge ``passage``, extract its trades, check them, and ask the first question.
 
@@ -246,6 +279,11 @@ def start(
     only which asset and buy or sell (and a vague word for money the
     ledger cannot settle) are asked; every other gap becomes a card. Only
     the assistant turns it on, and only when the ledger offers it.
+
+    ``name_table`` looks each name of an asset the ledger's table does not
+    find up in the program's table of company names, and ``remembered``
+    holds the user's earlier answers, looked up first (``core.stock_names``).
+    Only the assistant hands them in; left off, nothing changes.
     """
     if not isinstance(now, datetime) or now.utcoffset() is None:
         raise ValueError("the current moment must be a datetime that carries an offset")
@@ -276,9 +314,29 @@ def start(
         return dataclasses.replace(progress, stage=Stage.NO_TRADE)
     progress = dataclasses.replace(progress, set_aside=screening.set_aside)
     picking = pick_prompt if pick_assets else None
+    naming = _Naming(table=name_table, remembered=remembered)
     return _extracted(
-        progress, model, extract_prompt, hold=hold_other_unit, pick=picking, last=last_money
+        progress,
+        model,
+        extract_prompt,
+        hold=hold_other_unit,
+        pick=picking,
+        last=last_money,
+        naming=naming,
     )
+
+
+@dataclasses.dataclass(frozen=True)
+class _Naming:
+    """How names of assets are looked up before any is handed to the model: the table, and
+    the user's answers; both off by default."""
+
+    table: bool = False
+    remembered: tuple[RememberedName, ...] = ()
+
+    @property
+    def on(self) -> bool:
+        return self.table or bool(self.remembered)
 
 
 def _extracted(
@@ -289,6 +347,7 @@ def _extracted(
     hold: bool = False,
     pick: AssetPickPrompt | None = None,
     last: LastMoneyLookup | None = None,
+    naming: _Naming | None = None,
 ) -> Progress:
     setting = progress.setting
     extraction = extract(
@@ -308,6 +367,10 @@ def _extracted(
     if not extraction.drafts:
         return dataclasses.replace(progress, stage=Stage.NO_TRADE, issues=extraction.issues)
     drafts = extraction.drafts
+    absent: frozenset[int] = frozenset()
+    if naming is not None and naming.on:
+        drafts, names, absent = _named(drafts, setting, naming)
+        progress = dataclasses.replace(progress, names=names)
     if pick is not None:
         drafts, picks = _picked(drafts, setting, model, pick)
         for found in picks:
@@ -320,7 +383,9 @@ def _extracted(
     trades = tuple(
         TradeState(
             draft,
-            _held_status(
+            TradeStatus.CANNOT_RECORD
+            if position in absent
+            else _held_status(
                 position,
                 draft,
                 extraction.issues,
@@ -382,6 +447,99 @@ def _totals_from_units(
         )
         taken.append((position, said))
     return tuple(changed), taken
+
+
+def _named(
+    drafts: tuple[TradeDraft, ...], setting: Setting, naming: _Naming
+) -> tuple[tuple[TradeDraft, ...], tuple[NameOutcome, ...], frozenset[int]]:
+    """The drafts with each name the program matched replaced by its code; what came of each
+    name; and the positions of the trades whose name the ledger lacks, held back.
+
+    A name said in several trades is looked up once, and its outcome serves
+    them all. Example: "微软的股票" with MSFT in the ledger stands as MSFT,
+    the words kept in ``picked``; "特斯拉" with no TSLA holds its trade back.
+    """
+    found: dict[str, NameOutcome | None] = {}
+    named: list[TradeDraft] = []
+    absent: set[int] = set()
+    for position, draft in enumerate(drafts):
+        word = draft.coin
+        if word is None:
+            named.append(draft)
+            continue
+        key = spoken_key(word)
+        if key not in found:
+            found[key] = find_name(word, setting.assets, naming.remembered, table=naming.table)
+        outcome = found[key]
+        if outcome is not None and isinstance(outcome.found, NameMatched):
+            matched = outcome.found
+            named.append(dataclasses.replace(draft, coin=matched.code, picked=outcome.word))
+            continue
+        if outcome is not None and isinstance(outcome.found, NameAbsent):
+            absent.add(position)
+        named.append(draft)
+    outcomes = tuple(outcome for outcome in found.values() if outcome is not None)
+    return tuple(named), outcomes, frozenset(absent)
+
+
+def matched_source(progress: Progress, draft: TradeDraft) -> PickedFrom | None:
+    """Where the program took the asset of ``draft`` from, when it matched its name itself
+    (its table of company names, or an earlier answer); ``None`` otherwise, the model's
+    pick among them. Example: a draft whose ``picked`` is "微软的股票", matched by the
+    table: the table."""
+    if draft.picked is None or draft.coin is None:
+        return None
+    return next(
+        (
+            outcome.found.source
+            for outcome in progress.names
+            if isinstance(outcome.found, NameMatched)
+            and outcome.word == draft.picked
+            and outcome.found.code == draft.coin
+        ),
+        None,
+    )
+
+
+def _sourced[Kept: (TradeRecord, CardRecord)](
+    progress: Progress, draft: TradeDraft, kept: Kept
+) -> Kept:
+    """``kept``, made from ``draft``, with where the program took its asset from, if it did."""
+    source = matched_source(progress, draft)
+    return kept if source is None else dataclasses.replace(kept, picked_from=source)
+
+
+def several_named(progress: Progress, position: int) -> NameOutcome | None:
+    """The name of the trade at ``position`` the table gives more than one code of the
+    ledger for, while its asset is still that name; ``None`` otherwise."""
+    coin = progress.trades[position].draft.coin
+    if coin is None:
+        return None
+    return next(
+        (
+            outcome
+            for outcome in progress.names
+            if isinstance(outcome.found, NameSeveral) and outcome.word == coin.strip()
+        ),
+        None,
+    )
+
+
+def absent_named(progress: Progress, position: int) -> NameOutcome | None:
+    """The name of the trade at ``position`` whose codes the ledger lacks, when that held
+    the trade back; ``None`` otherwise."""
+    trade = progress.trades[position]
+    coin = trade.draft.coin
+    if coin is None or trade.status is not TradeStatus.CANNOT_RECORD or trade.reason is not None:
+        return None
+    return next(
+        (
+            outcome
+            for outcome in progress.names
+            if isinstance(outcome.found, NameAbsent) and outcome.word == coin.strip()
+        ),
+        None,
+    )
 
 
 def _picked(
@@ -548,7 +706,9 @@ def _next_question(
         if isinstance(checked, TradeRecord):
             if said is not None:
                 checked = dataclasses.replace(checked, said_price=said)
-            trades[position] = TradeState(draft, TradeStatus.RECORDED, checked)
+            trades[position] = TradeState(
+                draft, TradeStatus.RECORDED, _sourced(progress, draft, checked)
+            )
             continue
         follow_up = next_follow_up(draft, checked)
         trades[position] = TradeState(draft, TradeStatus.OPEN)
@@ -590,7 +750,7 @@ def _carded(
     )
     if said is not None:
         card = dataclasses.replace(card, said_price=said)
-    return TradeState(draft, TradeStatus.UNFINISHED, card=card)
+    return TradeState(draft, TradeStatus.UNFINISHED, card=_sourced(progress, draft, card))
 
 
 def _paid_apart(
@@ -822,7 +982,19 @@ def _asking(
         candidates,
     )
     progress = _with_calls(progress, Step.QUESTION, tuple(call.record for call in calls))
+    several = several_named(progress, position)
+    if several is not None and isinstance(asked, AskCell) and asked.cell is Cell.COIN:
+        question = dataclasses.replace(question, notes=(*question.notes, several_note(several)))
     return dataclasses.replace(progress, stage=Stage.ASKING, question=question, note=None)
+
+
+def several_note(outcome: NameOutcome) -> str:
+    """The program's note under the question "which asset", for a name the table gives more
+    than one code of the ledger for, added after the question is worded, never sent to the
+    model. Example: '"谷歌" may be GOOGL or GOOG in your ledger; please answer with the code.'
+    """
+    codes = " or ".join(outcome.found.codes) if isinstance(outcome.found, NameSeveral) else ""
+    return f'"{outcome.word}" may be {codes} in your ledger; please answer with the code.'
 
 
 # --- answers ----------------------------------------------------------------

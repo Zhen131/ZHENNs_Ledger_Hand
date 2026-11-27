@@ -25,6 +25,9 @@ pytestmark = pytest.mark.live_model
 @pytest.fixture(autouse=True)
 def _picking_on(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(conversation, "ASSISTANT_PICKS_ASSETS", True)
+    # The program's table of company names would match these names before the model
+    # is asked; it is turned off, so that the step this check looks at is reached.
+    monkeypatch.setattr(conversation, "ASSISTANT_NAME_TABLE", False)
 
 
 def said_once(words: str) -> Said:

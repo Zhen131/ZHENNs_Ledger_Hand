@@ -84,6 +84,8 @@ def talk(said: str, rows: Sequence[dict[str, str]], questions: Sequence[Step] = 
         now=INVENTED_NOW,
         zone=INVENTED_ZONE,
         max_steps=6,
+        # The program's table of company names would match "宝洁" first; turned off here.
+        name_table=False,
     )
 
 

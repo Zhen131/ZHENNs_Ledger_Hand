@@ -6,6 +6,7 @@
     .venv/bin/python scripts/try_assistant.py "今天下午OKX 25U买了点ETH" "下午3点" "手续费0.01 USDT"
     .venv/bin/python scripts/try_assistant.py --save "Bought 0.02 BTC at 94900 at 9:40, fee 2 USDT."
     .venv/bin/python scripts/try_assistant.py --clock "What do I hold?"
+    .venv/bin/python scripts/try_assistant.py --names-file /tmp/names.json "买了2股小可" "KO"
     .venv/bin/python scripts/try_assistant.py --help
 
 Each argument is one thing the user says, in order, in one chat. They are
@@ -74,10 +75,17 @@ proposal still pending in the fake ledger, as the person would on the
 ledger's own page, and prints how many trades the book holds before and
 after, the trades added, and each trade changed (before and after) or
 deleted. The options come before the sentences.
+``--names-file PATH`` reads and keeps the user's answers to "which asset"
+in the file at PATH (the same plain JSON the assistant page keeps in the
+data folder, read as the demo ledger's answers): a name answered with a
+code is matched at once the next time. Without it no such file is read or
+written. ``LEDGER_HAND_NAME_TABLE`` says whether a name is matched by the
+program's table of common company names (on by default).
 ``--help`` or ``-h``, given alone, prints this text and does nothing else.
 
 The assistant runs on the local plug only: with the cloud plug set, the
-script refuses before anything is sent. Nothing is written to disk.
+script refuses before anything is sent. Nothing is written to disk but the
+file ``--names-file`` names.
 
 Exit status: 0 everything said was done, or the user was told why not (the
 model answered, a question waits, a proposal was sent, or nothing was sent
@@ -85,8 +93,9 @@ and the program said why), or this text was printed; 1 something said was
 not: the model or the ledger failed, the step limit was reached, or the
 program took over and still could not do it; 2 the script could not start:
 nothing to say, an option given twice or both of ``--save`` and
-``--reject``, a setting is wrong, the cloud plug is set, or the machine's
-zone is not a zone name the program takes.
+``--reject``, ``--names-file`` with no path after it, a setting is wrong,
+the cloud plug is set, or the machine's zone is not a zone name the program
+takes.
 """
 
 from __future__ import annotations
@@ -95,8 +104,10 @@ import enum
 import json
 import sys
 from collections.abc import Sequence
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from decimal import Decimal
+from pathlib import Path
 from typing import TextIO
 
 import tzlocal
@@ -121,11 +132,13 @@ from ledger_hand.core.trade import Inferred, TradeRecord
 from ledger_hand.core.trade_card import TradeCard
 from ledger_hand.core.zones import is_zone_name
 from ledger_hand.extraction.asset_picking import AssetPick
+from ledger_hand.flows.asset_names import NamesFile
 from ledger_hand.flows.conversation import AssistantChat, Route, Said, say
 from ledger_hand.flows.progress import DEFAULT_TUNING, Asked, TradeState, Tuning
 from ledger_hand.flows.record_words import price_check_words
 from ledger_hand.flows.recorded import Recorded
 from ledger_hand.flows.recording import tuning_from
+from ledger_hand.flows.standing import LedgerKind
 from ledger_hand.ledger.demo_euro import demo_ledger_with_euro
 from ledger_hand.ledger.fake_ledger import FakeLedger
 from ledger_hand.ledger.invented_book import INVENTED_NOW, INVENTED_ZONE
@@ -139,12 +152,14 @@ from ledger_hand.settings import (
     Variable,
     load_assistant_steps,
     load_model_settings,
+    load_name_table,
     load_price_gap_times,
     load_rate_gap_percent,
 )
 
 _ASKING_FOR_HELP = frozenset({"--help", "-h"})
 _CLOCK = "--clock"
+_NAMES_FILE = "--names-file"
 
 
 class Afterwards(enum.Enum):
@@ -154,7 +169,7 @@ class Afterwards(enum.Enum):
     REJECT = "--reject"
 
 
-_OPTIONS = frozenset({_CLOCK, *(option.value for option in Afterwards)})
+_OPTIONS = frozenset({_CLOCK, _NAMES_FILE, *(option.value for option in Afterwards)})
 
 
 def main(
@@ -166,6 +181,7 @@ def main(
     max_steps: int | None = None,
     price_gap: Decimal | None = None,
     rate_gap: Decimal | None = None,
+    name_table: bool | None = None,
 ) -> int:
     """Run the script; the keyword arguments stand in for the outside world in tests."""
     if len(arguments) == 1 and arguments[0] in _ASKING_FOR_HELP:
@@ -174,21 +190,16 @@ def main(
     parsed = _options(arguments, out)
     if parsed is None:
         return 2
-    on_the_clock, afterwards, sentences = parsed
+    on_the_clock, afterwards, sentences, names_place = parsed
     moment = _moment(out) if on_the_clock else (INVENTED_NOW, INVENTED_ZONE, "the invented book's")
     if moment is None:
         return 2
     now, zone, whose = moment
-    tuning = DEFAULT_TUNING
-    gap = price_gap if price_gap is not None else DEFAULT_PRICE_GAP_TIMES
-    rates = rate_gap if rate_gap is not None else DEFAULT_RATE_GAP_PERCENT
-    if model is None or max_steps is None:
-        built = _model_and_steps(out)
-        if built is None:
-            return 2
-        model, max_steps, tuning = model or built[0], max_steps or built[1], built[2]
-        gap = price_gap if price_gap is not None else built[3]
-        rates = rate_gap if rate_gap is not None else built[4]
+    given = _Given(model, max_steps, price_gap, rate_gap, name_table)
+    taken = given if model is not None and max_steps is not None else _with_settings(given, out)
+    if taken is None or taken.model is None or taken.max_steps is None:
+        return 2
+    model, max_steps = taken.model, taken.max_steps
     # The demo ledger takes cards with cells left empty, as the real one does now,
     # has the ledger's tool for cash balances (``demo_cash``), and a euro (``demo_euro``).
     ledger = ledger or demo_ledger_with_euro().taking_cards()
@@ -206,9 +217,11 @@ def main(
             now=now,
             zone=zone,
             max_steps=max_steps,
-            tuning=tuning,
-            price_gap=gap,
-            rate_gap=rates,
+            tuning=taken.tuning,
+            price_gap=taken.price_gap or DEFAULT_PRICE_GAP_TIMES,
+            rate_gap=taken.rate_gap or DEFAULT_RATE_GAP_PERCENT,
+            name_table=taken.name_table,
+            names=NamesFile(names_place, LedgerKind.DEMO) if names_place is not None else None,
         )
         show_said(words, said, out)
         all_well = all_well and said.well_ended
@@ -218,16 +231,50 @@ def main(
     return 0 if all_well else 1
 
 
+@dataclass(frozen=True)
+class _Given:
+    """The parts a test hands in, or the settings give; ``None`` where neither has yet."""
+
+    model: ModelPort | None
+    max_steps: int | None
+    price_gap: Decimal | None
+    rate_gap: Decimal | None
+    name_table: bool | None
+    tuning: Tuning = DEFAULT_TUNING
+
+
+def _with_settings(given: _Given, out: TextIO) -> _Given | None:
+    """``given``, each part not handed in taken from the settings; ``None`` when refused."""
+    built = _model_and_steps(out)
+    if built is None:
+        return None
+    return _Given(
+        model=given.model or built[0],
+        max_steps=given.max_steps or built[1],
+        tuning=built[2],
+        price_gap=given.price_gap if given.price_gap is not None else built[3],
+        rate_gap=given.rate_gap if given.rate_gap is not None else built[4],
+        name_table=given.name_table if given.name_table is not None else built[5],
+    )
+
+
 def _options(
     arguments: Sequence[str], out: TextIO
-) -> tuple[bool, Afterwards | None, list[str]] | None:
+) -> tuple[bool, Afterwards | None, list[str], Path | None] | None:
     """The options at the front, then the sentences; ``None`` when they cannot be taken."""
     given: list[str] = []
-    for argument in arguments:
-        if argument not in _OPTIONS:
-            break
-        given.append(argument)
-    sentences = list(arguments[len(given) :])
+    names_place: Path | None = None
+    taken = 0
+    while taken < len(arguments) and arguments[taken] in _OPTIONS:
+        given.append(arguments[taken])
+        if arguments[taken] == _NAMES_FILE:
+            if taken + 1 >= len(arguments):
+                print(f"{_NAMES_FILE} needs the path of a file after it", file=out)
+                return None
+            names_place = Path(arguments[taken + 1])
+            taken += 1
+        taken += 1
+    sentences = list(arguments[taken:])
     afterwards = [option for option in Afterwards if option.value in given]
     if len(set(given)) != len(given) or len(afterwards) > 1:
         print(
@@ -239,7 +286,7 @@ def _options(
     if not sentences:
         print("nothing to say: give one or more sentences", file=out)
         return None
-    return _CLOCK in given, (afterwards[0] if afterwards else None), sentences
+    return _CLOCK in given, (afterwards[0] if afterwards else None), sentences, names_place
 
 
 def _moment(out: TextIO) -> tuple[datetime, str, str] | None:
@@ -254,12 +301,15 @@ def _moment(out: TextIO) -> tuple[datetime, str, str] | None:
     return datetime.now(timezone.utc), name, "the machine's"
 
 
-def _model_and_steps(out: TextIO) -> tuple[ModelPort, int, Tuning, Decimal, Decimal] | None:
+def _model_and_steps(
+    out: TextIO,
+) -> tuple[ModelPort, int, Tuning, Decimal, Decimal, bool] | None:
     try:
         settings = load_model_settings()
         steps = load_assistant_steps()
         gap = load_price_gap_times()
         rates = load_rate_gap_percent()
+        table = load_name_table()
     except SettingsError as error:
         print(f"setting refused: {error}", file=out)
         return None
@@ -270,7 +320,7 @@ def _model_and_steps(out: TextIO) -> tuple[ModelPort, int, Tuning, Decimal, Deci
             file=out,
         )
         return None
-    return connect_model(settings), steps, tuning_from(settings), gap, rates
+    return connect_model(settings), steps, tuning_from(settings), gap, rates, table
 
 
 def _model_name() -> str:

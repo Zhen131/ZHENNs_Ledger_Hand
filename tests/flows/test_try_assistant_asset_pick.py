@@ -26,6 +26,9 @@ from tests.flows.test_conversation_asset_pick import RECORD, row_of, said_as
 def _picking_on(monkeypatch: pytest.MonkeyPatch) -> None:
     """The step is off on the assistant; these tests turn it on to try it."""
     monkeypatch.setattr(conversation, "ASSISTANT_PICKS_ASSETS", True)
+    # The program's table of company names would match these names before the model
+    # is asked; it is turned off, so that the step these tests lock is reached.
+    monkeypatch.setattr(conversation, "ASSISTANT_NAME_TABLE", False)
 
 
 def run(words: list[str], coin: str, picks: list[Step], answers: list[Step] = ()) -> str:  # type: ignore[assignment]

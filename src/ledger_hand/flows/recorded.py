@@ -118,6 +118,8 @@ class LeftOut(enum.Enum):
     """Its quantity was said in a unit that is not the asset traded ("25U" of ETH)."""
     SAME_CODE = "same_code"
     """The ledger has more than one asset with the code it names; none is picked."""
+    NAME_NOT_IN_LEDGER = "name_not_in_ledger"
+    """The program's table of company names gives the name said codes the ledger lacks."""
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -128,6 +130,8 @@ class LeftOutTrade:
     ``reason`` is the flow's own words for a trade that cannot be recorded.
     For a quantity said in another unit, ``quantity`` is the number as
     read and ``unit`` the unit as written beside it ("25" and "U").
+    For a name the ledger lacks, ``codes`` are the codes the program's
+    table gives it and ``reason`` is the name as said ("特斯拉").
     """
 
     number: int
@@ -136,6 +140,7 @@ class LeftOutTrade:
     reason: str | None = None
     quantity: Decimal | None = None
     unit: str | None = None
+    codes: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, kw_only=True)
