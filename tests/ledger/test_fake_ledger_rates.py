@@ -1,93 +1,69 @@
-"""Tests of the fake ledger's exchange rates, as the real ledger lists them since its dev 1b016ec.
+"""Tests of the fake ledger's check of a trade paid in another money: the ledger's own rule.
 
-Every rate, day and identifier is invented.
+For an asset whose own money the book names: paid in another money a
+trade needs its rate, paid in its own money it takes none, and a rate is
+above 0. An asset whose own money the book does not name is not checked.
+A card with an empty cell is taken all the same, the mismatch said as what
+its cells show. Every figure is invented.
 """
 
 from __future__ import annotations
 
-from datetime import date
+import dataclasses
+from decimal import Decimal
 
-import pytest
-
-from ledger_hand.core.ledger_rate import RateRequest, RateRow
+from ledger_hand.core.ledger_records import TradeFilter
+from ledger_hand.core.proposals import CheckOutcome
+from ledger_hand.core.trade_card import card_of
 from ledger_hand.ledger.fake_ledger import FakeLedger
-from ledger_hand.ports import LedgerError
+from tests.flows import paid_apart_books as books
+
+PAID_IN_EUROS = books.bought("KO", "EUR", (2026, 11, 24, 15, 30), "64", rate="1.0859375")
 
 
-def rate(base: str, quote: str, value: str, day: str) -> RateRow:
-    return RateRow(
-        base_id=f"asset-{base.lower()}",
-        base_code=base,
-        quote_id=f"asset-{quote.lower()}",
-        quote_code=quote,
-        rate=value,
-        rate_date=day,
-        source="manual",
-        online_source=None,
+def _one(ledger: FakeLedger, rate: Decimal | None, quote: str = "EUR") -> tuple[str | None, bool]:
+    facts = dataclasses.replace(PAID_IN_EUROS, cost_rate=rate, quote=quote, fee_asset=quote)
+    (check,) = ledger.propose_add((facts,), "invented").checks
+    return check.code, check.outcome is CheckOutcome.PASSED
+
+
+def test_paid_in_another_money_with_its_rate_is_taken() -> None:
+    assert _one(books.jia(), Decimal("1.0859375")) == (None, True)
+
+
+def test_paid_in_another_money_with_no_rate_is_turned_down() -> None:
+    assert _one(books.jia(), None) == ("CURRENCY_MISMATCH", False)
+
+
+def test_paid_in_its_own_money_with_a_rate_is_turned_down() -> None:
+    assert _one(books.jia(), Decimal("1"), quote="USD") == ("CURRENCY_MISMATCH", False)
+
+
+def test_a_rate_of_zero_is_turned_down() -> None:
+    assert _one(books.jia(), Decimal(0)) == ("VALUE_MUST_BE_POSITIVE", False)
+
+
+def test_an_asset_whose_own_money_is_not_named_is_not_checked() -> None:
+    assert _one(books.ding(), None) == (None, True)
+    assert _one(books.ding(), Decimal("1.0859375"), quote="USD") == (None, True)
+
+
+def test_a_card_with_an_empty_cell_and_no_rate_is_taken_with_the_mismatch_said() -> None:
+    card = dataclasses.replace(
+        card_of(dataclasses.replace(PAID_IN_EUROS, cost_rate=None)), fee=None
     )
 
+    (check,) = books.jia().propose_cards((card,), "invented").checks
 
-ROWS = (
-    rate("USD", "USDT", "1.0", "2026-11-20"),
-    rate("EUR", "USD", "1.08", "2026-11-18"),
-    rate("USD", "EUR", "0.93", "2026-11-21"),
-    rate("EUR", "USD", "1.07", "2026-11-21"),
-    rate("EUR", "USD", "1.5", "2026-11-26"),
-)
+    assert check.outcome is CheckOutcome.PASSED and check.ready is False
+    assert check.problem is not None and check.problem.code == "CURRENCY_MISMATCH"
 
 
-def ask(currency: str = "asset-usd", other: str = "asset-usdt", last: int = 30) -> RateRequest:
-    return RateRequest(
-        currency_id=currency,
-        other_id=other,
-        last_day=date(2026, 11, last),
-        enough_day=date(2026, 11, 1),
-    )
+def test_a_trade_listed_comes_back_with_the_rate_it_was_sent_with() -> None:
+    ledger = books.jia()
 
-
-def ledger_with_euro() -> FakeLedger:
-    from tests.flows.paid_apart_books import JIA_ASSETS  # noqa: PLC0415
-
-    return FakeLedger(assets=JIA_ASSETS).listing_rates(ROWS)
-
-
-def test_with_no_tool_it_says_so_and_names_no_call() -> None:
-    ledger = FakeLedger()
-
-    with pytest.raises(LedgerError) as caught:
-        ledger.exchange_rates(ask())
-
-    assert caught.value.code == "NO_RATE_TOOL"
-    assert ledger.calls == []
-
-
-def test_rows_between_the_two_moneys_both_ways_newest_first_none_after_today() -> None:
-    ledger = ledger_with_euro()
-
-    listed = ledger.exchange_rates(ask("asset-eur", "asset-usd"))
-
-    assert [(one.rate, one.rate_date) for one in listed.rows] == [
-        ("0.93", "2026-11-21"),
-        ("1.07", "2026-11-21"),
-        ("1.08", "2026-11-18"),
+    (aapl,) = [
+        trade for trade in ledger.list_trades(TradeFilter()).trades if trade.id == "t-aapl-eur"
     ]
-    assert listed.today == date(2026, 11, 24)
-    assert ledger.calls == ["exchange_rates"]
 
-
-def test_no_row_after_the_last_day_asked_for() -> None:
-    listed = ledger_with_euro().exchange_rates(ask("asset-eur", "asset-usd", last=20))
-
-    assert [one.rate for one in listed.rows] == ["1.08"]
-
-
-@pytest.mark.parametrize(
-    ("other", "code"),
-    [("asset-gbp", "ASSET_NOT_FOUND"), ("asset-btc", "ASSET_IS_NOT_CURRENCY")],
-)
-def test_a_money_it_lacks_or_one_that_is_not_cash_is_refused(other: str, code: str) -> None:
-    with pytest.raises(LedgerError) as caught:
-        ledger_with_euro().exchange_rates(ask("asset-eur", other))
-
-    assert caught.value.code == code
-    assert "otherCurrencyAssetId" in caught.value.message
+    assert aapl.facts.cost_rate == Decimal("1.0859")
