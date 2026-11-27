@@ -107,6 +107,7 @@ import enum
 import math
 import os
 import re
+import sys
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, replace
 from decimal import Decimal, InvalidOperation
@@ -838,6 +839,12 @@ DEFAULT_LEDGER_PAGE_PORT = 3000
 # The only variables of this process the link is started with, besides the
 # token: PATH finds Node.js, HOME is where Node.js looks for its own settings.
 _LINK_INHERITED_VARIABLES = ("PATH", "HOME")
+# On Windows one more is handed on: without SYSTEMROOT, Node.js cannot get
+# random numbers from the system and stops at once with exit status 134
+# (measured on Windows 11 with Node.js 24, 2026-11-27; with each other one of
+# WINDIR, SYSTEMDRIVE, TEMP, TMP, USERPROFILE, APPDATA, LOCALAPPDATA, PATHEXT
+# and COMSPEC taken out, the link still started and answered a tool).
+_LINK_INHERITED_ON_WINDOWS = ("SYSTEMROOT",)
 _HIGHEST_PORT = 65535
 
 
@@ -856,15 +863,24 @@ class LedgerLinkSettings:
     environment: Mapping[str, str] = MappingProxyType({})
 
 
-def load_ledger_link_settings(environ: Mapping[str, str] | None = None) -> LedgerLinkSettings:
+def load_ledger_link_settings(
+    environ: Mapping[str, str] | None = None, *, platform: str | None = None
+) -> LedgerLinkSettings:
     """The assistant link's settings, from ``environ`` or the process's environment when ``None``.
 
     The folder may be left unset (``directory`` is then ``None``); a leading
     ``~`` is the home folder. A port that is not a whole number from 1 to
     65535 is a ``SettingsError`` naming the variable. Nothing is checked on
-    disk here and nothing is started.
+    disk here and nothing is started. ``platform`` is the system's name as
+    ``sys.platform`` gives it, this one's when ``None``: on ``win32`` the
+    variables handed on are PATH, HOME and SYSTEMROOT, elsewhere PATH and
+    HOME alone; one that is not set is not handed on.
     """
     source = os.environ if environ is None else environ
+    system = sys.platform if platform is None else platform
+    inherited = _LINK_INHERITED_VARIABLES
+    if system == "win32":
+        inherited = (*inherited, *_LINK_INHERITED_ON_WINDOWS)
     folder = source.get(LEDGER_DIRECTORY_VARIABLE, "").strip()
     if "\0" in folder:
         raise SettingsError(
@@ -874,9 +890,7 @@ def load_ledger_link_settings(environ: Mapping[str, str] | None = None) -> Ledge
         directory=Path(folder).expanduser() if folder else None,
         link_port=_port(source, LEDGER_LINK_PORT_VARIABLE, DEFAULT_LEDGER_LINK_PORT),
         page_port=_port(source, LEDGER_PAGE_PORT_VARIABLE, DEFAULT_LEDGER_PAGE_PORT),
-        environment=MappingProxyType(
-            {name: source[name] for name in _LINK_INHERITED_VARIABLES if name in source}
-        ),
+        environment=MappingProxyType({name: source[name] for name in inherited if name in source}),
     )
 
 
