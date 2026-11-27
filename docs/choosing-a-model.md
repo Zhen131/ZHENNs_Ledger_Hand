@@ -38,11 +38,12 @@ more at peak hours. That price list was read from DeepSeek's own pricing
 page on 2026-11-27, and which column, peak or off-peak, applied to these
 runs was not checked item by item; what was spent is taken from the
 balance before and after (`scripts/cloud_balance.py`). Read right after
-both runs, the balance had dropped by 0.88 CNY in all; read again a while
-later, it was 0.18 CNY lower still. The balance shows charges a few
-minutes late, so this was most likely a charge for the same runs arriving
-late, though that is a guess; it may have been spent elsewhere with the
-same key. Thinking was turned off for every model that can
+both runs, the balance had dropped by 0.88 CNY in all, and that is the
+cost given here; read again a while later, it was 0.18 CNY lower still.
+That may be a charge for the same runs arriving late, since the balance
+shows charges a few minutes late, or the same key may have been used
+elsewhere in that time; which it was has not been found out, so the cost
+of these runs is known only as at least 0.88 CNY. Thinking was turned off for every model that can
 think (`LEDGER_HAND_MODEL_THINK=off` on this machine; DeepSeek's plug turns
 it off always). The program's default for that setting, `model`, leaves it
 to each model; with it, `gemma4:12b`, `qwen3:8b` and both `qwen3.5` models

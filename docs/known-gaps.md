@@ -32,15 +32,12 @@ eight models measured met that last line.
   other two a hair off it (150 said, 150.00078 sent), marked only "worked
   out by the program"; and what was paid in all copied as the price (950 U
   for 0.301823 ETH sent as a price of 950), less than five times off the
-  market price and so not marked suspicious. Also seen with the real
-  model: a price said with no money beside a total said with one ("一个65000，
-  一共6000 USDT"), sent as the total ÷ the quantity, 60000, marked only
-  "worked out". `gemma4:12b` and both DeepSeek models had none of these
-  on the hidden halves (`docs/choosing-a-model.md`); the default is
-  unchanged ("The assistant: recording a trade", "A figure worked out a
-  hair off the one said keeps the figure worked out", "A price said with
-  no money, beside a total with one, can give way to the total" and
-  "Figures copied into the wrong field, with nothing to say").
+  market price and so not marked suspicious. `gemma4:12b` and both
+  DeepSeek models had none of these on the hidden halves
+  (`docs/choosing-a-model.md`); the default is unchanged ("The assistant:
+  recording a trade", "A figure worked out a hair off the one said keeps
+  the figure worked out" and "Figures copied into the wrong field, with
+  nothing to say").
 - **A time zone said in words the program does not know goes unmarked.**
   "按国内算", "北京下午三点", "9:30 ET" and "香港交易所的时间" are not seen
   as another zone: once the model reads the time, it is written in the
@@ -61,6 +58,15 @@ eight models measured met that last line.
   sent as two trades, and a name the model copied short ("小微软" as
   "微软") is matched to the share the shorter name means ("A share's
   Chinese name is matched by a table and by answers kept").
+- **A price said with no money, beside a total with one, is replaced by
+  one worked out, and the price said is lost.** "……买了0.1个BTC，一个65000，
+  一共6000 USDT，手续费5 USDT" (invented): the model copies "一个65000" whole into
+  the price, the program cannot read a number from it, and works the
+  price out as the total ÷ the quantity, 60000. That cell is marked
+  "worked out by the program", but the 65000 said appears nowhere, and
+  no reminder line names it. It was so before this round as well ("A
+  price said with no money, beside a total with one, can give way to the
+  total").
 - **A time said in another zone that the program knows is written in the
   ledger's zone, marked, not converted.** "按北京时间算，2026年11月20号下午3点……"
   (by Beijing time) is sent as 2026-11-20 15:00 Budapest time, its time
