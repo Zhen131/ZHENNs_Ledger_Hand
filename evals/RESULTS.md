@@ -10480,3 +10480,62 @@ sentence sent before went unsent after. On r70, R70-09 came out ③ before
 and ① after; it has no three figures that disagree, and it went both ways
 in the runs of the sections above, so it is the model answering
 differently.
+
+## 2026-11-27: a rate paid in another money compared with the ledger's own exchange rate, `qwen2.5:7b`
+
+Measured before and after on Windows 11, `qwen2.5:7b` (fingerprint
+`845dbda0ea48…`), temperature 0, `first-3` and `assistant-5`. Before is
+`35663fe`; after is `676164f`. Work tree clean of code both times. Only the
+practice halves were run; no hidden half was run or read. The change
+measured: the rate of a trade paid in another money is compared with the
+ledger's own exchange rate when the ledger has the tool for it. The exam's
+ledger has no such tool, so every sentence should go as before; the five
+euro sentences of the practice halves (`"book": "exam-euro"`: R100-21,
+R100-27 and one more in r100, R80-23, R80-25) are among those measured.
+
+| Ruler | Before | After | Results before | Results after |
+| --- | --- | --- | --- | --- |
+| Final set (`judged_run --screen screen-2 --extract first-3 --hold-other-unit --tidy --final-exam`) | 22 of 22 whole, 0 wrong with nothing said | 22 of 22, 0 | `judged-20261127T175643Z-…` | `judged-20261127T183236Z-…` |
+| `stock_run` | 16 of 18, 0 silently wrong | 16 of 18, 0 | `run-20261127T175705Z-stocks-…` | `run-20261127T183317Z-stocks-…` |
+| `edit_run`, `edits.json` | 14 of 17, 0 wrong | 12 of 17, 0 wrong (run again: 12, 0) | `run-20261127T175729Z-edits-…` | `run-20261127T183405Z-edits-…`, `run-20261127T183935Z-edits-…` |
+| `edit_run`, `spoken-edits-practice.json` | 4 of 4 | 4 of 4 | `run-20261127T175738Z-…` | `run-20261127T183423Z-…` |
+
+The two sentences of `edits.json` done before and not after are N2 and N4:
+the model wrote the day as "10月2号" or "11月" in the field for a stretch of
+time, so nothing was proposed and nothing wrong was sent. A change never
+compares a rate. The code before (`src/` and `evals/` of `35663fe`, outside
+the repository) run once more at the same hour came out 12 of 17 as well.
+
+The three tiers, practice halves (`spoken_run --extract first-3`):
+
+| Tier | Before: ① / ①a / ①b / ② / ③ / ④ rightly / ⑤ | After | Results before | Results after |
+| --- | --- | --- | --- | --- |
+| r100 | 6 / 0 / 1 / 1 / 1 / 6 / 0 | 6 / 0 / 1 / 1 / 1 / 6 / 0 | `spoken-20261127T175740Z-…-r100-practice-…` | `spoken-20261127T183427Z-…-r100-practice-…` |
+| r80 | 4 / 0 / 1 / 6 / 1 / 1 / 2 | 4 / 1 / 1 / 6 / 1 / 1 / 1 | `spoken-20261127T175809Z-…-r80-practice-…` | `spoken-20261127T183527Z-…-r80-practice-…` |
+| r70 | 9 / 3 / 1 / 0 / 1 / 0 / 0 | 8 / 3 / 1 / 0 / 2 / 0 / 0 (run again: the same) | `spoken-20261127T175833Z-…-r70-practice-…` | `spoken-20261127T183619Z-…-r70-practice-…`, `spoken-20261127T183724Z-…` |
+
+Every euro sentence went as before but one: R80-25 was not sent before (the
+model's reply could not be read) and was sent right after; the exam's
+ledger has no tool for exchange rates, and the code it runs is the code
+before. On r70, R70-09 (ADA bought for 950 USDT, no other money) came out
+① before and ③ after, its total sent as 949.9981, the quantity times the
+price, instead of 950; run again, the same. The code before, run twice
+more at the same hour outside the repository, gave R70-09 ③ both times
+(r70 8 / 3 / 1 / 0 / 2 / 0 / 0): the model answering differently, as in the
+sections above, not this change. No ruler was changed.
+
+Tried once against the real ledger (its `dev@050e7dd`, the page in a
+headless browser driven by a script, an invented ledger with the euro and
+KO added and two rates typed in by hand: "1 EUR = 1.08 USD" of 2026-11-20
+and "1 USD = 0.925 EUR" of 2026-11-19), three sentences said with the real
+model and the real plug, nothing saved:
+
+| Said (invented) | Rate sent | Compared with | Apart | Marked |
+| --- | --- | --- | --- | --- |
+| 11月20日15:30在IBKR花了100欧元买了2股KO，一股54美元，换汇费0 | 1.08 | 1 EUR = 1.08 USD of 2026-11-20, typed in by hand | 0.0% | no |
+| 11月19日15:30在IBKR花了100欧元买了2股KO，一股54美元，换汇费0 | 1.08 | 1 USD = 0.925 EUR of 2026-11-19, read as 1.0810810811 USD for 1 EUR | 0.1% | no |
+| 11月20日16:00在IBKR花了150欧元买了2股KO，一股54美元，换汇费0 | 0.72 | 1 EUR = 1.08 USD of 2026-11-20 | 33.3% | suspicious, its reason on the ledger page's pending card |
+
+The ledger's answers kept from that walk are the samples
+`tests/ledger/samples/list-exchange-rates-*-050e7dd.json` (both ways round,
+a pair with none, a share named as a money, two pages).

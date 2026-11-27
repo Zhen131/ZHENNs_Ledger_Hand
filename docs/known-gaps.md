@@ -952,7 +952,10 @@ price said in the asset's own money (`flows/paid_apart.py`,
   not read, and the trade goes on with the last such trade. A change or a
   deletion is not compared. The rate you actually got when you exchanged
   money is not among the ledger's rates. The exam's ledger has no such
-  tool, so the exam measures none of this.
+  tool, so the exam measures none of this. It was tried once against the
+  real ledger's link and page (its `dev@050e7dd`, 2026-11-27), with an
+  invented ledger holding two rates typed in by hand, one each way round,
+  and three sentences said with `qwen2.5:7b`; see `evals/RESULTS.md`.
 - **A blank is asked where it would be worked out across two moneys.** A
   quantity, price or total missing beside a price and a total said in two
   moneys is asked, even though the ledger takes cards, and so is the
