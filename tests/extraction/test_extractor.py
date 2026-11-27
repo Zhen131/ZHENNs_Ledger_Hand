@@ -555,10 +555,11 @@ def test_an_empty_passage_is_not_sent(passage: str) -> None:
 @pytest.mark.parametrize(
     "passage",
     [
-        "买" * (RAW_TEXT_MAX_LENGTH + 1),
-        "a" * (RAW_TEXT_MAX_LENGTH + 1),
-        "\N{GRINNING FACE}" * (RAW_TEXT_MAX_LENGTH // 2 + 1),
-        "x" * 5_000_000,
+        # Short names: the passages themselves are too long for a test name.
+        pytest.param("买" * (RAW_TEXT_MAX_LENGTH + 1), id="chinese-one-over"),
+        pytest.param("a" * (RAW_TEXT_MAX_LENGTH + 1), id="ascii-one-over"),
+        pytest.param("\N{GRINNING FACE}" * (RAW_TEXT_MAX_LENGTH // 2 + 1), id="emoji-one-over"),
+        pytest.param("x" * 5_000_000, id="five-million"),
     ],
 )
 def test_a_passage_longer_than_the_ledger_keeps_is_not_sent(passage: str) -> None:

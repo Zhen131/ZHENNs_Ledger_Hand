@@ -94,7 +94,8 @@ def test_an_empty_list_and_a_missing_evidence_are_read() -> None:
         ('{"reports": [{"evidence": "x"}]}', ScreenProblem.KIND_NOT_ALLOWED),
         ('{"reports": [{"kind": "plan", "evidence": 1}]}', ScreenProblem.EVIDENCE_NOT_TEXT),
         ('{"reports": [{"kind": "plan", "evidence": "\\ud800"}]}', ScreenProblem.EVIDENCE_NOT_TEXT),
-        ("[" * 100_000, ScreenProblem.NOT_JSON),
+        # A short name: the text itself is too long for a test name.
+        pytest.param("[" * 100_000, ScreenProblem.NOT_JSON, id="deep-brackets"),
     ],
 )
 def test_a_reply_that_misses_the_shape_is_unreadable(text: str, problem: ScreenProblem) -> None:

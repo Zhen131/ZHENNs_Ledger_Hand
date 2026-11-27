@@ -189,8 +189,9 @@ def test_a_200_whose_body_could_not_be_read_is_malformed_and_says_why() -> None:
 @pytest.mark.parametrize(
     "body",
     [
-        b"[" * 200_000,
-        b'{"a":' * 200_000,
+        # Short names: the bodies themselves are too long for a test name.
+        pytest.param(b"[" * 200_000, id="deep-brackets"),
+        pytest.param(b'{"a":' * 200_000, id="deep-objects"),
         b'{"n": ' + b"9" * 5000 + b"}",
     ],
 )
