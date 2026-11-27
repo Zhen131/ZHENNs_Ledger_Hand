@@ -30,16 +30,19 @@ see. Each item's detail stays in the section it points to.
   recording a trade", "A figure worked out a hair off the one said keeps
   the figure worked out" and "Figures copied into the wrong field, with
   nothing to say"). Comparing other local models is left to the owner.
-- **A time said in another zone can be recorded in the ledger's zone,
-  with no word.** When the words name another zone and the time is
+- **A time said in another zone is written in the ledger's zone, marked,
+  not converted.** When the words name another zone and the time is
   written so the model can read it, the trade is sent with that clock time
-  in the ledger's zone (Budapest), no mark on the time and no reminder:
-  "按北京时间算，2026年11月20号下午3点在OKX买了0.1个ETH，成交价2700 USDT，手续费0.1 USDT"
-  (invented; by Beijing time, 3 p.m.) was sent as 2026-11-20 15:00
-  +01:00, and so was the same with the date and time in Chinese number
-  words ("二零二六年十一月二十号下午三点"). The money is right; the time is
-  hours off. Tidying leaves such a sentence as said, but the model reads
-  the time itself ("A time said with another zone is not tidied").
+  in the ledger's zone (Budapest): "按北京时间算，2026年11月20号下午3点在OKX买了0.1个ETH，成交价2700 USDT，手续费0.1 USDT"
+  (invented; by Beijing time, 3 p.m.) is sent as 2026-11-20 15:00
+  +01:00, and so is the same with the date and time in Chinese number
+  words ("二零二六年十一月二十号下午三点"). Since 2026-11-27 its time cell is
+  marked suspicious, the reason naming the words said ("北京时间") and the
+  ledger's zone, and the reply says the time was not converted; the user
+  fixes it on the ledger's page. The program still converts nothing. A
+  zone said with neither 时间, 时区 nor a Latin name ("按国内算", "北京下午三点")
+  is not seen, and gets no mark ("A time said with another zone is not
+  tidied").
 - **Buy or sell the model filled in itself is not marked.** Words that say
   neither are sometimes sent as a buy, with no mark on that cell ("The
   assistant: recording a trade").
@@ -1354,18 +1357,31 @@ price said in the asset's own money (`flows/paid_apart.py`,
   - the model reads it, the zone being another
     ("按北京时间算，二零二六年十一月二十号下午三点……", or the same with
     "2026年11月20号下午3点"): the trade is
-    sent at 2026-11-20 15:00 +01:00, the ledger's zone, with no mark on
-    the time and no reminder, hours off the time meant. Tidying held the
-    words back, but the program does not read a zone said in words, and
-    the model copies the clock time without it. Not mended: it needs the
-    reading of times to learn zones.
+    sent at 2026-11-20 15:00 +01:00, the ledger's zone, hours off the
+    time meant. Since 2026-11-27 the time cell (the day, for a trade sent
+    with its day alone) is marked suspicious, its reason naming the words
+    said and the ledger's zone, and the reply says the time was not
+    converted (`core/other_zone.py`): a place with 时间 or 时区 in the
+    same clause, at most three characters apart with no digit between
+    ("北京时间", "按纽约那个时间", "北京的成交时间"; "Beijing time" in English),
+    东X区 or 西X区, a Latin name other than the two the ledger's own zone
+    goes by (CET and CEST for Budapest), or 时区 and 当地时间 with no place
+    of the ledger's zone beside them. Every trade of the passage with a
+    time is marked, since which trade the zone was said for cannot be
+    told. The program still converts nothing: that needs the reading of
+    times to learn zones. A zone said only in the answer to a question
+    ("下午3点，北京时间", given when the time was asked) is not read: the
+    answer is not kept with the passage. A share's name that holds a place
+    and stands four or more characters before 时间 ("中国平安成交时间") is not
+    taken for a zone.
   The ledger's own zone
   said apart from the time ("按匈牙利时间算，……") is kept in the words, and
   the time is tidied. To take another zone, the reading of times has to
   learn zones. A zone said with neither 时间 nor 时区 nor a Latin name
   ("按国内算下午三点", by home reckoning three in the afternoon; "北京下午三点",
   Beijing three in the afternoon) is not seen at all: the time is tidied and
-  read in the ledger's zone, hours off. That wording is not dealt with here.
+  read in the ledger's zone, hours off, with no mark. That wording is not
+  dealt with here.
 - **Some numbers are not tidied, and stay as said.** These are left as
   they were said, and read as before or asked about:
   a number ending in 一 that may be the start of the next word ("三十万一个",
