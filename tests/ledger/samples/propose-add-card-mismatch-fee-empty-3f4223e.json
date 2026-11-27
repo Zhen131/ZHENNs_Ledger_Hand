@@ -1,0 +1,66 @@
+{
+  "case": "propose-add-card-mismatch-fee-empty-3f4223e",
+  "what": "the mismatching card with the fee left empty: taken, the fee missing, the mismatch named",
+  "_source": "Not captured through the ledger page in a browser. Produced by the ledger's own tool-call code, answerAssistantToolCall in src/features/assistant-tool-calls/assistantToolCall.ts at dev 3f4223eef45e (2026-11-27), run on its test helper's stand-in page and scenario-B ledger (src/features/assistant-tool-calls/__tests__/assistantToolCall.testHelpers.ts: 100000 USDT in, 0.1 BTC bought, 0.04 BTC sold, today 2026-11-25), its page in Chinese. The arguments are what this program's LinkLedger sent. Invented figures only.",
+  "tool": "propose_trade_add",
+  "arguments": {
+    "trades": [
+      {
+        "type": "buy",
+        "assetId": "asset-btc",
+        "quantity": "0.1",
+        "price": "65000",
+        "totalValue": "6000",
+        "quoteAssetId": "asset-usdt",
+        "fee": null,
+        "feeAssetId": null,
+        "costRate": null,
+        "platform": null,
+        "note": null,
+        "fieldMarks": [
+          {
+            "field": "quantity",
+            "kind": "suspicious",
+            "reason": "you said the total was 6000 USDT, but quantity × price is 6500 USDT; the program does not guess which is wrong"
+          },
+          {
+            "field": "price",
+            "kind": "suspicious",
+            "reason": "you said the total was 6000 USDT, but quantity × price is 6500 USDT; the program does not guess which is wrong"
+          },
+          {
+            "field": "totalValue",
+            "kind": "suspicious",
+            "reason": "you said the total was 6000 USDT, but quantity × price is 6500 USDT; the program does not guess which is wrong"
+          }
+        ],
+        "occurredDate": "2026-11-24"
+      }
+    ],
+    "sourceText": "invented",
+    "modelName": "no model (sample)",
+    "allowUnfinished": true
+  },
+  "answer": {
+    "kind": "result",
+    "content": {
+      "results": [
+        {
+          "ok": true,
+          "proposalId": "p-1",
+          "readyToSave": false,
+          "missingFields": [
+            "fee",
+            "feeAssetId"
+          ],
+          "ledgerProblem": {
+            "code": "TOTAL_VALUE_MISMATCH",
+            "category": "check-failed",
+            "message": "成交金额与数量 × 成交均价不一致",
+            "field": "totalValue"
+          }
+        }
+      ]
+    }
+  }
+}

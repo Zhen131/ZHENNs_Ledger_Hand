@@ -1,0 +1,39 @@
+{
+  "case": "propose-add-other-money-no-rate-3f4223e",
+  "what": "BTC (priced in USDT) bought with USD, no costRate; arguments as in propose-add-other-money-no-rate",
+  "_source": "Not captured through the ledger page in a browser. Produced by the ledger's own tool-call code, answerAssistantToolCall in src/features/assistant-tool-calls/assistantToolCall.ts at dev 3f4223eef45e (2026-11-27), run on its test helper's stand-in page and scenario-B ledger (src/features/assistant-tool-calls/__tests__/assistantToolCall.testHelpers.ts: 100000 USDT in, 0.1 BTC bought, 0.04 BTC sold, today 2026-11-25), its page in Chinese. The arguments are what this program's LinkLedger sent. Invented figures only.",
+  "tool": "propose_trade_add",
+  "arguments": {
+    "trades": [
+      {
+        "occurredDate": "2026-11-18",
+        "type": "buy",
+        "assetId": "asset-btc",
+        "quantity": "0.01",
+        "price": "61000",
+        "totalValue": "610",
+        "quoteAssetId": "asset-usd",
+        "fee": "1",
+        "feeAssetId": "asset-usd"
+      }
+    ],
+    "sourceText": "Ledger Hand sample capture: invented trades only",
+    "modelName": "no model (sample capture)"
+  },
+  "answer": {
+    "kind": "result",
+    "content": {
+      "results": [
+        {
+          "ok": false,
+          "error": {
+            "code": "CURRENCY_MISMATCH",
+            "category": "check-failed",
+            "message": "「用哪种钱」必须是这本账本里的一种现金货币；它和这只资产的计价货币不同时要填折算率，相同时不填",
+            "field": "quoteAssetId"
+          }
+        }
+      ]
+    }
+  }
+}
