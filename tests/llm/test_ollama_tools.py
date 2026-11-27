@@ -3,8 +3,8 @@
 What is sent: the tools in Ollama's shape, the model's earlier tool calls and
 the results handed back, and no schema. What comes back: the text, the calls
 in order, or ``MALFORMED_REPLY`` for a reply whose calls cannot be read. The
-cloud plug refuses such a call before sending anything, and the retries
-treat it as any other call. Every tool and reply is invented.
+cloud plug sends such a call the OpenAI way (``test_cloud_tools`` has the
+rest), and the retries treat it as any other call. Every tool and reply is invented.
 """
 
 from __future__ import annotations
