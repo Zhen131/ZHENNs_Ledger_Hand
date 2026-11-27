@@ -52,6 +52,25 @@ from tests.export.samples import APP_NAME, APP_VERSION, BUDAPEST, CREATED, EXPOR
 HAND_WRITTEN_EXAMPLE = Path(__file__).parent / "hand_written_example.json"
 DAY_BEFORE_ACROSS = attack.ACROSS_TODAY - timedelta(days=1)
 
+# The ledger's import preflight, which judges these files since it took the
+# checks of a schema 5 file over from ``parseBackupJson`` (2026-11-17), first
+# upgrades a schema 5 file to its own schema. When the upgrade fails for
+# what is wrong in the file, it reports one line more that sums up the rest:
+# this code, at this path, saying this. Every expectation may have it beside
+# other errors; alone it is an error like any other. Source, in the ledger
+# (dev 3f4223e): src/features/backup/backupSchemaUpgrade.ts, lines 86 and
+# 171 (the code); src/features/backup/backupImportPreflight.ts, lines 259 to
+# 262 (added to the hard errors).
+UPGRADE_SUMMED_UP = ("BACKUP_SCHEMA_UPGRADE_FAILED", "ledgerData", "could not be upgraded")
+
+# The upgrade adds three cash currencies to a schema 5 file's assets, so the
+# limit the preflight reports is the schema 5 limit plus three: 503, not 500,
+# and a file of 501 coins holds 504 then. Source, in the ledger (dev
+# 3f4223e): src/core/validation/resourcePolicy.ts, line 27 (503 = 500 + the
+# 3 the upgrade adds) and line 35 (assets: 503). This program still writes
+# schema 5 and its own limit stays 500 (MAX_COINS_PER_FILE).
+UPGRADE_ADDED_ASSETS = 3
+
 
 class Expect(enum.Enum):
     """What the ledger should say about a sample file."""
@@ -203,7 +222,9 @@ def light_cases() -> list[Case]:
                 (
                     "LEDGER_RESOURCE_COLLECTION_LIMIT_EXCEEDED",
                     "assets",
-                    f"{MAX_COINS_PER_FILE + 1} > {MAX_COINS_PER_FILE}",
+                    # The numbers after the upgrade: see UPGRADE_ADDED_ASSETS.
+                    f"{MAX_COINS_PER_FILE + 1 + UPGRADE_ADDED_ASSETS} > "
+                    f"{MAX_COINS_PER_FILE + UPGRADE_ADDED_ASSETS}",
                 ),
             ),
         ),

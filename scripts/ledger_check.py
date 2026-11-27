@@ -3,9 +3,13 @@
     .venv/bin/python scripts/ledger_check.py [--ledger PATH]
 
 The ledger is the Local-First Trading Ledger, a separate TypeScript project,
-and its function ``parseBackupJson`` decides whether a backup file is
-accepted. This script writes a set of sample files into a fresh temporary
-directory, has that function judge each one, and compares every verdict with
+and its import preflight (``preflightBackupJson``, asked as its "restore a
+backup" asks it) decides whether a backup file is accepted: since
+2026-11-17 its ``parseBackupJson`` checks only the envelope of a schema 5
+file, which this program writes, and leaves selling more than is held, its
+limits and its import rules to the preflight (``scripts/ledger_validate.ts``).
+This script writes a set of sample files into a fresh temporary directory,
+has that preflight judge each one, and compares every verdict with
 what the sample is expected to get. A sample is expected to be one of:
 
 - accepted, with no error at all;
@@ -60,7 +64,7 @@ import sys
 import tempfile
 import zoneinfo
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date, datetime
 from pathlib import Path
 from types import ModuleType
@@ -96,7 +100,12 @@ PROCESS_ZONES = (None, "America/Los_Angeles", "Pacific/Kiritimati")
 # these two messages. The same code is also used for other errors, so both
 # have to match.
 HOLDINGS_CODE = "LEDGER_DATA_INVALID_TRADE_TIMELINE"
+# The ledger's import preflight puts this before what its structural check
+# says, in English (its src/ui/i18nMessages.en.ts,
+# "backup.preflight.ledgerStructurePrefix"); the message after it is the same.
+STRUCTURE_PREFIX = "The ledger fields did not pass structural validation: "
 HOLDINGS_MESSAGE = re.compile(
+    f"(?:{re.escape(STRUCTURE_PREFIX)})?"
     r"Cannot sell (?:more \S+ than current position|\S+ with zero current position)"
 )
 
@@ -104,6 +113,7 @@ HOLDINGS_MESSAGE = re.compile(
 # instant, which it also says when its time zone database differs from ours.
 ZONE_DATA_CODE = "LEDGER_DATA_INVALID_ENTITY"
 ZONE_DATA_MESSAGE = re.compile(
+    f"(?:{re.escape(STRUCTURE_PREFIX)})?"
     r"trades\[(\d+)\]\.occurredAt offset must match occurredTimeZone at its instant"
 )
 
@@ -200,11 +210,19 @@ class LedgerError:
 
 @dataclass(frozen=True)
 class Verdict:
-    """The ledger's answer for one file. ``thrown`` is set when the check threw instead."""
+    """The ledger's answer for one file. ``thrown`` is set when the check threw instead.
+
+    ``skipped`` are the checks the ledger could not do, each with why; a file
+    with one is not accepted. ``suspicious_groups`` counts the groups of
+    trades the ledger takes for perhaps the same trade twice: a reminder on
+    its page, not a refusal.
+    """
 
     accepted: bool
     errors: tuple[LedgerError, ...]
     thrown: str | None = None
+    skipped: tuple[str, ...] = ()
+    suspicious_groups: int = 0
 
 
 @dataclass(frozen=True)
@@ -229,22 +247,31 @@ def is_holdings_shortfall(error: LedgerError) -> bool:
     return error.code == HOLDINGS_CODE and HOLDINGS_MESSAGE.fullmatch(error.message) is not None
 
 
-def judge(expected: Expectation, verdict: Verdict, gaps: frozenset[int] = frozenset()) -> list[str]:
+def judge(
+    expected: Expectation,
+    verdict: Verdict,
+    gaps: frozenset[int] = frozenset(),
+    summed_up: PlantedError | None = None,
+) -> list[str]:
     """How ``verdict`` differs from ``expected``; an empty list when it does not.
 
     ``gaps`` are the places of the trades whose offset the two time zone
     databases disagree on; only ``AcceptedExceptZoneData`` looks at them.
+    ``summed_up`` is the one line the ledger adds that sums up the other
+    errors (``cases.UPGRADE_SUMMED_UP``): left out when there are others,
+    an error like any other when it is alone.
     """
     if verdict.thrown is not None:
         return [f"the validator threw instead of answering: {verdict.thrown}"]
+    verdict = _without_summing_up(verdict, summed_up)
     if isinstance(expected, AcceptedExceptZoneData):
         return _beyond_zone_data(verdict, gaps)
     if isinstance(expected, Accepted):
         if verdict.accepted and not verdict.errors:
             return []
-        return [f"should have been accepted; reported: {error}" for error in verdict.errors] or [
-            "should have been accepted"
-        ]
+        problems = [f"should have been accepted; reported: {error}" for error in verdict.errors]
+        problems += [f"should have been accepted; not done: {why}" for why in verdict.skipped]
+        return problems or ["should have been accepted"]
     if verdict.accepted or not verdict.errors:
         return ["should have been refused with errors, but was not"]
     if isinstance(expected, HoldingsOnly):
@@ -254,6 +281,16 @@ def judge(expected: Expectation, verdict: Verdict, gaps: frozenset[int] = frozen
             if not is_holdings_shortfall(error)
         ]
     return _unmatched(expected.errors, verdict.errors)
+
+
+def _without_summing_up(verdict: Verdict, summed_up: PlantedError | None) -> Verdict:
+    """``verdict`` without the line that sums up its other errors, when it has others."""
+    if summed_up is None:
+        return verdict
+    others = tuple(error for error in verdict.errors if not summed_up.matches(error))
+    if not others or len(others) == len(verdict.errors):
+        return verdict
+    return replace(verdict, errors=others)
 
 
 def zone_data_errors(verdict: Verdict, gaps: frozenset[int]) -> list[LedgerError]:
@@ -501,6 +538,10 @@ def parse_report(text: str) -> ValidatorReport:
                 for error in result["errors"]
             ),
             thrown=result.get("thrown"),
+            skipped=tuple(
+                f"{skipped['check']}: {skipped['reason']}" for skipped in result.get("skipped", ())
+            ),
+            suspicious_groups=int(result.get("suspiciousGroups", 0)),
         )
         for result in document["results"]
     )
@@ -814,9 +855,10 @@ def _reported_verdicts(
     gaps: Sequence[Mapping[int, ZoneGap]],
 ) -> bool:
     failures = 0
+    summed_up = PlantedError(*_cases().UPGRADE_SUMMED_UP)
     for sample, answers, sample_gaps in zip(chosen, verdicts, gaps, strict=True):
         problems = {
-            _zone_label(zone): judge(sample.expected, verdict, frozenset(sample_gaps))
+            _zone_label(zone): judge(sample.expected, verdict, frozenset(sample_gaps), summed_up)
             for zone, verdict in zip(PROCESS_ZONES, answers, strict=True)
         }
         failed = any(problems.values())
@@ -840,6 +882,11 @@ def _print_verdict(where: str, verdict: Verdict) -> None:
     print(f"  {where}: {'accepted' if verdict.accepted else 'refused'}")
     for error in verdict.errors:
         print(f"    {error}")
+    for why in verdict.skipped:
+        print(f"    not done: {why}")
+    if verdict.suspicious_groups:
+        groups = verdict.suspicious_groups
+        print(f"    reminder, not a refusal: {groups} group(s) of trades maybe the same twice")
 
 
 def _zone_label(zone: str | None) -> str:
