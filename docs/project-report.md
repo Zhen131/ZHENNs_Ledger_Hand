@@ -122,7 +122,12 @@ Node.js cannot start there, and TEMP and TMP, so that nothing is cached in
 a folder of the system. Three figures said that do not agree are sent as
 said, all three marked suspicious; the ledger (its `dev` at `3f4223e` or
 later) keeps such a card from being saved until they are put right on its
-page, and the reply says so (`docs/known-gaps.md`).
+page, and the reply says so (`docs/known-gaps.md`). The rate of a trade
+paid in another money than its asset's own is compared with the ledger's
+own exchange rate between the two moneys, which the program asks the
+ledger for itself (its `dev` at `1b016ec` or later, tool
+`list_exchange_rates`), reading each row in the direction it was stored;
+without one, with the latest trade paid the same way, as before.
 
 **Why the model only copies.** The baseline run shows the reason
 (`evals/RESULTS.md`, "2026-10-05: baseline"): asked to copy the time of an

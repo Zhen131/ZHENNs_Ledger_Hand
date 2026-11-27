@@ -919,14 +919,40 @@ price said in the asset's own money (`flows/paid_apart.py`,
 - **A fee in a third money is not taken from any cash.** "换汇费0.2美元" on
   a trade paid in euros is sent as a fee of 0.2 USD; the ledger then marks
   the trade's cost as not exact and moves no cash for the fee.
-- **The rate's reference is the ledger's latest such trade, as listed.**
-  It is looked for among the asset's own trades as listed for its money,
-  then among one page of the ledger's trades asked with no condition (the
-  latest 2000 at most). With none, nothing is compared, and the reply says
-  so; the first trade paid in euros has no guard but the market price of
-  the share. The demo book has no trade paid in euros, so its rates are
-  never compared. Ten in a hundred has no source behind it
+- **The rate's reference is the ledger's own exchange rate, else its
+  latest such trade, as listed.** Since 2026-11-27 the program asks a
+  ledger whose `dev` is at `1b016ec` or later for the exchange rates it
+  keeps between the two moneys, and compares with one row: the latest not
+  after the trade's day, one typed in by hand before one fetched on the
+  same day. Without such a row, or with a ledger older than that, it is
+  looked for among the asset's own trades as listed for its money, then
+  among one page of the ledger's trades asked with no condition (the
+  latest 2000 at most). With neither, nothing is compared, and the reply
+  says so; the first trade paid in euros then has no guard but the market
+  price of the share. Ten in a hundred has no source behind it
   (`LEDGER_HAND_RATE_GAP_PERCENT`).
+- **The ledger's exchange rate: what is not done.** The latest row
+  wins, however old: a rate typed in a year ago is still compared with,
+  only the words say how many days before the trade it is (from 7 days;
+  7 has no source either). But when that row is older than the latest
+  trade paid the same way, the trade is compared with instead, and the
+  reply says the ledger's rate was older (a rate of the same day is used).
+  The day is the first ten characters of the ledger's `rateDate`, as the
+  ledger reads it; a row whose rate or day does not read ("NaN", "0",
+  text) is passed over, never taken as 1. Only rows between the two moneys
+  themselves count: no rate is worked out through a third money (euros to
+  USDT through dollars, for instance), so a coin priced in USDT paid in
+  euros is compared with the last such trade, as before; and a money that
+  is not cash in the ledger's list (USDT may be a coin there) is not asked
+  about at all. A trade with no day said is compared as of today. The
+  lookup takes at most 30 seconds in all, at most 3 pages of 50 rows,
+  read from the newest until a row not after the earliest trade's day,
+  and starts again once when the ledger changed in between (any market
+  price fetched in the meantime is such a change); beyond that it is said
+  not read, and the trade goes on with the last such trade. A change or a
+  deletion is not compared. The rate you actually got when you exchanged
+  money is not among the ledger's rates. The exam's ledger has no such
+  tool, so the exam measures none of this.
 - **A blank is asked where it would be worked out across two moneys.** A
   quantity, price or total missing beside a price and a total said in two
   moneys is asked, even though the ledger takes cards, and so is the
@@ -1071,6 +1097,12 @@ price said in the asset's own money (`flows/paid_apart.py`,
   answer. A question about the holdings at that moment is taken as an
   answer that cannot be used, and the same question is asked again. Saying
   "cancel" drops the passage, and the next thing said goes to the model.
+- **A card with its money used empty: you pick the money on the ledger's
+  page.** A trade whose money was not settled is sent with the money used
+  empty. Since the ledger's `dev` at `4d8f520` (2026-11-27), its form does
+  not fill that cell in when you press Edit on the pending card: you choose
+  a money yourself before you save (a fee whose money is empty follows the
+  money you choose). The program never says the ledger fills it in.
 - **A trade said with its day only is sent with its day alone.** The
   recording flow keeps a trade said with a day and no time of day
   ("11月20号买了0.1个ETH", "bought 0.5 ETH yesterday") as known to the day.

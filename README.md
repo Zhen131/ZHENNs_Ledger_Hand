@@ -460,7 +460,10 @@ What you need:
 - the ledger's folder, at its `dev` version `3f4223e` or later (this was
   walked through against `dev@a6ba639`; from `3f4223e` the ledger keeps a
   card whose three figures do not agree instead of turning it down, which
-  this program now leans on), with its programs installed: run `npm install`
+  this program now leans on; from `1b016ec` it lists the exchange rates it
+  keeps, and only then is the rate of a trade paid in another money
+  compared with the ledger's own rate, see "trades paid in another money"
+  below), with its programs installed: run `npm install`
   in that folder once, and again whenever the ledger adds a package (when
   one is missing, the page says so and names this command);
 - Node.js 24 or later, which the ledger asks for;
@@ -542,12 +545,16 @@ price with the market price, and the cells sent empty ("marks"), the
 money moved said that is recorded by hand ("manual"), what the ledger
 said of its cash when it was asked ("cash"), and for each trade paid in
 another money than its asset's own, the rate sent and what it was
-compared with ("rates"). The most recent 1,000 entries are kept; older
-ones are dropped. The record is now at version 8: version 3 added
-"read_as", version 4 "asset_picks", version 5 "ledger", version 6
-"marks", version 7 "manual" and "cash", and version 8 "rates". Entries of
-versions 1 to 7, written before, are still read as they are, and a file
-may hold all eight.
+compared with ("rates"), with what came of the ledger's own exchange rate
+for it ("ledger_rate": the row picked as the ledger listed it, the rate it
+comes to, whether it was the other way round, how many days before, how
+far apart and whether far, why it was not used, or why it could not be
+read). The most recent 1,000 entries are kept; older ones are dropped.
+The record is now at version 9: version 3 added "read_as", version 4
+"asset_picks", version 5 "ledger", version 6 "marks", version 7 "manual"
+and "cash", version 8 "rates", and version 9 "ledger_rate" inside each of
+"rates". Entries of versions 1 to 8, written before, are still read as
+they are, and a file may hold all nine.
 
 **The file is plain text, not encrypted: it holds what you said to the
 assistant, word for word, with its numbers.** It stays on this computer;
@@ -962,14 +969,35 @@ the rate needs it; no amount is ever worked out from figures said in two
 moneys (such a blank is asked). The euro amount said is taken without any
 FX fee, and the reply says so each time ("The EUR amount is taken as the
 money for the shares alone, without any FX fee; the FX fee is recorded as
-the fee."). Two guards: the rate is compared with the rate of the latest
-trade in the ledger paid in the same money for an asset priced in the same
-money (the asset's own first, then any), far at more than ten in a
-hundred (`LEDGER_HAND_RATE_GAP_PERCENT`, see "Settings"), and the reply
-says when there was none to compare with; the dollar price said is
+the fee."). Two guards: the rate is compared with the ledger's own
+exchange rate between the two moneys, and the dollar price said is
 compared with the ledger's market price of the asset, as a price is. Far,
 the rate is marked suspicious with the figures, and the trade is still
-sent. The try-out script prints a line under such a trade (`rate:
+sent.
+
+The ledger's own exchange rate comes from its tool `list_exchange_rates`
+(the ledger's `dev` at `1b016ec` or later), which the program asks itself,
+never the model, once for each pair of moneys of what was said. Each row
+reads "1 base = rate quote" in the direction it was stored, and no
+direction is assumed: "1 EUR = 1.08 USD" is compared as it is, "1 USD =
+0.925 EUR" (as the ledger fetches the euro's rate) as 1 ÷ 0.925 ≈
+1.0810810811, worked out exactly, never with 1 put in for a rate that is
+not there. The row picked is the latest not after the trade's day (a rate
+typed in by hand before one fetched on the same day); a trade that said
+no day is compared as of today, and says so. Far is more than ten in a
+hundred of the ledger's rate (`LEDGER_HAND_RATE_GAP_PERCENT`, see
+"Settings"); exactly that is not far. The reply says what it was compared
+with: "Trade 1: the rate 1.08 was compared with the ledger's exchange rate
+of 2026-11-19 (frankfurter): 1 USD = 0.925 EUR, which is 1.0810810811 USD
+for 1 EUR. They are 0.1% apart." The rate of the latest trade in the
+ledger paid in the same money for an asset priced in the same money (the
+asset's own first, then any) is compared with instead, and the reply says
+why, when the ledger has no rate between the two moneys up to that day,
+when its latest is older than that trade, when its rates could not be
+read (within 30 seconds in all, for example) or when it turned the
+question down; a ledger with no such tool (older than `1b016ec`) is
+compared that way as before, and nothing more is said. With neither, the
+reply says there was none to compare with. The try-out script prints a line under such a trade (`rate:
 1.0859375 USD for 1 EUR, from the 69.5 USD a share said (2 × 69.5 ÷ 128);
 compared with: ...`), and the page's card shows a rate cell and the price
 said. What this does not do is in `docs/known-gaps.md`, "The assistant:
@@ -1248,7 +1276,12 @@ priced in (USDT for SOL and DOT, US dollars for the five shares), so
 "今天15:30花了128欧元买了2股KO，一股69.5美元，换汇费0.19欧元" is sent paid in
 euros with its rate. The four assets taken from the invented book (BTC,
 ETH, ADA, MSFT) name none, so euros paid for them are asked about as
-before. The demo book has no trade paid in euros, so such a rate is never
+before. The demo book has no trade paid in euros; the assistant page and
+the try-out script turn on the ledger's tool for exchange rates there,
+with two made-up rates, "1 EUR = 1.08 USD" typed in on 20 November and "1
+USD = 0.93 EUR" from frankfurter on 21 November, so such a rate is
+compared with the latest of them (about 1% apart for the sentence above:
+not marked), and the reply says so. Without that tool the rate is never
 compared with an earlier one, and the reply says so.
 Besides the invented book's market prices (BTC 64880 USDT, ETH 2701 USDT,
 MSFT 441.62 USD) it has five near their August buys: SOL 150 USDT, INTC
@@ -1317,7 +1350,7 @@ hand"; they are not on this list.
 13. `2026年11月21号10点15分在Binance买了0.5个ETH，成交价2650 USDT`
    Gets: One trade sent to the ledger, waiting there with its fee empty: a buy of 0.5 ETH at 2650 USDT, total 1325 USDT, on 21 November 2026 at 10:15, Binance. No fee was said, so nothing is asked: the fee and its money are sent empty, and the reply names them, to be filled in on the ledger's page before saving. A reminder line says 10点15分 was read on a 24-hour clock.
 14. `2026年11月20号15点30分在IBKR花了128欧元买了2股 KO，一股69.5美元，换汇费0.19欧元`
-   Gets: One trade sent to the ledger, waiting there, paid in euros for a share priced in US dollars: a buy of 2 KO at 64 EUR (worked out as 128 ÷ 2), total 128 EUR, the FX fee 0.19 EUR as its fee, on 20 November 2026 at 15:30, IBKR, with the rate 1.0859375 USD for 1 EUR worked out from the 69.5 USD a share said (2 × 69.5 ÷ 128). The reply says the euro amount is taken without the FX fee, and that the rate was compared with none, the ledger having no earlier trade paid in euros. A reminder line names a number no trade used (一).
+   Gets: One trade sent to the ledger, waiting there, paid in euros for a share priced in US dollars: a buy of 2 KO at 64 EUR (worked out as 128 ÷ 2), total 128 EUR, the FX fee 0.19 EUR as its fee, on 20 November 2026 at 15:30, IBKR, with the rate 1.0859375 USD for 1 EUR worked out from the 69.5 USD a share said (2 × 69.5 ÷ 128). The reply says the euro amount is taken without the FX fee, and that the rate was compared with the demo ledger's made-up exchange rate of 2026-11-20, typed in by hand (1 EUR = 1.08 USD), 0.5% apart: not marked. A reminder line names a number no trade used (一).
 
 With the try-out script, `--save` before a sentence saves what it sent in
 the demo ledger, as confirming would on the ledger's page:
@@ -1886,7 +1919,7 @@ before.
 | Variable | Default | What it sets | Why this default |
 | --- | --- | --- | --- |
 | `LEDGER_HAND_PRICE_GAP_TIMES` | `5` | How many times apart a trade's price and the ledger's market price of its asset must be, either way, for the price to be marked suspicious; a number above 1 and at most 1000, such as `3` or `2.5`. Exactly that many times counts. | Five was chosen on 2026-11-25 with no source behind it; the product owner may change it. At 1 or below every price would be marked, and beyond 1000 it is the same as not comparing; both bounds are taken for now and wait for a reason. |
-| `LEDGER_HAND_RATE_GAP_PERCENT` | `10` | How far apart, in a hundred, the rate of a trade paid in another money than its asset's own (`costRate`, worked out from the price said in the asset's own money) and the rate of the latest such trade in the ledger, paid in the same money for an asset priced in the same money, must be for the rate to be marked suspicious; a number above 0 and at most 1000, such as `10` or `2.5`. Exactly that far is not far. | Ten was chosen on 2026-11-25 by the session that hands out the work, with no source behind it; the product owner may change it. At 0 every rate but the very same would be marked, and beyond 1000 a figure said ten times wrong is never marked; both bounds are taken for now and wait for a reason. |
+| `LEDGER_HAND_RATE_GAP_PERCENT` | `10` | How far apart, in a hundred, the rate of a trade paid in another money than its asset's own (`costRate`, worked out from the price said in the asset's own money) and the ledger's own exchange rate between the two moneys, or else the rate of the latest such trade in the ledger, paid in the same money for an asset priced in the same money, must be for the rate to be marked suspicious; a number above 0 and at most 1000, such as `10` or `2.5`. Exactly that far is not far. | Ten was chosen on 2026-11-25 by the session that hands out the work, with no source behind it; the product owner may change it. At 0 every rate but the very same would be marked, and beyond 1000 a figure said ten times wrong is never marked; both bounds are taken for now and wait for a reason. |
 
 Like the step limit, this is not one of the model settings and is not
 shown on the settings page. The Assistant page and
