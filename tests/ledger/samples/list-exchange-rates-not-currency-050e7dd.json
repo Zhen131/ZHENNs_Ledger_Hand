@@ -1,0 +1,19 @@
+{
+  "case": "list-exchange-rates-not-currency-050e7dd",
+  "what": "a share named as the other money: ASSET_IS_NOT_CURRENCY on otherCurrencyAssetId",
+  "_source": "Captured on 2026-11-27 through the ledger's assistant link and its page in a browser (headless Chromium driven by a script), the ledger's dev 050e7dd, an invented ledger made for this: the euro and the share KO added, two rates typed in by hand (1 EUR = 1.08 USD of 2026-11-20, 1 USD = 0.925 EUR of 2026-11-19) and 51 made-up rates between USD and CNY. Its page in Chinese, today 2026-11-27. Invented figures only.",
+  "tool": "list_exchange_rates",
+  "arguments": {
+    "currencyAssetId": "asset-eur",
+    "otherCurrencyAssetId": "36fb2996-b8de-45af-a807-04aa09239b34"
+  },
+  "answer": {
+    "kind": "error",
+    "content": {
+      "code": "ASSET_IS_NOT_CURRENCY",
+      "category": "invalid-arguments",
+      "message": "这个编号是币或股票，不是现金货币；按货币筛汇率只收现金货币的编号",
+      "field": "otherCurrencyAssetId"
+    }
+  }
+}

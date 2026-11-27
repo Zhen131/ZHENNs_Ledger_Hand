@@ -1,0 +1,20 @@
+{
+  "case": "list-exchange-rates-none-050e7dd",
+  "what": "the rates between EUR and CNY: none",
+  "_source": "Captured on 2026-11-27 through the ledger's assistant link and its page in a browser (headless Chromium driven by a script), the ledger's dev 050e7dd, an invented ledger made for this: the euro and the share KO added, two rates typed in by hand (1 EUR = 1.08 USD of 2026-11-20, 1 USD = 0.925 EUR of 2026-11-19) and 51 made-up rates between USD and CNY. Its page in Chinese, today 2026-11-27. Invented figures only.",
+  "tool": "list_exchange_rates",
+  "arguments": {
+    "currencyAssetId": "asset-eur",
+    "otherCurrencyAssetId": "asset-cny"
+  },
+  "answer": {
+    "kind": "result",
+    "content": {
+      "kind": "exchange-rate-list",
+      "todayDate": "2026-11-27",
+      "rates": [],
+      "pageSize": 50,
+      "nextPageToken": null
+    }
+  }
+}
