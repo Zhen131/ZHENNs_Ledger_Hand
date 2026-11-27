@@ -10401,3 +10401,39 @@ After these measures, on review, the row 通用电气 was taken out of the
 table: its English name in the code was wrong, and since 2024 the name may
 mean more than one company (GE Aerospace, GE Vernova, GE HealthCare). The
 table now holds 79 rows; no measure above was run again.
+
+## 2026-11-27: three small rules (a time said in another zone, "美金" by the asset's own currency, a year put to a date in a change), `qwen2.5:7b`
+
+Measured before and after on Windows 11, Ollama 0.40.16, `qwen2.5:7b`
+(fingerprint `845dbda0ea48…`), temperature 0, `first-3` and `assistant-5`.
+Before is `ddf20bc`; after is `1960db1` (its `src/` that of `0065bc2`).
+Only the practice halves were run; no hidden half was run or read.
+
+| Ruler | Before | After | Results before | Results after |
+| --- | --- | --- | --- | --- |
+| Final set (`judged_run --screen screen-2 --extract first-3 --hold-other-unit --tidy --final-exam`) | 22 of 22 whole, 0 wrong with nothing said | 22 of 22, 0 | `judged-20261127T161804Z-final-screen-2-first-3-hold-tidy.jsonl` | `judged-20261127T164708Z-final-screen-2-first-3-hold-tidy.jsonl` |
+| `stock_run` | 16 of 18, 0 silently wrong | 16 of 18, 0 | `run-20261127T161826Z-stocks-assistant-5.jsonl` | `run-20261127T164728Z-stocks-assistant-5.jsonl` |
+| `edit_run`, `edits.json` | 14 of 17, 0 wrong | 14 of 17, 0 | `run-20261127T161849Z-edits-assistant-5.jsonl` | `run-20261127T164751Z-edits-assistant-5.jsonl` |
+| `edit_run`, `spoken-edits-practice.json` | 4 of 4 | 4 of 4 | `run-20261127T161858Z-spoken-edits-practice-assistant-5.jsonl` | `run-20261127T164759Z-spoken-edits-practice-assistant-5.jsonl` |
+
+The three tiers, practice halves (`spoken_run --extract first-3`):
+
+| Tier | Before: ① / ①a / ③ (code) / ⑤ | After: ① / ①a / ③ (code) / ⑤ | Results before | Results after |
+| --- | --- | --- | --- | --- |
+| r100 | 6 / 0 / 1 (1) / 0 | 6 / 0 / 1 (1) / 0 | `spoken-20261127T161900Z-…-r100-practice-…` | `spoken-20261127T164801Z-…-r100-practice-…` |
+| r80 | 4 / 0 / 1 (0) / 2 | 4 / 1 / 1 (0) / 1 | `spoken-20261127T161928Z-…-r80-practice-…` | `spoken-20261127T164830Z-…-r80-practice-…` |
+| r70 | 9 / 3 / 1 (0) / 0 | 8 / 3 / 2 (0) / 0 | `spoken-20261127T161952Z-…-r70-practice-…` | `spoken-20261127T164855Z-…-r70-practice-…` |
+
+On r70 one more trade came out ③ after: R70-09 ("……买入950美金的ADA，成交价0.589
+USDT，……"), its total sent as 949.9981 worked out from quantity and price
+where before the 950 said was sent. Run again after, it was ③ again
+(`spoken-20261127T165000Z-…`); run once more on the code before (`src/`
+of `ddf20bc` checked out for the run, so that file's work tree is not
+clean), it was ③ too, ③ 2 in all (`spoken-20261127T165042Z-…`), as in the
+two Windows runs of the previous sections. So it is the model answering
+differently from run to run, not the change; the first run before is the
+one that differs.
+
+The fixed moment of the changes sets is 2026-11-24, in 2026, so a date the
+model puts this year to would be let through there; it put no year to any
+date on either set, before or after.
