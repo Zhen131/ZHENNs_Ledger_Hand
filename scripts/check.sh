@@ -24,12 +24,19 @@
 # start (unknown tier, or no Python environment); 3 the tier was skipped.
 #
 # LEDGER_HAND_PYTHON overrides which Python runs the tools; the default is the
-# one in .venv/.
+# one in .venv/ (.venv/bin/python; on Windows, .venv/Scripts/python.exe).
 
 set -u
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PYTHON="${LEDGER_HAND_PYTHON:-$ROOT/.venv/bin/python}"
+# On Windows a virtual environment keeps its Python in .venv/Scripts/ instead
+# of .venv/bin/. It is used only when LEDGER_HAND_PYTHON is unset and there is
+# no .venv/bin/python, so macOS and Linux take the same path as before.
+if [ -z "${LEDGER_HAND_PYTHON:-}" ] && [ ! -e "$ROOT/.venv/bin/python" ] &&
+    [ -x "$ROOT/.venv/Scripts/python.exe" ]; then
+    PYTHON="$ROOT/.venv/Scripts/python.exe"
+fi
 TIERS="quick ledger live"
 
 run_step() {
