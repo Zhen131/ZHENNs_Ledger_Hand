@@ -166,6 +166,29 @@ scripts/check.sh
 
 The last line should read `quick: all checks passed`.
 
+On Windows, install Git for Windows, which brings the Bash that runs
+`scripts/check.sh`, and set Git not to change line endings before you clone
+(`git config --global core.autocrlf false`): the tests compare sample files
+byte for byte. Build the environment the same way from Git Bash, with the
+Python that lives in `.venv/Scripts/` in place of `.venv/bin/` (the first
+command uses the Python launcher that comes with Python from python.org;
+any other Python 3.12 or newer works the same):
+
+```sh
+py -3.12 -m venv .venv
+.venv/Scripts/python.exe -m pip install -r requirements.txt
+.venv/Scripts/python.exe -m pip install --no-deps -e .
+bash scripts/check.sh
+```
+
+Run the checks from Git Bash, not from PowerShell or the Command Prompt:
+one test starts `bash` again, and from elsewhere another `bash` may be
+found first. `scripts/check.sh` takes `.venv/Scripts/python.exe` when there
+is no `.venv/bin/python`. One test is skipped on Windows (its reason is
+printed); the tests that need a folder that cannot be written into make one
+with `icacls`, which comes with Windows. To run the ledger tier, set
+`LEDGER_HAND_LEDGER_DIR` on that one command only.
+
 The quick checks need no model. The interface, the command-line scripts,
 the live tier and the experiments do: by default Ollama running on this
 machine with the model `qwen2.5:7b`. Install Ollama, fetch the model once
@@ -1767,7 +1790,7 @@ stops the Assistant page alone, which says why.
 | Variable | Default | What it sets | Why this default |
 | --- | --- | --- | --- |
 | `LEDGER_HAND_LEDGER_DIR` | (none) | The checkout of the Local-First Trading Ledger that the ledger tier of the checks asks (see "The ledger tier"). | None: the ledger is a project of its own, and without a checkout the tier is skipped, never failed. |
-| `LEDGER_HAND_PYTHON` | `.venv/bin/python` | The Python that `scripts/check.sh` runs the tools with. | The repository's own environment, built as "Setting up from scratch" says. |
+| `LEDGER_HAND_PYTHON` | `.venv/bin/python` (on Windows, `.venv/Scripts/python.exe` when there is no `.venv/bin/python`) | The Python that `scripts/check.sh` runs the tools with. | The repository's own environment, built as "Setting up from scratch" says. |
 
 ## Switching to a cloud model
 
