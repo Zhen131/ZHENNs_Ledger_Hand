@@ -67,6 +67,7 @@ def ledger_with(*codes: str):  # type: ignore[no-untyped-def]
 
 def test_the_table_holds_forty_to_eighty_rows_and_every_code_can_be_a_ledger_code() -> None:
     assert 40 <= len(COMPANY_NAMES) <= 80
+    assert codes_named("通用电气") == ()
     for name, codes in COMPANY_NAMES:
         assert codes, name
         assert all(is_symbol(code) for code in codes), name

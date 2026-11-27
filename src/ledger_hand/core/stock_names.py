@@ -118,7 +118,6 @@ COMPANY_NAMES: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("贝宝", ("PYPL",)),  # PayPal Holdings, Inc.
     # Industry, energy and cars.
     ("波音", ("BA",)),  # The Boeing Company
-    ("通用电气", ("GE",)),  # GE Aerospace (General Electric Company until 2024)
     ("卡特彼勒", ("CAT",)),  # Caterpillar Inc.
     ("埃克森美孚", ("XOM",)),  # Exxon Mobil Corporation
     ("雪佛龙", ("CVX",)),  # Chevron Corporation

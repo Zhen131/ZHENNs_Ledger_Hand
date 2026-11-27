@@ -967,7 +967,7 @@ model, in two ways, in this order:
    cannot be read is taken as empty and never written to.
 2. The program's own table of about eighty common companies listed in the
    United States, by the Chinese name people call them, each with its
-   codes there (`core/stock_names.py`).
+   codes there (`core/stock_names.py`); off by default, see below.
 
 A name is matched only whole, once a trailing "的股票", "股票", "的股份",
 "股份", "的公司", "公司" or "集团" is cut off (at most twice): "微软的股票"
@@ -987,7 +987,12 @@ switch (see "Settings"): `LEDGER_HAND_REMEMBER_NAMES`, on by default, and
 `LEDGER_HAND_NAME_TABLE`, **off by default**: measured on the practice
 half of the names set, the whole assistant sent two shares for
 "2股微软和英特尔" with the table on, the words split into two trades and
-each name matched (`evals/RESULTS.md`). With the table off, such a name is
+each name matched; and on the hidden halves of the exam said the owner's
+way, with the table on, four trades in all had their asset matched by the
+program as another asset than the gold one (only the totals were read).
+That count also takes in a name matched in a sentence not enabled whose
+gold has no trade, so how many of the four are truly wrong is not checked
+(`evals/RESULTS.md`). With the table off, such a name is
 asked about as below, and the code answered is recorded, and kept when
 answers are remembered; set `LEDGER_HAND_NAME_TABLE=on` to try the table.
 

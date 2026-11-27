@@ -428,7 +428,7 @@ def say(
     the last one are (``settings.load_rate_gap_percent``).
     ``name_table`` says whether a name the ledger's table does not find is
     matched by the program's table of company names; left out, as
-    ``ASSISTANT_NAME_TABLE`` says (on), read when called; and
+    ``ASSISTANT_NAME_TABLE`` says (off), read when called; and
     ``names`` is the file of the user's answers to read and keep, or
     ``None`` (the default) to read and keep none.
     """

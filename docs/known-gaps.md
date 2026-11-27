@@ -996,7 +996,9 @@ price said in the asset's own money (`flows/paid_apart.py`,
   the user may have meant something else; the names set counts it as
   wrong. On the hidden halves of the exam said the owner's way, with the
   table on, four trades had their asset matched by the table as another
-  asset than the gold one (counts alone are known). As the way back says,
+  asset than the gold one (counts alone are known). That count also takes
+  in a name matched in a sentence not enabled whose gold has no trade, so
+  how many of the four are truly wrong is not checked. As the way back says,
   the table is off until a way passes; the answers kept stay on.
 - **The table holds only common companies listed in the United States,
   matched whole.** About eighty companies, by the Chinese name people

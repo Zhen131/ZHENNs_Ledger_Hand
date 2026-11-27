@@ -10396,3 +10396,8 @@ second run at the table off. The hidden halves' results files, and the
 lines their runs added to `hidden-runs.log`, are kept outside the
 repository, unopened, until it is decided whether such files are
 committed.
+
+After these measures, on review, the row 通用电气 was taken out of the
+table: its English name in the code was wrong, and since 2024 the name may
+mean more than one company (GE Aerospace, GE Vernova, GE HealthCare). The
+table now holds 79 rows; no measure above was run again.
