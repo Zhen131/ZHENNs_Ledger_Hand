@@ -91,6 +91,17 @@ USDT: 191942 USDT. So a trade saved on the demo ledger shows in the
 balances next asked for. They are counted up to the later of its market
 prices' day and its latest trade's day.
 
+Its exchange rates (``exchange_rates``) are off by default, as an older
+ledger has no tool for them: asked, it raises ``NO_RATE_TOOL`` and names no
+call, so every test written before keeps the calls it counts. Made to
+(``listing_rates``, decided on 2026-11-27, like ``taking_cards``), it hands
+back the rows it was given between the two moneys asked for, as the real
+ledger lists them (its dev 1b016ec): in either direction, none dated after
+its market prices' day ("today") or the last day asked for, newest first,
+rows of one day in the order given; a money it does not have is
+``ASSET_NOT_FOUND``, one that is not cash ``ASSET_IS_NOT_CURRENCY``, each
+naming the field. ``rate_failure``, when given, is raised by that call alone.
+
 A trade paid in another money than the one its asset is priced in needs
 its rate (``cost_rate``), as the real ledger's check has it
 (``tradeValidatorConsistency.ts``, 2026-11-26): for an asset whose own
@@ -124,6 +135,7 @@ from datetime import date
 from decimal import Decimal
 
 from ledger_hand.core.ledger_limits import text_length
+from ledger_hand.core.ledger_rate import NO_RATE_TOOL, RateList, RateRequest, RateRow, row_day
 from ledger_hand.core.ledger_records import (
     MOST_TRADES_LISTED,
     NO_CASH_TOOL,
@@ -225,6 +237,7 @@ class FakeLedger:
         takes_unfinished: bool = False,
         cash: Mapping[str, Decimal] | None = None,
         opening_cash: Mapping[str, Decimal] | None = None,
+        rate_failure: LedgerError | None = None,
     ) -> None:
         if cash is not None and opening_cash is not None:
             raise ValueError("cash balances are given as they are, or as opening amounts, not both")
@@ -235,6 +248,8 @@ class FakeLedger:
         self._cash = dict(cash) if cash is not None else None
         self._opening_cash = dict(opening_cash) if opening_cash is not None else None
         self._takes_unfinished = takes_unfinished
+        self._rates: tuple[RateRow, ...] | None = None
+        self._rate_failure = rate_failure
         self._assets = tuple(assets)
         self._trades: Book = tuple(trades)
         self._prices = dict(prices)
@@ -318,6 +333,48 @@ class FakeLedger:
         if self._prices_on is not None:
             days.append(self._prices_on)
         return CashBalances(day=max(days, default=_INVENTED_DAY), balances=rows)
+
+    def exchange_rates(self, request: RateRequest) -> RateList:
+        if self._rates is None:
+            # A ledger with no such tool: not a call it answered, so not named.
+            raise LedgerError(
+                LedgerErrorKind.OTHER, NO_RATE_TOOL, "This ledger has no tool for exchange rates."
+            )
+        self._called("exchange_rates")
+        if self._rate_failure is not None:
+            raise self._rate_failure
+        wanted = (request.currency_id, request.other_id)
+        for field, wanted_id in zip(
+            ("currencyAssetId", "otherCurrencyAssetId"), wanted, strict=True
+        ):
+            asset = next((one for one in self._assets if one.id == wanted_id), None)
+            if asset is None:
+                raise LedgerError(
+                    LedgerErrorKind.UNKNOWN_ASSET,
+                    "ASSET_NOT_FOUND",
+                    f"No asset with the identifier {wanted_id} ({field}).",
+                )
+            if asset.kind is not AssetKind.CASH:
+                raise LedgerError(
+                    LedgerErrorKind.OTHER,
+                    "ASSET_IS_NOT_CURRENCY",
+                    f"{asset.code} is not a currency ({field}).",
+                )
+        today = self._prices_on or _INVENTED_DAY
+        last = min(today, request.last_day)
+        between = [
+            row
+            for row in self._rates
+            if {row.base_id, row.quote_id} == set(wanted) and _not_after(row, last)
+        ]
+        # Newest first; rows of one day in the order given; a day that does not read last.
+        ordered = sorted(between, key=_newest_first)
+        return RateList(today=today, rows=tuple(ordered))
+
+    def listing_rates(self, rows: Sequence[RateRow]) -> FakeLedger:
+        """This same ledger, from now on one with the tool for exchange rates, holding ``rows``."""
+        self._rates = tuple(rows)
+        return self
 
     def propose_add(self, trades: tuple[TradeFacts, ...], said: str) -> ProposalResult:
         self._called("propose_add", said)
@@ -799,3 +856,15 @@ def _void(proposal_id: str) -> ProposalState:
     return ProposalState(
         proposal_id=proposal_id, status=ProposalStatus.VOID, reason=_VOID_CODE, message=_VOID_WORDS
     )
+
+
+def _not_after(row: RateRow, last: date) -> bool:
+    """Whether ``row`` is not dated after ``last``; a day that does not read is kept."""
+    day = row_day(row.rate_date)
+    return day is None or day <= last
+
+
+def _newest_first(row: RateRow) -> int:
+    """The key that puts the latest day first and a day that does not read last."""
+    day = row_day(row.rate_date)
+    return -day.toordinal() if day is not None else 1

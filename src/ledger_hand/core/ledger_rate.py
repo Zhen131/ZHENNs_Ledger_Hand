@@ -228,11 +228,15 @@ def pick(
         found, key=lambda one: (-one[3].toordinal(), not one[1].by_hand, one[0])
     )
     return PickedRate(
-        row=row, rate=rate, day=when, inverted=inverted, converted=_converted(rate, inverted)
+        row=row,
+        rate=rate,
+        day=when,
+        inverted=inverted,
+        converted=_converted(rate, inverted=inverted),
     ), passed_over
 
 
-def _converted(rate: Decimal, inverted: bool) -> Decimal:
+def _converted(rate: Decimal, *, inverted: bool) -> Decimal:
     context = working_context()
     value = context.divide(Decimal(1), rate) if inverted else rate
     rounded = round_half_up(value, _PLACES)

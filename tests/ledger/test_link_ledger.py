@@ -695,7 +695,8 @@ def test_a_link_that_fails_is_sorted_into_a_ledger_failure(
 
 
 # Every code of the error table at the end of the ledger's assistant-link/README.md
-# at dev@a6ba639; the ledger tier compares the list with the README itself.
+# at dev@a6ba639, and the one its dev 1b016ec added for exchange rates; the ledger
+# tier compares the list with the README itself.
 README_CODES = [
     "INVALID_ARGUMENTS",
     "UNKNOWN_TOOL",
@@ -705,6 +706,7 @@ README_CODES = [
     "START_DATE_AFTER_END_DATE",
     "ASSET_NOT_FOUND",
     "ASSET_IS_CURRENCY",
+    "ASSET_IS_NOT_CURRENCY",
     "INVALID_PAGE_TOKEN",
     "LEDGER_CHANGED_START_FROM_FIRST_PAGE",
     "LEDGER_RECORDS_CONTRADICT",
@@ -745,7 +747,7 @@ README_CODES = [
 
 
 def test_every_code_of_the_ledger_is_on_one_of_the_two_tables() -> None:
-    assert len(README_CODES) == 44
+    assert len(README_CODES) == 45
     missing = [code for code in README_CODES if code not in CALL_FAILURES | TRADE_REFUSALS]
     assert missing == []
     assert CALL_FAILURES["LEDGER_PAGE_TIMEOUT"] is LedgerErrorKind.TIMED_OUT

@@ -36,7 +36,8 @@ The ledger itself, the one the person keeps their trades in, is reached
 through a ``LedgerPort``: list its assets and trades, sum a stretch of time
 up, say what is held and at what market price, say how much of each cash
 money it holds (a ledger with no tool for that says so with its own code,
-``NO_CASH_TOOL``), and propose to record,
+``NO_CASH_TOOL``), list the exchange rates it keeps between two moneys (one
+with no tool for that says ``NO_RATE_TOOL``), and propose to record,
 change or delete trades. A
 proposal writes nothing: it waits in the ledger for the person to save or
 reject it there, one proposal for each trade. A ledger that takes a trade
@@ -79,6 +80,7 @@ from ledger_hand.core.book import (
     Listing,
     PassageSave,
 )
+from ledger_hand.core.ledger_rate import RateList, RateRequest
 from ledger_hand.core.ledger_records import (
     Asset,
     CashBalances,
@@ -635,6 +637,16 @@ class LedgerPort(Protocol):
         ``LedgerError`` with the code ``NO_CASH_TOOL`` (kind ``OTHER``),
         so that "this ledger cannot" is told apart from "it could not be
         asked this time". Nothing is ever worked out from the trades.
+        """
+        ...
+
+    def exchange_rates(self, request: RateRequest) -> RateList:
+        """The exchange rates the ledger keeps between the two moneys ``request`` names.
+
+        Only read; each row as the ledger stored it, newest first, never
+        turned round or worked out. A ledger with no tool for it (an older
+        one) raises ``LedgerError`` with the code ``NO_RATE_TOOL`` (kind
+        ``OTHER``). The program asks it itself; the model is never handed it.
         """
         ...
 

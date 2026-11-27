@@ -14,7 +14,8 @@ name ``Ledger Hand`` and the version handed in), ``tools`` (the tool list as
 the link gives it), ``call`` (one tool, its arguments as a dictionary; the
 answer is the ledger's ``structuredContent`` as it came, a result or the
 ledger's ``{code, category, message, field?}`` error, marked by
-``AnswerKind``), ``page_state`` (whether a ledger page is connected, from
+``AnswerKind``; ``call_within`` waits a shorter time of the caller's own),
+``page_state`` (whether a ledger page is connected, from
 the link's lines on its standard error, which carry no ledger data),
 ``running`` (whether the link is still alive) and ``close``. It
 translates nothing into the ledger port's shapes; that is for the plug
@@ -192,7 +193,19 @@ class LedgerLink:
 
     def call(self, name: str, arguments: Mapping[str, Any]) -> ToolAnswer:
         """Call the tool ``name`` with ``arguments``; the ledger's answer as it came."""
-        reply = self._request("tools/call", {"name": name, "arguments": dict(arguments)})
+        return self.call_within(name, arguments, self._setup.answer_seconds)
+
+    def call_within(self, name: str, arguments: Mapping[str, Any], seconds: float) -> ToolAnswer:
+        """``call``, waiting at most ``seconds`` for the answer instead of ``answer_seconds``.
+
+        For a caller with a time limit of its own (the exchange rates are
+        looked up in at most 30 seconds in all). An answer that comes after
+        the wait is passed over by the next call, as any answer whose number
+        is not its own.
+        """
+        if seconds <= 0:
+            raise self._error(LinkFailure.TIMED_OUT, "no time was left to wait for an answer")
+        reply = self._request("tools/call", {"name": name, "arguments": dict(arguments)}, seconds)
         result = self._result(reply)
         content = result.get("structuredContent")
         if not isinstance(content, dict):
@@ -350,12 +363,14 @@ class LedgerLink:
             "clientInfo": {"name": CLIENT_NAME, "version": self._setup.hand_version},
         }
 
-    def _request(self, method: str, params: Mapping[str, Any]) -> dict[str, Any]:
+    def _request(
+        self, method: str, params: Mapping[str, Any], seconds: float | None = None
+    ) -> dict[str, Any]:
         with self._talking:
             self._next_id += 1
             asked = self._next_id
             self._write({"jsonrpc": "2.0", "id": asked, "method": method, "params": dict(params)})
-            return self._reply(asked)
+            return self._reply(asked, self._setup.answer_seconds if seconds is None else seconds)
 
     def _write(self, message: Mapping[str, Any]) -> None:
         process = self._process
@@ -367,10 +382,10 @@ class LedgerLink:
         except (OSError, ValueError) as error:
             raise self._error(LinkFailure.LINK_GONE) from error
 
-    def _reply(self, asked: int) -> dict[str, Any]:
+    def _reply(self, asked: int, seconds: float) -> dict[str, Any]:
         while True:
             try:
-                line = self._replies.get(timeout=self._setup.answer_seconds)
+                line = self._replies.get(timeout=seconds)
             except queue.Empty:
                 raise self._error(LinkFailure.TIMED_OUT, "waiting for an answer") from None
             if line is _END:

@@ -26,6 +26,9 @@ link does, and follows the script ``FAKE_LINK_SCENARIO`` names:
 - ``silent_hello``: says it listens, then never answers the handshake.
 - ``linger``: says the port is taken, closes its output, and stays a while
   before it leaves (a link slow to go).
+- ``late_rates``: as ``normal``, but answers ``list_exchange_rates`` only
+  after ``FAKE_LINK_LATE`` seconds (one by default), with a list of no
+  rates, so that a caller that gave up waiting gets that answer late.
 - ``samples``: answers every tool call with the next answer of the file
   ``FAKE_LINK_SAMPLES`` names (a JSON list of the ledger's answers, as the
   samples in ``samples/`` keep them: ``kind`` and ``content``).
@@ -141,6 +144,11 @@ def answer(scenario: str, message: dict[str, object]) -> None:
     elif method == "tools/call":
         params = message.get("params")
         name = str(params.get("name")) if isinstance(params, dict) else ""
+        if scenario == "late_rates" and name == "list_exchange_rates":
+            time.sleep(float(os.environ.get("FAKE_LINK_LATE", "1")))
+            body = {"kind": "exchange-rate-list", "rates": [], "nextPageToken": None}
+            say({"jsonrpc": "2.0", "id": asked, "result": {"structuredContent": body}})
+            return
         if name == "echo" and isinstance(params, dict):
             body = {"echoed": params.get("arguments")}
             say({"jsonrpc": "2.0", "id": asked, "result": {"structuredContent": body}})

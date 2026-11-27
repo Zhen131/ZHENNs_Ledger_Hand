@@ -64,6 +64,13 @@ class _Current:
             raise LedgerLinkError(LinkFailure.NOT_STARTED)
         return link.call(name, arguments)
 
+    def call_within(self, name: str, arguments: Mapping[str, Any], seconds: float) -> ToolAnswer:
+        """``call``, waiting at most ``seconds`` for the answer (``LedgerLink.call_within``)."""
+        link = self._keeper.running_link()
+        if link is None:
+            raise LedgerLinkError(LinkFailure.NOT_STARTED)
+        return link.call_within(name, arguments, seconds)
+
     def tools(self) -> list[dict[str, Any]]:
         """The tools the running link lists, so the plug can tell what the ledger takes."""
         link = self._keeper.running_link()

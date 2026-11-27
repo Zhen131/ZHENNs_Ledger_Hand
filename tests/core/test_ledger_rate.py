@@ -81,9 +81,7 @@ def test_a_row_the_same_way_round_is_compared_as_it_is() -> None:
 
 
 def test_a_row_the_other_way_round_is_multiplied_and_said_as_its_inverse() -> None:
-    picked, _ = pick(
-        [row(USD, EUR, "0.925", "2026-11-19", "online", "frankfurter")], EUR, USD, DAY
-    )
+    picked, _ = pick([row(USD, EUR, "0.925", "2026-11-19", "online", "frankfurter")], EUR, USD, DAY)
 
     assert picked is not None and picked.inverted
     assert str(picked.converted) == "1.0810810811"

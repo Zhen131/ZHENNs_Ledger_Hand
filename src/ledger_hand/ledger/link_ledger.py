@@ -64,6 +64,21 @@ What it turns, and how (68B2, part 13):
   them back, in its order. A ledger older than that tool answers
   ``UNKNOWN_TOOL``, which is said as ``NO_CASH_TOOL``: this ledger cannot,
   not "it could not be asked" (decided on 2026-11-26).
+- Exchange rates are the ledger's own (``list_exchange_rates``, added to
+  the ledger on 2026-11-27, its dev 1b016ec), asked for by this program
+  itself for the rate of a trade paid in another money, never by the
+  model: the two moneys by the ledger's identifiers, and up to the latest
+  trade's day. Pages are read newest first, as the ledger lists them,
+  until one holds a row not after the earliest trade's day, at most
+  ``MOST_RATE_PAGES``; a ledger that changed in between is read again from
+  the first page once (``MOST_RATE_RESTARTS``), the two runs never mixed.
+  The whole lookup takes at most ``RATE_SECONDS``: each call waits only
+  for the time left, and a lookup out of time is ``TIMED_OUT``; an answer
+  that comes later is never taken for the next call's. A ledger whose list
+  of tools lacks the tool, or that answers ``UNKNOWN_TOOL``, says
+  ``NO_RATE_TOOL``. A row lacking one of its eight fields is passed over
+  and counted; the rate and the day are kept as text, read where they are
+  compared (``core/ledger_rate.py``).
 - What the user said and the model's name are measured before anything is
   sent, as the ledger measures them: words longer than
   ``SOURCE_TEXT_MOST`` or a name longer than ``MODEL_NAME_MOST`` send
@@ -85,13 +100,15 @@ sentence is carried as it came, in the language of its page.
 
 Names defined here: ``ToolCaller``, ``LinkLedger``, ``CALL_FAILURES``,
 ``TRADE_REFUSALS``, ``Refusal``, ``codes_on_no_table``, ``MOST_PER_CALL``, ``MOST_RESTARTS``,
-``ALL_TIME_START``, ``WORDS_NOT_THE_USERS``, ``SOURCE_TEXT_MOST``, ``MODEL_NAME_MOST``.
+``ALL_TIME_START``, ``WORDS_NOT_THE_USERS``, ``SOURCE_TEXT_MOST``, ``MODEL_NAME_MOST``,
+``MOST_RATE_PAGES``, ``MOST_RATE_RESTARTS``, ``RATE_SECONDS``.
 """
 
 from __future__ import annotations
 
 import enum
 import re
+import time
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from datetime import date, datetime, timezone
 from decimal import Decimal, InvalidOperation
@@ -100,6 +117,13 @@ from typing import Any, Protocol
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from ledger_hand.core.ledger_limits import text_length
+from ledger_hand.core.ledger_rate import (
+    NO_RATE_TOOL,
+    RATE_TOOL,
+    RateList,
+    RateRequest,
+    RateRow,
+)
 from ledger_hand.core.ledger_records import (
     MOST_TRADES_LISTED,
     NO_CASH_TOOL,
@@ -143,6 +167,14 @@ from ledger_hand.ports import LedgerError, LedgerErrorKind
 MOST_PER_CALL = 10
 # How many times a listing starts again when the ledger changed under it.
 MOST_RESTARTS = 3
+# How many pages of exchange rates one lookup reads at most (fifty rows a page).
+MOST_RATE_PAGES = 3
+# How many times a lookup of exchange rates starts again when the ledger changed.
+MOST_RATE_RESTARTS = 1
+# The longest a lookup of exchange rates may take in all, in seconds. No source:
+# a rough line so that recording one trade is not held up too long (decided by
+# the dispatching session on 2026-11-27). One call alone may otherwise wait 60.
+RATE_SECONDS = 30.0
 # The first day of "all time": the ledger checks only that a day is real,
 # and this one was tried on 2026-11-25 (sample period-summary-all-time).
 ALL_TIME_START = date(1970, 1, 1)
@@ -195,6 +227,8 @@ CALL_FAILURES: Mapping[str, LedgerErrorKind] = MappingProxyType(
         "START_DATE_AFTER_END_DATE": _O,
         "ASSET_NOT_FOUND": LedgerErrorKind.UNKNOWN_ASSET,
         "ASSET_IS_CURRENCY": LedgerErrorKind.ASSET_IS_CURRENCY,
+        # Exchange rates: a money named that is a coin or a share (dev 1b016ec).
+        "ASSET_IS_NOT_CURRENCY": _O,
         "INVALID_PAGE_TOKEN": _O,
         "LEDGER_CHANGED_START_FROM_FIRST_PAGE": _O,
         "LEDGER_RECORDS_CONTRADICT": _O,
@@ -274,6 +308,18 @@ def codes_on_no_table(readme: str) -> list[str]:
 _LINK_TIMED_OUT = frozenset({LinkFailure.TIMED_OUT})
 _LINK_ODD = frozenset({LinkFailure.REPLY_NOT_JSON, LinkFailure.REPLY_UNEXPECTED})
 _RESTART = frozenset({"LEDGER_CHANGED_START_FROM_FIRST_PAGE", "INVALID_PAGE_TOKEN"})
+_NO_RATE_TOOL_WORDS = "This ledger has no tool for exchange rates: it is older than that tool."
+_RATES_LATE = f"The ledger did not hand back its exchange rates within {RATE_SECONDS:g} seconds."
+# The fields of a row of exchange rates that are always text.
+_RATE_TEXT = (
+    "baseCurrencyAssetId",
+    "baseCurrencyCode",
+    "quoteCurrencyAssetId",
+    "quoteCurrencyCode",
+    "rate",
+    "rateDate",
+    "source",
+)
 
 _KINDS = {"crypto": AssetKind.CRYPTO, "stock": AssetKind.STOCK, "currency": AssetKind.CASH}
 
@@ -281,12 +327,21 @@ _KINDS = {"crypto": AssetKind.CRYPTO, "stock": AssetKind.STOCK, "currency": Asse
 class LinkLedger:
     """The ledger the person keeps, reached through its assistant link."""
 
-    def __init__(self, link: ToolCaller, *, model_name: str, today: Callable[[], date]) -> None:
+    def __init__(
+        self,
+        link: ToolCaller,
+        *,
+        model_name: str,
+        today: Callable[[], date],
+        timer: Callable[[], float] = time.monotonic,
+    ) -> None:
+        """``timer`` counts seconds, only to keep a lookup of exchange rates in its time."""
         if not isinstance(model_name, str) or not model_name.strip():
             raise ValueError("the model's name is text that is not blank")
         self._link = link
         self._model = model_name
         self._today = today
+        self._timer = timer
         # The trades as last listed, as the ledger wrote them, by their identifier.
         self._rows: dict[str, Mapping[str, Any]] = {}
         # Whether the ledger takes cards, once read from its list of tools.
@@ -349,6 +404,107 @@ class LinkLedger:
                 "This ledger has no tool for cash balances: it is older than that tool.",
             ) from error
         return _cash(answer)
+
+    def exchange_rates(self, request: RateRequest) -> RateList:
+        if not self._lists_rates():
+            raise LedgerError(_O, NO_RATE_TOOL, _NO_RATE_TOOL_WORDS)
+        deadline = self._timer() + RATE_SECONDS
+        arguments = {
+            "currencyAssetId": request.currency_id,
+            "otherCurrencyAssetId": request.other_id,
+            "endDate": request.last_day.isoformat(),
+        }
+        for _ in range(MOST_RATE_RESTARTS + 1):
+            try:
+                return self._rate_pages(arguments, request.enough_day, deadline)
+            except LedgerError as error:
+                if error.code == "UNKNOWN_TOOL":
+                    raise LedgerError(_O, NO_RATE_TOOL, _NO_RATE_TOOL_WORDS) from error
+                if error.code not in _RESTART:
+                    raise
+        raise LedgerError(
+            _O,
+            "LEDGER_CHANGED_START_FROM_FIRST_PAGE",
+            "The ledger kept changing while its exchange rates were read "
+            f"({MOST_RATE_RESTARTS + 1} tries).",
+        )
+
+    def _lists_rates(self) -> bool:
+        """Whether the link's list of tools has the one for exchange rates; ``True`` when it
+        lists none here, so that the ledger's own answer tells."""
+        listing = getattr(self._link, "tools", None)
+        if not callable(listing):
+            return True
+        try:
+            tools = listing()
+        except (LedgerLinkError, OSError):
+            return True
+        if not isinstance(tools, list):
+            return True
+        return any(isinstance(tool, Mapping) and tool.get("name") == RATE_TOOL for tool in tools)
+
+    def _rate_pages(
+        self, arguments: Mapping[str, Any], enough_day: date, deadline: float
+    ) -> RateList:
+        """One run of pages, newest first, until one reaches ``enough_day`` or the last."""
+        rows: list[RateRow] = []
+        odd = 0
+        token: str | None = None
+        today: date | None = None
+        for page_number in range(1, MOST_RATE_PAGES + 1):
+            asked = dict(arguments)
+            if token is not None:
+                asked["pageToken"] = token
+            page = self._timed_answer(RATE_TOOL, asked, deadline)
+            today = today or _day_of(page.get("todayDate"))
+            listed = page.get("rates")
+            if not isinstance(listed, list):
+                raise LedgerError(
+                    _O, "HAND_ANSWER_UNEXPECTED", "The ledger's answer has no list rates."
+                )
+            reached = False
+            for one in listed:
+                row = _rate_row(one)
+                if row is None:
+                    odd += 1
+                    continue
+                rows.append(row)
+                day = _price_day(row.rate_date)
+                reached = reached or (day is not None and day <= enough_day)
+            token = _text(page.get("nextPageToken"))
+            if token is None or reached:
+                return RateList(today=today, rows=tuple(rows), odd=odd)
+            if page_number == MOST_RATE_PAGES:
+                break
+        return RateList(today=today, rows=tuple(rows), odd=odd, more=True)
+
+    def _timed_answer(
+        self, name: str, arguments: Mapping[str, Any], deadline: float
+    ) -> Mapping[str, Any]:
+        """``_answer``, waiting only for the time left before ``deadline``."""
+        left = deadline - self._timer()
+        if left <= 0:
+            raise LedgerError(LedgerErrorKind.TIMED_OUT, "HAND_RATES_TIMED_OUT", _RATES_LATE)
+        within = getattr(self._link, "call_within", None)
+        try:
+            if callable(within):
+                answer = within(name, arguments, left)
+            else:
+                answer = self._link.call(name, arguments)
+        except LedgerLinkError as error:
+            if error.failure in _LINK_TIMED_OUT:
+                raise LedgerError(
+                    LedgerErrorKind.TIMED_OUT, "HAND_RATES_TIMED_OUT", _RATES_LATE
+                ) from error
+            raise _link_failure(error) from error
+        if self._timer() > deadline:
+            raise LedgerError(LedgerErrorKind.TIMED_OUT, "HAND_RATES_TIMED_OUT", _RATES_LATE)
+        content = answer.content
+        if answer.kind is AnswerKind.ERROR:
+            code = str(content.get("code", "UNEXPECTED_PROGRAM_ERROR"))
+            message = _text(content.get("message")) or "The ledger gave no reason."
+            raise LedgerError(CALL_FAILURES.get(code, _O), code, message)
+        return content
 
     # --- proposing --------------------------------------------------------------
 
@@ -915,6 +1071,39 @@ def _market_price(
         price=MoneyAmount(currency=money, amount=amount),
         day=_price_day(price.get("priceDate")),
     )
+
+
+def _rate_row(value: object) -> RateRow | None:
+    """One row of the ledger's exchange rates, its fields as text; ``None`` when one lacks."""
+    if not isinstance(value, Mapping):
+        return None
+    texts = [value.get(name) for name in _RATE_TEXT]
+    if not all(isinstance(text, str) for text in texts):
+        return None
+    online = value.get("onlineSourceId")
+    if online is not None and not isinstance(online, str):
+        return None
+    base_id, base_code, quote_id, quote_code, rate, rate_date, source = (str(t) for t in texts)
+    return RateRow(
+        base_id=base_id,
+        base_code=base_code,
+        quote_id=quote_id,
+        quote_code=quote_code,
+        rate=rate,
+        rate_date=rate_date,
+        source=source,
+        online_source=online,
+    )
+
+
+def _day_of(value: object) -> date | None:
+    """A day the ledger wrote as ``YYYY-MM-DD``; ``None`` when it is not one."""
+    if not isinstance(value, str):
+        return None
+    try:
+        return date.fromisoformat(value)
+    except ValueError:
+        return None
 
 
 def _price_day(value: object) -> date | None:
