@@ -29,17 +29,22 @@ only to a ledger whose list of tools says it takes them
 
 A tool the ledger lists and this program does not use is no difference
 (the ledger added a ninth, ``get_cash_balances``, on 2026-11-25); ``unused``
-names such tools. A field the ledger required once and no longer requires
-is no difference either; ``no_longer_required`` names such fields, so that
-they are said. The ledger tier of the checks
-(``scripts/ledger_link_check.py``) runs them against the real link, so a
-change to the ledger's tools turns that tier red.
+names such tools. The tenth, ``list_exchange_rates`` (2026-11-27, the
+ledger's dev 1b016ec), is asked by the program itself and is not among the
+eight either, so an older ledger without it still fits; ``rate_tool``
+says whether the ledger has it and, when it does, where it does not take
+the fields this program may send it (``RATE_FIELDS``). A field the ledger
+required once and no longer requires is no difference either;
+``no_longer_required`` names such fields, so that they are said. The
+ledger tier of the checks (``scripts/ledger_link_check.py``) runs them
+against the real link, so a change to the ledger's tools turns that tier
+red.
 
 This module only compares data handed to it. It starts and reads nothing.
 
 Names defined here: ``EXPECTED_TOOLS``, ``SENT_FIELDS``, ``TOP``,
-``required_fields``, ``taken_fields``, ``differences``, ``unused`` and
-``no_longer_required``.
+``RATE_FIELDS``, ``required_fields``, ``taken_fields``, ``differences``,
+``unused``, ``no_longer_required`` and ``rate_tool``.
 """
 
 from __future__ import annotations
@@ -99,6 +104,14 @@ SENT_FIELDS: Mapping[str, Mapping[str, frozenset[str]]] = MappingProxyType(
         "get_proposal_status": {TOP: frozenset({"proposalId"})},
     }
 )
+
+
+# The fields of the ledger's tool for exchange rates, as the ledger's dev 1b016ec
+# names them; this program sends the first two, endDate and pageToken.
+RATE_FIELDS = frozenset(
+    {"currencyAssetId", "otherCurrencyAssetId", "startDate", "endDate", "pageToken"}
+)
+_RATE_TOOL = "list_exchange_rates"
 
 
 def _nested(schema: Mapping[str, Any]) -> dict[str, Mapping[str, Any]]:
@@ -185,3 +198,27 @@ def no_longer_required(tools: Sequence[Mapping[str, Any]]) -> list[str]:
 def unused(tools: Sequence[Mapping[str, Any]]) -> list[str]:
     """The names of the tools the link lists that this program does not use, in its order."""
     return [str(tool.get("name")) for tool in tools if tool.get("name") not in EXPECTED_TOOLS]
+
+
+def rate_tool(tools: Sequence[Mapping[str, Any]]) -> tuple[bool, list[str]]:
+    """Whether ``tools`` hold the ledger's tool for exchange rates, and where it differs.
+
+    A ledger without it is no difference: rates are then compared with the
+    last trade paid the same way, as before. With it, each field of
+    ``RATE_FIELDS`` it does not take, and each it requires that this
+    program does not send, is one difference.
+    """
+    found = next((tool for tool in tools if tool.get("name") == _RATE_TOOL), None)
+    if found is None:
+        return False, []
+    schema = found.get("inputSchema") or {}
+    taken = taken_fields(schema).get(TOP, frozenset())
+    required = required_fields(schema).get(TOP, frozenset())
+    words: list[str] = []
+    not_taken = RATE_FIELDS - taken
+    if not_taken:
+        words.append(f"{_RATE_TOOL} does not take {sorted(not_taken)}")
+    not_sent = required - RATE_FIELDS
+    if not_sent:
+        words.append(f"{_RATE_TOOL} requires {sorted(not_sent)}, which this program never sends")
+    return True, words

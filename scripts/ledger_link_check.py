@@ -15,8 +15,11 @@ sends; it is listed too. No ledger page is needed and none is connected;
 nothing is proposed or read from any ledger. It also reads the error table
 of the ledger's ``assistant-link/README.md`` and checks that every code is on
 one of the real ledger plug's two tables
-(``ledger_hand.ledger.link_ledger.codes_on_no_table``). When the ledger's
-tools or codes change, this step fails and says where.
+(``ledger_hand.ledger.link_ledger.codes_on_no_table``). It says whether the
+ledger has the tool for exchange rates (``list_exchange_rates``, its dev
+1b016ec); one without it passes, one with it must take the five fields
+this program may send it. When the ledger's tools or codes change, this
+step fails and says where.
 
 Where the ledger is comes from ``--ledger PATH`` or else from the environment
 variable ``LEDGER_HAND_LEDGER_DIR``, as for the first step of the tier. The
@@ -49,6 +52,7 @@ from ledger_hand.ledger.link_tools import (
     EXPECTED_TOOLS,
     differences,
     no_longer_required,
+    rate_tool,
     required_fields,
     unused,
 )
@@ -122,6 +126,18 @@ def report(tools: Sequence[Mapping[str, object]]) -> list[str]:
     return differences(tools)
 
 
+def rate_report(tools: Sequence[Mapping[str, object]]) -> list[str]:
+    """Print whether the ledger has the tool for exchange rates; where it differs, if it does."""
+    has_rates, found = rate_tool(tools)
+    if not has_rates:
+        print("the ledger has no list_exchange_rates: rates go by the last trade paid the same way")
+    elif not found:
+        print("the ledger has list_exchange_rates, and it takes every field this program sends")
+    for difference in found:
+        print(f"  DIFFERENT: {difference}")
+    return found
+
+
 def check(ledger: Path, environ: Mapping[str, str]) -> Outcome:
     """Start the link in ``ledger``, compare its tools, and say whether all went as expected."""
     clean_before = clean(ledger, "before")
@@ -142,6 +158,7 @@ def check(ledger: Path, environ: Mapping[str, str]) -> Outcome:
         print(f"the ledger has, this program does not use: {', '.join(extra)}")
     for line in no_longer_required(tools):
         print(f"the ledger no longer requires, this program still sends: {line}")
+    rate_differences = rate_report(tools)
     unsorted = codes_on_no_table(
         (ledger / "assistant-link" / "README.md").read_text(encoding="utf-8")
     )
@@ -150,7 +167,7 @@ def check(ledger: Path, environ: Mapping[str, str]) -> Outcome:
     if not unsorted:
         print("every error code of the ledger's README is on one of the plug's two tables")
     clean_after = clean(ledger, "after")
-    passed = clean_before and clean_after and not found and not unsorted
+    passed = clean_before and clean_after and not found and not unsorted and not rate_differences
     return Outcome.PASSED if passed else Outcome.FAILED
 
 
