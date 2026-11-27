@@ -50,6 +50,7 @@ from tests.fakes.routed_model import RoutedModel
 from tests.fakes.scripted_model import scripted_record
 from tests.fakes.usdt_only import usdt_only_ledger
 from tests.flows.scripted_flow import row, screened, table
+from tests.folder_lock import allow_writing_on_windows, refuse_writing_on_windows
 from tests.ui.app_harness import APP_FILE
 from tests.ui.assistant_harness import (
     CountingBook,
@@ -206,7 +207,9 @@ def locked(tmp_path: Path) -> Iterator[Path]:
     folder = tmp_path / "locked"
     folder.mkdir()
     folder.chmod(stat.S_IRUSR | stat.S_IXUSR)
+    refuse_writing_on_windows(folder)  # Windows ignores the write bit on a folder
     yield folder
+    allow_writing_on_windows(folder)
     folder.chmod(stat.S_IRWXU)
 
 

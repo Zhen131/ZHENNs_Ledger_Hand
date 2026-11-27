@@ -25,6 +25,7 @@ from ledger_hand.core.book import ExportMark, Listing
 from ledger_hand.ports import StorageError, StorageErrorKind
 from ledger_hand.storage.book_file import APPLICATION_ID, BOOK_VERSION, expected_schema
 from ledger_hand.storage.sqlite_store import SqliteStore
+from tests.folder_lock import allow_writing_on_windows, refuse_writing_on_windows
 from tests.storage.invented import SAVED_AT, passage, records, stored
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -308,6 +309,7 @@ def read_only_folder(tmp_path: Path) -> Iterator[Path]:
     folder = tmp_path / "read-only"
     folder.mkdir()
     yield folder
+    allow_writing_on_windows(folder)
     folder.chmod(stat.S_IRWXU)
 
 
@@ -315,6 +317,7 @@ def test_a_new_book_in_a_folder_that_cannot_be_written_is_inaccessible(
     read_only_folder: Path,
 ) -> None:
     read_only_folder.chmod(stat.S_IRUSR | stat.S_IXUSR)
+    refuse_writing_on_windows(read_only_folder)  # Windows ignores the write bit on a folder
 
     for name, outcome in every_operation(book_at(read_only_folder / "book.sqlite3")):
         assert isinstance(outcome, StorageError), name
@@ -329,6 +332,7 @@ def test_a_book_in_a_folder_that_cannot_be_written_is_read_but_never_written(
     saved_book(book)
     before = book.read_bytes()
     read_only_folder.chmod(stat.S_IRUSR | stat.S_IXUSR)
+    refuse_writing_on_windows(read_only_folder)  # Windows ignores the write bit on a folder
 
     outcomes = dict(every_operation(book_at(book)))
 

@@ -28,6 +28,7 @@ from ledger_hand.ports import StorageError, StorageErrorKind
 from ledger_hand.storage import book_file
 from ledger_hand.storage.book_file import APPLICATION_ID, BOOK_VERSION, expected_schema
 from ledger_hand.storage.sqlite_store import SqliteStore
+from tests.folder_lock import allow_writing_on_windows, refuse_writing_on_windows
 from tests.storage.invented import SAVED_AT, passage, records, stored
 from tests.storage.test_sqlite_store import (
     another_programs_database,
@@ -334,6 +335,7 @@ def read_only_folder(tmp_path: Path) -> Iterator[Path]:
     folder = tmp_path / "read-only"
     folder.mkdir()
     yield folder
+    allow_writing_on_windows(folder)
     folder.chmod(stat.S_IRWXU)
 
 
@@ -344,6 +346,7 @@ def test_a_rollback_in_a_folder_that_cannot_be_written_fails_as_the_ports_error(
     saved_book(book)
     cut_off_a_write(book, *BOOK_CHANGES)
     read_only_folder.chmod(stat.S_IRUSR | stat.S_IXUSR)
+    refuse_writing_on_windows(read_only_folder)  # Windows ignores the write bit on a folder
 
     for name, outcome in each_operation(book):
         assert isinstance(outcome, StorageError), name

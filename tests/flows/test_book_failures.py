@@ -24,6 +24,7 @@ from ledger_hand.ports import StorageError, StorageErrorKind
 from ledger_hand.storage.sqlite_store import SqliteStore
 from tests.fakes.routed_model import RoutedModel
 from tests.flows.scripted_flow import NOW, ZONE, begin, row, screened, table
+from tests.folder_lock import allow_writing_on_windows, refuse_writing_on_windows
 
 SPOT = screened(("spot_trade", "买了 0.5 ETH"))
 PASSAGE = "昨天买了 0.5 ETH，价格 3,420，手续费 0"
@@ -64,9 +65,11 @@ def cut_short(path: Path) -> Iterator[SqliteStore]:
 @contextmanager
 def in_a_folder_that_cannot_be_written(path: Path) -> Iterator[SqliteStore]:
     path.parent.chmod(stat.S_IRUSR | stat.S_IXUSR)
+    refuse_writing_on_windows(path.parent)  # Windows ignores the write bit on a folder
     try:
         yield SqliteStore(path, busy_timeout_seconds=0.05)
     finally:
+        allow_writing_on_windows(path.parent)
         path.parent.chmod(stat.S_IRWXU)
 
 

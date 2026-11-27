@@ -8,6 +8,7 @@ import pytest
 
 from ledger_hand.flows import export_file
 from ledger_hand.flows.export_file import NotWritten, WriteProblem, write_new_file
+from tests.folder_lock import allow_writing_on_windows, refuse_writing_on_windows
 
 TEXT = '{\n  "invented": "日本語 and English",\n  "number": "0.02"\n}\n'
 
@@ -53,9 +54,11 @@ def test_a_folder_that_cannot_be_written_into_gets_nothing(tmp_path: Path) -> No
     folder = tmp_path / "exports"
     folder.mkdir()
     folder.chmod(0o500)
+    refuse_writing_on_windows(folder)  # Windows ignores the write bit on a folder
     try:
         outcome = write_new_file(folder, "file.json", TEXT)
     finally:
+        allow_writing_on_windows(folder)
         folder.chmod(0o700)
 
     assert isinstance(outcome, NotWritten)

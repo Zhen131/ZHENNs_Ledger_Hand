@@ -62,6 +62,7 @@ from tests.flows.test_conversation_screenshot import (
     from_reading,
     typed,
 )
+from tests.folder_lock import allow_writing_on_windows, refuse_writing_on_windows
 
 MODEL = "invented-model"
 
@@ -277,7 +278,9 @@ def locked(tmp_path: Path) -> Iterator[Path]:
     folder = tmp_path / "locked"
     folder.mkdir()
     folder.chmod(stat.S_IRUSR | stat.S_IXUSR)
+    refuse_writing_on_windows(folder)  # Windows ignores the write bit on a folder
     yield folder
+    allow_writing_on_windows(folder)
     folder.chmod(stat.S_IRWXU)
 
 
@@ -300,10 +303,12 @@ def test_a_full_file_in_a_folder_that_cannot_be_written_is_left_as_it_is(
     locked: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(assistant_record, "KEPT_AT_MOST", 1)
+    allow_writing_on_windows(locked)
     locked.chmod(stat.S_IRWXU)
     place = locked / "assistant-record.jsonl"
     place.write_bytes(a_line())
     locked.chmod(stat.S_IRUSR | stat.S_IXUSR)
+    refuse_writing_on_windows(locked)  # Windows ignores the write bit on a folder
 
     kept = keep(place, an_entry())
 
