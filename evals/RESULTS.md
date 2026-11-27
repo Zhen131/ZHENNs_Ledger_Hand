@@ -10437,3 +10437,46 @@ one that differs.
 The fixed moment of the changes sets is 2026-11-24, in 2026, so a date the
 model puts this year to would be let through there; it put no year to any
 date on either set, before or after.
+
+## 2026-11-27: three figures that do not agree sent as said, `qwen2.5:7b`
+
+Measured before and after on Windows 11, Ollama 0.40.16, `qwen2.5:7b`
+(fingerprint `845dbda0ea48…`), temperature 0, `first-3` and `assistant-5`.
+Before is `b72884f`; after is `9c1081d`. Work tree clean both times. Only
+the practice halves were run; no hidden half was run or read. The change
+measured: when quantity, price and total are all said and do not agree, all
+three are sent as said, none left empty, all three marked suspicious, and
+the exam book, like the ledger since its `dev` at `3f4223e`, keeps such a
+card from being saved instead of taking it as ready.
+
+| Ruler | Before | After | Results before | Results after |
+| --- | --- | --- | --- | --- |
+| Final set (`judged_run --screen screen-2 --extract first-3 --hold-other-unit --tidy --final-exam`) | 22 of 22 whole, 0 wrong with nothing said | 22 of 22, 0 | `judged-20261127T170732Z-final-screen-2-first-3-hold-tidy.jsonl` | `judged-20261127T173115Z-final-screen-2-first-3-hold-tidy.jsonl` |
+| `stock_run` | 16 of 18, 0 silently wrong | 16 of 18, 0 | `run-20261127T170753Z-stocks-assistant-5.jsonl` | `run-20261127T173134Z-stocks-assistant-5.jsonl` |
+| `edit_run`, `edits.json` | 14 of 17, 0 wrong | 13 of 17, 0 wrong (run again: 13, 0) | `run-20261127T170817Z-edits-assistant-5.jsonl` | `run-20261127T173157Z-edits-assistant-5.jsonl`, `run-20261127T173341Z-edits-assistant-5.jsonl` |
+| `edit_run`, `spoken-edits-practice.json` | 4 of 4 | 4 of 4 | `run-20261127T170826Z-spoken-edits-practice-assistant-5.jsonl` | `run-20261127T173206Z-spoken-edits-practice-assistant-5.jsonl` |
+
+The one sentence of `edits.json` done before and not after is N7 ("Delete
+the trade from October 6"): the model wrote the date as "10月6号" and then
+answered in Spanish, so nothing was proposed and nothing wrong was sent. It
+touches no trade with three figures. Run once more on the code before
+(`src/` and `evals/` of `b72884f`, outside the repository), N7 came out the
+same, 13 of 17: the model answering differently from run to run, not the
+change.
+
+The three tiers, practice halves (`spoken_run --extract first-3`):
+
+| Tier | Before: ① / ①a / ①b / ② / ③ / ④ rightly / ⑤ | After | Results before | Results after |
+| --- | --- | --- | --- | --- |
+| r100 | 6 / 0 / 1 / 1 / 1 / 6 / 0 | 6 / 0 / 1 / 1 / 1 / 6 / 0 | `spoken-20261127T170828Z-…-r100-practice-…` | `spoken-20261127T173208Z-…-r100-practice-…` |
+| r80 | 4 / 1 / 1 / 6 / 1 / 1 / 1 | 4 / 1 / 1 / 6 / 1 / 1 / 1 | `spoken-20261127T170857Z-…-r80-practice-…` | `spoken-20261127T173236Z-…-r80-practice-…` |
+| r70 | 8 / 3 / 1 / 0 / 2 / 0 / 0 | 9 / 3 / 1 / 0 / 1 / 0 / 0 | `spoken-20261127T170923Z-…-r70-practice-…` | `spoken-20261127T173301Z-…-r70-practice-…` |
+
+Two sentences carried the three-figures mark, before and after: R100-03
+(its total sent empty before, 200 as said after; its fee left empty both
+times) and R80-13 (its total sent empty before, 60 as said after, now
+every cell right). Both are ② before and after; no ruler was changed. No
+sentence sent before went unsent after. On r70, R70-09 came out ③ before
+and ① after; it has no three figures that disagree, and it went both ways
+in the runs of the sections above, so it is the model answering
+differently.
