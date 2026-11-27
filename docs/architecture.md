@@ -31,6 +31,8 @@ docs/                     documentation                                         
     architecture.md       this file                                                   (exists)
     known-gaps.md         known limits, each waiting for a decision                   (exists)
     project-report.md     the project described for a reader new to it                (exists)
+    choosing-a-model.md   which model for which machine, from one comparison          (exists)
+    walkthrough-with-the-ledger-page.md one walk from the Assistant page to Save on a ledger page (exists)
 scripts/                  scripts outside the package                                 (exists)
     check.sh              every check, one tier at a time: quick, ledger, live, cloud (exists)
     ledger_check.py       the ledger tier, with ledger_validate.ts and ledger_offsets.ts (exists)
@@ -38,6 +40,9 @@ scripts/                  scripts outside the package                           
     try_extraction.py     try extraction by hand with the real model                  (exists)
     try_screenshot.py     try a screenshot by hand: the text read, then the drafts    (exists)
     try_assistant.py      try the assistant by hand: every step, with the fake ledger (exists)
+    try_ledger_link.py    try the ledger's assistant link by hand, with no model      (exists)
+    ledger_link_check.py  the ledger tier's second step: the link lists the tools expected (exists)
+    capture_ledger_samples.py what the real ledger answers through its link, one sample a case (exists)
     cloud_balance.py      the money left on the DeepSeek account, one line a money    (exists)
 data/                     run-time output: the book, the export files and the assistant's record; never in Git
 src/ledger_hand/
@@ -49,6 +54,7 @@ src/ledger_hand/
         assets.py             the asset table: what may be traded, the money to price it in (exists)
         ledger_table.py       the asset table and the asset names the ledger's own list makes (exists)
         stock_names.py        common companies' Chinese names to codes; a name matched whole (exists)
+        chinese.py            whether words hold a Chinese character                  (exists)
         asset_words.py        share, coin or asset: the word said for a trade's asset (exists)
         cash_words.py         the words that tell a question about cash; a figure beside a money (exists)
         money_asks.py         money moved said that is recorded by hand; a balance asked of any money (exists)
@@ -59,6 +65,7 @@ src/ledger_hand/
         spoken_text.py        words said tidied: number words and a time in digits, each change checked (exists)
         validation.py         validation; which fields are still missing              (exists)
         zones.py              which time zone names are taken                         (exists)
+        other_zone.py         whether the user named another time zone than the ledger's (exists)
         stored.py             a saved trade: record, identifier, two moments          (exists)
         book.py               what the book keeps beside a saved trade; listings      (exists)
         passage_form.py       a passage in the form it is compared in                 (exists)
@@ -68,6 +75,7 @@ src/ledger_hand/
         proposals.py          the ledger's answer to a proposal, and where one stands (exists)
         price_check.py        a trade's price against the ledger's market price       (exists)
         cost_rate.py          the rate of a trade paid in another money, compared and marked (exists)
+        ledger_rate.py        the ledger's own exchange rates: one picked, a rate compared with it (exists)
         marks.py              the marks on a trade's cells: worked out, assumed, suspicious (exists)
         trade_card.py         a trade proposed with cells left empty, and its marks as sent (exists)
         card_record.py        a card's cells kept, left empty or doubted; why a cell is doubted (exists)
@@ -83,6 +91,7 @@ src/ledger_hand/
         unit_currency.py      which currency a unit word names                        (exists)
         issues.py             what was left empty and what to look at                 (exists)
         prompting.py          what a prompt version is, its reply table; its messages (exists)
+        prompt_language.py    which extraction prompt a passage is read with, by its Chinese (exists)
         prompts/              prompt versions, one file per version, examples beside  (exists)
             first.py              extraction, few-shot: the version the product uses  (exists)
             first_examples.py     the ten invented examples of `first`                (exists)
@@ -212,6 +221,7 @@ src/ledger_hand/
         cash_question.py      a question about cash caught before the model; the fixed words (exists)
         cash_answers.py       the ledger's cash balances answered; money moved said truthfully (exists)
         paid_apart.py         a trade paid in another money than its asset's own: when, and how (exists)
+        ledger_rates.py       the ledger's exchange rates, asked once for each pair of moneys (exists)
         said_price_asking.py  the price in the asset's own money asked and read by the program (exists)
     settings.py           the only place that reads settings; why each default, as data (exists)
     wiring.py             builds the parts from the settings, page changes, the clock and the zone (exists)
@@ -247,7 +257,7 @@ src/ledger_hand/
         assistant_record_words.py  what the pages say about the assistant's record     (exists)
         record_panel.py       the Settings page's part on the assistant's record; clearing it (exists)
 evals/                    prompt experiments: test sentences, scoring, runner, results (exists)
-    sets/                 the test sentences with gold answers: debug, final, writings, voice, tools, asks, asks_times, edits, stocks (exists)
+    sets/                 the test sentences with gold answers: debug, final, writings, voice, tools, asks, asks_times, edits, stocks, stock_names, cash, spoken (exists)
     gold.py               the shapes of a sentence and its gold answer             (exists)
     coverage.py           what the sentences cover                                 (exists)
     writings.py           the writings set: hard ways of writing a number          (exists)
@@ -277,6 +287,17 @@ evals/                    prompt experiments: test sentences, scoring, runner, r
     stock_set.py          the sentences recording a share bought with dollars; judged by code (exists)
     stock_run.py          the runner of that measure, each sentence said once     (exists)
     judged_run.py         the extraction sets (and the voice set) through the start of recording, judging and all; tidied first on request (exists)
+    exam_book.py          the exam book: the demo book and the trades the exam needs  (exists)
+    spoken_set.py         the sentences said the owner's way, three tiers, and their gold (exists)
+    spoken_judge.py       one sentence said the owner's way judged into one ending a trade (exists)
+    spoken_tally.py       the counts of one run of those sentences, and their tables  (exists)
+    spoken_run.py         the runner of that measure, each sentence said once         (exists)
+    hidden_runs.py        the log of every run of a hidden half, only ever added to   (exists)
+    name_set.py           the names set: shares and coins named the way people say them (exists)
+    name_table_run.py     the program's own matching of names, on the names set       (exists)
+    cash_run.py           the sentences about cash said to the assistant; two runs compared (exists)
+    cash_balances_run.py  cash balances asked and money moved said, judged            (exists)
+    cash_figures.py       whether the model's words hold a figure no table gave       (exists)
     tool_results/         one results file per run of those measures, and the recording runs (exists)
     RESULTS.md            the results record                                       (exists)
 tests/                    mirrors src; also holds the guardrails, fakes and golden samples  (exists)
@@ -658,8 +679,11 @@ address, its key, and no thinking asked for. That check is made where the
 plug is built rather than where the settings are read, so that every
 variable is still read on its own; settings that do not fit are a
 `SettingsError` naming the variable to set. With either cloud plug, nothing
-a service answered goes into an error that is not a reply, and a failed
-connection is said without its own words: DeepSeek writes the last four
+a service answered goes into an error, not even the start of a reply with
+status 200 that could not be read, and a failed connection is said without
+its own words; a server error with no sentence of its own (500, 503, 422,
+or no status) is said as that service's error, not with the local plug's
+sentence about the server's own log (`ui/failure_words.py`): DeepSeek writes the last four
 characters of a refused key back, which the hiding cannot find. When
 DeepSeek turns a call down for want of the word "json" in the prompt
 (status 400, the error saying "json", the call carrying `response_format`),
