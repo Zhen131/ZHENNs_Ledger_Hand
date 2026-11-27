@@ -24,7 +24,9 @@ With a cloud plug (cloud, or a service such as deepseek), ``CLOUD_FAILURES``
 is looked up before all of these, by kind and status code, then by kind:
 it speaks of the service and the internet, not of Ollama, names the
 variable that service's key is read from, and says plainly that nothing
-was sent to the local model instead. No sentence there quotes what the
+was sent to the local model instead. A server error with no status of its
+own there (500, 503, 422, none at all) is said as the service's error, not
+with the local sentence that sends you to the server's own log. No sentence there quotes what the
 service answered: a service may write the key back in a form that cannot
 be hidden. A model failure is never followed by a call to another model:
 the program says what happened and stops.
@@ -194,6 +196,12 @@ CLOUD_FAILURES: Mapping[tuple[ModelErrorKind, int | None], str] = MappingProxyTy
         ),
         (ModelErrorKind.RATE_LIMITED, None): (
             "{service} turned the call away because it was called too often. Wait a little, "
+            f"then try again. {_NOT_LOCAL}"
+        ),
+        # Every server error with no sentence above: 500, 502, 503, a 404 that is not a
+        # missing model, 422 and the like, and one with no status at all.
+        (ModelErrorKind.SERVER_ERROR, None): (
+            "{service} at {address} reported an error of its own{status}. Wait a while, "
             f"then try again. {_NOT_LOCAL}"
         ),
     }
