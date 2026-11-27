@@ -55,6 +55,15 @@ for _ in range(100):
     connection.execute("INSERT INTO cut_off VALUES (?)", ("x" * 2000,))
 os.kill(os.getpid(), signal.SIGKILL)
 """
+# The exit status of a child killed that way.
+if sys.platform == "win32":
+    # Windows has no SIGKILL. There os.kill with SIGTERM is TerminateProcess:
+    # the process ends at once, with no clean-up, and the signal's number is
+    # its exit status. macOS and Linux keep SIGKILL and -9.
+    CUT_OFF_WRITE = CUT_OFF_WRITE.replace("signal.SIGKILL", "signal.SIGTERM")
+    KILLED = signal.SIGTERM
+else:
+    KILLED = -signal.SIGKILL
 
 # What the cut-off write changes in a book before it is killed.
 BOOK_CHANGES = (
@@ -94,7 +103,7 @@ def cut_off_a_write(book: Path, *statements: str) -> None:
 
     done = subprocess.run([sys.executable, "-c", CUT_OFF_WRITE, str(book), *statements])
 
-    assert done.returncode == -signal.SIGKILL
+    assert done.returncode == KILLED
     assert book.read_bytes() != before, "the write changed nothing in the book itself"
     assert journal_of(book).is_file()
     assert read_only_failure(book) == READONLY_ROLLBACK
@@ -190,7 +199,7 @@ def new_book_cut_off_while_it_was_being_made(book: Path) -> None:
     empty = scratch / "empty.sqlite3"
     empty.write_bytes(b"")
     done = subprocess.run([sys.executable, "-c", CUT_OFF_WRITE, str(empty)])
-    assert done.returncode == -signal.SIGKILL
+    assert done.returncode == KILLED
     book_at(book).trades(Listing.ALL)
     shutil.copyfile(journal_of(empty), journal_of(book))
     shutil.rmtree(scratch)
