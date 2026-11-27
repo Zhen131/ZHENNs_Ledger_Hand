@@ -34,7 +34,15 @@ wrong on the stock and change sets: the mistake a person would not see.
 
 The cloud costs are the change in the DeepSeek balance over the whole run
 of 183 sentences, retries included, at off-peak hours; DeepSeek charges
-more at peak hours. Thinking was turned off for every model that can
+more at peak hours. That price list was read from DeepSeek's own pricing
+page on 2026-11-27, and which column, peak or off-peak, applied to these
+runs was not checked item by item; what was spent is taken from the
+balance before and after (`scripts/cloud_balance.py`). Read right after
+both runs, the balance had dropped by 0.88 CNY in all; read again a while
+later, it was 0.18 CNY lower still. The balance shows charges a few
+minutes late, so this was most likely a charge for the same runs arriving
+late, though that is a guess; it may have been spent elsewhere with the
+same key. Thinking was turned off for every model that can
 think (`LEDGER_HAND_MODEL_THINK=off` on this machine; DeepSeek's plug turns
 it off always). The program's default for that setting, `model`, leaves it
 to each model; with it, `gemma4:12b`, `qwen3:8b` and both `qwen3.5` models
@@ -56,7 +64,12 @@ fewest mistakes that nothing points out, and the final set, which runs
 through the Record page, is whole with it; it is also the smallest of them
 but one. If the Assistant page matters most, `gemma4:12b` is the one to try
 next: it made no silent mistake on the exam said the owner's way, but five
-on the final set, and it is close to the memory line.
+on the final set, and it is close to the memory line. One weakness of the
+default shows on the hidden halves, which are not used to rank: on the
+tier said the owner's way, `qwen2.5:7b` had 2 trades with a wrong figure
+and no mark, where `gemma4:12b` and both DeepSeek models had none
+(`evals/RESULTS.md`, the totals of "2026-11-27: eight models on the same
+rulers").
 
 **If privacy does not matter and the best results do, use
 `deepseek-v4-pro`.** It made as few silent mistakes as the default,
