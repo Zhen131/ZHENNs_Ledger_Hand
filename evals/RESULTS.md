@@ -10301,3 +10301,98 @@ committed. The other four rulers also give the Mac's totals. One practice
 sentence of `r80`, R80-23 (a payment in euros), came back with no reply
 the program could use (`malformed_reply`), ⑤, as in every run on the Mac
 since `assistant-5`.
+
+## 2026-11-27: names of assets matched by the program's table and by answers kept, `qwen2.5:7b`
+
+The assistant now matches a name of an asset the ledger's list does not
+know itself, with no call to the model: by the user's earlier answers kept
+in `asset-names.json`, then by a table of 80 common company names listed in
+the United States (`core/stock_names.py`), whole names only, once a
+trailing word for a share or a company is cut off. Measured on Windows 11,
+Ollama 0.40.16, `qwen2.5:7b` (fingerprint `845dbda0ea48…`), temperature 0,
+`first-3` and `assistant-5`; the demo book, the set's fixed moment. The
+table was not changed after any measure below. The model's own pick stays
+off throughout.
+
+The names set (`evals.name_table_run`), the table on, no file of answers.
+Before the table (the code of the previous section), every name on the
+list was asked about: on the practice half, directly and through the
+whole assistant, 0 of 11 on the list matched, 11 of 11 off the list right,
+0 wrong.
+
+| Half | Way | On the list: right / wrong / not matched / not measured | Off the list: right / wrong / not matched / not measured | Commit | Results |
+| --- | --- | --- | --- | --- | --- |
+| practice | direct | 9 / 0 / 2 / 0 | 11 / 0 / 0 / 0 | `6ab238b` | `run-20261127T153733Z-stock_names-table-direct-practice.jsonl` |
+| practice | whole | 7 / 0 / 4 / 0 | 10 / 1 / 0 / 0 | `6ab238b` | `run-20261127T153755Z-stock_names-table-whole-practice.jsonl` |
+| locked | direct | 9 / 0 / 2 / 0 | 11 / 0 / 0 / 0 | `db2f74d` | `run-20261127T154247Z-stock_names-table-direct-hidden.jsonl` (counts alone) |
+| locked | whole | 7 / 0 / 4 / 0 | 11 / 0 / 0 / 0 | `db2f74d` | `run-20261127T154253Z-stock_names-table-whole-hidden.jsonl` (counts alone) |
+
+The practice half, sentence by sentence, through the whole assistant:
+
+| Sentence | Words | Gold | Came of it | Verdict |
+| --- | --- | --- | --- | --- |
+| N01 | 微软 | MSFT | matched MSFT by the table, sent | right |
+| N03 | 英特尔的股票 | INTC | matched INTC, sent | right |
+| N05 | 可口可乐 | KO | matched KO, sent | right |
+| N07 | 苹果公司 | AAPL | matched AAPL, sent | right |
+| N09 | 英伟达 | NVDA | the extraction left the asset cell empty; asked | not matched |
+| N11 | 百事可乐 | PEP | not in the table (a drink, not the company); asked | not matched |
+| N13 | 百事公司 | PEP | matched PEP, sent | right |
+| N15 | 微软公司 | MSFT | matched MSFT, sent | right |
+| N17 | Coca Cola | KO | not in the table; asked | not matched |
+| N19 | 英伟达公司 | NVDA | the asset cell empty; asked | not matched |
+| N21 | 苹果的股票 | AAPL | matched AAPL, sent | right |
+| X01 | 雪碧 | none | asked | right |
+| X03 | 英飞凌 | none | asked | right |
+| X05 | 微博 | none | the table gives WB, not in the ledger: told to add it | right |
+| X07 | 以太坊经典 | none | asked | right |
+| X09 | 微软的期权 | none | stopped | right |
+| X11 | 英伟达两倍做多ETF | none | asked | right |
+| X13 | 微软和英特尔 | none | split by the extraction into two trades, 微软 and 英特尔 each matched, MSFT and INTC sent | wrong |
+| X15 | 特斯拉 | none | the table gives TSLA, not in the ledger: told to add it | right |
+| X17 | 茅台 | none | asked | right |
+| X19 | 腾讯 | none | asked | right |
+| X21 | 狗狗币 | none | not in the ledger, told | right |
+
+Directly, the practice half had no wrong sentence: N11 and N17 are not in
+the table, and every other on the list matched. X13 is the one wrong
+sentence; the only change the rules allow on the practice half, taking
+out rows or trailing words, would have meant taking out 微软 and 英特尔
+themselves, so no row was changed.
+
+The exam said the owner's way, with the table on and no file of answers
+(`spoken_run --extract first-3`), against the previous section's figures
+(the same code before the table). The new count, the trades whose asset the
+program matched as another than the gold one:
+
+| Tier | Half | ① | ①a | ③ | asset matched wrong | Before: ① / ①a / ③ | Results |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| r100 | practice | 6 | 0 | 1 | 0 | 6 / 0 / 1 | `spoken-20261127T154013Z-spoken-r100-practice-first-3-assistant-5.jsonl` |
+| r80 | practice | 5 | 0 | 1 | 0 | 4 / 1 / 1 | `spoken-20261127T154045Z-spoken-r80-practice-first-3-assistant-5.jsonl` |
+| r70 | practice | 11 | 0 | 2 | 0 | 8 / 3 / 2 | `spoken-20261127T154110Z-spoken-r70-practice-first-3-assistant-5.jsonl` |
+| r100 | hidden | 4 | 0 | 2 | 0 | 4 / 0 / 2 | not in the repository |
+| r80 | hidden | 7 | 0 | 0 | 1 | 7 / 0 / 0 | not in the repository |
+| r70 | hidden | 8 | 0 | 0 | 3 | 6 / 2 / 0 | not in the repository |
+
+The other rulers, the table on: the final set 22 of 22 whole, 0 wrong with
+nothing said (`judged-20261127T154133Z-final-screen-2-first-3-hold-tidy.jsonl`);
+`stock_run` 16 of 18, 0 silently wrong (`run-20261127T154153Z-stocks-assistant-5.jsonl`);
+`edit_run` 14 of 17, 0 wrong (`run-20261127T154217Z-edits-assistant-5.jsonl`);
+the spoken changes, practice half, 4 of 4
+(`run-20261127T154226Z-spoken-edits-practice-assistant-5.jsonl`). Each the
+same as before.
+
+So the way back was taken: one practice sentence wrong, and four trades on
+the hidden halves matched as another asset than the gold one (only the
+counts were read; which sentences they are is not known, and a sentence not
+enabled whose gold has no trade counts there too). The table is off by
+default (`LEDGER_HAND_NAME_TABLE`, `ASSISTANT_NAME_TABLE`); its code, the
+table and the tests stay. The answers kept stay on: no ruler hands in a
+file of answers, so they were not measured with the real model, only by
+tests with a scripted model and one walk through by hand. With both off,
+every byte sent to the model and said is as before the table
+(`tests/flows/test_names_off_as_before.py`), so the rulers above need no
+second run at the table off. The hidden halves' results files, and the
+lines their runs added to `hidden-runs.log`, are kept outside the
+repository, unopened, until it is decided whether such files are
+committed.
