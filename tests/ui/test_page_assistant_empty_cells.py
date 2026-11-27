@@ -3,7 +3,7 @@
 The page runs headless with the demo ledger taking cards, as the real
 ledger does now, and a scripted model. A cell left empty reads ``none``,
 the card says which cells to fill in on the ledger's page, and three
-figures that do not agree show three suspicious cells, the total empty.
+figures that do not agree show three suspicious cells, the total as said.
 Nothing on the card can change the trade. Every sentence and figure is
 invented.
 """
@@ -62,12 +62,12 @@ def test_the_table_of_what_was_sent_says_the_card_waits_to_be_filled_in() -> Non
     assert cell.startswith("waiting (proposal-1); fill in fee, feeAssetId")
 
 
-def test_three_figures_that_disagree_show_three_suspicious_cells_and_the_total_empty() -> None:
+def test_three_figures_that_disagree_show_three_suspicious_cells_and_the_total_said() -> None:
     page = said_on_page(SOL_200, SOL_200_ROW, demo_ledger().taking_cards())
 
     for label in ("Quantity", "Price", "Total"):
         assert markdown_of(page, cell_key(1, 1, label)) == [SUSPICIOUS_TAG], label
     total = texts_of(page, cell_key(1, 1, "Total"))
-    assert total[0] == "Total: none USDT"
+    assert total[0] == "Total: 200 USDT"
     assert "200 USDT" in total[1] and "does not guess which is wrong" in total[1]
     assert TAGS[MarkKind.SUSPICIOUS] == SUSPICIOUS_TAG

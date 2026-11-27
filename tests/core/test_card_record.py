@@ -205,10 +205,14 @@ def test_two_figures_said_work_out_the_third() -> None:
 # --- three figures that do not agree, and a fee not below the quantity ----------------------
 
 
-def test_three_figures_that_disagree_keep_quantity_and_price_and_empty_the_total() -> None:
+def test_three_figures_that_disagree_are_all_kept_as_said() -> None:
     card = made(draft(quantity=Decimal("0.094326"), price=Decimal("212.03"), total=Decimal("200")))
 
-    assert (card.quantity, card.price, card.total) == (Decimal("0.094326"), Decimal("212.03"), None)
+    assert (card.quantity, card.price, card.total) == (
+        Decimal("0.094326"),
+        Decimal("212.03"),
+        Decimal("200"),
+    )
     reasons = {doubt(card, field) for field in (Field.QUANTITY, Field.PRICE, Field.TOTAL_VALUE)}
     (reason,) = reasons
     assert Doubt.of(reason) is Doubt.DISAGREE

@@ -21,10 +21,12 @@ Cell by cell:
 - quantity, price, total: each said and sound is kept; one said but not
   above zero, or with more digits than the ledger holds, is left empty
   and doubted; with two said and sound, the third is worked out as for a
-  record; with three that do not agree, the total is left empty and all
-  three are doubted with the three figures (the ledger takes no card with
-  every cell given whose figures do not agree, 72B, 2026-11-25), and the
-  program does not guess which is wrong;
+  record; with three that do not agree, all three are sent as said and
+  all three are doubted with the three figures, and the program does not
+  guess which is wrong nor put any of them right. (The product owner's
+  rule of 2026-11-26: send the three as said, leave none empty. The
+  ledger takes such a card since its dev 3f4223e, 2026-11-27, and keeps
+  it from being saved until the figures are put right on its page.);
 - the money used: as the check reads it, or empty when not settled; a
   vague word the ledger's last trade could not settle is doubted by the
   caller (``money_doubts``);
@@ -383,7 +385,6 @@ def _amounts(
             }
             for field in (Field.QUANTITY, Field.PRICE, Field.TOTAL_VALUE):
                 _add(doubts, _doubt(field, Doubt.DISAGREE, **figures))
-            del sound[Amount.TOTAL]
     return (
         sound.get(Amount.QUANTITY),
         sound.get(Amount.PRICE),
@@ -486,7 +487,7 @@ def card_marks(
     """Every mark of ``card``: a record's, its doubts, and a total taken from "25U".
 
     Example: 0.094326 SOL at 212.03 USDT, 200 USDT said in all: the
-    quantity, the price and the total are suspicious, the total empty.
+    quantity, the price and the total are suspicious, all three as said.
     """
     assumed: tuple[FieldMark, ...] = ()
     if card.taken_as_total is not None and card.total is not None:

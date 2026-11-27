@@ -79,11 +79,22 @@ as it came (``LEDGER_PROBLEM_WORDS``); when it found none while the day,
 an amount or the money used is empty, it is never said to have found
 nothing: it could not check those (``NOT_CHECKED_YET_WORDS``), and of a
 sell, whether enough was held (``SELL_NOT_CHECKED_WORDS``). Three
-amounts that do not agree are said with the three figures, the total
-left empty, and that the program does not guess which is wrong
-(``DISAGREE_WORDS``); each other cell left empty for being wrong, or
+amounts that do not agree are said with the three figures, that all
+three were sent as said, and that the program does not guess which is
+wrong (``DISAGREE_WORDS``); each other cell left empty for being wrong, or
 marked suspicious for it, is said with its reason (``DOUBT_WORDS``).
 (The product owner's rule, 81A section 2 item 1; decided 2026-11-25.)
+
+A card the ledger took and found a problem in is said so even when no
+cell is empty: the ledger then keeps it from being saved. When the
+ledger's code for it is ``TOTAL_VALUE_MISMATCH`` (``MISMATCH_CODE``), the
+program's own sentence comes first (``FIX_FIGURES_WORDS``): the ledger
+took it, it cannot be saved yet, put the figures right on the ledger's
+page; then the ledger's own sentence, as it came. Which is said is decided
+by the code alone, never by the ledger's words, which may be in Chinese or
+English or two sentences joined. (The product owner's rule of
+2026-11-26: send the three figures as said; the ledger takes such a card
+since its dev 3f4223e, 2026-11-27.)
 
 ``price_check_words`` says what came of the comparison in a few words,
 for every outcome, and ``not_checked_words`` why a price was not compared
@@ -97,6 +108,7 @@ Names defined here: ``ENDING_WORDS``, ``LEFT_OUT_WORDS``,
 ``WITHOUT_FX_FEE``, ``RATE_GUESS_WORDS``, ``NO_REFERENCE_WORDS``, ``FAR_RATE_WORDS``,
 ``SAID_FAR_WORDS``, ``DROPPED_WORDS``, ``rate_lines``, ``PRICE_WORDS``,
 ``NOT_CHECKED_WORDS``, ``EMPTY_WORDS``, ``LEDGER_PROBLEM_WORDS``,
+``MISMATCH_CODE``, ``FIX_FIGURES_WORDS``,
 ``NOT_CHECKED_YET_WORDS``, ``SELL_NOT_CHECKED_WORDS``, ``DISAGREE_WORDS``,
 ``DOUBT_WORDS``, ``OTHER_ZONE_WORDS``, ``reply_for``, ``price_line``, ``price_check_words``,
 ``not_checked_words`` and ``spoken_reminders``.
@@ -118,7 +130,7 @@ from ledger_hand.core.marks import (
     MarkKind,
 )
 from ledger_hand.core.price_check import PriceCheck, PriceVerdict
-from ledger_hand.core.proposals import CheckOutcome, TradeCheck
+from ledger_hand.core.proposals import CheckOutcome, LedgerProblem, TradeCheck
 from ledger_hand.core.stock_names import NameMatched
 from ledger_hand.core.trade import Inferred, PickedBy, Side
 from ledger_hand.core.trade_card import TradeCard
@@ -374,6 +386,16 @@ EMPTY_WORDS = (
 # The line for what the ledger found in the cells given of a card, its own words.
 LEDGER_PROBLEM_WORDS = "Trade {number}: the ledger says: {message}"
 
+# The ledger's code for a card whose total is not quantity times price.
+MISMATCH_CODE = "TOTAL_VALUE_MISMATCH"
+
+# The program's own line for a card the ledger took with that code, said before
+# the ledger's own words; "cannot be saved yet" is the word to look for.
+FIX_FIGURES_WORDS = (
+    "Trade {number}: quantity × price does not match the total. The ledger took it, but it "
+    "cannot be saved yet: on the ledger's page, choose Edit, put the figures right, then save it."
+)
+
 # The line for a card the ledger found nothing wrong with while some cell it
 # would check is empty: never said as nothing found (72C1, 2026-11-25).
 NOT_CHECKED_YET_WORDS = (
@@ -386,12 +408,12 @@ SELL_NOT_CHECKED_WORDS = (
     " Whether you held enough to sell can be checked only once they are filled in."
 )
 
-# The line for three amounts that do not agree: the three figures, what was left
-# empty, and that the program does not guess which is wrong.
+# The line for three amounts that do not agree: the three figures, that they
+# were sent as said, and that the program does not guess which is wrong.
 DISAGREE_WORDS = (
     "Trade {number}: you said {quantity} at {price} for a total of {total}, but quantity × "
-    "price is {product}. The total was left empty and all three are marked suspicious; the "
-    "program does not guess which is wrong."
+    "price is {product}. All three were sent as you said and all three are marked "
+    "suspicious; the program does not guess which is wrong."
 )
 
 # The line for any other cell marked suspicious for being wrong, with its reason.
@@ -522,12 +544,14 @@ def _card_lines(
             if doubt is Doubt.DISAGREE or reason.startswith(FAR_REASON_START):
                 continue
             lines.append(DOUBT_WORDS.format(number=number, field=mark.field.value, reason=reason))
+    problem = check.problem if check is not None else None
     if card.complete:
+        if problem is not None:
+            lines.extend(_problem_lines(number, problem))
         return lines
     lines.append(EMPTY_WORDS.format(number=number, fields=", ".join(card.missing)))
-    problem = check.problem if check is not None else None
     if problem is not None:
-        lines.append(LEDGER_PROBLEM_WORDS.format(number=number, message=problem.message))
+        lines.extend(_problem_lines(number, problem))
         return lines
     unchecked = [name for name in card.missing if name in _CHECKED_ONLY_WHEN_GIVEN]
     if unchecked:
@@ -537,6 +561,16 @@ def _card_lines(
         if card.side is Side.SELL:
             words += SELL_NOT_CHECKED_WORDS
         lines.append(words)
+    return lines
+
+
+def _problem_lines(number: int, problem: LedgerProblem) -> list[str]:
+    """What the ledger found in a card it took: the program's own line first for a total
+    that does not agree, chosen by the ledger's code alone; then the ledger's own words."""
+    lines = []
+    if problem.code == MISMATCH_CODE:
+        lines.append(FIX_FIGURES_WORDS.format(number=number))
+    lines.append(LEDGER_PROBLEM_WORDS.format(number=number, message=problem.message))
     return lines
 
 

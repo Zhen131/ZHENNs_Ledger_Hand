@@ -26,7 +26,9 @@ plain line under its cells with the price said in the asset's own money
 A card sent with cells left empty says ``none`` in each, and under its
 cells which are to be filled in on the ledger's page before it can be
 saved (``TO_FILL_IN``); a cell left empty for being wrong carries its
-suspicious mark with the value said.
+suspicious mark with the value said. A card the ledger took whose total is
+not quantity times price (its code ``TOTAL_VALUE_MISMATCH``) says under its
+cells that the figures are to be put right there first (``FIX_FIGURES``).
 
 The cards sit in the reply's speech bubble, after the reply's own
 container, so the lines read from that container by place stay where they
@@ -34,7 +36,8 @@ were. The figures are the proposal's own, written by
 ``assistant_numbers.shown``. (Decided on 2026-11-25.)
 
 Names defined here: ``TAGS``, ``SUSPICIOUS_TAG``, ``NOT_CHECKED``,
-``TO_FILL_IN``, ``SAID_PRICE``, ``card_key``, ``cell_key`` and ``draw``.
+``TO_FILL_IN``, ``FIX_FIGURES``, ``SAID_PRICE``, ``card_key``, ``cell_key`` and
+``draw``.
 """
 
 from __future__ import annotations
@@ -48,7 +51,7 @@ import streamlit as st
 from ledger_hand.core.cost_rate import RateNote
 from ledger_hand.core.marks import Field, FieldMark, MarkKind, TradeMarks
 from ledger_hand.core.trade_card import TradeCard, card_of
-from ledger_hand.flows.record_words import not_checked_words
+from ledger_hand.flows.record_words import MISMATCH_CODE, not_checked_words
 from ledger_hand.flows.recorded import Recorded
 from ledger_hand.ui.assistant_numbers import shown
 
@@ -65,6 +68,11 @@ SUSPICIOUS_TAG = TAGS[MarkKind.SUSPICIOUS]
 NOT_CHECKED = "price not checked: "
 # The start of the line under a card sent with cells left empty.
 TO_FILL_IN = "to fill in on the ledger's page before saving: "
+# The line under a card the ledger took whose total is not quantity times price,
+# chosen by the ledger's code alone (2026-11-27).
+FIX_FIGURES = (
+    "to put right on the ledger's page before saving: quantity × price does not match the total"
+)
 # The start of the line under a card paid in another money than its asset's own.
 SAID_PRICE = "price you said in the asset's own money: "
 _NONE = "none"
@@ -86,8 +94,9 @@ def draw(recorded: Recorded | None, exchange: int) -> None:
     """One card for each trade ``recorded`` sent, with its marks; nothing when none was."""
     if recorded is None or not recorded.trades or len(recorded.marked) != len(recorded.trades):
         return
-    for number, sent, marked in zip(
-        recorded.numbers, recorded.trades, recorded.marked, strict=True
+    checks = recorded.checks if len(recorded.checks) == len(recorded.trades) else None
+    for place, (number, sent, marked) in enumerate(
+        zip(recorded.numbers, recorded.trades, recorded.marked, strict=True)
     ):
         # A trade handed in whole (older callers) is drawn as its card.
         facts = sent if isinstance(sent, TradeCard) else card_of(sent)
@@ -103,6 +112,9 @@ def draw(recorded: Recorded | None, exchange: int) -> None:
                 st.text(NOT_CHECKED + reason)
             if not facts.complete:
                 st.text(TO_FILL_IN + ", ".join(facts.missing))
+            problem = checks[place].problem if checks is not None else None
+            if problem is not None and problem.code == MISMATCH_CODE:
+                st.text(FIX_FIGURES)
 
 
 def _shown(value: Decimal | None) -> str:

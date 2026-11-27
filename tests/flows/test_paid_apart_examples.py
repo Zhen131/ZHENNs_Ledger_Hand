@@ -92,6 +92,15 @@ def sent(said: Said) -> tuple[TradeCard, ...]:
     return said.recorded.trades
 
 
+def turned_down_whole(said: Said) -> tuple[TradeCard, ...]:
+    """The cards sent, turned down whole for three figures that do not agree and a money
+    that does not fit, as the ledger turns down such a card since its dev 3f4223e."""
+    recorded = said.recorded
+    assert recorded is not None and recorded.ending is RecordEnding.LEDGER_REFUSED, said.reply
+    assert [check.code for check in recorded.checks] == ["TOTAL_VALUE_MISMATCH"]
+    return recorded.trades
+
+
 def mark_on(card: TradeCard, field: str) -> tuple[str, str | None] | None:
     found = [(mark.kind, mark.reason) for mark in card.marks if mark.field == field]
     return found[0] if found else None
@@ -270,8 +279,9 @@ def test_e8_a_ledger_naming_no_money_ko_is_priced_in_leaves_it_as_before() -> No
     said = one(E1, E1_ROW, books.ding())
 
     (card,) = sent(said)
-    # As before: the two moneys said apart, no money chosen, the three amounts in doubt.
-    assert (card.quote, card.total, card.price) == (None, None, Decimal("69.5"))
+    # As before: the two moneys said apart, no money chosen, the three amounts in doubt,
+    # all three sent as said.
+    assert (card.quote, card.total, card.price) == (None, Decimal("128"), Decimal("69.5"))
     assert mark_on(card, "totalValue") is not None
     nothing_paid_apart(said)
 
@@ -284,7 +294,7 @@ def test_e9_a_share_price_in_usdt_is_never_taken_as_dollars() -> None:
     )
 
     (card,) = sent(said)
-    assert (card.quote, card.total, card.price) == (None, None, Decimal("69.5"))
+    assert (card.quote, card.total, card.price) == (None, Decimal("128"), Decimal("69.5"))
     nothing_paid_apart(said)
 
 
@@ -345,7 +355,7 @@ def test_e12_dollars_for_a_coin_priced_in_usdt_go_on_as_before() -> None:
     )
 
     (card,) = sent(said)
-    assert (card.quote, card.total) == (None, None)
+    assert (card.quote, card.total) == (None, Decimal("100"))
     nothing_paid_apart(said)
 
 
@@ -422,9 +432,10 @@ def test_e15_a_total_with_no_money_is_asked_never_worked_out_then_kept_in_doubt(
     assert first.recorded is not None
     state = first.recorded.progress.trades[0]
     assert state.draft.total is None and state.record is None and state.card is None
-    # Answered, the trade goes on as before, not this way: its three amounts in doubt.
-    (card,) = sent(then)
-    assert card.total is None and card.cost_rate is None
+    # Answered, the trade goes on as before, not this way: its three amounts in doubt,
+    # sent as said; paid in euros with no rate as well, the ledger turns it down whole.
+    (card,) = turned_down_whole(then)
+    assert card.total == Decimal("128") and card.cost_rate is None
     nothing_paid_apart(then)
 
 
@@ -534,7 +545,7 @@ def test_e21_a_total_with_no_money_is_not_paid_in_the_fees_money() -> None:
 
     (card,) = sent(said)
     # As before: priced in the dollars the price names, the three amounts in doubt.
-    assert (card.quote, card.total) == ("USD", None)
+    assert (card.quote, card.total) == ("USD", Decimal("128"))
     nothing_paid_apart(said)
 
 
@@ -545,8 +556,8 @@ def test_e22_a_share_price_with_no_money_is_not_guessed_to_be_either() -> None:
         books.jia(),
     )
 
-    (card,) = sent(said)
-    assert (card.quote, card.total, card.price) == ("EUR", None, Decimal("69.5"))
+    (card,) = turned_down_whole(said)
+    assert (card.quote, card.total, card.price) == ("EUR", Decimal("128"), Decimal("69.5"))
     nothing_paid_apart(said)
 
 

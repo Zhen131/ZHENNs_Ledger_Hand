@@ -310,14 +310,14 @@ SOL_200 = {
 }
 
 
-def test_row_09_three_figures_that_disagree_leave_the_total_empty_all_three_suspicious() -> None:
+def test_row_09_three_figures_that_disagree_are_sent_as_said_all_three_suspicious() -> None:
     said = one("今天上午8:25花了200 USDT买入了0.094326个SOL，均价212.03 USDT，手续费0", SOL_200)
 
     sent, marked = card(said)
     assert (sent.quantity, sent.price, sent.total) == (
         Decimal("0.094326"),
         Decimal("212.03"),
-        None,
+        Decimal("200"),
     )
     for field in (Field.QUANTITY, Field.PRICE, Field.TOTAL_VALUE):
         assert mark_on(marked.marks, field).kind is MarkKind.SUSPICIOUS
@@ -562,7 +562,7 @@ def test_row_26_disagreeing_and_far_is_one_suspicious_price_mark_disagreement_fi
     assert price.reason is not None
     assert price.reason.index(NOT_GUESSED) < price.reason.index(FAR)
     assert len([mark for mark in sent.marks if mark.field == "price"]) == 1
-    assert sent.total is None
+    assert sent.total == Decimal("200")
     assert NOT_GUESSED in said.reply and FAR in said.reply
 
 
@@ -777,9 +777,9 @@ def test_the_record_keeps_the_three_suspicious_marks_of_figures_that_disagree() 
     entry = entry_for(said, words=words, at=INVENTED_NOW, model="invented-model")
 
     (trade,) = entry["trades"]
-    assert trade["total"] is None and trade["quantity"] == "0.094326"
+    assert trade["total"] == "200" and trade["quantity"] == "0.094326"
     (kept,) = entry["marks"]
-    assert kept["empty"] == ["totalValue"]
+    assert kept["empty"] == []
     assert {(one["field"], one["kind"]) for one in kept["marks"]} == {
         ("quantity", "suspicious"),
         ("price", "suspicious"),

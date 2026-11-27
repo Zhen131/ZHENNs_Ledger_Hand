@@ -692,7 +692,7 @@ def test_three_figures_that_disagree_are_marked_on_the_card_not_silent(tmp_path:
     observed, (result,) = came(one_set(tmp_path, text, [trade]), model(text, rows))
 
     (sent,) = observed.sent
-    assert sent.values["total"] is None
+    assert sent.values["total"] == "300"
     assert {"quantity", "price", "total"} <= sent.marked
     assert result.ending is Ending.MARKED
 

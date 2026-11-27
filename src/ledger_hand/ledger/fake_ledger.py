@@ -45,7 +45,21 @@ measure written before then keeps the ledger it was written against, and
 the demo ledger of the assistant page, the try-out script and the exam
 book are made to take cards. A card whose every
 cell is given is checked as a trade to record is, and turned down the
-same way. A card with an empty cell is kept, cannot be saved, and says
+same way, but for one thing: a card whose only fault is that its total
+is not quantity times price is kept, as the real ledger keeps it since
+its dev 3f4223e (2026-11-27, its ``assistant-link/README.md``,
+"Unfinished trades and field marks"). It cannot be saved, nothing is
+missing, and what it shows is ``TOTAL_VALUE_MISMATCH`` on the total.
+Saving it is refused and it stays pending, as the ledger's page keeps it
+until the figures are put right; saving another trade never voids it for
+its figures. With another fault as well (a sell of more than was held, a
+money or rate that does not fit), it is turned down whole, as
+``TOTAL_VALUE_MISMATCH`` with both reasons in one sentence, as the real
+ledger does (its ``assistantToolCall.mismatch.test.ts``, card yi). A trade sent whole (``propose_add``, ``propose_update``) whose total
+is not quantity times price is turned down as ``TOTAL_VALUE_MISMATCH``,
+as the real ledger turns it down without ``allowUnfinished``. A card kept
+whose total does not agree never changes the book the cards after it are
+checked against. A card with an empty cell is kept, cannot be saved, and says
 which cells are empty (in the ledger's order) and what the cells given
 show: a total that does not agree with quantity times price, or, when
 the day, quantity, price, total and money used are all there, a sell of
@@ -161,9 +175,16 @@ _BAD_ARGUMENTS = "INVALID_ARGUMENTS"
 _HOLDINGS_CODE = "INSUFFICIENT_HOLDINGS"
 _MISMATCH_CODE = "TOTAL_VALUE_MISMATCH"
 _MISMATCH_WORDS = "The total is not quantity times price."
+# Why a card kept whose total does not agree cannot be saved yet.
+_NOT_SAVED_WORDS = (
+    "This trade cannot be saved yet: the total is not quantity times price. Put the "
+    "figures right on the ledger's page first."
+)
 _UNFINISHED_CODE = "PROPOSAL_UNFINISHED"
 _CURRENCY_MISMATCH = "CURRENCY_MISMATCH"
 _NOT_POSITIVE = "VALUE_MUST_BE_POSITIVE"
+# The faults the real ledger says in one sentence after a total that does not agree.
+_JOINED_WITH_MISMATCH = frozenset({_OVERSOLD_CODE, _CURRENCY_MISMATCH, _NOT_POSITIVE})
 # The ledger's FIELD_MARK_REASON_MAX_LENGTH, in UTF-16 units.
 _REASON_MOST = 256
 _FIELDS = frozenset(field.value for field in Field)
@@ -305,7 +326,7 @@ class FakeLedger:
         book = self._trades
         for number, facts in enumerate(trades, start=1):
             added = (*book, (f"proposed-{number}", facts))
-            failed = self._failed(facts, added)
+            failed = _with_mismatch(facts, self._failed(facts, added))
             if failed is not None:
                 checks.append(failed)
                 continue
@@ -335,7 +356,9 @@ class FakeLedger:
         if whole is not None:
             self._called("propose_add", said)
             raise LedgerError(LedgerErrorKind.OTHER, _BAD_ARGUMENTS, whole)
-        if all(card.complete and _card_refusal(card) is None for card in cards):
+        if all(
+            card.complete and _card_refusal(card) is None and not _disagrees(card) for card in cards
+        ):
             facts = tuple(card.facts for card in cards if card.facts is not None)
             result = self.propose_add(facts, said)
             return ProposalResult(
@@ -352,7 +375,7 @@ class FakeLedger:
         if trade_id not in self._keys():
             return ProposalResult(checks=(_not_found(trade_id),))
         changed = tuple((key, facts if key == trade_id else old) for key, old in self._trades)
-        failed = self._failed(facts, changed)
+        failed = _with_mismatch(facts, self._failed(facts, changed))
         check = failed if failed is not None else self._kept(_Kind.UPDATE, trade_id, facts)
         return ProposalResult(checks=(check,))
 
@@ -386,7 +409,9 @@ class FakeLedger:
         """Save a pending proposal: the book changes; pending ones it spoils become void.
 
         A card with an empty cell is never saved: it is refused, naming the
-        cells, as the ledger's page refuses it (72B, scene F).
+        cells, as the ledger's page refuses it (72B, scene F). Nor is a card
+        whose total is not quantity times price: it is refused as
+        ``TOTAL_VALUE_MISMATCH`` and stays pending, to be put right.
         """
         proposal = self._pending(proposal_id)
         card = proposal.card
@@ -396,6 +421,8 @@ class FakeLedger:
                 _UNFINISHED_CODE,
                 f"This trade cannot be saved yet: fill in {', '.join(card.missing)} first.",
             )
+        if card is not None and _disagrees(card):
+            raise LedgerError(LedgerErrorKind.OTHER, _MISMATCH_CODE, _NOT_SAVED_WORDS)
         after = self._applied(proposal, self._trades)
         if after is None:
             proposal.state = _void(proposal_id)
@@ -514,6 +541,11 @@ class FakeLedger:
                 checks.append(_failed_check(_BAD_ARGUMENTS, refusal))
                 continue
             facts = card.facts
+            if facts is not None and _disagrees(card):
+                checks.append(
+                    self._disagreeing(facts, card, (*book, (f"proposed-{number}", facts)))
+                )
+                continue
             if facts is not None:
                 added = (*book, (f"proposed-{number}", facts))
                 failed = self._failed(facts, added)
@@ -541,6 +573,24 @@ class FakeLedger:
             )
         return tuple(checks)
 
+    def _disagreeing(self, facts: TradeFacts, card: TradeCard, added: Book) -> TradeCheck:
+        """A whole card whose total does not agree: kept, not ready, when that is its only
+        fault; turned down otherwise. The book is not changed either way."""
+        failed = self._failed(facts, added)
+        if failed is not None:
+            refused = _with_mismatch(facts, failed)
+            assert refused is not None
+            return refused
+        kept = self._kept(_Kind.ADD, None, facts, card)
+        assert kept.proposal_id is not None
+        return TradeCheck(
+            outcome=CheckOutcome.PASSED,
+            proposal_id=kept.proposal_id,
+            ready=False,
+            missing=(),
+            problem=_MISMATCH_PROBLEM,
+        )
+
     def _unknown_code(self, card: TradeCard) -> TradeCheck | None:
         """Why a card with an empty cell is turned down: an asset the book lacks, or a money
         that prices nothing; ``None`` when it is taken."""
@@ -563,12 +613,7 @@ class FakeLedger:
         quantity, price, total = card.quantity, card.price, card.total
         three = quantity is not None and price is not None and total is not None
         if three and not amounts_agree(quantity, price, total):  # type: ignore[arg-type]
-            return LedgerProblem(
-                code=_MISMATCH_CODE,
-                category="check-failed",
-                message=_MISMATCH_WORDS,
-                field="totalValue",
-            )
+            return _MISMATCH_PROBLEM
         asset = next(one for one in self._assets if one.code == card.asset)
         rate = _rate_refusal(asset, card.quote, card.cost_rate) if card.quote is not None else None
         if rate is not None:
@@ -704,6 +749,41 @@ def _card_refusal(card: TradeCard) -> str | None:
         if mark.field in empty and mark.kind != MarkKind.SUSPICIOUS.value:
             return f"fieldMarks[{place}]: an empty field can only be suspicious."
     return None
+
+
+_MISMATCH_PROBLEM = LedgerProblem(
+    code=_MISMATCH_CODE, category="check-failed", message=_MISMATCH_WORDS, field="totalValue"
+)
+
+
+def _disagrees(trade: TradeCard | TradeFacts) -> bool:
+    """Whether ``trade`` gives quantity, price and total, and the total is not their product.
+
+    Example: 0.1 BTC at 65000 for 6000 in all disagrees; for 6500 it does not.
+    """
+    quantity, price, total = trade.quantity, trade.price, trade.total
+    if quantity is None or price is None or total is None:
+        return False
+    return not amounts_agree(quantity, price, total)
+
+
+def _with_mismatch(facts: TradeFacts, failed: TradeCheck | None) -> TradeCheck | None:
+    """Why a trade fails, its total that does not agree said first; or ``None``.
+
+    A sell of more than was held, or a money or rate that does not fit, as
+    well is said after it in one sentence, under the total's code, as the
+    real ledger says it (its pendingList.ts, receiveAdd; tried on dev
+    3f4223e, 2026-11-27). An asset or money the book lacks is said as it
+    was found. Example: "The total is not quantity times price; With this,
+    a sell would take out more than was held at the time."
+    """
+    if not _disagrees(facts):
+        return failed
+    if failed is None:
+        return _failed_check(_MISMATCH_CODE, _MISMATCH_WORDS)
+    if failed.code in _JOINED_WITH_MISMATCH and failed.message is not None:
+        return _failed_check(_MISMATCH_CODE, f"{_MISMATCH_WORDS[:-1]}; {failed.message}")
+    return failed
 
 
 def _failed_check(code: str, message: str) -> TradeCheck:

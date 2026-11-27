@@ -58,6 +58,7 @@ from ledger_hand.core.ledger_records import (
 )
 from ledger_hand.core.proposals import CheckOutcome, TradeCheck
 from ledger_hand.core.trade_card import TradeCard
+from ledger_hand.flows.record_words import MISMATCH_CODE
 from ledger_hand.ui.assistant_numbers import shown
 
 type Row = dict[str, str]
@@ -153,10 +154,22 @@ def proposed_rows(
 
 
 def _in_the_ledger(check: TradeCheck) -> str:
-    if check.outcome is CheckOutcome.PASSED and check.ready is False:
+    if check.outcome is CheckOutcome.PASSED and check.ready is False and check.missing:
         return (
             f"waiting ({check.proposal_id}); fill in {', '.join(check.missing)} "
             "on the ledger's page before you save it"
+        )
+    if check.outcome is CheckOutcome.PASSED and check.ready is False:
+        # Nothing empty, yet not ready: what the ledger found, chosen by its code alone.
+        problem = check.problem
+        if problem is not None and problem.code == MISMATCH_CODE:
+            return (
+                f"waiting ({check.proposal_id}); quantity × price does not match the total: "
+                "fix the figures on the ledger's page before you save it"
+            )
+        return (
+            f"waiting ({check.proposal_id}); the ledger cannot save it as it is: "
+            "see the ledger's page before you save it"
         )
     if check.outcome is CheckOutcome.PASSED:
         return f"waiting for you to confirm ({check.proposal_id})"
