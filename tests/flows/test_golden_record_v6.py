@@ -128,7 +128,7 @@ def test_an_entry_made_now_has_the_names_of_the_golden_ones() -> None:
 
     # Version 7 added "manual" and "cash" and nothing else; the names of an entry
     # made now are checked against version 7's golden record, in test_golden_record_v7.py.
-    assert RECORD_VERSION == 8
+    assert RECORD_VERSION == 9
     for entry, now in zip(entries, made, strict=True):
         assert list(entry) == [name for name in now if name not in ("manual", "cash", "rates")]
         assert list(entry["marks"][0]) == list(now["marks"][0])  # type: ignore[index]

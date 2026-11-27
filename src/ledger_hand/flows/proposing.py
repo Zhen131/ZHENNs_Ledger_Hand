@@ -65,12 +65,17 @@ record holds the price said in the asset's own money, ``said_price``) is
 sent with its rate between the two moneys (``costRate``): the quantity
 times the price said over the total paid, worked out by
 ``core/cost_rate.py``. Every other trade is sent with no rate, as before.
-Its rate is compared with the rate of the latest trade in the ledger paid
-in the same money for an asset priced in the same money: the asset's own
-trades as listed when its money was looked up, and otherwise those of one
-more call for trades with no condition, asked once for the whole proposal;
-far at ``rate_gap`` in a hundred (``settings.LEDGER_HAND_RATE_GAP_PERCENT``),
-not compared when there is no such trade. The price said is compared with
+Its rate is compared with the ledger's own exchange rate between the two
+moneys, asked for by this program, once for each pair of moneys of the
+proposal (``flows/ledger_rates.py``, 2026-11-27); unless the ledger has
+none up to the trade's day, has no tool for them, cannot be asked, or its
+rate is dated before the latest trade below: then with the rate of the
+latest trade in the ledger paid in the same money for an asset priced in
+the same money, as before: the asset's own trades as listed when its money
+was looked up, and otherwise those of one more call for trades with no
+condition, asked once for the whole proposal. Either is far at
+``rate_gap`` in a hundred (``settings.LEDGER_HAND_RATE_GAP_PERCENT``); with
+neither, it is not compared. The price said is compared with
 the ledger's market price of the asset, in that same money. Either one far
 marks the rate suspicious, and the trade is sent all the same; what came of
 it goes back with the proposal (``MarkedTrade.rate``), for the words said.
@@ -114,6 +119,7 @@ from ledger_hand.core.cost_rate import (
     reference_in,
     with_rate_marks,
 )
+from ledger_hand.core.ledger_rate import LedgerRateOutcome
 from ledger_hand.core.ledger_records import (
     Asset,
     AssetKind,
@@ -138,6 +144,7 @@ from ledger_hand.core.trade import TradeDraft, TradeRecord
 from ledger_hand.core.trade_card import TradeCard, card_of
 from ledger_hand.core.validation import Violation, amounts_agree
 from ledger_hand.extraction.issues import Issue
+from ledger_hand.flows.ledger_rates import ledger_note, looked_up, trade_day
 from ledger_hand.flows.progress import Progress, Stage, TradeState, TradeStatus
 from ledger_hand.flows.recorded import (
     LeftOut,
@@ -190,7 +197,7 @@ def propose(
     left_out = tuple(sorted((*left_out, *not_sent), key=lambda trade: trade.number))
     if not trades:
         return Recorded(ending=RecordEnding.NOTHING_TO_SEND, progress=progress, left_out=left_out)
-    rates = _rates(numbers, dict(records), progress, ledger, rate_gap)
+    rates = _rates(numbers, dict(records), progress, ledger, rate_gap, assets)
     trades = tuple(
         dataclasses.replace(card, cost_rate=rates[number].rate) if number in rates else card
         for number, card in zip(numbers, trades, strict=True)
@@ -211,22 +218,49 @@ def _rates(
     progress: Progress,
     ledger: LedgerPort,
     rate_gap: Decimal,
+    assets: Mapping[str, Asset],
 ) -> dict[int, RateNote]:
-    """Each trade paid in another money, by its number: its rate, compared with the last one.
+    """Each trade paid in another money, by its number: its rate, compared with the ledger's
+    exchange rate or the last such trade.
 
-    The price said is not compared with the market price here (``_marked``
-    does).
+    The ledger is asked for its exchange rates first, once for each pair of
+    moneys, up to the latest day of their trades. The price said is not
+    compared with the market price here (``_marked`` does).
     """
     rated: dict[int, RateNote] = {}
     every: list[tuple[LedgerTrade, ...] | None] = []
     share = rate_gap / 100
+    setting = progress.setting
+    worked: list[tuple[int, _Sendable, Decimal, date, bool]] = []
+    pairs: dict[tuple[str, str], list[date]] = {}
     for number in numbers:
         record = records[number]
         said = record.said_price
         if said is None or record.quantity is None or record.total is None:
             continue
         rate = rate_of(record.quantity, said.amount, record.total)
+        occurred = record.occurred
+        day, day_said = trade_day(
+            occurred.calendar_date if occurred is not None else None, setting.now, setting.zone
+        )
+        worked.append((number, record, rate, day, day_said))
+        pairs.setdefault((said.paid, said.money), []).append(day)
+    looked = looked_up(ledger, assets, pairs) if pairs else {}
+    for number, record, rate, day, day_said in worked:
+        said = record.said_price
+        assert said is not None and record.quantity is not None and record.total is not None
         reference = _reference(record, progress, ledger, every)
+        from_ledger = ledger_note(
+            rate,
+            looked[(said.paid, said.money)],
+            day,
+            day_said=day_said,
+            reference=reference,
+            limit=rate_gap,
+        )
+        if from_ledger.outcome is LedgerRateOutcome.COMPARED:
+            # Compared with the ledger's own rate: the last trade plays no part.
+            reference = None
         far = reference is not None and far_from_reference(rate, reference.rate, share)
         dropped = said.dropped
         disagrees = dropped is not None and not amounts_agree(
@@ -242,6 +276,7 @@ def _rates(
             reference=reference,
             reference_far=far,
             dropped_disagrees=disagrees,
+            ledger=from_ledger,
         )
         rated[number] = note
     return rated

@@ -102,7 +102,7 @@ from ledger_hand.flows.progress import Tuning
 from ledger_hand.flows.recording import tuning_from
 from ledger_hand.flows.standing import LedgerKind
 from ledger_hand.flows.uploading import VisionModelCheck, VisionModelPresence
-from ledger_hand.ledger.demo_euro import demo_ledger_with_euro
+from ledger_hand.ledger.demo_euro import demo_ledger_with_euro_rates
 from ledger_hand.ledger.link_client import LedgerLink, LinkSetup
 from ledger_hand.ledger.link_failures import LinkToken
 from ledger_hand.ledger.link_keeper import LinkKeeper
@@ -256,8 +256,9 @@ def assemble(changes: Mapping[Variable, str] | None = None) -> Parts:
         vision_check=_vision_model_check(settings) if local else None,
         # The demo ledger takes cards with cells left empty, as the real one does now,
         # has the ledger's tool for cash balances (``demo_cash``), and a euro, with the
-        # money each of its own assets is priced in (``demo_euro``).
-        ledger=demo_ledger_with_euro().taking_cards(),
+        # money each of its own assets is priced in, and the ledger's tool for exchange
+        # rates with two made-up rates (``demo_euro``).
+        ledger=demo_ledger_with_euro_rates(),
         ledger_kind=LedgerKind.DEMO,
         assistant_steps=steps,
         steps_refused=steps_refused,

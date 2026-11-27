@@ -128,6 +128,7 @@ from ledger_hand.assistant.results import not_done_text
 from ledger_hand.core.card_record import CardRecord
 from ledger_hand.core.cost_rate import RateNote, written
 from ledger_hand.core.followup import AskCell, AskSaidPrice, ConfirmCoin
+from ledger_hand.core.ledger_rate import LedgerRateOutcome
 from ledger_hand.core.ledger_records import TradeFacts, TradeFilter
 from ledger_hand.core.marks import TradeMarks
 from ledger_hand.core.proposals import ProposalStatus, TradeCheck
@@ -142,7 +143,7 @@ from ledger_hand.flows.record_words import price_check_words
 from ledger_hand.flows.recorded import Recorded
 from ledger_hand.flows.recording import tuning_from
 from ledger_hand.flows.standing import LedgerKind
-from ledger_hand.ledger.demo_euro import demo_ledger_with_euro
+from ledger_hand.ledger.demo_euro import demo_ledger_with_euro_rates
 from ledger_hand.ledger.fake_ledger import FakeLedger
 from ledger_hand.ledger.invented_book import INVENTED_NOW, INVENTED_ZONE
 from ledger_hand.llm.connect import connect_model
@@ -204,8 +205,9 @@ def main(
         return 2
     model, max_steps = taken.model, taken.max_steps
     # The demo ledger takes cards with cells left empty, as the real one does now,
-    # has the ledger's tool for cash balances (``demo_cash``), and a euro (``demo_euro``).
-    ledger = ledger or demo_ledger_with_euro().taking_cards()
+    # has the ledger's tool for cash balances (``demo_cash``), a euro and two made-up
+    # exchange rates (``demo_euro``).
+    ledger = ledger or demo_ledger_with_euro_rates()
     print(f"now:    {now.isoformat()} in {zone} ({whose} moment)", file=out)
     print(f"model:  {getattr(model, 'name', None) or _model_name()}", file=out)
     print(f"ledger: {type(ledger).__name__}; at most {max_steps} steps a turn", file=out)
@@ -591,7 +593,15 @@ def rate_line(note: RateNote) -> str:
     said = note.said
     guess = " (its money a guess)" if said.guessed_from is not None else ""
     reference = note.reference
-    if reference is None:
+    ledger = note.ledger
+    if ledger is not None and ledger.outcome is LedgerRateOutcome.COMPARED:
+        assert ledger.picked is not None
+        far = ", far" if ledger.far else ""
+        compared = (
+            f"the ledger's rate {written(ledger.picked.converted)} of {ledger.picked.day} "
+            f"({ledger.picked.row.where_from}){far}"
+        )
+    elif reference is None:
         compared = "none in the ledger"
     else:
         far = ", far" if note.reference_far else ""

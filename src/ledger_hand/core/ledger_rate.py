@@ -284,7 +284,8 @@ class LedgerRateNote:
     ``day`` is the day compared on, and ``day_said`` whether the trade said
     it (``False``: no day was said, so today was taken). ``picked`` is the
     row picked, and ``gap`` how far the rate is from it, exactly, and
-    ``far`` whether that is too far, when it was compared; ``days_apart``
+    ``far`` whether that is more than ``limit`` in a hundred (the setting
+    it was compared by), when it was compared; ``days_apart``
     is how many days before ``day`` the row is. ``passed_over`` counts the
     rows between the two moneys whose rate or day did not read. For a
     failure, ``code`` and ``message`` are the ledger's, or this program's,
@@ -298,6 +299,7 @@ class LedgerRateNote:
     picked: PickedRate | None = None
     gap: Decimal | None = None
     far: bool = False
+    limit: Decimal | None = None
     days_apart: int | None = None
     passed_over: int = 0
     code: str | None = None

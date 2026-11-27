@@ -19,7 +19,8 @@ and its cells sent empty, how it ended, the money moved said that the
 assistant does not record, what the ledger said of its cash (its balances
 as laid out, or that it has no tool for them), each trade paid in another
 money than its asset's own with the rate it was sent with, the price said
-it came from and what it was compared with, and the
+it came from and what it was compared with (the ledger's own exchange rate
+among them), and the
 model and prompt versions used. Amounts are
 written as text, each beside the money the result names. A screenshot's
 picture is never written: only that it came from a screenshot, and the
@@ -66,6 +67,7 @@ from pathlib import Path
 from typing import Any
 
 from ledger_hand.assistant.outcome import NotRunCall, RefusedCall, TakenCall
+from ledger_hand.core.ledger_rate import LedgerRateNote, LedgerRateOutcome, gap_in_a_hundred
 from ledger_hand.core.ledger_records import TradeFacts
 from ledger_hand.core.marks import Field
 from ledger_hand.core.price_check import PriceCheck
@@ -111,7 +113,16 @@ from ledger_hand.ports import LedgerError, ModelError
 # was guessed from), the rate it was compared with, whether either was far,
 # and a price said in the money paid that was not used. Entries of versions
 # 1 to 7 are still read as they are.
-RECORD_VERSION = 8
+# Version 9 (2026-11-27) added "ledger_rate" to each of "rates": what came of
+# the ledger's own exchange rate for that trade (how it ended, the day compared
+# on and whether the trade said it, the row picked with its eight fields as the
+# ledger listed them, the rate it comes to as the asset's money for 1 of the
+# money paid, whether it was the other way round, how many days before the
+# trade, how far apart in a hundred and whether far, why it was not used, or
+# why it could not be read), or null where the ledger was not asked. A new name
+# inside "rates", so a new version, as version 8's golden sample is committed
+# and never changed. Entries of versions 1 to 8 are still read as they are.
+RECORD_VERSION = 9
 
 # One thousand: an entry is a few thousand bytes, so the file stays at a few
 # megabytes and is read whole in a blink each time an entry is added; at
@@ -527,9 +538,45 @@ def _rates(said: Said) -> list[dict[str, Any]]:
                 "reference_far": note.reference_far,
                 "said_price_far": note.market_far,
                 "dropped": _amount(price.dropped) if price.dropped is not None else None,
+                "ledger_rate": _ledger_rate(note.ledger),
             }
         )
     return found
+
+
+def _ledger_rate(ledger: LedgerRateNote | None) -> dict[str, Any] | None:
+    """What came of the ledger's own exchange rate for one trade, or ``None`` when not asked.
+
+    Example: compared, on 2026-11-20, the row "1 USD = 0.925 EUR" of
+    frankfurter, coming to "1.0810810811", the other way round, 1 day
+    before, "0.1" apart, not far.
+    """
+    if ledger is None:
+        return None
+    picked = ledger.picked
+    used = ledger.outcome is LedgerRateOutcome.COMPARED
+    return {
+        "outcome": ledger.outcome.name.lower(),
+        "day": ledger.day.isoformat(),
+        "day_said": ledger.day_said,
+        "row": picked.row.as_listed() if picked is not None else None,
+        "converted": _amount(picked.converted) if picked is not None else None,
+        "inverted": picked.inverted if picked is not None else None,
+        "days_apart": ledger.days_apart,
+        "gap_percent": _amount(gap_in_a_hundred(ledger.gap)) if ledger.gap is not None else None,
+        "far": ledger.far,
+        "not_used": ledger.outcome.value if picked is not None and not used else None,
+        "not_read": {"code": ledger.code, "message": ledger.message, "why": ledger.why}
+        if ledger.outcome in _NOT_READ
+        else None,
+        "passed_over": ledger.passed_over,
+    }
+
+
+# How a lookup of the ledger's exchange rates ends when nothing could be read.
+_NOT_READ = frozenset(
+    {LedgerRateOutcome.NOT_READ, LedgerRateOutcome.REFUSED, LedgerRateOutcome.NO_TOOL}
+)
 
 
 def _price_check(check: PriceCheck) -> dict[str, Any]:

@@ -95,14 +95,17 @@ def test_an_entry_made_now_has_the_names_of_the_golden_ones() -> None:
     made = [entry_now(words, said) for words, said in made_now()]
     entries = _read(GOLDEN).entries
 
-    assert RECORD_VERSION == 8
+    assert RECORD_VERSION == 9
     for entry, now in zip(entries, made, strict=True):
         assert list(entry) == list(now)
         assert [list(rate) for rate in entry["rates"]] == [  # type: ignore[union-attr]
-            list(rate)
+            [name for name in rate if name != "ledger_rate"]
             for rate in now["rates"]  # type: ignore[attr-defined]
         ]
-    assert entries[0]["rates"] == made[0]["rates"]
+    assert entries[0]["rates"] == [
+        {name: value for name, value in rate.items() if name != "ledger_rate"}
+        for rate in made[0]["rates"]  # type: ignore[attr-defined]
+    ]
 
 
 def test_a_file_with_entries_of_all_eight_versions_is_read_whole(tmp_path: Path) -> None:

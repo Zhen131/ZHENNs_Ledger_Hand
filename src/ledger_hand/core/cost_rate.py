@@ -18,11 +18,14 @@ fee (decided on 2026-11-25, 88 items 28 and 29).
 
 Two guards against a figure said wrong:
 
-- the rate against the rate of the latest trade in the ledger paid in the
+- the rate against the ledger's own exchange rate between the two moneys,
+  when the ledger has one up to the trade's day (``core/ledger_rate.py``,
+  2026-11-27), unless that one is dated before the latest trade below;
+  otherwise against the rate of the latest trade in the ledger paid in the
   same money for an asset priced in the same money (``reference_in``): far
   when ``|rate ÷ reference − 1|`` is above a share the settings hold, ten
   in a hundred by default; exactly that share is not far
-  (``far_from_reference``). With no such trade nothing is compared;
+  (``far_from_reference``). With neither, nothing is compared;
 - the price said against the ledger's market price of the asset, both in
   the asset's own money, by the market price check (``price_check``).
 
@@ -36,7 +39,8 @@ Nothing here reads the ledger or the clock.
 
 Names defined here: ``RATE_PLACES``, ``rate_of``, ``written``,
 ``RateReference``, ``reference_in``, ``far_from_reference``, ``RateNote``,
-``rate_mark``, ``price_in_paid_reason`` and ``with_rate_marks``.
+``rate_mark``, ``ledger_far_reason``, ``price_in_paid_reason`` and
+``with_rate_marks``.
 """
 
 from __future__ import annotations
@@ -47,6 +51,7 @@ from datetime import date, datetime
 from decimal import Decimal
 
 from ledger_hand.core.arithmetic import round_half_up, working_context
+from ledger_hand.core.ledger_rate import LedgerRateNote, LedgerRateOutcome
 from ledger_hand.core.ledger_records import LedgerTrade
 from ledger_hand.core.marks import (
     REASON_MOST,
@@ -69,6 +74,7 @@ from ledger_hand.core.trade import SaidPrice
 RATE_PLACES = 10
 
 _JOIN = "; "
+_AS_OF_TODAY = "no day was said, so it was compared as of today"
 _ELLIPSIS = "…"
 
 
@@ -167,7 +173,10 @@ class RateNote:
     ``reference_far`` whether the rate is far from it. ``market`` is the
     price said against the market price, or ``None`` when not compared.
     ``dropped_disagrees`` says a price said in the money paid was not used
-    and does not agree with the total over the quantity.
+    and does not agree with the total over the quantity. ``ledger`` is
+    what came of the ledger's own exchange rate (``LedgerRateNote``), or
+    ``None`` where the ledger was not asked; when it was compared with,
+    ``reference`` is ``None`` and ``reference_far`` false.
     """
 
     rate: Decimal
@@ -179,6 +188,7 @@ class RateNote:
     reference_far: bool = False
     market: PriceCheck | None = None
     dropped_disagrees: bool = False
+    ledger: LedgerRateNote | None = None
 
     @property
     def market_far(self) -> bool:
@@ -210,6 +220,11 @@ def rate_mark(note: RateNote, asset: str) -> FieldMark:
         f"{written(note.quantity)} × {written(said.amount)} ÷ {written(note.total)}"
     )
     doubts: list[str] = []
+    ledger = note.ledger
+    if ledger is not None and ledger.outcome is LedgerRateOutcome.COMPARED and ledger.far:
+        doubts.append(ledger_far_reason(ledger, said.paid, said.money))
+    elif ledger is not None and ledger.picked is not None and not ledger.day_said:
+        plain.append(_AS_OF_TODAY)
     reference = note.reference
     if note.reference_far and reference is not None:
         doubts.append(
@@ -233,6 +248,26 @@ def rate_mark(note: RateNote, asset: str) -> FieldMark:
         return FieldMark(Field.COST_RATE, MarkKind.SUSPICIOUS, kept)
     dropped = cut_reason(_JOIN.join(plain), room)
     return FieldMark(Field.COST_RATE, MarkKind.SUSPICIOUS, f"{dropped}{_JOIN}{kept}")
+
+
+def ledger_far_reason(ledger: LedgerRateNote, paid: str, own_money: str) -> str:
+    """The reason on a rate far from the ledger's own exchange rate: that rate as ``own_money``
+    for 1 ``paid`` and its day first, then where it came from, then how long before the trade.
+
+    Example: "far from the ledger's rate 1.3 USD for 1 EUR on 2026-11-20 (typed in by hand)".
+    """
+    picked = ledger.picked
+    assert picked is not None
+    reason = (
+        f"far from the ledger's rate {written(picked.converted)} {own_money} for 1 {paid} "
+        f"on {picked.day.isoformat()} ({picked.row.where_from}"
+    )
+    if ledger.long_ago:
+        reason += f", {ledger.days_apart} days before the trade"
+    reason += ")"
+    if not ledger.day_said:
+        reason += f"; {_AS_OF_TODAY}"
+    return reason
 
 
 def price_in_paid_reason(paid: str) -> str:

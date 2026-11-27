@@ -57,6 +57,19 @@ and that a price said in the money paid was not used, when it did not agree.
 Its price, in the money paid, is not said to be not compared with the market
 price in another money: the price said was compared instead. (2026-11-26.)
 
+When the ledger has a tool for its exchange rates (its dev 1b016ec), one
+more line says what the rate was compared with (2026-11-27): the ledger's
+own rate, with its day, where it came from, the row as the ledger stored
+it, the rate it comes to, how far apart in a hundred and, when far, that it
+is marked (``LEDGER_RATE_WORDS``, ``LEDGER_RATE_FAR_WORDS``); or why the
+last trade paid the same way was compared with instead: the ledger has no
+rate between the two moneys (``NO_LEDGER_RATE_WORDS``), its latest is
+older than that trade (``OLDER_LEDGER_RATE_WORDS``), its rates could not be
+read (``LEDGER_RATE_NOT_READ_WORDS``, in this program's words) or it turned
+the question down (``LEDGER_RATE_REFUSED_WORDS``, with its own words); and
+that the rate is close to that trade's, when it is (``CLOSE_RATE_WORDS``).
+A ledger with no such tool is said nothing more, as before.
+
 A trade waiting whose fee's money is not the money it was paid in gets a
 line saying its fee's money is marked suspicious, and why (``DOUBT_WORDS``).
 A trade waiting whose time is marked because the user named another time
@@ -106,7 +119,9 @@ Names defined here: ``ENDING_WORDS``, ``LEFT_OUT_WORDS``,
 ``SPOKEN_REMINDERS``, ``PICKED_WORDS``, ``NAMED_WORDS``, ``GUESSED_WORDS``,
 ``OWN_MONEY_WORDS``, ``OWN_RATE_GUESS_WORDS``, ``RATE_WORDS``,
 ``WITHOUT_FX_FEE``, ``RATE_GUESS_WORDS``, ``NO_REFERENCE_WORDS``, ``FAR_RATE_WORDS``,
-``SAID_FAR_WORDS``, ``DROPPED_WORDS``, ``rate_lines``, ``PRICE_WORDS``,
+``SAID_FAR_WORDS``, ``DROPPED_WORDS``, ``LEDGER_RATE_WORDS``, ``LEDGER_RATE_FAR_WORDS``,
+``NO_LEDGER_RATE_WORDS``, ``OLDER_LEDGER_RATE_WORDS``, ``LEDGER_RATE_NOT_READ_WORDS``,
+``LEDGER_RATE_REFUSED_WORDS``, ``CLOSE_RATE_WORDS``, ``rate_lines``, ``PRICE_WORDS``,
 ``NOT_CHECKED_WORDS``, ``EMPTY_WORDS``, ``LEDGER_PROBLEM_WORDS``,
 ``MISMATCH_CODE``, ``FIX_FIGURES_WORDS``,
 ``NOT_CHECKED_YET_WORDS``, ``SELL_NOT_CHECKED_WORDS``, ``DISAGREE_WORDS``,
@@ -122,6 +137,7 @@ from types import MappingProxyType
 
 from ledger_hand.core.card_record import Doubt
 from ledger_hand.core.cost_rate import RateNote, written
+from ledger_hand.core.ledger_rate import LedgerRateNote, LedgerRateOutcome, gap_in_a_hundred
 from ledger_hand.core.marks import (
     FAR_REASON_START,
     FEE_MONEY_REASON_START,
@@ -324,6 +340,41 @@ SAID_FAR_WORDS = (
     "Trade {number}: the {said} {money} {each} you said is far from the market price of "
     "{asset} in the ledger, {market} {money}{day} (about {times} times {way}). The rate is "
     "marked suspicious; check it before you confirm."
+)
+# The lines on what the rate was compared with, when the ledger has a tool for its
+# exchange rates. "compared with the ledger's exchange rate", "has no exchange
+# rate between", "could not be read" and "is close to" are the words to look for.
+LEDGER_RATE_WORDS = (
+    "Trade {number}: the rate {rate} was compared with the ledger's exchange rate of {day} "
+    "({source}): 1 {base} = {stored} {quote}, which is {converted} {money} for 1 {paid}. "
+    "They are {percent}% apart{when}."
+)
+LEDGER_RATE_FAR_WORDS = (
+    "Trade {number}: the rate {rate} was compared with the ledger's exchange rate of {day} "
+    "({source}): 1 {base} = {stored} {quote}, which is {converted} {money} for 1 {paid}. "
+    "They are {percent}% apart, more than {limit}%{when}. The rate is marked suspicious; "
+    "check the {paid} amount before you confirm."
+)
+NO_LEDGER_RATE_WORDS = (
+    "Trade {number}: the ledger has no exchange rate between {paid} and {money} up to "
+    "{day}{when}, so the rate goes by the last trade paid in {paid}, when there is one."
+)
+OLDER_LEDGER_RATE_WORDS = (
+    "Trade {number}: the ledger's latest exchange rate between {paid} and {money} is of "
+    "{ledger_day}, older than the {paid} trade on {trade_day}, so it was not used: the rate "
+    "goes by that trade."
+)
+LEDGER_RATE_NOT_READ_WORDS = (
+    "Trade {number}: the ledger's exchange rates could not be read{why}, so this time the "
+    "rate goes by the last trade paid in {paid}, when there is one."
+)
+LEDGER_RATE_REFUSED_WORDS = (
+    "Trade {number}: the ledger did not hand back its exchange rates ({message}), so this "
+    "time the rate goes by the last trade paid in {paid}, when there is one."
+)
+CLOSE_RATE_WORDS = (
+    "Trade {number}: the rate {rate} is close to {reference}, the rate of the {paid} trade "
+    "on {day}."
 )
 DROPPED_WORDS = (
     "Trade {number}: the {dropped} {paid} {each} you said was not used: the price is the "
@@ -679,12 +730,11 @@ def rate_lines(number: int, asset: str, note: RateNote) -> list[str]:
         lines.append(OWN_RATE_GUESS_WORDS.format(**fields, last_money=source.money))
     elif source is not None:
         lines.append(RATE_GUESS_WORDS.format(**fields))
-    reference = note.reference
-    if reference is None:
-        lines.append(NO_REFERENCE_WORDS.format(**fields))
-    elif note.reference_far:
-        day = reference.day.isoformat()
-        lines.append(FAR_RATE_WORDS.format(**fields, reference=written(reference.rate), day=day))
+    ledger = note.ledger
+    if ledger is not None and ledger.outcome is LedgerRateOutcome.COMPARED:
+        lines.append(_compared_line(fields, ledger))
+    else:
+        lines.extend(_reference_lines(fields, note))
     market = note.market
     if market is not None and market.verdict is PriceVerdict.FAR and market.market is not None:
         shown = market.market
@@ -700,6 +750,81 @@ def rate_lines(number: int, asset: str, note: RateNote) -> list[str]:
     if note.dropped_disagrees and said.dropped is not None:
         lines.append(DROPPED_WORDS.format(**fields, dropped=written(said.dropped)))
     return lines
+
+
+def _reference_lines(fields: Mapping[str, object], note: RateNote) -> list[str]:
+    """The lines on the rate compared with the last trade paid the same way, or with none;
+    first, when the ledger has a tool for its exchange rates, why not with the ledger's."""
+    lines: list[str] = []
+    ledger = note.ledger
+    asked = ledger is not None and ledger.outcome is not LedgerRateOutcome.NO_TOOL
+    if ledger is not None and asked:
+        lines.append(_not_the_ledgers_line(fields, ledger, note))
+    reference = note.reference
+    if reference is None:
+        lines.append(NO_REFERENCE_WORDS.format(**fields))
+    elif note.reference_far:
+        day = reference.day.isoformat()
+        lines.append(FAR_RATE_WORDS.format(**fields, reference=written(reference.rate), day=day))
+    elif asked:
+        day = reference.day.isoformat()
+        lines.append(CLOSE_RATE_WORDS.format(**fields, reference=written(reference.rate), day=day))
+    return lines
+
+
+def _not_the_ledgers_line(
+    fields: Mapping[str, object], ledger: LedgerRateNote, note: RateNote
+) -> str:
+    """Why the rate was not compared with the ledger's own exchange rate."""
+    outcome = ledger.outcome
+    if outcome is LedgerRateOutcome.OLDER_THAN_TRADE:
+        assert ledger.picked is not None and note.reference is not None
+        return OLDER_LEDGER_RATE_WORDS.format(
+            **fields,
+            ledger_day=ledger.picked.day.isoformat(),
+            trade_day=note.reference.day.isoformat(),
+        )
+    if outcome is LedgerRateOutcome.NOT_READ:
+        why = f" ({ledger.why})" if ledger.why else ""
+        return LEDGER_RATE_NOT_READ_WORDS.format(**fields, why=why)
+    if outcome is LedgerRateOutcome.REFUSED:
+        message = (ledger.message or "").rstrip(".")
+        return LEDGER_RATE_REFUSED_WORDS.format(**fields, message=message)
+    return NO_LEDGER_RATE_WORDS.format(
+        **fields, day=ledger.day.isoformat(), when=_no_day_words(ledger)
+    )
+
+
+def _compared_line(fields: Mapping[str, object], ledger: LedgerRateNote) -> str:
+    """The line on a rate compared with the ledger's own exchange rate."""
+    picked = ledger.picked
+    assert picked is not None and ledger.gap is not None
+    row = picked.row
+    when = ""
+    if ledger.long_ago:
+        when += f"; the ledger's rate is {ledger.days_apart} days older than the trade"
+    when += _no_day_words(ledger)
+    shown = {
+        **fields,
+        "day": picked.day.isoformat(),
+        "source": row.where_from,
+        "base": row.base_code,
+        "stored": row.rate,
+        "quote": row.quote_code,
+        "converted": written(picked.converted),
+        "percent": format(gap_in_a_hundred(ledger.gap), "f"),
+        "limit": written(ledger.limit) if ledger.limit is not None else "",
+        "when": when,
+    }
+    words = LEDGER_RATE_FAR_WORDS if ledger.far else LEDGER_RATE_WORDS
+    return words.format(**shown)
+
+
+def _no_day_words(ledger: LedgerRateNote) -> str:
+    """The words for a trade that said no day, compared as of today; none otherwise."""
+    if ledger.day_said:
+        return ""
+    return f"; no day was said for this trade, so it was compared as of today, {ledger.day}"
 
 
 def _priced(recorded: Recorded) -> list[str]:
