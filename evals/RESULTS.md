@@ -10490,8 +10490,8 @@ practice halves were run; no hidden half was run or read. The change
 measured: the rate of a trade paid in another money is compared with the
 ledger's own exchange rate when the ledger has the tool for it. The exam's
 ledger has no such tool, so every sentence should go as before; the five
-euro sentences of the practice halves (`"book": "exam-euro"`: R100-21,
-R100-27 and one more in r100, R80-23, R80-25) are among those measured.
+euro sentences of the practice halves (`"book": "exam-euro"`: R100-07,
+R100-21, R100-27, R80-23, R80-25) are among those measured.
 
 | Ruler | Before | After | Results before | Results after |
 | --- | --- | --- | --- | --- |
