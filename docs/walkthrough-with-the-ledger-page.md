@@ -156,7 +156,10 @@ later.
 - The change history lists the exchange rate typed in (1.085) as "市场价 EUR
   1.09 USD".
 - In the edit form of a card whose three figures disagree, the total's
-  suspicious mark is listed twice (W04).
+  suspicious mark is listed twice (W04). Not seen again when the walk was
+  checked afterwards: the screenshots show each mark once, and the text
+  read off the page then repeated other labels of the form as well, so
+  the page may have been drawing itself again while it was read.
 
 ## What this walk did not cover
 
