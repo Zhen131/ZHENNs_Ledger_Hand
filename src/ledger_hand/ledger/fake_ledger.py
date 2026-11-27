@@ -55,7 +55,8 @@ until the figures are put right; saving another trade never voids it for
 its figures. With another fault as well (a sell of more than was held, a
 money or rate that does not fit), it is turned down whole, as
 ``TOTAL_VALUE_MISMATCH`` with both reasons in one sentence, as the real
-ledger does (its ``assistantToolCall.mismatch.test.ts``, card yi). A trade sent whole (``propose_add``, ``propose_update``) whose total
+ledger does (its ``assistantToolCall.mismatch.test.ts``, card yi). A
+trade sent whole (``propose_add``, ``propose_update``) whose total
 is not quantity times price is turned down as ``TOTAL_VALUE_MISMATCH``,
 as the real ledger turns it down without ``allowUnfinished``. A card kept
 whose total does not agree never changes the book the cards after it are
