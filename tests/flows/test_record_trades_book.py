@@ -122,7 +122,7 @@ def test_records_are_listed_then_one_removed_then_saved_listed_and_exported(
     assert "nothing_new: there is nothing new to export" in again
     assert everything_in(places.directory) == [
         "exports",
-        f"exports/{backup_file_name(LATER)}",
+        str(Path("exports", backup_file_name(LATER))),  # as this system writes a path
         "ledger-hand-book.sqlite3",
     ]
     assert list((tmp_path / "work").iterdir()) == []

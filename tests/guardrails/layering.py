@@ -73,7 +73,8 @@ class Violation:
     detail: str
 
     def __str__(self) -> str:
-        return f"{self.path}:{self.line}: {self.reason.value}: {self.detail}"
+        # as_posix(): the same text as str() on macOS and Linux, and "/" on Windows too.
+        return f"{self.path.as_posix()}:{self.line}: {self.reason.value}: {self.detail}"
 
 
 @dataclass(frozen=True)

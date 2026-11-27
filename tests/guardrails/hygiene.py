@@ -37,7 +37,9 @@ class Finding:
     text: str
 
     def __str__(self) -> str:
-        where = f"{self.path}:{self.line}" if self.line else f"{self.path} (file name)"
+        # as_posix(): the same text as str() on macOS and Linux, and "/" on Windows too.
+        shown = self.path.as_posix()
+        where = f"{shown}:{self.line}" if self.line else f"{shown} (file name)"
         return f"{where}: {self.kind.value}: {self.text!r}"
 
 

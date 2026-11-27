@@ -273,8 +273,11 @@ def test_an_export_file_not_written_says_nothing_was_marked(problem: WriteProble
 def test_an_export_file_not_marked_names_the_file_and_the_book() -> None:
     error = StorageError(StorageErrorKind.LOCKED, "the book (/invented/book): busy")
 
-    said = export_not_marked(Path("/invented/exports/file.json"), error)
+    file = Path("/invented/exports/file.json")
 
-    assert "/invented/exports/file.json" in said
+    said = export_not_marked(file, error)
+
+    # The path as this system writes it: the same text on macOS and Linux.
+    assert str(file) in said
     assert "next export writes them again" in said
     assert "in use by another program" in said
