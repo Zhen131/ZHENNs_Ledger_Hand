@@ -22,8 +22,10 @@ clock. Which cell gets which mark:
 
 - worked out: the amount the program calculated (``TradeRecord.derived``);
 - assumed: the money guessed from the ledger's last trade of the asset
-  (``TradeRecord.inferred``), and the asset the model matched to the
-  user's words from the ledger's list (``TradeRecord.picked``), or the
+  (``TradeRecord.inferred``), or from the asset's own currency when that
+  trade used neither USDT nor the US dollar (``own_money_reason``), and
+  the asset the model matched to the user's words from the ledger's list
+  (``TradeRecord.picked``), or the
   program took from its table of company names or from an answer the
   user gave before (``TradeRecord.picked_from``), the reason saying which;
 - suspicious: the price, when it is far from the market price.
@@ -50,7 +52,8 @@ Names defined here: ``MarkKind``, ``Field``, ``REASON_MOST``,
 ``reason_length``, ``cut_reason``, ``FieldMark``, ``TradeMarks``,
 ``FAR_REASON_START``, ``marks_for``, ``marks_from``, ``far_reason``,
 ``fields_sent``, ``SentMark``, ``sent_marks``, ``as_sent``,
-``FEE_MONEY_REASON_START``, ``fee_money_mark``, ``OTHER_ZONE_REASON_START``,
+``FEE_MONEY_REASON_START``, ``fee_money_mark``, ``own_money_reason``,
+``OTHER_ZONE_REASON_START``,
 ``other_zone_mark`` and ``with_mark``.
 
 A time the user said with another zone named than the ledger's
@@ -279,9 +282,25 @@ def marks_from(
 
 def _guess_reason(source: InferredFrom) -> str:
     day = source.occurred.date().isoformat()
+    if source.own_money is not None:
+        return own_money_reason(source)
     return cut_reason(
         f"assumed from the last {source.asset} trade in the ledger "
         f"({source.trade_id}, {day}), which used {source.money}"
+    )
+
+
+def own_money_reason(source: InferredFrom) -> str:
+    """Why a money was assumed from the asset's own currency, not from its last trade.
+
+    Example: "assumed from KO's own currency in the ledger, USD; the last KO
+    trade (t-ko, 2026-11-20) used EUR, not USDT or USD".
+    """
+    day = source.occurred.date().isoformat()
+    return cut_reason(
+        f"assumed from {source.asset}'s own currency in the ledger, {source.own_money}; "
+        f"the last {source.asset} trade ({source.trade_id}, {day}) used {source.money}, "
+        "not USDT or USD"
     )
 
 

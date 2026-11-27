@@ -21,7 +21,17 @@ when:
 - the ledger has no trade of the asset, could not be asked, or its last
   day used two moneys;
 - that money is neither USDT nor the US dollar (``VAGUE_MONEY_CODES``),
-  or is not one the ledger prices trades in now.
+  and the asset's own currency in the ledger is not one either, or is not
+  named (``own_money_to_guess``);
+- the money taken is not one the ledger prices trades in now.
+
+When the last trade's money is neither USDT nor the US dollar (KO last
+bought for euros), the asset's own currency is taken instead when the
+ledger names it and it is USDT or the US dollar (KO priced in USD), marked
+as a guess from it, the last trade still named (``InferredFrom.own_money``;
+the product owner's decision of 2026-11-27, 90A part 2 item 1). Only then:
+with no trade, a failure, or two moneys on the last day, nothing is guessed
+as before.
 
 A fee's currency is guessed only for a fee above zero; a fee of zero is
 recorded in the trade's own money.
@@ -32,7 +42,7 @@ a trade priced in USDT, marked as a guess from that trade.
 Each asset is looked up at most once in a passage: what the ledger said
 is kept in ``Progress.last_moneys``.
 
-Names defined here: ``guessed``.
+Names defined here: ``guessed`` and ``own_money_to_guess``.
 """
 
 from __future__ import annotations
@@ -65,18 +75,37 @@ def guessed(
         return draft, progress
     last, progress = _last_money(progress, coin.symbol, lookup)
     found = last.found
-    if found is None or found.money not in VAGUE_MONEY_CODES:
+    if found is None:
         return draft, progress
-    if found.money not in assets.pricing_codes:
+    if found.money not in VAGUE_MONEY_CODES:
+        own = own_money_to_guess(assets, coin.symbol)
+        if own is None:
+            return draft, progress
+        found = dataclasses.replace(found, own_money=own)
+    money = found.guessed
+    if money not in assets.pricing_codes:
         return draft, progress
     draft = dataclasses.replace(
         draft,
-        quote=found.money if Inferred.QUOTE in cells else draft.quote,
-        fee_coin=found.money if Inferred.FEE_COIN in cells else draft.fee_coin,
+        quote=money if Inferred.QUOTE in cells else draft.quote,
+        fee_coin=money if Inferred.FEE_COIN in cells else draft.fee_coin,
         inferred=draft.inferred | cells,
         inferred_from=found,
     )
     return draft, progress
+
+
+def own_money_to_guess(assets: AssetTable, code: str) -> str | None:
+    """The asset's own currency, when a vague word may be taken as it; ``None`` otherwise.
+
+    Only when the ledger names it, it is USDT or the US dollar, and the
+    ledger prices trades in it now. Example: KO priced in USD gives "USD";
+    DOT priced in EUR, or ADA with no currency named, gives ``None``.
+    """
+    own = assets.price_money_of(code)
+    if own is None or own not in VAGUE_MONEY_CODES or own not in assets.pricing_codes:
+        return None
+    return own
 
 
 def _vague_cells(

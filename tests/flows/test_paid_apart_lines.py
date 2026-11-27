@@ -15,6 +15,7 @@ Every sentence and number is invented; the ledgers are made in
 
 from __future__ import annotations
 
+import dataclasses
 from collections.abc import Callable
 from decimal import Decimal
 
@@ -225,8 +226,19 @@ def test_no_trade_whose_money_was_named_says_it_is_a_guess(name: str) -> None:
 
 
 # Lines of the table that do not go this way, said once each: (name, ledger, said, row).
+def _aapl_in_cny() -> FakeLedger:
+    """``books.jia`` with AAPL's own currency CNY: "美金" after its euro trade stays as before."""
+    assets = tuple(
+        dataclasses.replace(one, price_currency="CNY") if one.code == "AAPL" else one
+        for one in books.JIA_ASSETS
+    )
+    return FakeLedger(
+        assets=assets, trades=books.JIA_TRADES, prices=books.JIA_PRICES
+    ).taking_cards()
+
+
 NOT_THIS_WAY: list[tuple[str, Book, str, dict[str, str]]] = [
-    ("E4", books.jia, "今天15:30花了210欧元买了1股AAPL，一股230美金，换汇费0.3欧元",
+    ("E4 in CNY", _aapl_in_cny, "今天15:30花了210欧元买了1股AAPL，一股230美金，换汇费0.3欧元",
      {"side": "buy", "coin": "AAPL", "quantity": "1股", "price": "230美金", "total": "210欧元",
       "fee": "0.3欧元", "time": "今天15:30"}),
     ("E5", books.jia, "今天15:30花了150欧元买了1股PEP，一股160美金，手续费0",
@@ -246,6 +258,19 @@ NOT_THIS_WAY: list[tuple[str, Book, str, dict[str, str]]] = [
     ("E22", books.jia, "今天15:30花了128欧元买了2股KO，一股69.5，换汇费0.19欧元",
      KO | {"price": "69.5", "total": "128欧元", "fee": "0.19欧元"}),
 ]  # fmt: skip
+
+
+def test_e4_now_goes_this_way_with_its_price_a_guess_from_the_shares_own_currency() -> None:
+    # Since 2026-11-27 (90A part 2 item 1) E4 is no longer one that does not go this way.
+    said = "今天15:30花了210欧元买了1股AAPL，一股230美金，换汇费0.3欧元"
+    cells = {"side": "buy", "coin": "AAPL", "quantity": "1股", "price": "230美金",
+             "total": "210欧元", "fee": "0.3欧元", "time": "今天15:30"}  # fmt: skip
+    (result,) = talk(said, rows=[cells], ledger=books.jia())
+
+    assert NO_FX_FEE in result.reply
+    assert "AAPL's own currency in the ledger (its last trade used EUR)" in result.reply
+    assert result.recorded is not None
+    assert all(card.cost_rate is not None for card in result.recorded.trades)
 
 
 @pytest.mark.parametrize(

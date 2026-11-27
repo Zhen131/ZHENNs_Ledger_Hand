@@ -162,12 +162,24 @@ class InferredFrom:
     ``trade_id`` is the ledger's identifier of it, ``occurred`` its time,
     ``money`` the code of the money it used and ``asset`` its asset's
     code. Example: trade "trade-7" of ETH on 2026-08-03, priced in USDT.
+
+    ``own_money`` is the asset's own currency in the ledger when the guess
+    took that instead, because the last trade's money was neither USDT nor
+    the US dollar (the product owner's decision of 2026-11-27, 90A part 2
+    item 1); ``None`` when the guess is the last trade's money. Example: KO
+    last bought for EUR, priced in USD: ``money`` EUR, ``own_money`` USD.
     """
 
     trade_id: str
     occurred: datetime
     money: str
     asset: str
+    own_money: str | None = None
+
+    @property
+    def guessed(self) -> str:
+        """The money guessed: the asset's own currency when taken, else the last trade's."""
+        return self.own_money if self.own_money is not None else self.money
 
 
 @dataclass(frozen=True, kw_only=True)

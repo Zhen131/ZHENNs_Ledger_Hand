@@ -39,7 +39,11 @@ Each trade sent whose money the program guessed from the ledger's last
 trade of its asset (``TradeRecord.inferred``) gets one line right after
 the ending's sentence (``GUESSED_WORDS``): which money, from which asset's
 last trade, and that it is a guess to check. The words are fixed here,
-never the model's. (Decided on 2026-11-25.)
+never the model's. (Decided on 2026-11-25.) A money guessed from the
+asset's own currency in the ledger, its last trade having used neither
+USDT nor the US dollar, gets the same line naming that currency and the
+last trade's money instead (``OWN_MONEY_WORDS``, ``OWN_RATE_GUESS_WORDS``
+for the price said of a trade paid in another money; 2026-11-27).
 
 Each trade sent that was paid in another money than the one its asset is
 priced in gets its own lines after those of guessed moneys (``RATE_WORDS``,
@@ -88,7 +92,8 @@ carries no mark when nothing was compared, and the user should not take
 it as checked.
 
 Names defined here: ``ENDING_WORDS``, ``LEFT_OUT_WORDS``,
-``SPOKEN_REMINDERS``, ``PICKED_WORDS``, ``NAMED_WORDS``, ``GUESSED_WORDS``, ``RATE_WORDS``,
+``SPOKEN_REMINDERS``, ``PICKED_WORDS``, ``NAMED_WORDS``, ``GUESSED_WORDS``,
+``OWN_MONEY_WORDS``, ``OWN_RATE_GUESS_WORDS``, ``RATE_WORDS``,
 ``WITHOUT_FX_FEE``, ``RATE_GUESS_WORDS``, ``NO_REFERENCE_WORDS``, ``FAR_RATE_WORDS``,
 ``SAID_FAR_WORDS``, ``DROPPED_WORDS``, ``rate_lines``, ``PRICE_WORDS``,
 ``NOT_CHECKED_WORDS``, ``EMPTY_WORDS``, ``LEDGER_PROBLEM_WORDS``,
@@ -253,6 +258,29 @@ GUESSED_WORDS: Mapping[frozenset[Inferred], str] = MappingProxyType(
     }
 )
 
+# The same lines for a money guessed from the asset's own currency in the
+# ledger, its last trade having used neither USDT nor the US dollar
+# (2026-11-27). "own currency" and "This is a guess" are in each.
+OWN_MONEY_WORDS: Mapping[frozenset[Inferred], str] = MappingProxyType(
+    {
+        frozenset({Inferred.QUOTE}): (
+            "Trade {number}: no currency was said, so it is priced in {money}, {asset}'s own "
+            "currency in the ledger (its last trade used {last_money}). This is a guess; check "
+            "it before you confirm."
+        ),
+        frozenset({Inferred.QUOTE, Inferred.FEE_COIN}): (
+            "Trade {number}: no currency was said, so it is priced in {money} and its fee is "
+            "taken in {money}, {asset}'s own currency in the ledger (its last trade used "
+            "{last_money}). This is a guess; check it before you confirm."
+        ),
+        frozenset({Inferred.FEE_COIN}): (
+            "Trade {number}: no currency was said for the fee, so it is taken in {money}, "
+            "{asset}'s own currency in the ledger (its last trade used {last_money}). This is a "
+            "guess; check it before you confirm."
+        ),
+    }
+)
+
 # The lines for a trade paid in another money than its asset's own. The keywords
 # tests look for: "without any FX fee", "This is a guess", "was not compared
 # with one", "is far from".
@@ -267,6 +295,10 @@ WITHOUT_FX_FEE = (
 RATE_GUESS_WORDS = (
     "Trade {number}: the price you said was taken as {money}, the currency of the last "
     "{asset} trade in the ledger. This is a guess; check it before you confirm."
+)
+OWN_RATE_GUESS_WORDS = (
+    "Trade {number}: the price you said was taken as {money}, {asset}'s own currency in the "
+    "ledger (its last trade used {last_money}). This is a guess; check it before you confirm."
 )
 NO_REFERENCE_WORDS = (
     "Trade {number}: the ledger has no earlier trade paid in {paid} for an asset priced in "
@@ -453,8 +485,11 @@ def _guessed(recorded: Recorded) -> list[str]:
             )
         if inferred not in GUESSED_WORDS:
             continue
+        words = GUESSED_WORDS if source.own_money is None else OWN_MONEY_WORDS
         lines.append(
-            GUESSED_WORDS[inferred].format(number=number, money=source.money, asset=source.asset)
+            words[inferred].format(
+                number=number, money=source.guessed, asset=source.asset, last_money=source.money
+            )
         )
     return lines
 
@@ -605,7 +640,10 @@ def rate_lines(number: int, asset: str, note: RateNote) -> list[str]:
         "things": "shares" if note.each == "a share" else asset,
     }
     lines = [RATE_WORDS.format(**fields), WITHOUT_FX_FEE.format(**fields)]
-    if said.guessed_from is not None:
+    source = said.guessed_from
+    if source is not None and source.own_money is not None:
+        lines.append(OWN_RATE_GUESS_WORDS.format(**fields, last_money=source.money))
+    elif source is not None:
         lines.append(RATE_GUESS_WORDS.format(**fields))
     reference = note.reference
     if reference is None:

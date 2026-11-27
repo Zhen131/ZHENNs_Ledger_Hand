@@ -25,7 +25,9 @@ Then the price's unit decides:
 - a vague word ("美金", "刀", "$"): it is A when the trade's own fee names
   USDT or the US dollar and that is A, or, with neither named, when the
   asset's last trade in the ledger used A (``last_money``), marked as a
-  guess; otherwise nothing changes, and A is never put in its place;
+  guess; when that trade used neither USDT nor the US dollar, it is A
+  when A is one of the two, marked as a guess from A (2026-11-27);
+  otherwise nothing changes, and A is never put in its place;
 - P named ("一股64欧元"), or no price said: the user is asked the price of
   one unit in A (``AskSaidPrice``);
 - another money named ("69.5 USDT" for KO), or a number with no money:
@@ -59,6 +61,7 @@ from ledger_hand.core.ledger_table import VAGUE_MONEY_CODES
 from ledger_hand.core.trade import InferredFrom, MoneysSaid, SaidPrice, TradeDraft
 from ledger_hand.extraction.issues import IssueKind
 from ledger_hand.extraction.reply_table import Field as ReplyField
+from ledger_hand.flows.guessing import own_money_to_guess
 from ledger_hand.flows.last_money import LastMoney, LastMoneyLookup
 from ledger_hand.flows.progress import Progress
 
@@ -168,7 +171,7 @@ def _said(
         return None, progress
     if found.reading is not MoneyReading.VAGUE:
         return None, progress
-    meant, source, progress = _vague_meant(progress, moneys, code, lookup)
+    meant, source, progress = _vague_meant(progress, moneys, code, own, lookup)
     if meant != own:
         return None, progress
     return SaidPrice(amount=draft.price, money=own, paid=paid, guessed_from=source), progress
@@ -183,13 +186,20 @@ def _priced_money(word: str | None, assets: AssetTable) -> str | None:
 
 
 def _vague_meant(
-    progress: Progress, moneys: MoneysSaid, code: str, lookup: LastMoneyLookup | None
+    progress: Progress,
+    moneys: MoneysSaid,
+    code: str,
+    own: str,
+    lookup: LastMoneyLookup | None,
 ) -> tuple[str | None, InferredFrom | None, Progress]:
     """What a vague word on the price means, by the rule of 2026-11-25, the money paid aside.
 
     USDT or the US dollar named on the fee first; with neither, the money
     of the asset's last trade in the ledger, when it is one of the two and
-    one the ledger prices in, as a guess; otherwise nothing.
+    one the ledger prices in, as a guess; when that trade used neither,
+    the asset's own currency ``own``, when it is one of the two and one the
+    ledger prices in, as a guess from it (2026-11-27, 90A part 2 item 1);
+    otherwise nothing.
     """
     assets = progress.setting.assets
     named = _priced_money(moneys.fee, assets)
@@ -199,11 +209,15 @@ def _vague_meant(
         return None, None, progress
     last, progress = _last_money(progress, code, lookup)
     found = last.found
-    if found is None or found.money not in VAGUE_MONEY_CODES:
+    if found is None:
         return None, None, progress
-    if found.money not in assets.pricing_codes:
+    if found.money not in VAGUE_MONEY_CODES:
+        if own_money_to_guess(assets, code) != own:
+            return None, None, progress
+        found = dataclasses.replace(found, own_money=own)
+    if found.guessed not in assets.pricing_codes:
         return None, None, progress
-    return found.money, found, progress
+    return found.guessed, found, progress
 
 
 def _last_money(

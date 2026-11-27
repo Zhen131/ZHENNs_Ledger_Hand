@@ -56,6 +56,7 @@ from ledger_hand.core.marks import (
     TradeMarks,
     cut_reason,
     far_reason,
+    own_money_reason,
     reason_length,
 )
 from ledger_hand.core.price_check import PriceCheck, PriceVerdict
@@ -196,7 +197,9 @@ def rate_mark(note: RateNote, asset: str) -> FieldMark:
     said = note.said
     plain: list[str] = []
     source = said.guessed_from
-    if source is not None:
+    if source is not None and source.own_money is not None:
+        plain.append(f"the money of the price said was {own_money_reason(source)}")
+    elif source is not None:
         plain.append(
             f"the money of the price said was assumed from the last {source.asset} trade in the "
             f"ledger ({source.trade_id}, {source.occurred.date().isoformat()}), "

@@ -37,10 +37,13 @@ the table of the trades sent, laid out from the
 proposal itself, each trade followed by where its two moneys came from
 ("money: price said, fee said"; "said" when the user said it, "inferred
 from <trade> on <day>" when the program guessed it from the ledger's last
-trade of the asset, "only money" when no word for money was said and the
-ledger prices in one money; a fee of zero is in the price's money and
-says the same), and one line from the program saying what reached the
-ledger ("sent to the ledger: nothing" when nothing did). Each trade's
+trade of the asset, "own currency of <asset> (last trade <trade> on <day>
+used <money>)" when that trade used neither USDT nor US dollars and the
+program took the asset's own currency in the ledger, "only money" when
+no word for money was said and the ledger prices in one money; a fee of
+zero is in the price's money and says the same), and one line from the
+program saying what reached the ledger ("sent to the ledger: nothing" when
+nothing did). Each trade's
 money line is followed by its marks ("marks: price: suspicious (...);
 totalValue: computed (...)", or "marks: none") and what came of comparing
 its price with the ledger's market price ("price check: far from ...",
@@ -128,7 +131,7 @@ from ledger_hand.core.followup import AskCell, AskSaidPrice, ConfirmCoin
 from ledger_hand.core.ledger_records import TradeFacts, TradeFilter
 from ledger_hand.core.marks import TradeMarks
 from ledger_hand.core.proposals import ProposalStatus, TradeCheck
-from ledger_hand.core.trade import Inferred, TradeRecord
+from ledger_hand.core.trade import Inferred, InferredFrom, TradeRecord
 from ledger_hand.core.trade_card import TradeCard
 from ledger_hand.core.zones import is_zone_name
 from ledger_hand.extraction.asset_picking import AssetPick
@@ -616,14 +619,28 @@ def _card_source(card: CardRecord, mark: Inferred) -> str:
     source = card.inferred_from
     if mark not in card.inferred or source is None:
         return "said"
-    return f"inferred from {source.trade_id} on {source.occurred.date().isoformat()}"
+    return _guessed_from(source)
 
 
 def _money_source(record: TradeRecord, mark: Inferred) -> str | None:
     source = record.inferred_from
     if mark not in record.inferred or source is None:
         return None
-    return f"inferred from {source.trade_id} on {source.occurred.date().isoformat()}"
+    return _guessed_from(source)
+
+
+def _guessed_from(source: InferredFrom) -> str:
+    """Where a guessed money came from: the asset's last trade, or its own currency.
+
+    Example: "own currency of KO (last trade t-ko on 2026-11-20 used EUR)".
+    """
+    day = source.occurred.date().isoformat()
+    if source.own_money is not None:
+        return (
+            f"own currency of {source.asset} (last trade {source.trade_id} on {day} used "
+            f"{source.money})"
+        )
+    return f"inferred from {source.trade_id} on {day}"
 
 
 def _then(afterwards: Afterwards, chat: Chat, ledger: FakeLedger, out: TextIO) -> None:

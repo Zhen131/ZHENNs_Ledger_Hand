@@ -16,9 +16,11 @@ on the same sentence before this rule, measured on 2026-11-26.
 
 from __future__ import annotations
 
+import dataclasses
 from collections.abc import Sequence
 from decimal import Decimal
 
+from ledger_hand.core.cost_rate import rate_of
 from ledger_hand.core.marks import MarkKind
 from ledger_hand.core.trade_card import TradeCard
 from ledger_hand.flows.conversation import AssistantChat, Said, say
@@ -189,25 +191,47 @@ def test_e3_on_the_demo_ledger_with_a_euro() -> None:
 # --- E4 to E9: as before ----------------------------------------------------------------
 
 
-def test_e4_meijin_is_not_dollars_after_a_euro_trade_and_is_asked_as_before() -> None:
+E4 = "今天15:30花了210欧元买了1股AAPL，一股230美金，换汇费0.3欧元"
+E4_ROW = {
+    "side": "buy",
+    "coin": "AAPL",
+    "quantity": "1股",
+    "price": "230美金",
+    "total": "210欧元",
+    "fee": "0.3欧元",
+    "time": "今天15:30",
+}
+
+
+def test_e4_meijin_after_a_euro_trade_is_the_shares_own_dollars_as_a_guess() -> None:
+    # Since 2026-11-27 (90A part 2 item 1): AAPL's last trade used EUR, neither
+    # USDT nor USD, so "美金" is AAPL's own currency in the ledger, USD, a guess.
     ledger = books.jia()
-    said = one(
-        "今天15:30花了210欧元买了1股AAPL，一股230美金，换汇费0.3欧元",
-        {
-            "side": "buy",
-            "coin": "AAPL",
-            "quantity": "1股",
-            "price": "230美金",
-            "total": "210欧元",
-            "fee": "0.3欧元",
-            "time": "今天15:30",
-        },
-        ledger,
+    said = one(E4, E4_ROW, ledger)
+
+    (card,) = sent(said)
+    assert (card.asset, card.quote) == ("AAPL", "EUR")
+    assert card.cost_rate == rate_of(Decimal(1), Decimal(230), Decimal(210))
+    assert card.total == Decimal(210)
+    kind, reason = mark_on(card, "costRate") or ("", "")
+    assert kind == MarkKind.INFERRED.value
+    assert reason is not None and "AAPL's own currency in the ledger, USD" in reason
+    assert "used EUR" in reason
+    assert GUESS in said.reply and "own currency" in said.reply
+
+
+def test_e4_with_the_share_priced_in_yuan_meijin_is_asked_as_before() -> None:
+    # What the old E4 held: "美金" after a euro trade is not taken as dollars
+    # when nothing says so. With AAPL's own currency CNY, it is asked as before.
+    assets = tuple(
+        dataclasses.replace(one, price_currency="CNY") if one.code == "AAPL" else one
+        for one in books.JIA_ASSETS
     )
+    ledger = FakeLedger(assets=assets, trades=books.JIA_TRADES, prices=books.JIA_PRICES)
+    said = one(E4, E4_ROW, ledger.taking_cards())
 
     asked(said, "[Trade 1 of 1: pricing currency]")
     nothing_paid_apart(said)
-    assert "propose_add" not in ledger.calls
 
 
 def test_e5_meijin_for_a_share_never_traded_is_asked_as_before() -> None:
