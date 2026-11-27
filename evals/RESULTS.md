@@ -10539,3 +10539,119 @@ model and the real plug, nothing saved:
 The ledger's answers kept from that walk are the samples
 `tests/ledger/samples/list-exchange-rates-*-050e7dd.json` (both ways round,
 a pair with none, a share named as a money, two pages).
+
+## 2026-11-27: eight models on the same rulers
+
+Six local models and DeepSeek's two, each run once on the same rulers with
+the same code (`dbb9b09`, its `src/` and `evals/` unchanged in every run;
+each results file's first line holds its commit), the same prompts
+(`first-3`, `assistant-5`) and the same settings: temperature 0, the
+longest reply 1024 tokens, a context of 16384 tokens (sent to the local
+plug only), a timeout of 120 seconds, two retries. No setting was tuned
+for any model. The one switch set differently is thinking, fixed before
+the first run: a local model that can think (`ollama show` lists
+`thinking`) was run with `LEDGER_HAND_MODEL_THINK=off`, to match DeepSeek,
+whose plug always turns thinking off; a model that cannot think was run
+with nothing set. A thinking model would have been run once more with
+nothing set had more than one in ten of its practice sentences ended in a
+reply the program could not use (`malformed_reply` or `model_failed` in
+the sentence's reasons); none did, 0 of 41 for each, so every thinking
+model's figures below are with thinking off. Measured on Windows 11, an
+RTX 5080 with 16 GB, Ollama 0.40.16, between 20:51 and 21:54 UTC. No
+other model was in the card's memory while a model was measured, except
+`qwen2.5:7b`, still loaded for a few minutes when `gemma4:12b` started.
+The program's table of company names is off by default and was left off,
+except in the names ruler (`evals.name_table_run`), which turns it on
+itself.
+
+The hidden halves were run once for each model and only their printed
+totals were read: their results files, and the lines their runs added to
+`hidden-runs.log`, are kept outside the repository, unopened. The names
+set's locked half writes its counts alone and is committed. The hidden
+halves of DeepSeek's two rows were sent to DeepSeek, so for a later
+version of DeepSeek they may no longer be unseen. The models are ranked
+by the practice halves and the other rulers; the hidden totals are shown
+beside them, not used to rank.
+
+Scores. A tier's cell is ③, trades with a wrong figure and no mark; the
+share saved with no cell changed (of the trades judged); sentences not
+measured. The final set is trades whole of 22, then fields wrong with
+nothing said; the stock and change sets are sentences right of all, then
+sent wrong; the names set is right / wrong / not matched / not measured,
+on the list then off it, each group of 11.
+
+| Model | Thinking | r100 practice | r100 hidden | r80 practice | r80 hidden | r70 practice | r70 hidden | Final set | `stock_run` | `edit_run`, `edits.json` | `edit_run`, spoken practice | Names, practice | Names, locked |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `qwen2.5:7b` | none sent | 1; 46.2% (13); 0 | 2; 33.3% (12); 0 | 1; 30.8% (13); 0 | 0; 63.6% (11); 0 | 1; 92.3% (13); 0 | 0; 100.0% (8); 0 | 22, 0 | 16 of 18, 0 | 14 of 17, 0 | 4 of 4, 0 | 7/0/4/0, 10/1/0/0 | 7/0/4/0, 11/0/0/0 |
+| `qwen2.5:7b` at `ead5ca9` (this day's first section, older code) | none sent | 1; 46.2% (13); 0 | 2; 33.3% (12); 0 | 1; 38.5% (13); 0 | 0; 63.6% (11); 0 | 2; 84.6% (13); 0 | 0; 100.0% (8); 0 | 22, 0 | 16 of 18, 0 | 14 of 17, 0 | 4 of 4, 0 | not run | not run |
+| `qwen3:8b` | off | 5; 53.8% (13); 0 | 4; 16.7% (12); 0 | 3; 61.5% (13); 0 | 1; 63.6% (11); 0 | 0; 100.0% (13); 0 | 0; 100.0% (8); 0 | 15, 5 | 15 of 18, 0 | 17 of 17, 0 | 4 of 4, 0 | 9/0/2/0, 10/1/0/0 | 9/0/2/0, 11/0/0/0 |
+| `qwen3.5:9b-q4_K_M` | off | 4; 53.8% (13); 0 | 5; 41.7% (12); 0 | 1; 53.8% (13); 0 | 3; 45.5% (11); 0 | 0; 100.0% (13); 0 | 1; 87.5% (8); 0 | 21, 1 | 16 of 18, 0 | 16 of 17, 0 | 4 of 4, 0 | 9/0/2/0, 10/1/0/0 | 9/0/2/0, 11/0/0/0 |
+| `qwen3.5:4b-q4_K_M` | off | 4; 0.0% (13); 0 | 1; 0.0% (12); 0 | 8; 7.7% (13); 0 | 2; 0.0% (11); 0 | 2; 61.5% (13); 0 | 1; 62.5% (8); 0 | 20, 1 | 16 of 18, 0 | 16 of 17, 0 | 4 of 4, 0 | 9/0/2/0, 10/1/0/0 | 9/0/2/0, 11/0/0/0 |
+| `qwen2.5:14b` | none sent | 6; 46.2% (13); 0 | 1; 33.3% (12); 0 | 8; 30.8% (13); 0 | 1; 63.6% (11); 0 | 0; 100.0% (13); 0 | 1; 87.5% (8); 0 | 20, 2 | 16 of 18, 0 | 15 of 17, 0 | 4 of 4, 0 | 9/0/2/0, 10/1/0/0 | 9/0/2/0, 11/0/0/0 |
+| `gemma4:12b` | off | 0; 92.3% (13); 0 | 0; 58.3% (12); 0 | 0; 61.5% (13); 0 | 0; 72.7% (11); 0 | 0; 100.0% (13); 0 | 0; 100.0% (8); 0 | 17, 5 | 16 of 18, 0 | 13 of 17, 0 | 2 of 4, 0 | 9/0/2/0, 10/1/0/0 | 9/0/2/0, 11/0/0/0 |
+| `deepseek-flash` | turned off by the plug | 0; 84.6% (13); 0 | 0; 41.7% (12); 0 | 0; 61.5% (13); 0 | 0; 72.7% (11); 0 | 0; 100.0% (13); 0 | 0; 100.0% (8); 0 | 16, 6 | 16 of 18, 0 | 15 of 17, 0 | 4 of 4, 0 | 9/0/2/0, 10/1/0/0 | 9/0/2/0, 11/0/0/0 |
+| `deepseek-v4-pro` | turned off by the plug | 0; 84.6% (13); 0 | 0; 41.7% (12); 0 | 2; 61.5% (13); 0 | 0; 72.7% (11); 0 | 0; 100.0% (13); 0 | 0; 100.0% (8); 0 | 21, 1 | 16 of 18, 0 | 17 of 17, 0 | 4 of 4, 0 | 9/0/2/0, 10/1/0/0 | 9/0/2/0, 11/0/0/0 |
+
+Against the lines for the hidden halves (no ③ on any tier; the tidy tier,
+r70, 90% saved unchanged; the a-little-tidier tier, r80, 80%; the tier as
+said, r100, reported): `gemma4:12b`, `deepseek-flash` and
+`deepseek-v4-pro` had no ③ on any tier and met r70's line, and none of
+the eight met r80's 80% (the best, 72.7%); `qwen2.5:7b` met r70's line but
+had 2 ③ on r100; every other model had at least one ③ on a hidden half.
+
+Wrong with nothing said, added over the practice halves and the other
+rulers (③ on the three practice tiers, fields wrong on the final set,
+sent wrong on the stock and change sets): `qwen2.5:7b` 3, `deepseek-v4-pro`
+3, `gemma4:12b` 5, `qwen3.5:9b-q4_K_M` 6, `deepseek-flash` 6, `qwen3:8b`
+13, `qwen3.5:4b-q4_K_M` 15, `qwen2.5:14b` 16. On the final set, four of
+the five fields of `gemma4:12b` and of `qwen3:8b`, and four of the six of
+`deepseek-flash`, are in one sentence of four trades, f14; the final set
+goes through the Record page's own prompts, which were written against
+`qwen2.5:7b`. The names set comes out the same for every model but
+`qwen2.5:7b`, which left the asset cell empty on N09 and N19: the names
+are matched by the program, not the model. The first tool was the right
+one on every practice sentence of every model but `qwen2.5:7b`, 11 of 13
+on r80, and on every hidden sentence but one of `qwen2.5:14b` on r80, 10
+of 11.
+
+Speed and memory. Seconds a sentence is each command's whole time,
+measured outside it (starting Python, loading the model, every wait),
+divided by its sentences, enabled or not, less those not measured: 41 on
+the practice tiers, 39 on the hidden tiers, 103 on the other rulers (20,
+18, 17, 4, 22 and 22). The first command is r100's practice half, which
+loads the model. Memory is what `ollama ps` showed after the practice
+halves, with the context of 16384 tokens and its cache, so more than the
+file.
+
+| Model | File | `ollama ps` | Practice tiers, s a sentence | Hidden tiers | Other rulers | All 183 sentences | First command | Whole run |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `qwen2.5:7b` | 4.7 GB | 5.6 GB, 100% GPU | 1.9 | 1.9 | 1.1 | 1.45 | 31 s | 4.4 min |
+| `qwen3:8b` | 5.2 GB | 7.5 GB, 100% GPU | 2.9 | 2.8 | 1.6 | 2.13 | 49 s | 6.5 min |
+| `qwen3.5:9b-q4_K_M` | 6.6 GB | 6.1 GB, 100% GPU | 2.3 | 2.5 | 1.6 | 1.96 | 37 s | 6.0 min |
+| `qwen3.5:4b-q4_K_M` | 3.3 GB | 3.7 GB, 100% GPU | 1.7 | 1.6 | 1.1 | 1.37 | 29 s | 4.2 min |
+| `qwen2.5:14b` | 9.0 GB | 11 GB, 100% GPU | 3.5 | 3.6 | 2.0 | 2.70 | 55 s | 8.2 min |
+| `gemma4:12b` | 8.0 GB | 1.5 GB shown, 100% GPU; the card's memory in use was 10.4 GB, against about 0.9 GB with no model loaded | 3.2 | 2.1 | 1.5 | 2.02 | 71 s | 6.2 min |
+| `deepseek-flash` | none | none | 2.6 | 2.7 | 2.1 | 2.34 | 39 s | 7.1 min |
+| `deepseek-v4-pro` | none | none | 4.4 | 4.2 | 3.3 | 3.78 | 64 s | 11.5 min |
+
+What DeepSeek cost, by the balance before and after each model's whole run
+(`scripts/cloud_balance.py`), every call counted, retries too:
+`deepseek-flash` 0.18 CNY (99.96 to 99.78), `deepseek-v4-pro` 0.70 CNY
+(99.78 to 99.08), both at off-peak hours. Tokens are not counted: these
+rulers do not write them to their results files.
+
+Results, in `evals/tool_results/` (the three practice tiers, the final
+set, `stock_run`, `edit_run` on `edits.json` and on the spoken practice
+set, the names set's practice half, its locked half):
+
+- `qwen2.5:7b`: `spoken-20261127T205148Z-…`, `spoken-20261127T205218Z-…`, `spoken-20261127T205242Z-…`, `judged-20261127T205320Z-…`, `run-20261127T205339Z-…`, `run-20261127T205401Z-…`, `run-20261127T205410Z-…`, `run-20261127T205412Z-…`, `run-20261127T205453Z-…`
+- `gemma4:12b`: `spoken-20261127T205651Z-…`, `spoken-20261127T205802Z-…`, `spoken-20261127T205831Z-…`, `judged-20261127T205912Z-…`, `run-20261127T205937Z-…`, `run-20261127T210009Z-…`, `run-20261127T210020Z-…`, `run-20261127T210024Z-…`, `run-20261127T210112Z-…`
+- `qwen3:8b`: `spoken-20261127T210432Z-…`, `spoken-20261127T210521Z-…`, `spoken-20261127T210557Z-…`, `judged-20261127T210636Z-…`, `run-20261127T210700Z-…`, `run-20261127T210733Z-…`, `run-20261127T210740Z-…`, `run-20261127T210742Z-…`, `run-20261127T210832Z-…`
+- `qwen3.5:9b-q4_K_M`: `spoken-20261127T211309Z-…`, `spoken-20261127T211347Z-…`, `spoken-20261127T211417Z-…`, `judged-20261127T211451Z-…`, `run-20261127T211520Z-…`, `run-20261127T211551Z-…`, `run-20261127T211605Z-…`, `run-20261127T211608Z-…`, `run-20261127T211653Z-…`
+- `qwen3.5:4b-q4_K_M`: `spoken-20261127T212014Z-…`, `spoken-20261127T212044Z-…`, `spoken-20261127T212106Z-…`, `judged-20261127T212131Z-…`, `run-20261127T212151Z-…`, `run-20261127T212213Z-…`, `run-20261127T212227Z-…`, `run-20261127T212231Z-…`, `run-20261127T212301Z-…`
+- `qwen2.5:14b`: `spoken-20261127T212608Z-…`, `spoken-20261127T212703Z-…`, `spoken-20261127T212751Z-…`, `judged-20261127T212835Z-…`, `run-20261127T212913Z-…`, `run-20261127T212954Z-…`, `run-20261127T213005Z-…`, `run-20261127T213007Z-…`, `run-20261127T213110Z-…`
+- `deepseek-flash`: `spoken-20261127T213446Z-…`, `spoken-20261127T213525Z-…`, `spoken-20261127T213601Z-…`, `judged-20261127T213642Z-…`, `run-20261127T213717Z-…`, `run-20261127T213800Z-…`, `run-20261127T213820Z-…`, `run-20261127T213824Z-…`, `run-20261127T213923Z-…`
+- `deepseek-v4-pro`: `spoken-20261127T214223Z-…`, `spoken-20261127T214328Z-…`, `spoken-20261127T214430Z-…`, `judged-20261127T214547Z-…`, `run-20261127T214642Z-…`, `run-20261127T214752Z-…`, `run-20261127T214817Z-…`, `run-20261127T214825Z-…`, `run-20261127T215005Z-…`
+
+Which model to run where, from these figures: `docs/choosing-a-model.md`.
+The default model is unchanged.

@@ -798,6 +798,61 @@ which the Assistant page can reach but no measure does. The sentences for a demo
 checked by `tests/live/test_live_demo_sentences.py`; that they come out
 the same again shows nothing about other words for the same thing.
 
+### Eight models compared
+
+The assistant's rulers and the final set were run once more with six
+local models and DeepSeek's two, each once, with the same code, prompts
+and settings, nothing tuned for any model; thinking was turned off for
+every model that can think, as DeepSeek's plug always does. The hidden
+halves were run once each and only their totals read; the models are
+ranked by the rest. The full tables, with every results file, are in
+`evals/RESULTS.md`, "2026-11-27: eight models on the same rulers"; what to
+pick on which machine is in `docs/choosing-a-model.md`. The default model
+is unchanged.
+
+Scores. ③ is trades with a wrong figure and no mark, the practice halves
+of the three tiers added (41 sentences), with the hidden halves' total
+beside it; "unchanged" is the share saved with no cell changed, r100 /
+r80 / r70; the final set is trades whole of 22, then fields wrong with
+nothing said; the stock and change sets are sentences right, and no model
+sent one wrong. No sentence went unmeasured. On the names set's practice
+half every model matched 9 of 11 on the list and 10 of 11 off it, but
+`qwen2.5:7b` 7 of 11 on the list.
+
+| Model | ③ practice (hidden) | Unchanged, practice | Final set | Stocks, of 18 | Changes, of 17 and of 4 |
+| --- | --- | --- | --- | --- | --- |
+| `qwen2.5:7b` | 3 (2) | 46.2% / 30.8% / 92.3% | 22, 0 | 16 | 14, 4 |
+| `qwen3:8b`, thinking off | 8 (5) | 53.8% / 61.5% / 100.0% | 15, 5 | 15 | 17, 4 |
+| `qwen3.5:9b-q4_K_M`, thinking off | 5 (9) | 53.8% / 53.8% / 100.0% | 21, 1 | 16 | 16, 4 |
+| `qwen3.5:4b-q4_K_M`, thinking off | 14 (4) | 0.0% / 7.7% / 61.5% | 20, 1 | 16 | 16, 4 |
+| `qwen2.5:14b` | 14 (3) | 46.2% / 30.8% / 100.0% | 20, 2 | 16 | 15, 4 |
+| `gemma4:12b`, thinking off | 0 (0) | 92.3% / 61.5% / 100.0% | 17, 5 | 16 | 13, 2 |
+| `deepseek-flash` | 0 (0) | 84.6% / 61.5% / 100.0% | 16, 6 | 16 | 15, 4 |
+| `deepseek-v4-pro` | 2 (0) | 84.6% / 61.5% / 100.0% | 21, 1 | 16 | 17, 4 |
+
+Speed, memory and cost, on Windows 11 with an RTX 5080 of 16 GB: seconds
+a sentence over all 183 sentences, timed from outside each command; the
+memory `ollama ps` showed, with the context of 16384 tokens; DeepSeek's
+cost as the change in the balance over the whole run.
+
+| Model | Seconds a sentence | Memory | Cost of the whole run |
+| --- | --- | --- | --- |
+| `qwen2.5:7b` | 1.45 | 5.6 GB, all on the card | none |
+| `qwen3:8b` | 2.13 | 7.5 GB, all on the card | none |
+| `qwen3.5:9b-q4_K_M` | 1.96 | 6.1 GB, all on the card | none |
+| `qwen3.5:4b-q4_K_M` | 1.37 | 3.7 GB, all on the card | none |
+| `qwen2.5:14b` | 2.70 | 11 GB, all on the card | none |
+| `gemma4:12b` | 2.02 | 1.5 GB shown, all on the card; about 9.5 GB more of the card in use | none |
+| `deepseek-flash` | 2.34 | none | 0.18 CNY |
+| `deepseek-v4-pro` | 3.78 | none | 0.70 CNY |
+
+So no local model made fewer mistakes that nothing points out than the
+default; `gemma4:12b` made none on the exam said the owner's way but five
+on the final set, whose prompts were written against `qwen2.5:7b`; and the
+larger model of the default's own family, `qwen2.5:14b`, was slower and no
+better. `deepseek-v4-pro` was the best of the eight. Not measured: any of
+them on a Mac.
+
 ## 7. Design decisions
 
 **In short:** the model is a replaceable part behind a narrow port, kept

@@ -1876,6 +1876,9 @@ settings page, for the browser tab only (see "The settings page").
 `DEEPSEEK_API_KEY` is the one variable here without the prefix: it is the
 name DeepSeek's own documents use.
 
+Which model to name, on which machine, and what each cost and scored when
+eight were measured on the same rulers: `docs/choosing-a-model.md`.
+
 | Variable | Default | What it sets | Why this default |
 | --- | --- | --- | --- |
 | `LEDGER_HAND_MODEL_PLUG` | `local` | Which plug talks to the model: local, Ollama's own chat endpoint; cloud, the OpenAI-style chat endpoint most cloud services offer, at the address you set, which needs https and a key off this machine; or deepseek, DeepSeek's own service at https://api.deepseek.com, with deepseek-v4-pro unless another model is named and the key in DEEPSEEK_API_KEY. With cloud or deepseek, what is typed, and what the assistant looks up in the ledger, is sent there. | Local, so that by default the model runs on this machine and nothing that is typed leaves it. Setting an address or a key never switches to a cloud service; only this does. |
@@ -2508,6 +2511,7 @@ check and the hygiene scan).
 | `docs/architecture.md` | How the layers are divided, who may import whom, the house rules, and where new features go. |
 | `docs/known-gaps.md` | Known limits of the program as it stands, each with what it affects and, where a choice is needed, waiting for the project owner. |
 | `docs/walkthrough-with-the-ledger-page.md` | One walk, sentence by sentence, from the Assistant page to Save on a running ledger page, with an invented ledger and `qwen2.5:7b`: what each sentence did, how it was judged, and what was seen in this program and in the ledger. |
+| `docs/choosing-a-model.md` | Eight models, six local and two of DeepSeek's, measured on the same rulers: what each file and run takes, what it scored, and which to pick on a 16 GB Mac or in the cloud. The default model is unchanged. |
 | `docs/project-report.md` | The project described for a reader new to it: the problem, the steps, the prompt techniques, the parameters, the error handling, the experiments, the design decisions, the known limitations, and the course's checklist mapped onto the repository. `tests/test_project_report_paths.py` checks that every path it names is in the repository. |
 | `tests/storage/golden/` | The golden book of version 1, a SQLite file, and its text dump. Never edited once committed; a new version of the book gets one of its own. |
 | `tests/flows/golden/` | The golden assistant's records of versions 1 to 8 (`assistant-record-v1.jsonl` to `assistant-record-v8.jsonl`), invented entries. Never edited once committed; a new version of the record gets one of its own. |
