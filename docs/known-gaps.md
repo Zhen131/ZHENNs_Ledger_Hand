@@ -71,16 +71,18 @@ see. Each item's detail stays in the section it points to.
   euro amount said one place wrong (128 said as 12.8) is then not marked;
   the reply says nothing was compared ("The rate's reference is the
   ledger's latest such trade, as listed").
-- **After a share was bought for euros, "美金" for it is not guessed.**
-  Once the last KO trade was paid in euros, a new KO trade paid in euros
-  with the share price said in "美金" ("花了140欧元买了2股 KO，一股70美金，……")
-  is asked which money ("What is the pricing currency?"). A plain trade
-  of KO with "一股70美金" is sent instead, its money left empty and marked
-  suspicious ("美金" may mean USDT or the US dollar, but the last KO trade
-  used EUR), to be filled in on the ledger's page. "70美元" or "70 USD" is
-  neither asked nor left empty. With no euro trade of KO before, "美金" is
-  taken as the US dollar of the last KO trade, marked assumed ("\"美金\"
-  for the share price follows the asset's last trade").
+- **After a share was bought for euros, "美金" for it is taken as the
+  share's own currency, a guess.** Since 2026-11-27, once the last KO trade
+  was paid in euros, "一股70美金" for KO is taken as KO's own currency in the
+  ledger (US dollars), marked assumed, the reason naming that currency and
+  the last KO trade's EUR, and the reply says it is a guess; a new KO trade
+  paid in euros with "一股70美金" goes with its rate the same way. Only when
+  the ledger names the asset's own currency and it is USDT or the US dollar
+  the ledger prices in: an asset with no own currency named, or one priced
+  in another money (DOT in EUR, invented), is left as before (money empty
+  and marked suspicious, or asked which money). With no trade of the asset,
+  or two moneys on its last day, nothing changes ("\"美金\" for the share
+  price follows the asset's last trade").
 - **One go and two answers can record different moneys, with a ledger
   that takes no cards.** "每股400刀" with the fee "1 USDT" said in the same
   sentence is all USDT; with the fee given only as an answer to the
@@ -882,15 +884,21 @@ price said in the asset's own money (`flows/paid_apart.py`,
   demo are asked which money.
 - **The total must name the money paid itself.** "花了128，……，换汇费0.19欧元"
   is not taken as paid in euros: the money is never read from the fee.
-- **"美金" for the share price follows the asset's last trade.** After a
-  trade of KO paid in euros, "一股70美金" is no longer read as dollars: the
-  user is asked which money, as the owner's rule of 2026-11-25 says
-  (`81A`, part 2, item 2), when the new trade is paid in euros too. A
-  plain trade ("2026年11月21号10点在IBKR买了1股 KO，一股70美金", invented),
-  to a ledger that takes cards, is sent with its money empty and marked
-  suspicious, the reason naming the last KO trade's EUR (tried 2026-11-26).
-  Reading a vague word by the asset's own money would widen that rule,
-  which is the product owner's to do.
+- **"美金" for the share price follows the asset's last trade, then its
+  own currency.** When the asset's last trade used USDT or the US dollar,
+  "美金" is that money, a guess. When it used neither (KO last bought for
+  euros), "美金" is the asset's own currency in the ledger, a guess, if the
+  ledger names it and it is USDT or the US dollar it prices in (the
+  product owner's decision of 2026-11-27): the euro trade "花了210欧元买了3股
+  KO，一股70美金，……" (invented) is sent paid in EUR with its rate, the
+  rate marked assumed from KO's own currency, and a plain trade "一股70美金"
+  is sent in USD, marked the same. An asset with no own currency named, or
+  one priced in another money, is asked which money (a euro trade) or sent
+  with its money empty and marked suspicious, as before; with no trade of
+  the asset, or two moneys on its last day, the own currency is not looked
+  at. The record kept by the assistant writes the guessed source of such a
+  rate as the last trade (its EUR), and the reason in its marks names the
+  own currency.
 - **USDT and the US dollar are never set against each other.** Dollars
   paid for a coin priced in USDT, or USDT for a share priced in dollars,
   go on as before (asked which money, or the three amounts in doubt).

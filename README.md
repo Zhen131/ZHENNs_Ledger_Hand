@@ -896,9 +896,14 @@ the asset's last trade in the ledger is taken, and the reply says it is a
 guess ("Trade 1: no currency was said, so it is priced in USDT, the
 currency of the last ETH trade in the ledger. This is a guess; check it
 before you confirm."). When the ledger has no trade of the asset, or cannot be
-asked, the user is asked. When the asset's last day of trades used both
-moneys, or its last trade used another money (CNY), the money is left
-empty and marked suspicious, saying which. A word that names one money ("欧元", "EUR", "人民币", "福林") counts
+asked, the user is asked. When the asset's last trade used another money (EUR), the asset's own
+currency in the ledger is taken instead, when the ledger names it and it
+is USDT or the US dollar, and the reply says it is a guess from that
+currency ("... priced in USD, KO's own currency in the ledger (its last
+trade used EUR). This is a guess; ..."). When the asset's last day of
+trades used both moneys, or its last trade used another money and its own
+currency is not named or is neither (CNY), the money is left empty and
+marked suspicious, saying which. A word that names one money ("欧元", "EUR", "人民币", "福林") counts
 only when the ledger has that money: "价格2200欧元" with no euro in the
 ledger is not sent, and the reply says the ledger has no currency EUR yet.
 An answer whose money is not the trade's ("2400美元" for a trade in USDT)
@@ -928,8 +933,10 @@ dollar, which are never set against each other. The price then decides:
 - a vague word ("69.5美金"): the asset's own money when the trade's fee
   names it, or, with neither USDT nor dollars named, when the asset's last
   trade in the ledger used it; the rate is then marked assumed and the
-  reply says it is a guess. After a trade of KO paid in euros, "美金" is no
-  longer read as dollars, and the user is asked which money, as before;
+  reply says it is a guess. After a trade of KO paid in euros, "美金" is
+  KO's own currency (US dollars), marked assumed from it and said as a
+  guess; with an own currency that is neither USDT nor dollars, the user
+  is asked which money, as before;
 - the money paid ("一股64欧元"), or no price: the program asks "Trade 1 was
   paid in EUR, but KO is priced in USD. How much was one share in USD?"; a
   number alone or with "美元" answers it, "美金" or "USDT" is asked again;
