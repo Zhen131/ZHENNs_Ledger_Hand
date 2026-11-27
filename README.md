@@ -769,7 +769,10 @@ read as: 2026年11月20号下午14点12分在币安买了0.005个BTC
 ```
 
 The words as said still go to the ledger with each trade; the model and
-the program's checks work on the words tidied. While a question waits,
+the program's checks work on the words tidied. A time said with another
+zone named ("按北京时间算", "东八区", "UTC+8") is never converted: it is
+written in the ledger's zone, its cell is marked suspicious, and the reply
+says the time was not converted. While a question waits,
 the line `asked about:`, just before the ending, names what it asks about
 (`time`, `fee`, and so on).
 
