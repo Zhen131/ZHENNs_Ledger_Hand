@@ -30,6 +30,16 @@ parameter may be let through by name (``--parameter``), when a model was run
 with that one setting changed; the comparison then says which, and its two
 values.
 
+Two runs of models asked through different plugs or services (the first
+line's ``plug`` and ``service``; a local run has neither) may also differ in
+their parameters: a cloud service is sent other fields than the local
+Ollama (DeepSeek's ``thinking``, say), so the parameters cannot be the same.
+They are then not refused for it: every parameter that differs is listed,
+with its two values, under the first line of the comparison. Two runs
+through the same plug and service are held to the same parameters, as
+before. Two runs are of the same model only when they share its name, the
+plug and the service.
+
 Two runs of the same model are compared only that way: with ``--parameter``,
 when the parameter named is the only one that differs and both runs have
 the same model fingerprint and server version. Each row and column is then
@@ -41,7 +51,7 @@ way are refused as before.
     .venv/bin/python -m evals.compare_models <first>.jsonl <second>.jsonl [--parameter <name>]
 
 Names defined here: ``SAME_CONDITIONS``, ``check_comparable``,
-``comparison_markdown`` and ``main``.
+``differing_parameter_lines``, ``comparison_markdown`` and ``main``.
 """
 
 from __future__ import annotations
@@ -111,8 +121,30 @@ def _same_model_let_through(first: Results, second: Results, parameter: str | No
     )
 
 
+def _where(results: Results) -> tuple[object, object]:
+    """The plug and the service a run was asked through; ``(None, None)`` for a local run."""
+    return results.run.get("plug"), results.run.get("service")
+
+
+def _same_place(first: Results, second: Results) -> bool:
+    return _where(first) == _where(second)
+
+
 def _same_model(first: Results, second: Results) -> bool:
-    return _model(first) == _model(second)
+    return _model(first) == _model(second) and _same_place(first, second)
+
+
+def differing_parameter_lines(first: Results, second: Results) -> list[str]:
+    """One line for each parameter the two runs differ in, with both values.
+
+    Example: ``- thinking: not sent in the first run, {'type': 'disabled'} in the second``.
+    """
+    one, other = _parameters(first), _parameters(second)
+    return [
+        f"- {name}: {one.get(name, _NOT_SENT)} in the first run, "
+        f"{other.get(name, _NOT_SENT)} in the second"
+        for name in _differing_parameters(first, second)
+    ]
 
 
 def _labels(first: Results, second: Results, parameter: str | None) -> tuple[str, str]:
@@ -147,6 +179,8 @@ def check_comparable(first: Results, second: Results, parameter: str | None = No
         if one != other:
             raise ValueError(f"the two runs differ in {key}: {one} and {other}")
     differing = _differing_parameters(first, second)
+    if not _same_place(first, second) and parameter is None:
+        differing = []
     if parameter is not None and differing != [parameter]:
         raise ValueError(
             f"the parameter {parameter} was to be the only one that differs; "
@@ -166,6 +200,11 @@ def _ratio(part: int, whole: int) -> str:
 
 
 def _conditions_line(first: Results, second: Results, parameter: str | None) -> str:
+    if parameter is None and not _same_place(first, second):
+        return (
+            "The two runs share the set, the prompt and the way of reading a passage; the "
+            f"model differs: `{_model(first)}` and `{_model(second)}`."
+        )
     if parameter is None:
         return (
             "The two runs share the set, the prompt, the way of reading a passage and every "
@@ -348,8 +387,10 @@ def comparison_markdown(
     labels = _labels(first, second, parameter)
     pairs = zip((first, second), files, labels, strict=True)
     runs = [(results, row_of(results, name), label) for results, name, label in pairs]
+    apart = [] if _same_place(first, second) else _apart_lines(first, second)
     parts = [
         _conditions_line(first, second, parameter),
+        *apart,
         "",
         *_scores_table(runs),
         "",
@@ -362,6 +403,20 @@ def comparison_markdown(
         *_sentences_table(first, second, labels),
     ]
     return "\n".join(parts) + "\n"
+
+
+def _apart_lines(first: Results, second: Results) -> list[str]:
+    """Under the first line: where each run was asked, and every parameter that differs."""
+    one, other = (
+        "local" if r.run.get("plug") is None else f"{r.run.get('plug')} ({r.run.get('service')})"
+        for r in (first, second)
+    )
+    lines = [
+        "",
+        f"The two runs were asked through different plugs: {one} and {other}. "
+        "The parameters that differ:",
+    ]
+    return lines + (differing_parameter_lines(first, second) or ["- none"])
 
 
 def _relative(path: Path) -> str:
