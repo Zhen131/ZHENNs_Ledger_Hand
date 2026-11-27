@@ -16,7 +16,9 @@ Names defined here: ``LIVE_MARK``, ``NetworkInTestError``.
 from __future__ import annotations
 
 import socket
-from typing import NoReturn
+import sys
+import threading
+from typing import Any, NoReturn
 
 import httpx
 import pytest
@@ -50,3 +52,37 @@ def _no_network_without_the_live_mark(
     monkeypatch.setattr(httpx.AsyncHTTPTransport, "handle_async_request", _refuse)
     monkeypatch.setattr(socket.socket, "connect", _refuse)
     monkeypatch.setattr(socket.socket, "connect_ex", _refuse)
+    if sys.platform == "win32":
+        _let_socketpair_connect_on_windows(monkeypatch)
+
+
+# Windows has no ready-made pair of connected sockets, so the standard library
+# builds ``socket.socketpair()`` from a listener on 127.0.0.1 and one
+# ``connect`` to it; every new event loop makes such a pair. On Windows only,
+# that one ``connect`` is let through: only while ``socket.socketpair()`` runs,
+# and only on the thread that called it. Any other connect, to 127.0.0.1 or
+# anywhere, is still refused. macOS and Linux build the pair without
+# connecting, so the guard there is exactly the four lines above.
+_inside_socketpair = threading.local()
+_real_connect = socket.socket.connect
+_real_socketpair = socket.socketpair
+
+
+def _socketpair_marked(*arguments: Any, **keywords: Any) -> tuple[socket.socket, socket.socket]:
+    _inside_socketpair.active = True
+    try:
+        return _real_socketpair(*arguments, **keywords)
+    finally:
+        _inside_socketpair.active = False
+
+
+def _connect_only_inside_socketpair(self: socket.socket, *arguments: Any) -> None:
+    if getattr(_inside_socketpair, "active", False):
+        _real_connect(self, *arguments)
+        return
+    _refuse()
+
+
+def _let_socketpair_connect_on_windows(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(socket, "socketpair", _socketpair_marked)
+    monkeypatch.setattr(socket.socket, "connect", _connect_only_inside_socketpair)
