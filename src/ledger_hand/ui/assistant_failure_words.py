@@ -10,9 +10,9 @@ says each failure that reply rests on, looked up here:
   ``LedgerErrorKind``), with the ledger's own words after it;
 - the ways the page itself stops (``STOPS``, one sentence for each
   ``Stop``): the step limit reached, the program's taking over that still
-  found nothing, no ledger connected, the cloud plug, which the assistant
-  does not run on, and a step limit set in the environment that was
-  refused;
+  found nothing, no ledger connected, and a step limit set in the
+  environment that was refused (the assistant runs on every plug: a cloud
+  plug's failures are said as the Record page says them);
 - a demo save or reject that did nothing (``DEMO_WORDS``, one for each
   ``standing.DemoOutcome`` that is not done);
 - every way a screenshot is not read, as the Record page says them
@@ -51,8 +51,6 @@ from ledger_hand.settings import (
     RATE_GAP_PERCENT_VARIABLE,
     REMEMBER_NAMES_VARIABLE,
     ModelSettings,
-    Plug,
-    Variable,
 )
 from ledger_hand.ui import failure_words
 
@@ -63,7 +61,6 @@ class Stop(enum.Enum):
     STEP_LIMIT = "the model was asked as often as one turn allows"
     TAKEOVER_FAILED = "the program took over and still could not do it"
     NO_LEDGER = "no ledger is connected"
-    CLOUD_PLUG = "the cloud plug is set, and the assistant runs on the local plug only"
     STEPS_REFUSED = "the setting of how many steps the assistant may take was refused"
     PRICE_GAP_REFUSED = "the setting of how far a price may be from the market price was refused"
     RATE_GAP_REFUSED = "the setting of how far a rate between two moneys may be was refused"
@@ -85,11 +82,6 @@ STOPS: Mapping[Stop, str] = MappingProxyType(
         Stop.NO_LEDGER: (
             "No ledger is connected, so the assistant cannot look anything up or send "
             "anything. Nothing you type here is sent."
-        ),
-        Stop.CLOUD_PLUG: (
-            "Cloud models are not supported for the assistant yet: it runs on the local "
-            f"plug only. Set {Variable.PLUG.value} to {Plug.LOCAL.value} on the Settings page "
-            "to use it. Nothing typed here is sent."
         ),
         Stop.STEPS_REFUSED: (
             "The assistant cannot start: {detail}. Correct "

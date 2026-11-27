@@ -51,7 +51,7 @@ from typing import Any, TextIO
 
 from evals.cash_figures import unfound
 from evals.cash_run import path_of
-from evals.run import Backend, local_backend
+from evals.run import Backend, cloud_conditions, local_backend
 from evals.tool_run import REPO_ROOT, TOOL_RESULTS_DIR, _git
 from ledger_hand.core.cash_words import held_names
 from ledger_hand.core.ledger_table import names_of
@@ -200,6 +200,7 @@ def _head(
         "model_fingerprint": backend.fingerprint,
         "server_version": backend.server_version,
         "parameters": dict(backend.parameters),
+        **cloud_conditions(backend),
         "max_steps": steps,
         "now": now.isoformat(),
         "zone": zone,

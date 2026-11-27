@@ -16,6 +16,10 @@
 #           the server's version and the model's fingerprint. Needs the model
 #           server running; run by hand only. Fails, saying "unreachable",
 #           when the server cannot be reached.
+#   cloud   the tests that talk to DeepSeek itself (tests/live/, marked
+#           live_cloud), with the key in DEEPSEEK_API_KEY; each is skipped,
+#           saying so, when the key is not set. Costs a little money; run by
+#           hand only. Prints no more than pytest's own lines.
 #
 # Steps run in order. The script stops at the first step that fails and names
 # it, so the last line always says where to look.
@@ -37,7 +41,7 @@ if [ -z "${LEDGER_HAND_PYTHON:-}" ] && [ ! -e "$ROOT/.venv/bin/python" ] &&
     [ -x "$ROOT/.venv/Scripts/python.exe" ]; then
     PYTHON="$ROOT/.venv/Scripts/python.exe"
 fi
-TIERS="quick ledger live"
+TIERS="quick ledger live cloud"
 
 run_step() {
     local name="$1"
@@ -84,6 +88,10 @@ live() {
     run_step live "$PYTHON" -m pytest -q -s -m live_model tests/live
 }
 
+cloud() {
+    run_step cloud "$PYTHON" -m pytest -q -m live_cloud tests/live
+}
+
 if [ "$#" -gt 1 ]; then
     echo "usage: scripts/check.sh [tier]   (tiers: $TIERS)" >&2
     exit 2
@@ -91,7 +99,7 @@ fi
 
 tier="${1:-quick}"
 case "$tier" in
-    quick | ledger | live) ;;
+    quick | ledger | live | cloud) ;;
     *)
         echo "unknown tier: $tier   (tiers: $TIERS)" >&2
         exit 2

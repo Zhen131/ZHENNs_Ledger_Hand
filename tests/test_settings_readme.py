@@ -12,7 +12,13 @@ from pathlib import Path
 
 import pytest
 
-from ledger_hand.settings import ABOUT, ModelSettings, Variable, load_model_settings
+from ledger_hand.settings import (
+    ABOUT,
+    KEY_VARIABLES,
+    ModelSettings,
+    Variable,
+    load_model_settings,
+)
 
 README = Path(__file__).resolve().parents[1] / "README.md"
 
@@ -37,7 +43,7 @@ def test_the_readme_row_says_what_the_variable_sets_and_why_as_the_data_does(
     assert reason == ABOUT[variable].reason
 
 
-@pytest.mark.parametrize("variable", [v for v in Variable if v is not Variable.KEY])
+@pytest.mark.parametrize("variable", [v for v in Variable if v not in KEY_VARIABLES])
 def test_the_readme_names_the_default_the_settings_use(variable: Variable) -> None:
     default = row(variable)[1].strip("`")
     field = ABOUT[variable].field
@@ -50,3 +56,5 @@ def test_the_readme_names_the_default_the_settings_use(variable: Variable) -> No
 def test_the_readme_says_there_is_no_key_by_default() -> None:
     assert row(Variable.KEY)[1] == "(none)"
     assert ModelSettings().api_key is None
+    assert row(Variable.DEEPSEEK_KEY)[1] == "(none)"
+    assert ModelSettings().deepseek_key is None

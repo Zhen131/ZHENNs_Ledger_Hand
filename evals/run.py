@@ -9,10 +9,15 @@
 
 Run from the top of the repository. The model is the one the settings name
 (see "Model settings" in the README), unless ``--model`` names another; the
-parameters (temperature and the rest) are the settings' too. Only the local
-plug is used: the run asks Ollama itself for the model's fingerprint, so
-settings that choose the cloud plug (``LEDGER_HAND_MODEL_PLUG=cloud``) are
-refused before anything is sent. The set is the debug set, unless ``--set``
+parameters (temperature and the rest) are the settings' too. The plug is
+the one the settings choose. With the local plug the run asks Ollama itself
+for the model's fingerprint. With a cloud plug (``cloud``, or ``deepseek``)
+nothing is asked first: the service gives no fingerprint and no version, so
+the first line says so (``NOT_GIVEN``), and names the plug, the service and
+how a reply in the shape of a table was asked for (``cloud_conditions``);
+each call's record keeps the model the service says answered and its
+``system_fingerprint``. A model named with ``--model`` is asked as it is
+named, with any plug. The set is the debug set, unless ``--set``
 names the writings set (``writings``) or the voice set (``voice``), each
 scored apart. The final set is run only with ``--final-exam``, and the
 results file then says so: it is kept for the last run of an experiment.
@@ -40,17 +45,24 @@ and the Ollama version (asked through the local plug's ``ask_identity``),
 every parameter (with the thinking setting, ``think``, only when it is on or
 off: a run that sends no think field writes no ``think``, so a first line
 without one, as in the runs already in the results folder, stands for "not
-sent"), and the moment the run began.
+sent"; with a cloud plug ``think`` is never sent and is not written, and
+what the service adds to every call, such as DeepSeek's ``thinking``
+turned off, is written instead), and the moment the run began. A model's
+failure is written with its kind and message; with a cloud plug only its
+kind and status, since a service may write the key back. Should the way of
+asking for a table change part way through the run (a service turning it
+down; see ``llm.cloud``), the end line says to what (``reply_format_now``).
 Paths are written relative to the repository. Each sentence's line holds,
 besides the drafts and the replies, the record of every reply read
 (``reads``) and, when the passage was split first, how it went (``split``):
 the route, the trades the split listed and the segments.
 
 Exit status: 0 the run finished; 2 it could not start (a wrong argument, a
-setting, settings that choose the cloud plug, or the model server could not
-say who it is).
+setting, settings that do not fit the plug they choose, or the local model
+server could not say who it is).
 
-Names defined here: ``main``, ``Backend``, ``RecordingModel``,
+Names defined here: ``main``, ``Backend``, ``NOT_GIVEN``, ``cloud_conditions``,
+``failure_text``, ``local_backend``, ``RecordingModel``,
 ``PROMPTS``, ``SPLIT_PROMPT``, ``RESULTS_DIR``, ``Trace``,
 ``one_list_trace``, ``read_passage``, ``sentence_line`` and
 ``run_sentences``.
@@ -123,6 +135,8 @@ from ledger_hand.extraction.splitting import (
     SplitExtraction,
     split_then_extract,
 )
+from ledger_hand.llm.cloud import reply_format_now
+from ledger_hand.llm.connect import connect_model
 from ledger_hand.llm.local import connect_local_model
 from ledger_hand.llm.ollama_identity import ask_identity
 from ledger_hand.ports import (
@@ -134,11 +148,12 @@ from ledger_hand.ports import (
     ModelReply,
 )
 from ledger_hand.settings import (
+    SERVICES,
     ModelSettings,
     Plug,
     SettingsError,
     Thinking,
-    Variable,
+    effective_settings,
     load_model_settings,
 )
 
@@ -172,7 +187,13 @@ _SAME_TO_RESUME = (
     "model_fingerprint",
     "server_version",
     "parameters",
+    "plug",
+    "service",
+    "reply_format",
 )
+# What the first line says of the fingerprint and the server's version for a
+# cloud service, which gives neither.
+NOT_GIVEN = "not given by the service"
 # The split prompt a run that splits first uses, and the file its words are in.
 SPLIT_PROMPT = split.SPLIT_PROMPT
 _SPLIT_FILES = (split,)
@@ -199,7 +220,12 @@ class RecordingModel:
 
 @dataclass(frozen=True)
 class Backend:
-    """The model to ask, who it is, and the parameters it was built with."""
+    """The model to ask, who it is, and the parameters it was built with.
+
+    ``plug`` is the plug it is asked through, and ``service`` which cloud
+    service (the plug's own name: ``cloud`` or ``deepseek``), ``None`` for
+    the local plug.
+    """
 
     model: ModelPort
     name: str
@@ -207,6 +233,33 @@ class Backend:
     server_version: str
     base_url: str
     parameters: Mapping[str, object]
+    plug: Plug = Plug.LOCAL
+    service: str | None = None
+
+
+def cloud_conditions(backend: Backend) -> dict[str, object]:
+    """What a first line adds for a cloud plug: the plug, the service, how a table is asked for.
+
+    Nothing for the local plug, so a local run's first line is as it always was.
+    Example: DeepSeek gives ``{"plug": "deepseek", "service": "deepseek",
+    "reply_format": "json_object"}``.
+    """
+    if backend.plug is Plug.LOCAL:
+        return {}
+    return {
+        "plug": backend.plug.value,
+        "service": backend.service,
+        "reply_format": reply_format_now(backend.plug).value,
+    }
+
+
+def failure_text(error: ModelError, backend: Backend) -> str:
+    """How a model's failure is written in a results file: whole for the local plug; for a
+    cloud plug its kind and status only, such as ``server_error (status 401)``."""
+    if backend.plug is Plug.LOCAL:
+        return str(error)
+    status = "" if error.status is None else f" (status {error.status})"
+    return f"{error.kind.value}{status}"
 
 
 def _parameters(settings: ModelSettings) -> dict[str, object]:
@@ -222,26 +275,44 @@ def _parameters(settings: ModelSettings) -> dict[str, object]:
     }
     # Left out when nothing is sent, so that such a run's conditions are written,
     # and compared, as those of the runs whose first line has no think at all.
-    if settings.think is not Thinking.MODEL:
+    if settings.think is not Thinking.MODEL and settings.plug is Plug.LOCAL:
         parameters["think"] = settings.think.value
+    service = SERVICES.get(settings.plug)
+    if service is not None:
+        parameters.update(_plain(service.fields))
     return parameters
 
 
-def local_backend(model_name: str | None) -> Backend:
-    """The model the settings name (or ``model_name``), asked who it is first.
+def _plain(fields: Mapping[str, object]) -> dict[str, object]:
+    return {
+        str(key): _plain(value) if isinstance(value, Mapping) else value
+        for key, value in fields.items()
+    }
 
-    Raises ``SettingsError``, before anything is sent, when the settings
-    choose a plug other than the local one.
+
+def local_backend(model_name: str | None) -> Backend:
+    """The model the settings name (or ``model_name``), through the plug they choose.
+
+    The name is kept from when only the local plug was used, because every
+    experiment tool imports it. With the local plug, Ollama is asked who the
+    model is first. With a cloud plug nothing is asked first, and settings
+    that do not fit it (no key, say) raise ``SettingsError`` before anything
+    is sent. ``model_name``, when given, is used as it is, with any plug.
     """
-    settings = load_model_settings()
-    if settings.plug is not Plug.LOCAL:
-        raise SettingsError(
-            f"{Variable.PLUG.value} is {settings.plug.value}, but the experiment tools use the "
-            f"{Plug.LOCAL.value} plug only: they ask Ollama itself for the model's fingerprint. "
-            f"Unset {Variable.PLUG.value}, or set it to {Plug.LOCAL.value}, to run them."
-        )
+    settings = effective_settings(load_model_settings())
     if model_name:
         settings = replace(settings, model=model_name)
+    if settings.plug is not Plug.LOCAL:
+        return Backend(
+            model=connect_model(settings),
+            name=settings.model,
+            fingerprint=NOT_GIVEN,
+            server_version=NOT_GIVEN,
+            base_url=settings.base_url,
+            parameters=_parameters(settings),
+            plug=settings.plug,
+            service=settings.plug.value,
+        )
     identity = ask_identity(settings)
     return Backend(
         model=connect_local_model(settings),
@@ -343,6 +414,7 @@ def run_conditions(
         "server_version": backend.server_version,
         "base_url": backend.base_url,
         "parameters": dict(backend.parameters),
+        **cloud_conditions(backend),
         "coin_table": "built-in",
         "started_at": started.isoformat(timespec="seconds"),
     }
@@ -384,9 +456,10 @@ def _produced(result: Extraction, copied: Sequence[Mapping[Field, str]]) -> Prod
     return Produced(ResultKind.PASSAGE_REFUSED)
 
 
-def _failure(result: Extraction) -> dict[str, object] | None:
+def _failure(result: Extraction, backend: Backend | None) -> dict[str, object] | None:
     if isinstance(result, ModelFailed):
-        return {"kind": result.error.kind.value, "message": str(result.error)}
+        message = str(result.error) if backend is None else failure_text(result.error, backend)
+        return {"kind": result.error.kind.value, "message": message}
     if isinstance(result, ReplyUnreadable):
         return {"reply_problems": [problem.name for problem in result.problems]}
     if isinstance(result, PassageRefused):
@@ -411,8 +484,12 @@ def sentence_line(
     replies: Sequence[ModelReply],
     seconds: float,
     trace: Trace | None = None,
+    backend: Backend | None = None,
 ) -> dict[str, object]:
-    """The results-file line of one sentence; without ``trace``, read in one call."""
+    """The results-file line of one sentence; without ``trace``, read in one call.
+
+    ``backend`` says how a model's failure is written (``failure_text``).
+    """
     traced = one_list_trace(result) if trace is None else trace
     reads = reads_of(replies, traced.steps, traced.draft_calls)
     produced = _produced(result, copied_from_reads(reads))
@@ -429,7 +506,7 @@ def sentence_line(
         "features": sorted(feature.value for feature in sentence.features),
         "gold": [trade_to_json(trade) for trade in sentence.trades],
         "result": produced.kind.value,
-        "failure": _failure(result),
+        "failure": _failure(result, backend),
         "replies": [reply.text for reply in replies],
         "calls": [
             {
@@ -438,6 +515,7 @@ def sentence_line(
                 "prompt_tokens": call.prompt_tokens,
                 "reply_tokens": call.reply_tokens,
                 "finish": call.finish.value,
+                **_service_fingerprint(call.service_fingerprint),
             }
             for call in calls
         ],
@@ -453,6 +531,11 @@ def sentence_line(
     if sentence.group is Group.NOT_TO_RECORD:
         line["checks"] = _checks(sentence, produced)
     return line
+
+
+def _service_fingerprint(fingerprint: str | None) -> dict[str, object]:
+    """A cloud service's fingerprint of the model, when it gave one; nothing otherwise."""
+    return {} if fingerprint is None else {"system_fingerprint": fingerprint}
 
 
 def read_passage(
@@ -500,7 +583,7 @@ def run_sentences(
         started = clock()
         result, trace = read_passage(sentence, recorder, prompt, method)
         seconds = clock() - started
-        line = sentence_line(sentence, result, recorder.replies, seconds, trace)
+        line = sentence_line(sentence, result, recorder.replies, seconds, trace, backend)
         append_line(path, line)
         scores = line["scores"]
         assert isinstance(scores, dict)
@@ -619,11 +702,26 @@ def main(
     todo = [s for s in sentences if s.id not in done]
     clock_start = time.monotonic()
     run_sentences(todo, chosen, path, PROMPTS[options.prompt][0], out=out, method=method)
-    _finish(path, len(todo), time.monotonic() - clock_start, out)
+    changed = changed_format(conditions, chosen)
+    _finish(path, len(todo), time.monotonic() - clock_start, out, changed)
     return 0
 
 
-def _finish(path: Path, sentences: int, seconds: float, out: TextIO) -> None:
+def changed_format(conditions: Mapping[str, object], backend: Backend) -> dict[str, object]:
+    """For an end line: the way a table is asked for now, when it is not the first line's."""
+    now = cloud_conditions(backend).get("reply_format")
+    if now is None or now == conditions.get("reply_format"):
+        return {}
+    return {"reply_format_changed_to": now}
+
+
+def _finish(
+    path: Path,
+    sentences: int,
+    seconds: float,
+    out: TextIO,
+    changed: Mapping[str, object] | None = None,
+) -> None:
     """The end line, and the summary worked out from the file, saved beside it and printed."""
     finished = datetime.now(UTC)
     append_line(
@@ -633,6 +731,7 @@ def _finish(path: Path, sentences: int, seconds: float, out: TextIO) -> None:
             "finished_at": finished.isoformat(timespec="seconds"),
             "sentences_this_session": sentences,
             "seconds_this_session": round(seconds, 3),
+            **(changed or {}),
         },
     )
     summary = summarize(read_results(path))

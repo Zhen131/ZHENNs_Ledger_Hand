@@ -195,6 +195,9 @@ def test_a_screenshots_entry_holds_none_of_the_pictures_bytes(tmp_path: Path) ->
     assert entry["models"] == {
         "tools": ModelSettings().model,
         "vision": ModelSettings().vision_model,
+        "plug": "local",
+        "service": None,
+        "address": ModelSettings().base_url,
     }
     written = record_of(data).read_bytes()
     assert b"invented picture bytes" not in written

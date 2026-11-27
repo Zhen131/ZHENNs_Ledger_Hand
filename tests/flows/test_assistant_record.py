@@ -105,7 +105,13 @@ def test_an_entry_holds_the_trade_sent_its_amounts_as_text_beside_its_own_money(
         {"number": 1, "what": "record", "proposal": "proposal-1", "status": "pending"}
     ]
     assert entry["reminders"] == ["numbers_left_over"]
-    assert entry["models"] == {"tools": MODEL, "vision": None}
+    assert entry["models"] == {
+        "tools": MODEL,
+        "vision": None,
+        "plug": "local",
+        "service": None,
+        "address": None,
+    }
     assert set(entry["prompts"]) == {"assistant", "screening", "extraction"}
 
 
@@ -166,7 +172,13 @@ def test_a_screenshots_entry_says_so_and_names_the_vision_model() -> None:
     assert entry["route"] == "screenshot"
     assert entry["said"] == passage
     assert entry["steps"] == []
-    assert entry["models"] == {"tools": MODEL, "vision": "seeing"}
+    assert entry["models"] == {
+        "tools": MODEL,
+        "vision": "seeing",
+        "plug": "local",
+        "service": None,
+        "address": None,
+    }
     assert "reading" in entry["prompts"]
 
 

@@ -10,12 +10,12 @@ treat it as any other call. Every tool and reply is invented.
 from __future__ import annotations
 
 import dataclasses
+import json
 
 import httpx
 import pytest
 
-from ledger_hand.llm.cloud import NO_TOOLS, CloudModel
-from ledger_hand.llm.connect import connect_model
+from ledger_hand.llm.cloud import CloudModel
 from ledger_hand.llm.ollama import OllamaModel
 from ledger_hand.llm.retry import RetryingModel
 from ledger_hand.ports import (
@@ -29,9 +29,9 @@ from ledger_hand.ports import (
     ToolResult,
     ToolSpec,
 )
-from ledger_hand.settings import Plug, Variable
+from ledger_hand.settings import Plug
 from tests.fakes.scripted_model import ScriptedModel, scripted_record
-from tests.llm.fake_cloud import CLOUD_SETTINGS
+from tests.llm.fake_cloud import CLOUD_SETTINGS, completion
 from tests.llm.fake_server import SETTINGS, FakeServer, chat_reply, json_response
 
 TOOL = ToolSpec(
@@ -200,18 +200,28 @@ def test_a_value_that_is_not_json_in_the_arguments_is_a_malformed_reply() -> Non
 # --- the cloud plug and the retries -----------------------------------------
 
 
-def test_the_cloud_plug_refuses_tools_before_sending_and_names_the_plug_setting() -> None:
-    server = FakeServer([])
-    cloud = dataclasses.replace(CLOUD_SETTINGS, plug=Plug.CLOUD, retries=3, retry_wait_seconds=1.0)
+def test_the_cloud_plug_hands_the_model_tools_and_reads_its_calls() -> None:
+    called = completion(
+        "",
+        finish="tool_calls",
+    )
+    called["choices"][0]["message"]["tool_calls"] = [  # type: ignore[index]
+        {
+            "id": "call_from_the_service",
+            "type": "function",
+            "function": {"name": "count_apples", "arguments": '{"colour": "red"}'},
+        }
+    ]
+    server = FakeServer([json_response(200, called)])
+    cloud = dataclasses.replace(CLOUD_SETTINGS, plug=Plug.CLOUD)
 
-    with pytest.raises(ValueError) as caught:
-        CloudModel(cloud, transport=server.transport).chat_with_tools(ASKED, [TOOL])
-    with pytest.raises(ValueError):
-        connect_model(cloud).chat_with_tools(ASKED, [TOOL])
+    reply = CloudModel(cloud, transport=server.transport).chat_with_tools(ASKED, [TOOL])
 
-    assert str(caught.value) == NO_TOOLS
-    assert Variable.PLUG.value in NO_TOOLS
-    assert server.requests == []
+    assert reply.calls == (ToolCall(name="count_apples", arguments={"colour": "red"}),)
+    (sent,) = server.requests
+    assert [tool["function"]["name"] for tool in json.loads(sent.content)["tools"]] == [
+        "count_apples"
+    ]
 
 
 def test_a_call_with_tools_is_tried_again_by_the_same_rules_as_any_other() -> None:

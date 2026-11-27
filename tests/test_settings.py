@@ -50,6 +50,7 @@ EVERY_VARIABLE = {
     Variable.VISION_NAME: ("invented-vision:3b", "vision_model", "invented-vision:3b"),
     Variable.THINK: ("on", "think", "on"),
     Variable.SCREENSHOT_MAX_MB: ("7", "screenshot_max_mb", 7),
+    Variable.DEEPSEEK_KEY: (KEY, "deepseek_key", Secret(KEY)),
 }
 
 
@@ -78,7 +79,12 @@ def test_the_defaults_point_at_the_local_model_server_and_extract_steadily() -> 
 
 def test_every_variable_is_covered_here() -> None:
     assert set(EVERY_VARIABLE) == set(Variable)
-    assert all(variable.value.startswith(ENV_PREFIX) for variable in Variable)
+    assert all(
+        variable.value.startswith(ENV_PREFIX)
+        for variable in Variable
+        if variable is not Variable.DEEPSEEK_KEY
+    )
+    assert Variable.DEEPSEEK_KEY.value == "DEEPSEEK_API_KEY"
 
 
 @pytest.mark.parametrize("variable", list(Variable))

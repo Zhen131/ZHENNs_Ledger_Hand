@@ -1,6 +1,6 @@
 """Changing the model settings on the page: one input for each, Apply, and back to the defaults.
 
-Every model setting but the key has an input holding its value now, as it
+Every model setting but the two keys has an input holding its value now, as it
 would be typed into the environment. Apply hands the ones whose text was
 changed, together with those changed before, to the wiring module, which
 reads the environment first and puts the changes in with the settings'
@@ -10,7 +10,7 @@ middle of a passage, uses the new values; when a change is refused, the
 page says which setting and what its rule is, and nothing changes. "Back to
 the environment and the defaults" drops every change made here.
 
-The key is not an input: the page says only whether there is one. Nothing
+A key is not an input: the page says only whether there is one. Nothing
 here reads the environment or writes anything; the changes last as long as
 the browser tab (``session``).
 
@@ -24,13 +24,13 @@ from collections.abc import Callable, Mapping, Sequence
 
 import streamlit as st
 
-from ledger_hand.settings import ABOUT, ModelSettings, Variable
+from ledger_hand.settings import ABOUT, KEY_VARIABLES, ModelSettings, Variable
 from ledger_hand.ui import notes, sayings, session
 from ledger_hand.ui.session import Note, Place, Tone
 from ledger_hand.ui.setting_text import key_state, shown
 from ledger_hand.wiring import AssemblyError
 
-CHANGEABLE = tuple(variable for variable in Variable if variable is not Variable.KEY)
+CHANGEABLE = tuple(variable for variable in Variable if variable not in KEY_VARIABLES)
 APPLY_KEY = "settings_apply"
 RESET_KEY = "settings_reset"
 NOTE_KEY = "settings_note"
@@ -55,10 +55,12 @@ def draw(settings: ModelSettings) -> None:
         key = input_key(variable)
         session.offer(key, shown(settings, variable))
         st.text_input(variable.value, key=key, help=ABOUT[variable].sets)
-    st.text(
-        f"{Variable.KEY.value}: {key_state(settings.api_key)}. "
-        "The key is set in the environment only and cannot be changed here."
+    keys = ". ".join(
+        f"{variable.value}: {key_state(getattr(settings, ABOUT[variable].field))}"
+        for variable in Variable
+        if variable in KEY_VARIABLES
     )
+    st.text(f"{keys}. The keys are set in the environment only and cannot be changed here.")
     with st.container(horizontal=True):
         st.button("Apply", key=APPLY_KEY, type="primary", on_click=apply)
         st.button("Back to the environment and the defaults", key=RESET_KEY, on_click=reset)

@@ -48,14 +48,14 @@ def test_nothing_to_say_stops_the_script() -> None:
     assert "nothing to say" in out.getvalue()
 
 
-def test_the_cloud_plug_stops_the_script_before_any_model_is_asked(
+def test_a_cloud_plug_without_its_address_stops_the_script_before_any_model_is_asked(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv(Variable.PLUG.value, "cloud")
     out = io.StringIO()
 
     assert try_assistant.main(["我现在手里有哪些币"], out=out) == 2
-    assert Variable.PLUG.value in out.getvalue()
+    assert Variable.URL.value in out.getvalue()
 
 
 def test_a_turn_prints_the_fixed_now_each_step_and_the_ending() -> None:

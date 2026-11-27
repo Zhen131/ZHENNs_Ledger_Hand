@@ -19,6 +19,7 @@ import pytest
 from ledger_hand.settings import (
     ABOUT,
     DEFAULT_TEMPERATURE,
+    KEY_VARIABLES,
     ModelSettings,
     Secret,
     SettingsError,
@@ -28,7 +29,7 @@ from ledger_hand.settings import (
 )
 
 KEY = "sk-invented-page-0123456789"
-CHANGEABLE = [variable for variable in Variable if variable is not Variable.KEY]
+CHANGEABLE = [variable for variable in Variable if variable not in KEY_VARIABLES]
 
 # Texts that pass and texts that are refused, tried for every variable.
 SAMPLES = [
@@ -103,6 +104,7 @@ NOT_THE_DEFAULT = {
     Variable.VISION_NAME: "invented-vision:3b",
     Variable.THINK: "on",
     Variable.SCREENSHOT_MAX_MB: "7",
+    Variable.DEEPSEEK_KEY: KEY,
 }
 
 

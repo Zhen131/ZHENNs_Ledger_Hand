@@ -39,7 +39,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, TextIO
 
-from evals.run import local_backend
+from evals.run import cloud_conditions, local_backend
 from evals.tool_run import REPO_ROOT, TOOL_RESULTS_DIR, _git
 from ledger_hand.flows import assisting
 from ledger_hand.flows.conversation import AssistantChat, Said, say
@@ -126,6 +126,7 @@ def _run(arguments: argparse.Namespace, out: TextIO) -> int:
         "model_fingerprint": backend.fingerprint,
         "server_version": backend.server_version,
         "parameters": dict(backend.parameters),
+        **cloud_conditions(backend),
         "max_steps": steps,
         "now": now.isoformat(),
         "zone": zone,

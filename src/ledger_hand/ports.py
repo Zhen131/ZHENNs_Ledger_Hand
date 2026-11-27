@@ -240,6 +240,9 @@ class ReplyRecord:
     ``elapsed_seconds`` is measured by the caller's side, from sending to
     having the whole reply. The two token counts are what the model read and
     wrote, and are ``None`` when the server does not say.
+    ``service_fingerprint`` is what a cloud service says identifies the
+    model behind the name, when it says (OpenAI-style ``system_fingerprint``);
+    a local model server never does, and it is ``None``.
     """
 
     model: str
@@ -247,6 +250,7 @@ class ReplyRecord:
     prompt_tokens: int | None
     reply_tokens: int | None
     finish: FinishReason
+    service_fingerprint: str | None = None
 
 
 @dataclass(frozen=True, kw_only=True)

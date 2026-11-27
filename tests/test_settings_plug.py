@@ -33,8 +33,8 @@ def test_the_plug_is_local_by_default() -> None:
     assert ModelSettings().plug is Plug.LOCAL
 
 
-def test_the_plugs_are_local_and_cloud() -> None:
-    assert [plug.value for plug in Plug] == ["local", "cloud"]
+def test_the_plugs_are_local_cloud_and_deepseek() -> None:
+    assert [plug.value for plug in Plug] == ["local", "cloud", "deepseek"]
     assert Variable.PLUG.value == "LEDGER_HAND_MODEL_PLUG"
 
 

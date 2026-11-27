@@ -41,7 +41,7 @@ from pathlib import Path
 from typing import TextIO
 
 from evals.judged_run import CHINESE_EXTRACTS
-from evals.run import Backend, local_backend
+from evals.run import Backend, cloud_conditions, local_backend
 from evals.stock_set import (
     STOCK_SET,
     Outcome,
@@ -201,6 +201,7 @@ def _conditions(
         "server_version": backend.server_version,
         "base_url": backend.base_url,
         "parameters": dict(backend.parameters),
+        **cloud_conditions(backend),
         "max_steps": steps,
         "now": stock_set.now.isoformat(),
         "zone": stock_set.zone,

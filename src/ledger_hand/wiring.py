@@ -41,6 +41,15 @@ whole set of parts is built again from the result, so every part that
 comes from a setting follows the change. Nothing is written back to the
 environment or anywhere else.
 
+The settings the parts hold are the effective ones
+(``settings.effective_settings``): with a plug that names a service, such
+as deepseek, its address and model are filled in once, here, so the model,
+the sentences that name the address or the model, the record on this
+machine and the model's name the ledger writes into its change history all
+say the same. Since every build starts from the environment again,
+switching the plug back to local on the settings page goes back to the
+environment's address and model.
+
 Building sends nothing and opens nothing: the model is first contacted by
 the first call to it, the server is asked about the vision model only when
 a screenshot comes, and the book is opened, or made, by its first use.
@@ -127,6 +136,7 @@ from ledger_hand.settings import (
     Switch,
     Variable,
     apply_changes,
+    effective_settings,
     load_assistant_ledger,
     load_assistant_steps,
     load_data_places,
@@ -227,11 +237,11 @@ def assemble(changes: Mapping[Variable, str] | None = None) -> Parts:
     try:
         read = load_model_settings()
         places = load_data_places()
-        check_plug(read)
+        check_plug(effective_settings(read))
     except SettingsError as error:
         raise AssemblyError(AssemblyProblem.SETTING_REFUSED, str(error)) from error
     try:
-        settings = apply_changes(read, changes or {})
+        settings = effective_settings(apply_changes(read, changes or {}))
         model = connect_model(settings)
     except SettingsError as error:
         raise AssemblyError(AssemblyProblem.CHANGE_REFUSED, str(error)) from error

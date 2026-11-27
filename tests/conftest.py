@@ -1,6 +1,7 @@
-"""Shared test set-up: no test reaches the network unless it is marked ``live_model``.
+"""Shared test set-up: no test reaches the network unless it is marked ``live_model`` or
+``live_cloud``, and no test without ``live_cloud`` sees DeepSeek's key.
 
-For every test without the mark, connecting is replaced by a function that
+For every test without either mark, connecting is replaced by a function that
 fails the test on the spot: httpx's real transports, and below them every
 socket connection, whatever library tries it. The test fails with a message
 that says why, and no connection is attempted. The fake transports the tests
@@ -8,9 +9,17 @@ use instead (``httpx.MockTransport``) are not touched.
 
 Tests marked ``live_model`` talk to a real model server on purpose. They are
 left out of ordinary runs (see ``addopts`` in ``pyproject.toml``) and run only
-by the live tier of ``scripts/check.sh``.
+by the live tier of ``scripts/check.sh``. Tests marked ``live_cloud`` talk to
+DeepSeek itself, with the key set in this machine's environment; they are
+left out of ordinary runs as well and run only by the cloud tier. Each test
+is let through on its own mark, never a whole file.
 
-Names defined here: ``LIVE_MARK``, ``NetworkInTestError``.
+``DEEPSEEK_API_KEY`` may be set on the machine for good, and it is a real
+key. Every test without the ``live_cloud`` mark runs with it taken out of the
+environment, so that such a test gives the same answer on every machine and
+cannot print the real key when it fails.
+
+Names defined here: ``LIVE_MARK``, ``CLOUD_MARK``, ``NetworkInTestError``.
 """
 
 from __future__ import annotations
@@ -24,6 +33,9 @@ import httpx
 import pytest
 
 LIVE_MARK = "live_model"
+CLOUD_MARK = "live_cloud"
+# The one variable without the settings' prefix that holds a key.
+_DEEPSEEK_KEY = "DEEPSEEK_API_KEY"
 
 
 class NetworkInTestError(BaseException):
@@ -37,9 +49,17 @@ class NetworkInTestError(BaseException):
 
 def _refuse(*_arguments: object, **_keywords: object) -> NoReturn:
     raise NetworkInTestError(
-        f"this test tried to reach the network; only tests marked {LIVE_MARK!r} may, "
-        "and the others use a fake transport"
+        f"this test tried to reach the network; only tests marked {LIVE_MARK!r} or "
+        f"{CLOUD_MARK!r} may, and the others use a fake transport"
     )
+
+
+@pytest.fixture(autouse=True)
+def _no_deepseek_key_without_the_cloud_mark(
+    request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    if request.node.get_closest_marker(CLOUD_MARK) is None:
+        monkeypatch.delenv(_DEEPSEEK_KEY, raising=False)
 
 
 @pytest.fixture(autouse=True)
@@ -47,6 +67,8 @@ def _no_network_without_the_live_mark(
     request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     if request.node.get_closest_marker(LIVE_MARK) is not None:
+        return
+    if request.node.get_closest_marker(CLOUD_MARK) is not None:
         return
     monkeypatch.setattr(httpx.HTTPTransport, "handle_request", _refuse)
     monkeypatch.setattr(httpx.AsyncHTTPTransport, "handle_async_request", _refuse)

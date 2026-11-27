@@ -15,6 +15,15 @@ without a word.
 
 The key, if there is one, is kept in a ``Secret``: printing it, or printing
 the settings, shows a placeholder, and no error message here ever repeats it.
+There are two keys, kept apart: the general one (``LEDGER_HAND_MODEL_KEY``),
+for a service at an address you set, and DeepSeek's own
+(``DEEPSEEK_API_KEY``, the one variable without the prefix), sent to
+DeepSeek only. So a key set for one service is never sent to another.
+
+A plug may name a service whose address, key and way of asking are fixed
+(``SERVICES``): today DeepSeek alone. ``effective_settings`` fills in its
+address and model where the settings left them at their defaults; it is
+the one place that does, and the rest of the program uses what it gives.
 
 ``apply_changes`` puts changes made on the interface's settings page into
 settings already read: each value is read and checked exactly as the same
@@ -82,9 +91,11 @@ cloud service needs an address of its own, and off this machine https and a
 key) is checked where the plug is built, not here: so setting one variable
 alone never makes reading the settings fail because of another.
 
-Names defined here: ``ENV_PREFIX``, ``Variable``, ``Plug``, ``Thinking``, the ``DEFAULT_...``
-constants, ``MAX_RETRIES``, ``MAX_SCREENSHOT_MB``, ``Secret``, ``SettingsError``, ``ModelSettings``,
-``About``, ``ABOUT``, ``load_model_settings``, ``apply_changes``,
+Names defined here: ``ENV_PREFIX``, ``Variable``, ``Plug``, ``ReplyFormat``, ``Thinking``, the
+``DEFAULT_...`` constants, ``DEEPSEEK_ADDRESS``, ``DEEPSEEK_MODEL``, ``MAX_RETRIES``,
+``MAX_SCREENSHOT_MB``, ``Secret``, ``SettingsError``, ``ModelSettings``, ``About``, ``ABOUT``,
+``KEY_VARIABLES``, ``Service``, ``SERVICES``, ``effective_settings``, ``key_in_use``,
+``key_variable``, ``every_key``, ``load_model_settings``, ``apply_changes``,
 ``DATA_DIRECTORY_VARIABLE``, ``BOOK_FILE_NAME``, ``EXPORTS_DIRECTORY_NAME``,
 ``ASSISTANT_RECORD_FILE_NAME``, ``DataPlaces``, ``load_data_places``, ``ASSISTANT_STEPS_VARIABLE``,
 ``DEFAULT_ASSISTANT_STEPS``, ``FEWEST_ASSISTANT_STEPS``, ``MOST_ASSISTANT_STEPS``,
@@ -136,6 +147,8 @@ class Variable(enum.Enum):
     VISION_NAME = ENV_PREFIX + "VISION_NAME"
     THINK = ENV_PREFIX + "THINK"
     SCREENSHOT_MAX_MB = ENV_PREFIX + "SCREENSHOT_MAX_MB"
+    # The one variable without the prefix: the name DeepSeek's own documents use.
+    DEEPSEEK_KEY = "DEEPSEEK_API_KEY"
 
 
 class Plug(enum.StrEnum):
@@ -144,7 +157,23 @@ class Plug(enum.StrEnum):
     LOCAL = "local"
     """Ollama's own chat endpoint, on this machine by default."""
     CLOUD = "cloud"
-    """The OpenAI-style chat endpoint most cloud services offer."""
+    """The OpenAI-style chat endpoint most cloud services offer, at an address you set."""
+    DEEPSEEK = "deepseek"
+    """DeepSeek's own service: the same kind of endpoint, its address and key fixed."""
+
+
+class ReplyFormat(enum.StrEnum):
+    """How a cloud service is asked for a reply in the shape of a table.
+
+    The values are what the experiment tools write in a results file.
+    """
+
+    JSON_SCHEMA = "json_schema"
+    """The table itself, which the service holds the model to."""
+    JSON_OBJECT = "json_object"
+    """Only "some JSON object"; the program checks the reply against the table."""
+    NOT_SENT = "not_sent"
+    """Nothing; the prompt alone asks for the table, and the program checks the reply."""
 
 
 class Thinking(enum.StrEnum):
@@ -173,6 +202,11 @@ DEFAULT_QUESTION_TEMPERATURE = 0.7
 DEFAULT_VISION_MODEL = "qwen3-vl:8b"
 DEFAULT_THINK = Thinking.MODEL
 DEFAULT_SCREENSHOT_MAX_MB = 20
+# DeepSeek's address and the model asked there when no other is named: its
+# own documents (api-docs.deepseek.com, read 2026-11-27) and its list of
+# models, which on that day held deepseek-flash and deepseek-v4-pro.
+DEEPSEEK_ADDRESS = "https://api.deepseek.com"
+DEEPSEEK_MODEL = "deepseek-v4-pro"
 # The most retries a setting may ask for, so that the waits stay finite.
 MAX_RETRIES = 10
 # The highest screenshot limit a setting may ask for, in MB: Streamlit's own
@@ -243,6 +277,7 @@ class ModelSettings:
     vision_model: str = DEFAULT_VISION_MODEL
     think: Thinking = DEFAULT_THINK
     screenshot_max_mb: int = DEFAULT_SCREENSHOT_MAX_MB
+    deepseek_key: Secret | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.plug, Plug):
@@ -255,6 +290,10 @@ class ModelSettings:
             raise SettingsError(f"{Variable.KEY.value}: the key must be kept in a Secret")
         if self.api_key is not None:
             _check_key(self.api_key)
+        if self.deepseek_key is not None and not isinstance(self.deepseek_key, Secret):
+            raise SettingsError(f"{Variable.DEEPSEEK_KEY.value}: the key must be kept in a Secret")
+        if self.deepseek_key is not None:
+            _check_key(self.deepseek_key, Variable.DEEPSEEK_KEY)
         _check_range(Variable.TEMPERATURE, self.temperature, lambda value: value >= 0, "0 or more")
         _check_range(Variable.TOP_P, self.top_p, lambda value: 0 < value <= 1, "above 0, at most 1")
         _check_whole(Variable.MAX_REPLY_TOKENS, self.max_reply_tokens, lowest=1)
@@ -299,9 +338,12 @@ ABOUT: Mapping[Variable, About] = MappingProxyType(
     {
         Variable.PLUG: About(
             "plug",
-            "Which plug talks to the model: local, Ollama's own chat endpoint; or cloud, the "
-            "OpenAI-style chat endpoint most cloud services offer. The cloud plug needs the "
-            "service's address, and for an address off this machine https and a key.",
+            "Which plug talks to the model: local, Ollama's own chat endpoint; cloud, the "
+            "OpenAI-style chat endpoint most cloud services offer, at the address you set, "
+            "which needs https and a key off this machine; or deepseek, DeepSeek's own "
+            f"service at {DEEPSEEK_ADDRESS}, with {DEEPSEEK_MODEL} unless another model is "
+            f"named and the key in {Variable.DEEPSEEK_KEY.value}. With cloud or deepseek, "
+            "what is typed, and what the assistant looks up in the ledger, is sent there.",
             "Local, so that by default the model runs on this machine and nothing that is "
             "typed leaves it. Setting an address or a key never switches to a cloud service; "
             "only this does.",
@@ -320,8 +362,9 @@ ABOUT: Mapping[Variable, About] = MappingProxyType(
         ),
         Variable.KEY: About(
             "api_key",
-            "A key, sent as a bearer token, for a server that needs one. Never shown, "
-            "and set in the environment only.",
+            "A key, sent as a bearer token, for a server that needs one; not sent to "
+            f"DeepSeek, which takes {Variable.DEEPSEEK_KEY.value}. Never shown, and set in the "
+            "environment only.",
             "None: the local Ollama needs no key.",
         ),
         Variable.TEMPERATURE: About(
@@ -401,9 +444,10 @@ ABOUT: Mapping[Variable, About] = MappingProxyType(
             "think",
             "Whether the local plug asks the model to think before it answers: on sends "
             "Ollama's think field as true, off sends it as false, model sends nothing and "
-            "leaves it to the model's own default. The cloud plug never sends it. A model that "
-            "cannot think refuses on: Ollama answers with status 400, saying the model does not "
-            "support thinking.",
+            "leaves it to the model's own default. The cloud plug never sends it. With deepseek, "
+            "thinking is always turned off, and on is refused. A model that cannot think "
+            "refuses on: Ollama answers with status 400, saying the model does not support "
+            "thinking.",
             "Model: nothing is sent, so each model answers as its own default says. Measured "
             "with qwen3-vl:8b on the debug set "
             '(see "2026-10-19: the thinking switch, `qwen3-vl:8b`" in evals/RESULTS.md), off '
@@ -422,8 +466,92 @@ ABOUT: Mapping[Variable, About] = MappingProxyType(
             "A file larger than that, such as a camera's photo or a file chosen by mistake, is "
             "turned away at once rather than after a long wait for the vision model.",
         ),
+        Variable.DEEPSEEK_KEY: About(
+            "deepseek_key",
+            f"The key for DeepSeek, sent as a bearer token when {Variable.PLUG.value} is "
+            "deepseek and to no other server. Never shown, and set in the environment only.",
+            f"None: nothing is sent to DeepSeek unless {Variable.PLUG.value} is deepseek.",
+        ),
     }
 )
+
+
+# The two keys: set in the environment only, never changed on the settings page.
+KEY_VARIABLES = frozenset({Variable.KEY, Variable.DEEPSEEK_KEY})
+
+
+@dataclass(frozen=True)
+class Service:
+    """A cloud service the plug setting names: everything about it that is fixed.
+
+    ``name`` is how it is said on the pages; ``address`` and ``model`` are
+    used when the address and the model's name are left at their defaults;
+    ``key`` is the one variable its key is read from; ``reply_format`` how a
+    reply in the shape of a table is asked for; ``fields`` what is added to
+    every request's body.
+    """
+
+    name: str
+    address: str
+    model: str
+    key: Variable
+    reply_format: ReplyFormat
+    fields: Mapping[str, object]
+
+
+# One row for each service with fixed settings; another service is one more row.
+# DeepSeek takes no JSON schema, only a JSON object, and thinks first unless
+# told not to (its own documents, read 2026-11-27). Thinking is turned off
+# because a model that thinks must be handed its thinking back at each step.
+SERVICES: Mapping[Plug, Service] = MappingProxyType(
+    {
+        Plug.DEEPSEEK: Service(
+            name="DeepSeek",
+            address=DEEPSEEK_ADDRESS,
+            model=DEEPSEEK_MODEL,
+            key=Variable.DEEPSEEK_KEY,
+            reply_format=ReplyFormat.JSON_OBJECT,
+            fields=MappingProxyType({"thinking": MappingProxyType({"type": "disabled"})}),
+        ),
+    }
+)
+
+
+def effective_settings(settings: ModelSettings) -> ModelSettings:
+    """The settings as the model is asked with them: a service's address and model filled in.
+
+    This function fills in the address and the model of the service the plug
+    names (``SERVICES``) where the settings left them at their defaults.
+    Example: deepseek with nothing else set gives https://api.deepseek.com
+    and deepseek-v4-pro; with the model set to deepseek-flash, that model.
+    Any other plug is given back unchanged. It is called once, after the
+    settings page's changes are put in, and everything that shows or sends
+    the address or the model uses what it gives.
+    """
+    if not isinstance(settings, ModelSettings):
+        raise TypeError(f"settings must be ModelSettings, not {type(settings).__name__}")
+    service = SERVICES.get(settings.plug)
+    if service is None:
+        return settings
+    address = service.address if settings.base_url == DEFAULT_BASE_URL else settings.base_url
+    model = service.model if settings.model == DEFAULT_MODEL else settings.model
+    return replace(settings, base_url=address, model=model)
+
+
+def key_in_use(settings: ModelSettings) -> Secret | None:
+    """The key the plug sends: DeepSeek's own for deepseek, the general one otherwise."""
+    return settings.deepseek_key if settings.plug is Plug.DEEPSEEK else settings.api_key
+
+
+def key_variable(settings: ModelSettings) -> Variable:
+    """The variable the key the plug sends is read from."""
+    service = SERVICES.get(settings.plug)
+    return Variable.KEY if service is None else service.key
+
+
+def every_key(settings: ModelSettings) -> tuple[Secret, ...]:
+    """Both keys the settings hold, so that both can be hidden wherever text is shown."""
+    return tuple(key for key in (settings.api_key, settings.deepseek_key) if key is not None)
 
 
 def load_model_settings(environ: Mapping[str, str] | None = None) -> ModelSettings:
@@ -444,7 +572,7 @@ def apply_changes(settings: ModelSettings, changes: Mapping[Variable, str]) -> M
     """``settings`` with ``changes`` put in, each read and checked as the environment's would be.
 
     A value of nothing but blanks takes the variable's default, as an empty
-    environment variable does. The key cannot be changed this way. A value
+    environment variable does. Neither key can be changed this way. A value
     in the wrong form or out of range raises ``SettingsError``, naming the
     variable and its rule; ``settings`` itself never changes.
     """
@@ -454,9 +582,9 @@ def apply_changes(settings: ModelSettings, changes: Mapping[Variable, str]) -> M
     for variable, text in changes.items():
         if not isinstance(variable, Variable):
             raise SettingsError(f"unknown setting {variable!r}; the known ones are {_known()}")
-        if variable is Variable.KEY:
+        if variable in KEY_VARIABLES:
             raise SettingsError(
-                f"{Variable.KEY.value}: the key is set in the environment only; "
+                f"{variable.value}: the key is set in the environment only; "
                 "it cannot be changed here"
             )
         if not isinstance(text, str):
@@ -481,7 +609,7 @@ def _read(variable: Variable, text: str) -> object:
         return text
     if variable is Variable.THINK:
         return _thinking(text)
-    if variable is Variable.KEY:
+    if variable in KEY_VARIABLES:
         return Secret(text)
     if variable in _WHOLE_VARIABLES:
         return _whole(variable)(text)
@@ -604,12 +732,12 @@ def _check_visible(variable: Variable, value: object) -> None:
         raise SettingsError(f"{variable.value}: {value!r} is not printable ASCII without spaces")
 
 
-def _check_key(key: Secret) -> None:
+def _check_key(key: Secret, variable: Variable = Variable.KEY) -> None:
     # Says what is wrong without ever repeating the key.
     value = key.reveal()
     if not isinstance(value, str) or _VISIBLE_ASCII.fullmatch(value) is None:
         raise SettingsError(
-            f"{Variable.KEY.value}: a key is printable ASCII without spaces; this one is not"
+            f"{variable.value}: a key is printable ASCII without spaces; this one is not"
         )
 
 

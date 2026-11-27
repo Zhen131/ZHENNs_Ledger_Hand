@@ -11,10 +11,11 @@ from the parts this tab reaches (``assistant_ledger.parts_now``): the demo
 ledger, an invented book in memory, as a plain line; or the person's own
 ledger page, as a coloured box that cannot be mistaken for the demo's.
 Under it, the block that chooses between them and starts the assistant
-link (``assistant_link_panel``). When no ledger is connected, or the
-settings choose the cloud plug (the assistant runs on the local plug
-only), the page says so in one fixed sentence and greys the input out;
-nothing is sent. With the ledger page chosen but not connected, the input
+link (``assistant_link_panel``). With a cloud plug, a line beside it
+always says that what is said here, and what the assistant looks up in
+the ledger, is sent to the service (``cloud_notice``). When no ledger is
+connected, the page says so in one fixed sentence and greys the input
+out; nothing is sent. With the ledger page chosen but not connected, the input
 stays open, and what is typed is answered by the page itself: not
 connected, and how to connect, without asking the model
 (``assistant_turns``). Under the chat is the screenshot area, the Record
@@ -47,11 +48,13 @@ from ledger_hand.ui import (
     assistant_session,
     assistant_turns,
     assistant_view,
+    cloud_notice,
     sayings,
     screenshot_panel,
     session,
 )
 from ledger_hand.ui.assistant_failure_words import stop_words
+from ledger_hand.ui.cloud_notice import ASSISTANT_NOTICE_KEY
 from ledger_hand.ui.screenshot_panel import Panel
 from ledger_hand.ui.session import ASSISTANT_SPOT
 from ledger_hand.wiring import AssemblyError, Parts
@@ -104,6 +107,7 @@ def main() -> None:
         return
     parts = assistant_ledger.parts_now(kept)
     _draw_ledger_line(parts)
+    cloud_notice.draw(cloud_notice.assistant_words(parts.settings), ASSISTANT_NOTICE_KEY)
     assistant_link_panel.draw(kept)
     stop = assistant_turns.usable(parts)
     if stop is not None:

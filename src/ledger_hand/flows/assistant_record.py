@@ -21,7 +21,8 @@ as laid out, or that it has no tool for them), each trade paid in another
 money than its asset's own with the rate it was sent with, the price said
 it came from and what it was compared with (the ledger's own exchange rate
 among them), and the
-model and prompt versions used. Amounts are
+model and prompt versions used, with where the model was asked (the plug,
+the service and its address; never a key). Amounts are
 written as text, each beside the money the result names. A screenshot's
 picture is never written: only that it came from a screenshot, and the
 passage made from it.
@@ -122,7 +123,12 @@ from ledger_hand.ports import LedgerError, ModelError
 # why it could not be read), or null where the ledger was not asked. A new name
 # inside "rates", so a new version, as version 8's golden sample is committed
 # and never changed. Entries of versions 1 to 8 are still read as they are.
-RECORD_VERSION = 9
+# Version 10 (2026-11-27) added to "models" where the model was asked: "plug"
+# (local, cloud or deepseek), "service" (its name, or null for local and for a
+# service at an address you set) and "address". Never the key. New names inside
+# "models", so a new version, as version 9's golden sample is committed and
+# never changed. Entries of versions 1 to 9 are still read as they are.
+RECORD_VERSION = 10
 
 # One thousand: an entry is a few thousand bytes, so the file stays at a few
 # megabytes and is read whole in a blink each time an entry is added; at
@@ -198,13 +204,18 @@ def entry_for(
     model: str,
     vision_model: str | None = None,
     ledger: LedgerKind = LedgerKind.DEMO,
+    plug: str = "local",
+    service: str | None = None,
+    address: str | None = None,
 ) -> dict[str, Any]:
     """The entry for ``words``, said at ``at``, and ``said``, what came of them.
 
     ``words`` are what the person said; for a screenshot, the passage made
     from its text and note. ``model`` and ``vision_model`` name the models;
     ``vision_model`` is written only for a screenshot's text. ``ledger`` is
-    which kind of ledger it was said to.
+    which kind of ledger it was said to. ``plug``, ``service`` and
+    ``address`` say where the model was asked: "deepseek", "DeepSeek" and
+    "https://api.deepseek.com" for DeepSeek. No key is ever handed in.
     """
     if at.utcoffset() is None:
         raise ValueError("the moment of an entry must carry an offset")
@@ -232,7 +243,13 @@ def entry_for(
         "manual": _manual(said),
         "cash": _cash(said),
         "rates": _rates(said),
-        "models": {"tools": model, "vision": vision_model if screenshot else None},
+        "models": {
+            "tools": model,
+            "vision": vision_model if screenshot else None,
+            "plug": plug,
+            "service": service,
+            "address": address,
+        },
         "prompts": _prompts(said),
     }
 

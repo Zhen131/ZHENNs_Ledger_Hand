@@ -100,11 +100,11 @@ def test_the_runner_asks_once_a_sentence_and_writes_into_its_own_folder(tmp_path
     assert "2026-11-24 (Tuesday) 23:55" in model.calls[0].items[0].content  # type: ignore[union-attr]
 
 
-def test_the_runner_refuses_the_cloud_plug_before_anything_is_sent(
+def test_the_runner_refuses_a_cloud_plug_without_its_address_before_anything_is_sent(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv("LEDGER_HAND_MODEL_PLUG", "cloud")
     out = io.StringIO()
 
     assert tool_run.main([], out=out) == 2
-    assert "LEDGER_HAND_MODEL_PLUG" in out.getvalue()
+    assert "LEDGER_HAND_MODEL_URL" in out.getvalue()

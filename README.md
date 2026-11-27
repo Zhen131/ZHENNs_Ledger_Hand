@@ -323,16 +323,17 @@ file holds, which would leave it with these trades only.
 ### The settings page
 
 Settings, at the top of the page beside Record, says first which plug
-talks to the model now (local or cloud), at which address, and whether
-there is a key. Then it lists every model setting (see "Model settings")
-with its value now, its default, what it sets and why its default is what
-it is; the key only says whether there is one.
-Every setting but the key can be changed there: type the new value, as it
+talks to the model now (local, cloud or deepseek), at which address, and
+whether there is a key; with a cloud plug it also names the model and the
+variable the key is read from. Then it lists every model setting (see
+"Model settings") with its value now, its default, what it sets and why
+its default is what it is; each of the two keys only says whether it is
+set. Every setting but the two keys can be changed there: type the new value, as it
 would be written in the environment, and press Apply. A blank value takes
 the default. The values are read and checked exactly as the environment's
 are; a value that is refused is named with its rule, and nothing changes.
-So is a switch to the cloud plug whose address or key do not fit it (see
-"Switching to a cloud model"); the key itself can only be set in the
+So is a switch to a cloud plug whose address or key do not fit it (see
+"Switching to a cloud model"); the keys themselves can only be set in the
 environment. Once applied, the next call to the model uses it, even in the
 middle of a passage. "Back to the environment and the defaults" drops every
 change.
@@ -383,7 +384,11 @@ with dollars"): that is left to
 the ledger. It answers with the model `LEDGER_HAND_MODEL_NAME` names
 (`qwen2.5:7b` by default), changed in the model field of the Settings
 page for the browser tab, or in the environment before the program
-starts; it runs on the local plug only.
+starts. It runs on whichever plug the settings choose: with a cloud plug
+(cloud or deepseek), a line at the top, beside the one that names the
+ledger, always says that everything said here, and what the assistant
+looks up in the ledger (holdings, trades, cash balances), is sent to the
+service's address (see "Switching to a cloud model").
 
 What you typed is shown as you typed it. When the program tidied it first
 (number words and a time said in Chinese written in digits; see "Trying
@@ -441,9 +446,10 @@ A screenshot can be uploaded under the chat, as on the Record page: the
 text read waits in a box to be checked and changed, beside a note, and
 Continue records the two exactly as the same words typed, without asking
 the model that chooses tools. The two pages keep their screenshots apart.
-The upload box is greyed out while a question waits. The assistant runs
-on the local plug only: with the cloud plug set, the page says so in one
-sentence and greys the input out. When `LEDGER_HAND_ASSISTANT_STEPS`,
+The upload box is greyed out while a question waits. A screenshot is
+read through the local plug only: with a cloud plug set, it is turned
+down in one sentence, as on the Record page, and the chat goes on. When
+`LEDGER_HAND_ASSISTANT_STEPS`,
 `LEDGER_HAND_PRICE_GAP_TIMES` or `LEDGER_HAND_RATE_GAP_PERCENT` is refused, the
 page says why and greys out
 both the input and the upload box, so no screenshot is read for nothing.
@@ -1849,15 +1855,17 @@ that is not set, or is blank, takes its default. A value in the wrong form
 or out of range stops the program with a message that names the variable,
 and so does a variable that starts with `LEDGER_HAND_MODEL_` but is not one
 of these, because a misspelt name would otherwise be ignored without a word.
-Every one of them but the key can also be changed on the interface's
+Every one of them but the two keys can also be changed on the interface's
 settings page, for the browser tab only (see "The settings page").
+`DEEPSEEK_API_KEY` is the one variable here without the prefix: it is the
+name DeepSeek's own documents use.
 
 | Variable | Default | What it sets | Why this default |
 | --- | --- | --- | --- |
-| `LEDGER_HAND_MODEL_PLUG` | `local` | Which plug talks to the model: local, Ollama's own chat endpoint; or cloud, the OpenAI-style chat endpoint most cloud services offer. The cloud plug needs the service's address, and for an address off this machine https and a key. | Local, so that by default the model runs on this machine and nothing that is typed leaves it. Setting an address or a key never switches to a cloud service; only this does. |
+| `LEDGER_HAND_MODEL_PLUG` | `local` | Which plug talks to the model: local, Ollama's own chat endpoint; cloud, the OpenAI-style chat endpoint most cloud services offer, at the address you set, which needs https and a key off this machine; or deepseek, DeepSeek's own service at https://api.deepseek.com, with deepseek-v4-pro unless another model is named and the key in DEEPSEEK_API_KEY. With cloud or deepseek, what is typed, and what the assistant looks up in the ledger, is sent there. | Local, so that by default the model runs on this machine and nothing that is typed leaves it. Setting an address or a key never switches to a cloud service; only this does. |
 | `LEDGER_HAND_MODEL_URL` | `http://127.0.0.1:11434` | Where the model server is: an http or https address, with no user name, password, query or fragment. | Ollama's own address on this machine, so by default the model runs locally and nothing that is typed leaves the machine. |
 | `LEDGER_HAND_MODEL_NAME` | `qwen2.5:7b` | Which model to ask. | The model the program was built and measured with. |
-| `LEDGER_HAND_MODEL_KEY` | (none) | A key, sent as a bearer token, for a server that needs one. Never shown, and set in the environment only. | None: the local Ollama needs no key. |
+| `LEDGER_HAND_MODEL_KEY` | (none) | A key, sent as a bearer token, for a server that needs one; not sent to DeepSeek, which takes DEEPSEEK_API_KEY. Never shown, and set in the environment only. | None: the local Ollama needs no key. |
 | `LEDGER_HAND_MODEL_TEMPERATURE` | `0` | How adventurous the model is when it judges a passage, extracts the trades and reads an answer. 0 or more. | Extraction has to give the same answer to the same text, so the model always takes its likeliest word. |
 | `LEDGER_HAND_MODEL_TOP_P` | `1` | Keeps only the likeliest words whose chances add up to this. Above 0, at most 1. | Keeps every word in play, so the temperature alone says how adventurous the model is; at temperature 0 it changes nothing. |
 | `LEDGER_HAND_MODEL_MAX_REPLY_TOKENS` | `1024` | The longest reply, in tokens, the pieces of words a model counts in. A whole number, 1 or more. | Room for a JSON list of about ten trades. A reply that reaches it is marked as cut off rather than passed on as if it were whole. |
@@ -1867,8 +1875,9 @@ settings page, for the browser tab only (see "The settings page").
 | `LEDGER_HAND_MODEL_RETRY_WAIT_SECONDS` | `1` | The wait before the first retry, in seconds; each later wait is twice the one before. A server that says how long to wait is waited for that long instead, up to a minute. 0 or more. | A second gives a busy server a moment to recover, and with each wait twice the one before, two retries add three seconds at most when the server does not say how long to wait. |
 | `LEDGER_HAND_MODEL_QUESTION_TEMPERATURE` | `0.7` | The temperature for wording a follow-up question. 0 or more. | Wording a follow-up question is the one call where some variety reads more naturally than the same sentence every time. What is asked, and every fact the question may use, are fixed by the program before the model writes, and a sentence that strays is replaced by the program's own, so a higher temperature changes only the wording. Judging a passage, extraction and reading an answer keep LEDGER_HAND_MODEL_TEMPERATURE, 0 by default. |
 | `LEDGER_HAND_MODEL_VISION_NAME` | `qwen3-vl:8b` | Which model reads a screenshot: the one shown the picture, which writes out the order on it as text. The text it reads is then extracted by the model LEDGER_HAND_MODEL_NAME names, as a typed passage is. Read through the local plug only. | A model on this machine that can see pictures; qwen2.5:7b, the model the program extracts with, cannot. |
-| `LEDGER_HAND_MODEL_THINK` | `model` | Whether the local plug asks the model to think before it answers: on sends Ollama's think field as true, off sends it as false, model sends nothing and leaves it to the model's own default. The cloud plug never sends it. A model that cannot think refuses on: Ollama answers with status 400, saying the model does not support thinking. | Model: nothing is sent, so each model answers as its own default says. Measured with qwen3-vl:8b on the debug set (see "2026-10-19: the thinking switch, `qwen3-vl:8b`" in evals/RESULTS.md), off got fewer trades whole than nothing sent, and every reply it gave was empty, so off is not the default; nor is on, which qwen2.5:7b, the model the program extracts with, cannot do. |
+| `LEDGER_HAND_MODEL_THINK` | `model` | Whether the local plug asks the model to think before it answers: on sends Ollama's think field as true, off sends it as false, model sends nothing and leaves it to the model's own default. The cloud plug never sends it. With deepseek, thinking is always turned off, and on is refused. A model that cannot think refuses on: Ollama answers with status 400, saying the model does not support thinking. | Model: nothing is sent, so each model answers as its own default says. Measured with qwen3-vl:8b on the debug set (see "2026-10-19: the thinking switch, `qwen3-vl:8b`" in evals/RESULTS.md), off got fewer trades whole than nothing sent, and every reply it gave was empty, so off is not the default; nor is on, which qwen2.5:7b, the model the program extracts with, cannot do. |
 | `LEDGER_HAND_MODEL_SCREENSHOT_MAX_MB` | `20` | The largest screenshot taken, in MB of 1,048,576 bytes; a larger file is turned away before anything is sent. A whole number, from 1 to 200, the most Streamlit takes in one upload by default. | Above any phone's screenshot, so none is turned away: the largest phone screens, 1320 by 2868 pixels, come to about 14.4 MB even with no compression at all, four bytes to a pixel, and a PNG of an order page, mostly flat colour, is far smaller. A file larger than that, such as a camera's photo or a file chosen by mistake, is turned away at once rather than after a long wait for the vision model. |
+| `DEEPSEEK_API_KEY` | (none) | The key for DeepSeek, sent as a bearer token when LEDGER_HAND_MODEL_PLUG is deepseek and to no other server. Never shown, and set in the environment only. | None: nothing is sent to DeepSeek unless LEDGER_HAND_MODEL_PLUG is deepseek. |
 
 Numbers are written with plain digits and at most one point (`0.7`, `45`),
 with no sign or exponent. The defaults are named constants in

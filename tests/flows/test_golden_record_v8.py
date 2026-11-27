@@ -95,7 +95,7 @@ def test_an_entry_made_now_has_the_names_of_the_golden_ones() -> None:
     made = [entry_now(words, said) for words, said in made_now()]
     entries = _read(GOLDEN).entries
 
-    assert RECORD_VERSION == 9
+    assert RECORD_VERSION == 10
     for entry, now in zip(entries, made, strict=True):
         assert list(entry) == list(now)
         assert [list(rate) for rate in entry["rates"]] == [  # type: ignore[union-attr]

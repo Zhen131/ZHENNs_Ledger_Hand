@@ -72,7 +72,7 @@ def test_a_key_refused_with_401_is_said_in_its_own_sentence(tmp_path: Path) -> N
     assert not page.exception
     (said,) = program_said(page)
     assert said.startswith("The model gave no usable reply while judging the passage, ")
-    assert f"The model server at {ADDRESS} did not take the key (status 401)." in said
+    assert f"The service at {ADDRESS} did not take the key (status 401)." in said
     assert f"Check {Variable.KEY.value} in the environment" in said
     assert KEY not in every_text(page)
 
@@ -109,7 +109,7 @@ def test_the_settings_page_says_the_cloud_plug_and_that_there_is_a_key(
     line = plug_line(page)
     assert line.startswith(f"Model plug now: cloud, the OpenAI-style chat endpoint at {ADDRESS}")
     assert "what is typed is sent there" in line
-    assert line.endswith("Key: set.")
+    assert line.endswith(f"Key: {Variable.KEY.value} set.")
     rows = {row["Setting"]: row for row in settings_rows(page)}
     assert rows[Variable.PLUG.value]["Now"] == "cloud"
     assert rows[Variable.PLUG.value]["Default"] == "local"

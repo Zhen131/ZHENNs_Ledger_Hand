@@ -80,7 +80,7 @@ from typing import TextIO
 
 from evals.cells import CellOutcome
 from evals.gold import DEBUG_SET, FINAL_SET, Sentence, Split, load_set
-from evals.run import Backend, local_backend
+from evals.run import Backend, cloud_conditions, local_backend
 from evals.scoring import Produced, ResultKind, SentenceScore, score_sentence
 from evals.tool_run import REPO_ROOT, TOOL_RESULTS_DIR, _git
 from evals.voice import VOICE_SET
@@ -335,6 +335,7 @@ def _head(
         "model_fingerprint": backend.fingerprint,
         "server_version": backend.server_version,
         "parameters": dict(backend.parameters),
+        **cloud_conditions(backend),
         "started_at": started.isoformat(timespec="seconds"),
         "hold_other_unit": options.hold_other_unit,
     }

@@ -56,7 +56,7 @@ from evals.edit_set import (
 from evals.edit_set import markdown as edit_markdown
 from evals.exam_book import EXAM_TRADES, exam_ledger
 from evals.hidden_runs import log_hidden_run
-from evals.run import Backend, local_backend
+from evals.run import Backend, cloud_conditions, local_backend
 from evals.tool_run import REPO_ROOT, TOOL_RESULTS_DIR, _git
 from ledger_hand.assistant.tools import tool_specs
 from ledger_hand.core.ledger_records import TradeFacts
@@ -201,6 +201,7 @@ def _conditions(
         "server_version": backend.server_version,
         "base_url": backend.base_url,
         "parameters": dict(backend.parameters),
+        **cloud_conditions(backend),
         "max_steps": steps,
         "now": edit_set.now.isoformat(),
         "zone": edit_set.zone,

@@ -128,7 +128,7 @@ def test_a_screenshot_read_on_the_assistant_page_is_not_seen_on_the_record_page(
     assert page.session_state["ledger_hand.assistant.screenshot.reading"] is not None
 
 
-def test_with_the_cloud_plug_one_fixed_sentence_a_grey_input_and_no_error_box() -> None:
+def test_with_the_cloud_plug_a_line_says_what_is_sent_and_the_input_stays_open() -> None:
     settings = ModelSettings(
         plug=Plug.CLOUD,
         base_url="https://api.example.com/v1",
@@ -139,9 +139,9 @@ def test_with_the_cloud_plug_one_fixed_sentence_a_grey_input_and_no_error_box() 
 
     page = open_assistant(model, ledger=FakeLedger(), settings=settings)
 
-    notice = str(page.container(key="assistant_notice").warning[0].value)
-    assert notice.startswith("Cloud models are not supported for the assistant yet")
-    assert page.chat_input(key=INPUT_KEY).proto.disabled
+    notice = str(page.container(key="assistant_cloud_notice").warning[0].value)
+    assert notice.startswith("Model: a cloud service (https://api.example.com/v1)")
+    assert not page.chat_input(key=INPUT_KEY).proto.disabled
     assert list(page.error) == []
     assert list(page.exception) == []
     assert model.tools.calls == []

@@ -35,10 +35,18 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-# Tests that talk to a real model are left out here; the live tier runs them.
-addopts = ["-ra", "--strict-markers", "--strict-config", "-m", "not live_model"]
+# Tests that talk to a real model are left out here; the live tier runs those on this
+# machine, the cloud tier those that talk to DeepSeek.
+addopts = [
+    "-ra",
+    "--strict-markers",
+    "--strict-config",
+    "-m",
+    "not live_model and not live_cloud",
+]
 markers = [
     "live_model: talks to a real model server; run only by the live tier of scripts/check.sh",
+    "live_cloud: talks to DeepSeek with the key set on this machine; run only by the cloud tier",
 ]
 xfail_strict = true
 

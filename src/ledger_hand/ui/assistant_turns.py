@@ -41,7 +41,7 @@ ledger's answers are never used on the ledger page, nor the other way.
 
 Every control hands the flows the parts with the ledger this tab reaches
 (``assistant_ledger.parts_now``). Nothing is handed to the flows while the
-parts hold no ledger, choose the cloud plug, or carry a refused step
+parts hold no ledger, or carry a refused step
 limit: the page then shows why and greys the input out, and a control used
 anyway does nothing. With a refused step limit no screenshot is read
 either. While the ledger page is chosen but not connected, what is typed
@@ -73,7 +73,7 @@ from ledger_hand.flows.standing import (
 )
 from ledger_hand.flows.uploading import UploadNotRead, read_upload
 from ledger_hand.ledger.link_keeper import LinkKeeper
-from ledger_hand.settings import Plug
+from ledger_hand.settings import SERVICES
 from ledger_hand.ui import assistant_ledger, assistant_session, sayings, session
 from ledger_hand.ui.assistant_failure_words import (
     Stop,
@@ -103,8 +103,6 @@ def usable(parts: Parts) -> Stop | None:
     """Why nothing can be handed to the flows with ``parts``, or ``None`` when it can."""
     if parts.ledger is None:
         return Stop.NO_LEDGER
-    if parts.settings.plug is Plug.CLOUD:
-        return Stop.CLOUD_PLUG
     if parts.steps_refused is not None:
         return Stop.STEPS_REFUSED
     if parts.price_gap_refused is not None:
@@ -171,13 +169,18 @@ def _not_connected() -> str:
 def _recorded(words: str, said: Said, now: datetime) -> Kept | NotKept:
     """Add what came of ``words`` to the assistant's record, where the parts keep it."""
     parts = assistant_ledger.parts_now()
+    settings = parts.settings
+    service = SERVICES.get(settings.plug)
     entry = entry_for(
         said,
         words=words,
         at=now,
-        model=parts.settings.model,
-        vision_model=parts.settings.vision_model if said.route is Route.SCREENSHOT else None,
+        model=settings.model,
+        vision_model=settings.vision_model if said.route is Route.SCREENSHOT else None,
         ledger=parts.ledger_kind or LedgerKind.DEMO,
+        plug=settings.plug.value,
+        service=None if service is None else service.name,
+        address=settings.base_url,
     )
     return keep(parts.places.assistant_record if parts.places is not None else None, entry)
 

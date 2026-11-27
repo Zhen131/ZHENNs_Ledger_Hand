@@ -17,11 +17,14 @@ conditions: the set file and its fingerprint, the prompt version, its file
 and the fingerprint of its words, the fingerprint of the tools handed over,
 the commit and whether the work tree was clean, the model, its fingerprint,
 the Ollama version, every parameter, the moment and zone the sentences were
-read at, and when the run began. One line follows for each sentence, then
+read at, and when the run began; with a cloud plug, the plug, the service and
+how a table is asked for (``run.cloud_conditions``), and a model's failure is
+written by its kind and status only (``run.failure_text``). One line follows for each sentence, then
 an ``end`` line with the count. The table is printed at the end.
 
 Exit status: 0 the run finished; 2 it could not start (a setting, settings
-that choose the cloud plug, or a model server that could not say who it is).
+that do not fit the plug they choose, or a local model server that could not
+say who it is).
 
 Names defined here: ``PROMPTS``, ``TOOL_RESULTS_DIR``, ``main``.
 """
@@ -40,7 +43,7 @@ from pathlib import Path
 from types import ModuleType
 from typing import TextIO
 
-from evals.run import Backend, local_backend
+from evals.run import Backend, cloud_conditions, failure_text, local_backend
 from evals.tool_set import TOOL_SET, FirstStep, load_tool_set, markdown, score_first_step
 from ledger_hand.assistant.prompting import AssistantPrompt, system_message
 from ledger_hand.assistant.prompts import (
@@ -109,6 +112,7 @@ def conditions(
         "server_version": backend.server_version,
         "base_url": backend.base_url,
         "parameters": dict(backend.parameters),
+        **cloud_conditions(backend),
         "now": tool_set.now.isoformat(),
         "zone": tool_set.zone,
         "started_at": started.isoformat(timespec="seconds"),
@@ -152,7 +156,7 @@ def run(prompt_name: str, backend: Backend, set_file: Path, path: Path) -> list[
                 seconds = reply.record.elapsed_seconds
             except ModelError as error:
                 step = dataclasses.replace(score_first_step(sentence, (), ""), right=False)
-                failure = str(error)
+                failure = failure_text(error, backend)
             steps.append(step)
             out.write(json.dumps(_line(step, seconds, failure), ensure_ascii=False) + "\n")
             out.flush()

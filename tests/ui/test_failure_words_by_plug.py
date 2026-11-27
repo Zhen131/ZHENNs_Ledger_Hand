@@ -92,16 +92,21 @@ def test_the_cloud_sentence_is_unlike_the_local_one_and_every_other_kind() -> No
 
 def test_the_plugs_table_leaves_the_kinds_table_as_it_was() -> None:
     assert "ollama pull {model}" in MODEL_FAILURES[ModelErrorKind.MODEL_NOT_FOUND]
-    assert set(MODEL_FAILURES_BY_PLUG) == {(ModelErrorKind.MODEL_NOT_FOUND, Plug.CLOUD)}
+    assert set(MODEL_FAILURES_BY_PLUG) == {
+        (ModelErrorKind.MODEL_NOT_FOUND, Plug.CLOUD),
+        (ModelErrorKind.MODEL_NOT_FOUND, Plug.DEEPSEEK),
+    }
 
 
 @pytest.mark.parametrize("status", [401, 403, 400])
-def test_the_statuses_sentences_do_not_depend_on_the_plug(status: int) -> None:
+def test_the_statuses_sentences_are_the_services_own_with_a_cloud_plug(status: int) -> None:
     error = ModelError(ModelErrorKind.SERVER_ERROR, "refused", status=status)
 
-    assert model_trouble(error, CLOUD) == model_trouble(
-        error, dataclasses.replace(CLOUD, plug=Plug.LOCAL)
-    )
+    cloud = model_trouble(error, CLOUD)
+
+    assert cloud != model_trouble(error, dataclasses.replace(CLOUD, plug=Plug.LOCAL))
+    assert "ollama" not in cloud.lower()
+    assert cloud.endswith("Nothing was sent to the local model instead.")
 
 
 def test_a_status_with_its_own_sentence_comes_before_the_plug(

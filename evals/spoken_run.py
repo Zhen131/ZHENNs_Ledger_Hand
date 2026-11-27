@@ -77,7 +77,7 @@ from evals.cells import issues_about
 from evals.exam_book import exam_ledger, exam_ledger_with_euro
 from evals.hidden_runs import log_hidden_run
 from evals.judged_run import CHINESE_EXTRACTS
-from evals.run import Backend, local_backend
+from evals.run import Backend, cloud_conditions, local_backend
 from evals.spoken_judge import RATE_CELL, Observed, SentTrade, Waiting, judge, local_minute
 from evals.spoken_set import EURO_BOOK, SpokenSentence, SpokenSet, load_spoken_set
 from evals.spoken_tally import SentenceRow, markdown_sentences, markdown_totals, tally
@@ -582,6 +582,7 @@ def _conditions(
         "server_version": backend.server_version,
         "base_url": backend.base_url,
         "parameters": dict(backend.parameters),
+        **cloud_conditions(backend),
         "max_steps": steps,
         "now": spoken.now.isoformat(),
         "zone": spoken.zone,

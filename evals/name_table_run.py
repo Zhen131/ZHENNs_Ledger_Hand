@@ -67,7 +67,7 @@ from evals.name_set import (
     judge,
     load_name_set,
 )
-from evals.run import Backend, local_backend
+from evals.run import Backend, cloud_conditions, local_backend
 from evals.tool_run import REPO_ROOT, TOOL_RESULTS_DIR, _git
 from ledger_hand.core.assets import AssetTable
 from ledger_hand.core.coins import spoken_key
@@ -226,6 +226,7 @@ def _conditions(
         "model_fingerprint": backend.fingerprint if backend is not None else None,
         "server_version": backend.server_version if backend is not None else None,
         "parameters": dict(backend.parameters) if backend is not None else None,
+        **(cloud_conditions(backend) if backend is not None else {}),
         "max_steps": steps,
         "now": names.now.isoformat(),
         "zone": names.zone,

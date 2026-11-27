@@ -86,9 +86,11 @@ written. ``LEDGER_HAND_NAME_TABLE`` says whether a name is matched by the
 program's table of common company names (off by default).
 ``--help`` or ``-h``, given alone, prints this text and does nothing else.
 
-The assistant runs on the local plug only: with the cloud plug set, the
-script refuses before anything is sent. Nothing is written to disk but the
-file ``--names-file`` names.
+The assistant runs on whichever plug the settings choose: with the cloud
+or the deepseek plug, what is said and what the tools hand back (taken
+from the demo ledger) is sent to that service, and the model line names
+the model asked there. Nothing is written to disk but the file
+``--names-file`` names.
 
 Exit status: 0 everything said was done, or the user was told why not (the
 model answered, a question waits, a proposal was sent, or nothing was sent
@@ -96,9 +98,9 @@ and the program said why), or this text was printed; 1 something said was
 not: the model or the ledger failed, the step limit was reached, or the
 program took over and still could not do it; 2 the script could not start:
 nothing to say, an option given twice or both of ``--save`` and
-``--reject``, ``--names-file`` with no path after it, a setting is wrong,
-the cloud plug is set, or the machine's zone is not a zone name the program
-takes.
+``--reject``, ``--names-file`` with no path after it, a setting is wrong
+or does not fit the plug it chooses (a cloud plug without its key, say),
+or the machine's zone is not a zone name the program takes.
 """
 
 from __future__ import annotations
@@ -151,9 +153,8 @@ from ledger_hand.ports import ModelPort
 from ledger_hand.settings import (
     DEFAULT_PRICE_GAP_TIMES,
     DEFAULT_RATE_GAP_PERCENT,
-    Plug,
     SettingsError,
-    Variable,
+    effective_settings,
     load_assistant_steps,
     load_model_settings,
     load_name_table,
@@ -310,28 +311,22 @@ def _model_and_steps(
     out: TextIO,
 ) -> tuple[ModelPort, int, Tuning, Decimal, Decimal, bool] | None:
     try:
-        settings = load_model_settings()
+        settings = effective_settings(load_model_settings())
         steps = load_assistant_steps()
         gap = load_price_gap_times()
         rates = load_rate_gap_percent()
         table = load_name_table()
+        model = connect_model(settings)
     except SettingsError as error:
         print(f"setting refused: {error}", file=out)
         return None
-    if settings.plug is Plug.CLOUD:
-        print(
-            f"the assistant runs on the local plug only; set {Variable.PLUG.value} "
-            f"to {Plug.LOCAL.value}",
-            file=out,
-        )
-        return None
-    return connect_model(settings), steps, tuning_from(settings), gap, rates, table
+    return model, steps, tuning_from(settings), gap, rates, table
 
 
 def _model_name() -> str:
     """The model the settings name, or a word saying it is not known."""
     try:
-        return load_model_settings().model
+        return effective_settings(load_model_settings()).model
     except SettingsError:
         return "unknown"
 

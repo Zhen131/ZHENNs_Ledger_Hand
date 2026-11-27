@@ -20,6 +20,15 @@ A rate-limited call whose server said how long to wait is said with that
 wait (``RATE_LIMITED_FOR``). A failure known only by its kind, without a
 status code or a wait, is looked up the same way (``model_kind_trouble``).
 
+With a cloud plug (cloud, or a service such as deepseek), ``CLOUD_FAILURES``
+is looked up before all of these, by kind and status code, then by kind:
+it speaks of the service and the internet, not of Ollama, names the
+variable that service's key is read from, and says plainly that nothing
+was sent to the local model instead. No sentence there quotes what the
+service answered: a service may write the key back in a form that cannot
+be hidden. A model failure is never followed by a call to another model:
+the program says what happened and stops.
+
 An uploaded screenshot that was not read is said by its problem
 (``SCREENSHOT_FAILURES``, one sentence for each ``UploadProblem``), with the
 file's size and the limit in MB, and the vision model's name. When the
@@ -41,7 +50,7 @@ once more here, in every form a server may write it back, although the
 plugs never let it through.
 
 Names defined here: ``MODEL_FAILURES``, ``MODEL_FAILURES_BY_STATUS``,
-``MODEL_FAILURES_BY_PLUG``, ``RATE_LIMITED_FOR``, ``REPLY_UNREADABLE``,
+``MODEL_FAILURES_BY_PLUG``, ``CLOUD_FAILURES``, ``RATE_LIMITED_FOR``, ``REPLY_UNREADABLE``,
 ``PASSAGE_REFUSALS``, ``STORAGE_FAILURES``, ``ASSEMBLY_FAILURES``,
 ``WRITE_FAILURES``, ``SCREENSHOT_FAILURES``, ``VISION_REFUSED``,
 ``VISION_MALFORMED``, ``model_failed``, ``model_trouble``,
@@ -67,7 +76,15 @@ from ledger_hand.flows.progress import Failure
 from ledger_hand.flows.uploading import BYTES_PER_MB, UploadNotRead, UploadProblem
 from ledger_hand.llm.error_text import hide
 from ledger_hand.ports import ModelError, ModelErrorKind, StorageError, StorageErrorKind
-from ledger_hand.settings import DATA_DIRECTORY_VARIABLE, ModelSettings, Plug, Variable
+from ledger_hand.settings import (
+    DATA_DIRECTORY_VARIABLE,
+    SERVICES,
+    ModelSettings,
+    Plug,
+    Variable,
+    every_key,
+    key_variable,
+)
 from ledger_hand.ui.setting_text import written
 from ledger_hand.wiring import AssemblyError, AssemblyProblem
 
@@ -134,7 +151,56 @@ MODEL_FAILURES_BY_PLUG: Mapping[tuple[ModelErrorKind, Plug], str] = MappingProxy
             "The service at {address} has no model named {model}. Check the name on the "
             "Settings page against the service's own list of models."
         ),
+        (ModelErrorKind.MODEL_NOT_FOUND, Plug.DEEPSEEK): (
+            "{service} has no model named {model}. Check the name on the Settings page "
+            "against {service}'s own list of models. Nothing was sent to the local model "
+            "instead."
+        ),
     }
+)
+
+# What a cloud service's failure means, by kind and status code, then by kind
+# alone (``None``); looked up first with the cloud or the deepseek plug.
+# {service} is the service's name, {key_variable} where its key is read from.
+_NOT_LOCAL = "Nothing was sent to the local model instead."
+_BACK_TO_LOCAL = f"{Variable.PLUG.value} to {Plug.LOCAL.value} on the Settings page"
+_CLOUD_KEY_REFUSED = (
+    "{service} at {address} did not take the key{status}. Check {key_variable} in the "
+    "environment, where the key is set, and that it may use {model}; then start the program "
+    f"again. {_NOT_LOCAL}"
+)
+CLOUD_FAILURES: Mapping[tuple[ModelErrorKind, int | None], str] = MappingProxyType(
+    {
+        (ModelErrorKind.UNREACHABLE, None): (
+            "No answer came from {service} at {address}. Check that this machine can reach "
+            "the internet and that the address is right on the Settings page, then try "
+            f"again. {_NOT_LOCAL}"
+        ),
+        (ModelErrorKind.TIMED_OUT, None): (
+            "No whole reply came from {service} at {address} within {seconds} seconds. Try "
+            f"again, or allow more time on the Settings page. {_NOT_LOCAL}"
+        ),
+        (ModelErrorKind.SERVER_ERROR, 402): (
+            "{service} at {address} turned the call down because the account has no money "
+            "left on it (status 402). Top it up on the service's own website, or set "
+            f"{_BACK_TO_LOCAL} to use the model on this machine. {_NOT_LOCAL}"
+        ),
+        (ModelErrorKind.SERVER_ERROR, 401): _CLOUD_KEY_REFUSED,
+        (ModelErrorKind.SERVER_ERROR, 403): _CLOUD_KEY_REFUSED,
+        (ModelErrorKind.SERVER_ERROR, 400): (
+            "{service} at {address} turned the request down as it was sent{status}. Check "
+            f"the model's name on the Settings page. {_NOT_LOCAL}"
+        ),
+        (ModelErrorKind.RATE_LIMITED, None): (
+            "{service} turned the call away because it was called too often. Wait a little, "
+            f"then try again. {_NOT_LOCAL}"
+        ),
+    }
+)
+# Rate limited by a cloud service that said how long to wait.
+_CLOUD_RATE_LIMITED_FOR = (
+    "{service} turned the call away because it was called too often, and asked to wait "
+    f"{{wait}} seconds. Wait that long, then try again. {_NOT_LOCAL}"
 )
 
 # Rate limited, when the server said how long to wait.
@@ -244,7 +310,7 @@ SCREENSHOT_FAILURES: Mapping[UploadProblem, str] = MappingProxyType(
     {
         UploadProblem.CLOUD_PLUG: (
             "A screenshot is read through the local plug only, and "
-            f"{Variable.PLUG.value} is {Plug.CLOUD.value}, so nothing was sent anywhere. "
+            f"{Variable.PLUG.value} is {{plug}}, so nothing was sent anywhere. "
             "Typing a trade in the chat works as before; to read a screenshot, set "
             f"{Variable.PLUG.value} to {Plug.LOCAL.value} {_SETTINGS_PAGE}."
         ),
@@ -314,6 +380,7 @@ def screenshot_not_read(outcome: UploadNotRead, settings: ModelSettings) -> str:
         limit=written(outcome.limit_mb),
         model=settings.vision_model,
         address=settings.base_url,
+        plug=settings.plug.value,
     )
     if outcome.problem not in _WITH_TROUBLE or outcome.error is None:
         return said
@@ -374,7 +441,14 @@ def model_kind_trouble(kind: ModelErrorKind, settings: ModelSettings) -> str:
 def _template(
     kind: ModelErrorKind, status: int | None, wait_seconds: float | None, plug: Plug
 ) -> str:
-    """By kind and status, then by kind and plug, then a rate-limited call's wait, then by kind."""
+    """By kind and status, then by kind and plug, then a rate-limited call's wait, then by kind.
+
+    With a cloud plug, ``CLOUD_FAILURES`` comes first, by kind and status, then by kind.
+    """
+    if plug is not Plug.LOCAL:
+        cloud = _cloud_template(kind, status, wait_seconds)
+        if cloud is not None:
+            return cloud
     template = None
     if status is not None:
         template = MODEL_FAILURES_BY_STATUS.get((kind, status))
@@ -387,9 +461,23 @@ def _template(
     return template
 
 
+def _cloud_template(
+    kind: ModelErrorKind, status: int | None, wait_seconds: float | None
+) -> str | None:
+    """A cloud service's sentence for the failure, when there is one."""
+    if kind is ModelErrorKind.RATE_LIMITED and wait_seconds is not None:
+        return _CLOUD_RATE_LIMITED_FOR
+    if status is not None and (kind, status) in CLOUD_FAILURES:
+        return CLOUD_FAILURES[(kind, status)]
+    return CLOUD_FAILURES.get((kind, None))
+
+
 def _filled(template: str, settings: ModelSettings, error: ModelError | None) -> str:
     """``template`` with the settings' values, and the failure's own when there is one."""
+    service = SERVICES.get(settings.plug)
     return template.format(
+        service="The service" if service is None else service.name,
+        key_variable=key_variable(settings).value,
         address=settings.base_url,
         model=settings.model,
         seconds=written(settings.timeout_seconds),
@@ -403,7 +491,10 @@ def _said(error: ModelError, settings: ModelSettings) -> str:
     """The start of what the server answered, as a sentence; nothing when it sent nothing."""
     if not error.snippet:
         return ""
-    return f' Its answer began: "{hide(error.snippet, settings.api_key)}".'
+    shown = error.snippet
+    for key in every_key(settings):
+        shown = hide(shown, key)
+    return f' Its answer began: "{shown}".'
 
 
 def _wait(error: ModelError) -> str:

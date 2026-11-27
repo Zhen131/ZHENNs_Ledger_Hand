@@ -14,6 +14,14 @@ it, and raises ``SettingsError`` naming the variable when they do not:
   https, because the key and every passage typed are sent there;
 - and an address off this machine needs a key.
 
+For a service with fixed settings (``settings.SERVICES``, today DeepSeek)
+the checks are its own: the address must be the service's own, its key
+(``DEEPSEEK_API_KEY``) must be set, and thinking may not be asked for, since
+this program turns it off there. The settings checked are the effective
+ones (``settings.effective_settings``), with the service's address and
+model filled in; so an address left at its default passes, and any other
+is refused, naming the address variable, with a pointer to the cloud plug.
+
 A server on this machine that offers the same endpoint may go without https
 and without a key. These checks are made here, where the plug is chosen,
 and not where the settings are read, so that every variable is still read
@@ -48,7 +56,17 @@ from ledger_hand.llm.cloud import CloudModel
 from ledger_hand.llm.local import connect_local_model
 from ledger_hand.llm.retry import RetryingModel
 from ledger_hand.ports import ModelPort
-from ledger_hand.settings import DEFAULT_BASE_URL, ModelSettings, Plug, SettingsError, Variable
+from ledger_hand.settings import (
+    DEFAULT_BASE_URL,
+    SERVICES,
+    ModelSettings,
+    Plug,
+    Service,
+    SettingsError,
+    Thinking,
+    Variable,
+    key_in_use,
+)
 
 # The names of this machine an address may use: the only ones a cloud plug
 # may reach without https and without a key.
@@ -60,6 +78,10 @@ def check_plug(settings: ModelSettings) -> None:
     if not isinstance(settings, ModelSettings):
         raise TypeError(f"settings must be ModelSettings, not {type(settings).__name__}")
     if settings.plug is Plug.LOCAL:
+        return
+    service = SERVICES.get(settings.plug)
+    if service is not None:
+        _check_service(settings, service)
         return
     address = Variable.URL.value
     if settings.base_url == DEFAULT_BASE_URL:
@@ -79,6 +101,28 @@ def check_plug(settings: ModelSettings) -> None:
         raise SettingsError(
             f"{Variable.KEY.value}: the cloud plug needs a key for an address off this "
             f"machine; set {Variable.KEY.value} in the environment"
+        )
+
+
+def _check_service(settings: ModelSettings, service: Service) -> None:
+    """Refuse settings that do not fit a service whose address and key are fixed."""
+    plug = f"{Variable.PLUG.value} is {settings.plug.value}"
+    if settings.base_url != service.address:
+        raise SettingsError(
+            f"{Variable.URL.value}: {plug}, and {service.name}'s address is fixed, "
+            f"{service.address}. Leave {Variable.URL.value} unset, or set {Variable.PLUG.value} "
+            f"to {Plug.CLOUD.value} to use another address"
+        )
+    if settings.think is Thinking.ON:
+        raise SettingsError(
+            f"{Variable.THINK.value}: {plug}, and this program turns thinking off with "
+            f"{service.name}; set {Variable.THINK.value} to {Thinking.MODEL.value} or "
+            f"{Thinking.OFF.value}"
+        )
+    if key_in_use(settings) is None:
+        raise SettingsError(
+            f"{service.key.value}: {plug}, which needs {service.name}'s key; set "
+            f"{service.key.value} in the environment"
         )
 
 

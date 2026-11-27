@@ -64,7 +64,7 @@ from evals.ask_set import (
 from evals.ask_set import markdown as ask_markdown
 from evals.exam_book import exam_ledger
 from evals.hidden_runs import log_hidden_run
-from evals.run import Backend, local_backend
+from evals.run import Backend, cloud_conditions, local_backend
 from evals.tool_run import REPO_ROOT, TOOL_RESULTS_DIR, _git
 from ledger_hand.assistant.outcome import Ending
 from ledger_hand.assistant.tools import tool_specs
@@ -144,6 +144,7 @@ def _conditions(
         "server_version": backend.server_version,
         "base_url": backend.base_url,
         "parameters": dict(backend.parameters),
+        **cloud_conditions(backend),
         "max_steps": steps,
         "now": ask_set.now.isoformat(),
         "zone": ask_set.zone,
