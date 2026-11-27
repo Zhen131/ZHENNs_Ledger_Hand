@@ -359,9 +359,11 @@ def test_the_year_written_twice_says_the_fixed_words_and_proposes_nothing() -> N
     )
 
     assert said.route is Route.TAKEOVER
-    assert said.reply == edit_words.PERIOD_AGAIN
+    # Since 2026-11-27 a date not copied is said with what was written and what was said.
+    assert said.reply.startswith('I could not use the date: the assistant wrote "2023-09-25"')
+    assert "Dates are taken only as you said them" in said.reply
     assert ledger.calls == []
-    assert said.state.chat.items[-1] == Message(Role.ASSISTANT, edit_words.PERIOD_AGAIN)
+    assert said.state.chat.items[-1] == Message(Role.ASSISTANT, said.reply)
 
 
 def test_a_wrong_year_then_the_users_words_goes_on() -> None:

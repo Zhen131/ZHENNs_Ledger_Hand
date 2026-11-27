@@ -347,9 +347,12 @@ def _edit_taken(call: ToolCall, around: _Around) -> bool:
     """Whether a change or a deletion goes to the program.
 
     A period cut out of a longer time goes too: the program then says its
-    fixed words, rather than hand the call back to the model.
+    fixed words, rather than hand the call back to the model. So does a
+    date the model only put this year to, judged as everywhere else
+    (``edit_calls.this_year_read``).
     """
-    return isinstance(judge_edit(call, around.user_said), EditCall)
+    verdict = judge_edit(call, around.user_said, now=around.now, zone=around.zone)
+    return isinstance(verdict, EditCall)
 
 
 def first_edit(calls: Sequence[ToolCall]) -> ToolCall | None:

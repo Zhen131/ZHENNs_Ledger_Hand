@@ -45,10 +45,16 @@ same fixed sentence at once (``begun``), and proposes nothing.
 
 When the model goes wrong twice in a row and its second try was a change
 or a deletion, ``taken_over`` goes on from that call alone: a period it
-gave that is not the user's words (or is cut out of a longer time they
-said), or a new value that is not, is said
-to the user in a fixed sentence and nothing is looked for; a call that can
+gave that is not the user's words is said to the user, with what the
+model wrote, what the user said and an example (``date_not_as_said_words``);
+one cut out of a longer time they said, or a new value that is not their
+words, is said in a fixed sentence; nothing is looked for. A call that can
 be taken after all goes on as above.
+
+A date the model only put this year to is taken as the user's date
+(``edit_calls.this_year_read``); once it was looked for, whatever came of
+it, the reply ends with a line saying it was read as this year
+(``edit_words.this_year_line``, 2026-11-27).
 
 This module reads no clock, no zone of the machine and no settings.
 
@@ -59,13 +65,19 @@ Names defined here: ``EditKind``, ``EditEnding``, ``EditRequest``,
 
 from __future__ import annotations
 
+import dataclasses
 import enum
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
 
 from ledger_hand.assistant import edit_words
-from ledger_hand.assistant.edit_calls import EditCall, judge_edit_at, wrong_parts
+from ledger_hand.assistant.edit_calls import (
+    EditCall,
+    date_not_copied,
+    judge_edit_at,
+    wrong_parts,
+)
 from ledger_hand.assistant.lookups import Conditions
 from ledger_hand.assistant.new_values import (
     Fixes,
@@ -265,6 +277,18 @@ def _started(
         if error.kind is LedgerErrorKind.ASSET_IS_CURRENCY:
             return Edited(ending=EditEnding.TOLD, reply=error.message)
         raise
+    edited = _looked(trades, request, conditions, around)
+    if call.this_year is None:
+        return edited
+    # The user's date was looked for read as this year: said once it was (2026-11-27).
+    line = edit_words.this_year_line(call.this_year)
+    return dataclasses.replace(edited, reply=f"{edited.reply}\n{line}")
+
+
+def _looked(
+    trades: tuple[LedgerTrade, ...], request: EditRequest, conditions: Conditions, around: _Around
+) -> Edited:
+    """What comes of the trades found by ``conditions``: none, too many, a pick, or the one."""
     if not trades:
         return Edited(ending=EditEnding.NOT_FOUND, reply=edit_words.not_found_words(conditions))
     if len(trades) > MOST_LISTED:
@@ -483,7 +507,12 @@ def taken_over(
         return start(verdict, ledger, user_said, now=now, zone=zone, raw_text=raw_text)
     parts = wrong_parts(call, user_said, now=now, zone=zone)
     if parts.period_wrong:
-        return Edited(ending=EditEnding.TOLD, reply=edit_words.PERIOD_AGAIN)
+        written = date_not_copied(call, user_said, now=now, zone=zone)
+        if written is None:
+            return Edited(ending=EditEnding.TOLD, reply=edit_words.PERIOD_AGAIN)
+        said = raw_text if raw_text is not None else user_said[-1]
+        words = edit_words.date_not_as_said_words(written, user_said, said, now=now, zone=zone)
+        return Edited(ending=EditEnding.TOLD, reply=words)
     if parts.field_taken and parts.new_value_wrong:
         return Edited(ending=EditEnding.TOLD, reply=edit_words.VALUE_AGAIN)
     return None

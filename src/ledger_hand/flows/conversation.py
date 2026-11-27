@@ -161,9 +161,9 @@ from dataclasses import dataclass, replace
 from datetime import datetime
 from decimal import Decimal
 
-from ledger_hand.assistant.edit_calls import EDIT_TOOLS
-from ledger_hand.assistant.edit_words import not_done_words
-from ledger_hand.assistant.outcome import Chat, Ending, TakenCall, TurnResult
+from ledger_hand.assistant.edit_calls import EDIT_TOOLS, date_not_copied
+from ledger_hand.assistant.edit_words import date_not_as_said_words, not_done_words
+from ledger_hand.assistant.outcome import Chat, Ending, RefusedCall, TakenCall, TurnResult
 from ledger_hand.assistant.tools import ToolName
 from ledger_hand.core.assets import AssetTable
 from ledger_hand.core.cash_words import CashAsk, held_names
@@ -594,7 +594,40 @@ def _modelled(state: AssistantChat, said: str, around: _Around, max_steps: int) 
         if edit is not None:
             return _edit_taken_over(turn, edit, around)
         return _taken_over(turn, said, around)
+    turn = _with_date_line(turn, around)
     return Said(route=Route.MODEL, reply=turn.reply, state=AssistantChat(chat=turn.chat), turn=turn)
+
+
+def _with_date_line(turn: TurnResult, around: _Around) -> TurnResult:
+    """``turn``, the model's own answer, with the program's line on a date not used added.
+
+    When the model ended the turn in its own words, and one of its calls to
+    change or delete a trade was a wrong step for a date that is not the
+    user's words, the user is told why it was not used, after what is said
+    already: the model's words are kept, since they may have asked aright
+    (decided on 2026-11-27 by the session that hands out the work).
+    """
+    if turn.ending is not Ending.ANSWERED:
+        return turn
+    user_said = turn.chat.user_said
+    written = None
+    for step in turn.steps:
+        for handled in step.calls:
+            if isinstance(handled, RefusedCall) and handled.call.name in EDIT_TOOLS:
+                found = date_not_copied(handled.call, user_said, now=around.now, zone=around.zone)
+                written = found if found is not None else written
+    if written is None:
+        return turn
+    said = around.raw_text if around.raw_text is not None else user_said[-1]
+    line = date_not_as_said_words(written, user_said, said, now=around.now, zone=around.zone)
+    reply = f"{turn.reply}\n{line}" if turn.reply else line
+    items = turn.chat.items
+    if items and items[-1] == Message(Role.ASSISTANT, turn.reply):
+        items = (*items[:-1], Message(Role.ASSISTANT, reply))
+    else:
+        items = (*items, Message(Role.ASSISTANT, reply))
+    chat = Chat(items=items, proposals=turn.chat.proposals)
+    return replace(turn, reply=reply, chat=chat)
 
 
 def _cash_checked(
