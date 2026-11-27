@@ -983,10 +983,13 @@ confirm.`). A name the table holds whose codes the ledger lacks ("特斯拉")
 is neither asked about nor sent: the reply says the ledger has no TSLA yet
 and to add it first. A name with two codes the ledger both has ("谷歌",
 GOOGL and GOOG) is asked about, with a note naming both. Each way is a
-switch, on by default: `LEDGER_HAND_NAME_TABLE` and
-`LEDGER_HAND_REMEMBER_NAMES` (see "Settings"). With the table off, such a
-name is asked about as below, and the code answered is recorded, and kept
-when answers are remembered.
+switch (see "Settings"): `LEDGER_HAND_REMEMBER_NAMES`, on by default, and
+`LEDGER_HAND_NAME_TABLE`, **off by default**: measured on the practice
+half of the names set, the whole assistant sent two shares for
+"2股微软和英特尔" with the table on, the words split into two trades and
+each name matched (`evals/RESULTS.md`). With the table off, such a name is
+asked about as below, and the code answered is recorded, and kept when
+answers are remembered; set `LEDGER_HAND_NAME_TABLE=on` to try the table.
 
 A share or a coin said by a name neither way matches ("小可" the first
 time, "Coca Cola") is asked about: "The ledger lists
@@ -1839,7 +1842,7 @@ stops the Assistant page alone, which says why.
 
 | Variable | Default | What it sets | Why this default |
 | --- | --- | --- | --- |
-| `LEDGER_HAND_NAME_TABLE` | `on` | Whether a name of an asset the ledger's list does not know ("微软") is matched by the program's table of common company names; `on` or `off`. Off, such a name is asked about, and a code answered is recorded as before. | On, decided on 2026-11-27: the table matches only whole names, and a code the ledger lacks is told, never sent. |
+| `LEDGER_HAND_NAME_TABLE` | `off` | Whether a name of an asset the ledger's list does not know ("微软") is matched by the program's table of common company names; `on` or `off`. Off, such a name is asked about, and a code answered is recorded as before. | Off: measured on 2026-11-27 on the practice half of the names set, the whole assistant sent two shares for "2股微软和英特尔" with it on, the words split into two trades and each name matched; it stays off until a way passes the names set. |
 | `LEDGER_HAND_REMEMBER_NAMES` | `on` | Whether a name answered with a code of the ledger is kept, and matched the next time; `on` or `off`. The answers are in `asset-names.json` in the data folder, plain JSON, apart for the demo ledger and the ledger page; open it, change it or delete it, and deleted, every answer is forgotten. Off, no answer is kept or used. | On, decided on 2026-11-27: only a name the user said, answered with a code the ledger has, is kept. |
 
 Neither is one of the model settings. The Settings page shows both, as

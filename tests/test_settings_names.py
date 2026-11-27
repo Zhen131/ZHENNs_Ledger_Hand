@@ -1,7 +1,7 @@
-"""The two switches of matching names of assets: read like the other switches, on by default.
+"""The two switches of matching names of assets: read like the other switches.
 
-Not set or blank, each is on; ``on`` and ``off`` are taken, written so;
-anything else is refused, naming the variable. Neither is a model
+Not set or blank, the table is off and the answers on; ``on`` and
+``off`` are taken, written so; anything else is refused, naming the variable. Neither is a model
 setting. The README's row for each names the variable and the default
 this module holds, and the file of answers is in the data folder.
 """
@@ -32,13 +32,23 @@ README = Path(__file__).resolve().parents[1] / "README.md"
 SWITCHES = [(NAME_TABLE_VARIABLE, load_name_table), (REMEMBER_NAMES_VARIABLE, load_remember_names)]
 
 
-@pytest.mark.parametrize(("variable", "load"), SWITCHES)
-def test_not_set_or_blank_is_on(variable: str, load) -> None:  # type: ignore[no-untyped-def]
-    assert DEFAULT_NAME_TABLE is Switch.ON
+@pytest.mark.parametrize(
+    ("variable", "load", "default"),
+    [
+        (NAME_TABLE_VARIABLE, load_name_table, False),
+        (REMEMBER_NAMES_VARIABLE, load_remember_names, True),
+    ],
+)
+def test_not_set_or_blank_is_the_default_the_table_off_the_answers_on(
+    variable: str,
+    load,  # type: ignore[no-untyped-def]
+    default: bool,  # noqa: FBT001
+) -> None:
+    assert DEFAULT_NAME_TABLE is Switch.OFF
     assert DEFAULT_REMEMBER_NAMES is Switch.ON
-    assert load({}) is True
-    assert load({variable: ""}) is True
-    assert load({variable: "  "}) is True
+    assert load({}) is default
+    assert load({variable: ""}) is default
+    assert load({variable: "  "}) is default
 
 
 @pytest.mark.parametrize(("variable", "load"), SWITCHES)

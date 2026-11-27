@@ -95,7 +95,7 @@ Before that, the program matches such a name itself, with no call to the
 model (``recording.start``, ``name_table`` and ``remembered``;
 ``core.stock_names``): first by the user's earlier answers kept in the
 names file handed in (``names``, ``asset_names``), then by its own table
-of common company names (``name_table``, on unless the caller says off).
+of common company names (``name_table``, off unless the caller says on).
 A name matched is said in the same replies, with where it was taken
 from. When the user answers the question "which asset" of a trade whose
 cell held a name with a code of the ledger, that name and code are kept
@@ -239,9 +239,12 @@ ASSISTANT_PICK_PROMPT = ASSET_PICK_PROMPT
 ASSISTANT_PICKS_ASSETS = False
 # Whether the assistant matches a name the ledger's table does not find by
 # the program's own table of common company names, when the caller does not
-# say (read each time ``say`` is called): on. Matching whole names only, it
-# cannot match a name the ledger lacks to another asset (decided on 2026-11-27).
-ASSISTANT_NAME_TABLE = True
+# say (read each time ``say`` is called): off. Measured on 2026-11-27 on the
+# practice half of the names set, the whole assistant sent two shares for
+# "2股微软和英特尔": the extraction split the words into two trades, and the
+# table matched each name. As the contract's way back says, the table stays
+# in the code, off by default, until a way passes the names set.
+ASSISTANT_NAME_TABLE = False
 
 # After a takeover, only this ending means it could not be done at all.
 _NOT_A_TRADE = frozenset({RecordEnding.NO_TRADE})

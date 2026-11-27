@@ -1059,9 +1059,12 @@ codes in the ledger is asked about, with the program's note naming them,
 added after the question is worded. When the user answers which asset a
 trade was with a code of the ledger, the name its cell held is kept
 (`conversation`, `stock_names.worth_remembering`, `asset_names.remember`).
-Both are on for the assistant by default (`ASSISTANT_NAME_TABLE`; the
-settings `LEDGER_HAND_NAME_TABLE` and `LEDGER_HAND_REMEMBER_NAMES`), and
-the Record page never matches a name.
+The answers are on for the assistant by default
+(`LEDGER_HAND_REMEMBER_NAMES`); the table is off by default
+(`ASSISTANT_NAME_TABLE`, `LEDGER_HAND_NAME_TABLE`), since on the practice
+half of the names set the whole assistant sent two shares for
+"2股微软和英特尔" with it on (`evals/RESULTS.md`). The Record page never
+matches a name.
 Then the name of an asset still not found, and that
 cannot be written as a code, can be handed to the model before
 any question, with the list of the assets that can be traded, to pick one

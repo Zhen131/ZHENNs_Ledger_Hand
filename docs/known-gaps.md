@@ -50,11 +50,11 @@ see. Each item's detail stays in the section it points to.
   "每股" instead of "一股" was sent in dollars the same way, its fee in
   euros marked suspicious ("The assistant: trades paid in
   another money", "Euros and dollars both said as the total").
-- **A share's Chinese name is matched only by a short table and by
-  answers kept.** "微软", "可口可乐" are matched by the program's table of
-  about eighty common companies listed in the United States; a name it
-  does not hold gets "which asset was it?" once, and the code answered is
-  kept for the next time. The step that lets the model pick from the
+- **A share's Chinese name is asked about once, then matched by the
+  answer kept; the table is off.** "微软", "可口可乐" get "which asset was
+  it?" once, and the code answered is kept for the next time. The
+  program's table of about eighty common companies is off by default:
+  with it on, "2股微软和英特尔" was sent as two shares. The step that lets the model pick from the
   ledger's list stays off, since it picked listed shares for names the
   ledger lacks ("The assistant: recording a trade", "A share's Chinese
   name is matched by a table and by answers kept").
@@ -975,8 +975,9 @@ price said in the asset's own money (`flows/paid_apart.py`,
   A name of an asset the ledger's list does not hold as it is
   ("微软的股票", "英特尔") is matched by the program itself: first by the
   user's earlier answers kept in `asset-names.json`, then by its table of
-  common companies (`core/stock_names.py`). A name the table holds is
-  sent as its code when the ledger has it, marked as assumed with where
+  common companies (`core/stock_names.py`), when it is turned on
+  (`LEDGER_HAND_NAME_TABLE=on`; it is off by default, see below). A name
+  the table holds is sent as its code when the ledger has it, marked as assumed with where
   it came from; a name the table does not hold is asked about ("which
   asset was it?") once, and the code answered is kept and used the next
   time. The step that hands such a name to the model to pick from the
@@ -988,6 +989,15 @@ price said in the asset's own money (`flows/paid_apart.py`,
   assistant sent two shares for "2股微软和英特尔"; the checks of the words
   left over cannot catch a name picked whole. Turned on, a pick is said
   in the reply and marked as assumed on the trade's card.
+- **The table is off by default: one sentence naming two companies is
+  sent as two shares.** Measured on 2026-11-27 on the practice half of the
+  names set, "买了2股微软和英特尔" was split by the extraction into two
+  trades, and the table matched each name, so two shares were sent where
+  the user may have meant something else; the names set counts it as
+  wrong. On the hidden halves of the exam said the owner's way, with the
+  table on, four trades had their asset matched by the table as another
+  asset than the gold one (counts alone are known). As the way back says,
+  the table is off until a way passes; the answers kept stay on.
 - **The table holds only common companies listed in the United States,
   matched whole.** About eighty companies, by the Chinese name people
   call them, chosen as large companies and household brands; a company

@@ -60,6 +60,7 @@ def test_a_name_of_the_table_goes_to_the_link_with_the_asset_marked_and_why() ->
         now=INVENTED_NOW,
         zone=INVENTED_ZONE,
         max_steps=6,
+        name_table=True,
     )
 
     assert model.questions.calls == []

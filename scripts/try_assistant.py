@@ -80,7 +80,7 @@ in the file at PATH (the same plain JSON the assistant page keeps in the
 data folder, read as the demo ledger's answers): a name answered with a
 code is matched at once the next time. Without it no such file is read or
 written. ``LEDGER_HAND_NAME_TABLE`` says whether a name is matched by the
-program's table of common company names (on by default).
+program's table of common company names (off by default).
 ``--help`` or ``-h``, given alone, prints this text and does nothing else.
 
 The assistant runs on the local plug only: with the cloud plug set, the

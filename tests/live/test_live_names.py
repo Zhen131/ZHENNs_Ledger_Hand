@@ -3,7 +3,7 @@
 Marked ``live_model``, so ordinary runs leave it out. "微软的股票" is said
 once, in a chat of its own, to the whole assistant, with a new fake
 ledger holding the demo book and the invented book's moment as now; the
-table is on, as it is by default, and no file of answers is handed in.
+table turned on (it is off by default), and no file of answers handed in.
 MSFT is sent, its asset cell marked as assumed, the reason saying it was
 taken from the program's table.
 """
@@ -36,6 +36,7 @@ def test_a_name_of_the_table_is_sent_as_its_code_marked_as_taken_from_the_table(
         zone=INVENTED_ZONE,
         max_steps=load_assistant_steps(),
         tuning=tuning_from(settings),
+        name_table=True,
     )
     print(f"\n{words}\n{said.reply}")
 

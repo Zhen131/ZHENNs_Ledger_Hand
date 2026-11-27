@@ -17,6 +17,7 @@ import pytest
 
 import evals.spoken_run as spoken_run
 from evals.spoken_run import matched_wrong, say_sentence
+from ledger_hand.flows import conversation
 from tests.evals.test_spoken_run import (
     MSFT_ROW,
     WHEN,
@@ -27,6 +28,13 @@ from tests.evals.test_spoken_run import (
     ports,
 )
 from tests.flows.scripted_flow import row
+
+
+@pytest.fixture(autouse=True)
+def _table_on(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The table is off by default; the ruler's count is tried with it on."""
+    monkeypatch.setattr(conversation, "ASSISTANT_NAME_TABLE", True)
+
 
 APPLE_ROW = row(
     side="buy", coin="苹果", quantity="1股", price="400美元", total="400美元", time=WHEN

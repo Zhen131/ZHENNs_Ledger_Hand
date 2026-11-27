@@ -50,11 +50,12 @@ NAMES_WORDS = (
     'When a name of an asset the ledger\'s list does not know is said ("微软"), the '
     "Assistant page matches it by the program's table of common company names "
     f'({NAME_TABLE_VARIABLE}) and by your earlier answers to "which asset" '
-    f"({REMEMBER_NAMES_VARIABLE}); each is on or off, on by default, set before the program "
-    "starts. With the table off, such a name is asked about, and a code answered is recorded "
-    "as before. With answers not remembered, no answer is kept or used. The answers are kept "
-    "in the file above, apart for the demo ledger and the ledger page; it is plain JSON you "
-    "can open, change or delete, and deleting it forgets every answer."
+    f"({REMEMBER_NAMES_VARIABLE}); each is on or off, set before the program starts: the "
+    "table is off by default, the answers on. With the table off, such a name is asked "
+    "about, and a code answered is recorded as before. With answers not remembered, no "
+    "answer is kept or used. The answers are kept in the file above, apart for the demo "
+    "ledger and the ledger page; it is plain JSON you can open, change or delete, and "
+    "deleting it forgets every answer."
 )
 SCOPE = (
     "Changes made here last for this browser tab only. Opening the page again, or starting "

@@ -78,10 +78,11 @@ def talk(
     *answers: str,
     ledger: FakeLedger | None = None,
     names: NamesFile | None = None,
-    name_table: bool | None = None,
+    name_table: bool | None = True,
     said: str | None = None,
 ) -> tuple[list[Said], RoutedModel]:
-    """``said`` (the sentence for ``coin`` by default) in a new chat, then each answer."""
+    """``said`` (the sentence for ``coin`` by default) in a new chat, then each answer; the
+    table on unless ``name_table`` says otherwise (``None``: the default, off)."""
     words = said if said is not None else said_as(coin)
     model = model_for(words, coin, [copied(answer) for answer in answers])
     ledger = ledger if ledger is not None else demo_ledger()
@@ -390,12 +391,16 @@ def test_with_no_file_the_table_still_matches_and_an_answer_is_never_kept(
     assert list(tmp_path.iterdir()) == []
 
 
-def test_the_table_default_is_read_when_called(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(conversation, "ASSISTANT_NAME_TABLE", False)
+def test_the_table_is_off_by_default_and_the_default_is_read_when_called(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    (off,), _ = talk("微软", name_table=None)
+    monkeypatch.setattr(conversation, "ASSISTANT_NAME_TABLE", True)
+    (on,), _ = talk("微软", name_table=None)
 
-    (said,), _ = talk("微软")
-
-    assert said.recorded is not None and said.recorded.ending is RecordEnding.ASKING
+    assert off.recorded is not None and off.recorded.ending is RecordEnding.ASKING
+    assert on.recorded is not None
+    assert [trade.asset for trade in on.recorded.trades] == ["MSFT"]
     assert conversation.ASSISTANT_PICKS_ASSETS is False
 
 
@@ -420,6 +425,7 @@ def test_a_screenshots_text_is_matched_by_the_table_as_well() -> None:
         ledger=demo_ledger(),
         now=INVENTED_NOW,
         zone=INVENTED_ZONE,
+        name_table=True,
     )
 
     assert said.recorded is not None

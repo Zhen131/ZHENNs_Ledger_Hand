@@ -60,7 +60,8 @@ how the assistant matches the name of an asset the ledger's own list does
 not know ("微软"): ``LEDGER_HAND_NAME_TABLE`` (by the program's table of
 common company names) and ``LEDGER_HAND_REMEMBER_NAMES`` (by the user's
 earlier answers, kept in ``asset-names.json`` in the data folder). Each is
-``on`` or ``off``, ``on`` when it is not set. Neither is a model setting.
+``on`` or ``off``; not set, the table is off and the answers are on.
+Neither is a model setting.
 
 ``load_assistant_ledger`` reads which ledger the assistant page reaches
 first in a new browser tab: ``LEDGER_HAND_ASSISTANT_LEDGER``, ``demo`` (the
@@ -935,10 +936,12 @@ class Switch(enum.StrEnum):
     OFF = "off"
 
 
-# On: the table matches only whole names of common companies, and a code the
-# ledger lacks is told, never sent (decided on 2026-11-27); off, a name such
-# as "微软" is asked about, as before.
-DEFAULT_NAME_TABLE = Switch.ON
+# Off: measured on 2026-11-27 on the practice half of the names set, the
+# whole assistant sent two shares for "2股微软和英特尔", the extraction having
+# split the words into two trades and the table matching each name; so the
+# table is off until a way passes the names set. Off, a name such as "微软"
+# is asked about, as before; on, it is matched by the table.
+DEFAULT_NAME_TABLE = Switch.OFF
 # On: only a name the user said and then answered with a code of the ledger
 # is kept, so it cannot be one the model made up (decided on 2026-11-27).
 DEFAULT_REMEMBER_NAMES = Switch.ON
