@@ -1090,14 +1090,42 @@ price said in the asset's own money (`flows/paid_apart.py`,
   the trade, is not marked. Five was chosen with no source behind it, and
   the bounds of the setting (above 1, at most 1000) and the line at which
   the times apart are shown whole (ten) wait for a reason.
-- **The ledger turns down a whole card whose figures do not agree, so the
-  total is left empty.** When quantity, price and total are all said and
-  do not agree, the ledger (72B, 2026-11-25) takes no trade with every
-  cell given; the quantity and the price go as said, the total empty, all
-  three marked suspicious, the total's reason holding the total said. If
-  the ledger comes to take such a card, the three can go as said, each
-  marked, with no cell empty; only the sending and that one reply line
-  change.
+- **Three figures that do not agree are sent as said, and the ledger keeps
+  the card from being saved.** When quantity, price and total are all said
+  and do not agree, all three go as said, none left empty, all three
+  marked suspicious, as the product owner decided on 2026-11-26. The
+  ledger takes such a card since its `dev` at `3f4223e` (2026-11-27): it
+  waits on the pending list, `readyToSave` false, nothing missing,
+  `TOTAL_VALUE_MISMATCH` on the total, and is saved only once the figures
+  are put right on the ledger's page. The reply says so in the program's
+  own words, chosen by that code alone, then the ledger's own sentence.
+- **Three figures that do not agree and a sell of more than was held: the
+  whole card is turned down.** The ledger turns down a card whose figures
+  do not agree when it has another fault as well (a sell of more than was
+  held, a day after today, a money that does not fit), with or without
+  `allowUnfinished`, saying both reasons in one sentence. The program says
+  what the ledger said and does not send the card again with the total
+  left empty, which the ledger asks never to do. So such a sentence gets no
+  card at all; before 2026-11-27 it got a card with the total empty.
+- **A ledger from between 2026-11-25 and its `3f4223e` turns down a whole
+  card whose figures do not agree.** The program tells whether the ledger
+  takes cards only by its list of tools (`allowUnfinished` on
+  `propose_trade_add`), which did not change when the ledger began to take
+  such a card, and asks the ledger nothing more. Connected to a ledger
+  from before `3f4223e` that takes cards, a card whose every cell is given
+  and whose figures do not agree is turned down whole, and the reply says
+  what the ledger said; before, it got a card with the total empty. The
+  ledger's `dev` should be at `3f4223e` or later.
+- **On Windows the ledger's assistant link is started with SYSTEMROOT as
+  well.** The link is started with PATH and HOME alone on macOS and Linux.
+  On Windows, Node.js cannot get random numbers from the system without
+  SYSTEMROOT and stops at once (exit status 134), so it is handed on there
+  too; each other system variable tried (WINDIR, SYSTEMDRIVE, TEMP, TMP,
+  USERPROFILE, APPDATA, LOCALAPPDATA, PATHEXT, COMSPEC) was not needed for
+  the link to start and answer a tool (2026-11-27). Without TEMP and TMP,
+  the `tsx` the link runs with keeps its cache in the Windows folder's own
+  `Temp` rather than the user's. No key, token, secret or password is ever
+  handed on.
 - **A ledger whose tools do not take cells left empty is asked every gap
   as before.** Whether the ledger takes cards is read once from its list
   of tools (`allowUnfinished` on `propose_trade_add`). The fake ledger is a

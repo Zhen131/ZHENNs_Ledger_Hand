@@ -116,7 +116,12 @@ page, reached through the ledger's assistant link
 (`src/ledger_hand/ledger/link_ledger.py`, `src/ledger_hand/ledger/link_keeper.py`;
 `src/ledger_hand/ui/assistant_link_panel.py`): the person starts the link,
 connects the ledger page with the port and token it shows, and saves each
-proposal on the ledger page itself (section 8).
+proposal on the ledger page itself (section 8). The link is started with
+PATH and HOME alone, and on Windows with SYSTEMROOT too, without which
+Node.js cannot start there. Three figures said that do not agree are sent as
+said, all three marked suspicious; the ledger (its `dev` at `3f4223e` or
+later) keeps such a card from being saved until they are put right on its
+page, and the reply says so (`docs/known-gaps.md`).
 
 **Why the model only copies.** The baseline run shows the reason
 (`evals/RESULTS.md`, "2026-10-05: baseline"): asked to copy the time of an

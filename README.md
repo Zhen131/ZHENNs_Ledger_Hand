@@ -187,7 +187,10 @@ found first. `scripts/check.sh` takes `.venv/Scripts/python.exe` when there
 is no `.venv/bin/python`. One test is skipped on Windows (its reason is
 printed); the tests that need a folder that cannot be written into make one
 with `icacls`, which comes with Windows. To run the ledger tier, set
-`LEDGER_HAND_LEDGER_DIR` on that one command only.
+`LEDGER_HAND_LEDGER_DIR` on that one command only. The ledger's assistant
+link starts on Windows too: there it is handed SYSTEMROOT besides PATH and
+HOME, since Node.js stops at once without it, and the ledger tier starts the
+checkout's `tsx` through `node` (see "The ledger tier").
 
 The quick checks need no model. The interface, the command-line scripts,
 the live tier and the experiments do: by default Ollama running on this
@@ -452,8 +455,10 @@ Save in the ledger page's pending list.
 
 What you need:
 
-- the ledger's folder, at its `dev` version (this was walked through
-  against `dev@a6ba639`), with its programs installed: run `npm install`
+- the ledger's folder, at its `dev` version `3f4223e` or later (this was
+  walked through against `dev@a6ba639`; from `3f4223e` the ledger keeps a
+  card whose three figures do not agree instead of turning it down, which
+  this program now leans on), with its programs installed: run `npm install`
   in that folder once, and again whenever the ledger adds a package (when
   one is missing, the page says so and names this command);
 - Node.js 24 or later, which the ledger asks for;
@@ -823,11 +828,18 @@ suspicious with what was said and why; a quantity said in money ("用25U买了
 marked assumed; with a price said as well ("Bought 30 USDT of ADA at
 0.31"), the quantity is worked out from the two and marked worked out, the
 total then carries no mark, and the reply keeps the reminder that the
-quantity was said in a unit that is not the asset. When quantity, price and total all said do not agree, the
-quantity and the price are sent as said, the total left empty (the ledger
-turns down a trade whose every cell is given and whose figures do not
-agree), all three marked suspicious with the three figures, and the reply
-says the program does not guess which is wrong. The reply names the cells
+quantity was said in a unit that is not the asset. When quantity, price and total all said do not agree, all
+three are sent as said, none left empty and none put right, all three
+marked suspicious with the three figures, and the reply says the program
+does not guess which is wrong. The ledger (its `dev` at `3f4223e` or
+later) takes such a card but cannot save it: the reply then says, in the
+program's own words chosen by the ledger's code `TOTAL_VALUE_MISMATCH`
+alone, that the ledger took it and that the figures are to be put right
+with Edit on the ledger's page before saving, followed by the ledger's own
+sentence; the card on the page and the table say the same. When it also
+sells more than was held, or its money does not fit, the ledger turns the
+whole card down and the reply says why in the ledger's words; it is not
+sent again with a cell left empty. The reply names the cells
 sent empty ("Trade 1 was sent with empty fields: fee, feeAssetId. ... fill
 them in on the ledger's own page before you save it."), carries what the
 ledger found in the cells given in its own words, and never says nothing
@@ -1357,8 +1369,25 @@ It is two scripts. `scripts/ledger_check.py` (Python) writes the sample files
 into a fresh temporary directory, runs the ledger's validator on them and
 judges each answer. `scripts/ledger_validate.ts` (TypeScript) is the part that
 runs inside the ledger checkout: started with the checkout's own `tsx`, it
-imports the ledger's `parseBackupJson` and prints what it says about each
-file. Each sample is expected to be accepted with no error, refused only for
+imports the ledger's import preflight, `preflightBackupJson`, and asks it as
+the ledger's "restore a backup" does (the raw words of each trade not
+required, the page's words in English, a fixed test value for the number
+the page gives each file chosen), then prints what it says about each file:
+its hard errors, any check it could not do, which keeps a file from being
+accepted, and how many groups of trades may be the same trade twice, which
+is a reminder on the ledger's page, not a refusal. Since 2026-11-17 the
+ledger's `parseBackupJson` checks only the envelope of a file of schema 5,
+6 or 7 and leaves selling more than is held, its limits and its import
+rules to that preflight, which first upgrades the file to the ledger's own
+schema. Two things of the preflight are allowed for, each with its source
+in the ledger written beside it in `tests/ledger_check/cases.py`: one more
+line that sums up the other errors when a file cannot be upgraded, and a
+limit of assets of 503, not 500, since the upgrade adds three cash
+currencies (a file of 501 coins holds 504 then). This program still writes
+schema 5, and its own limit stays 500. On Windows, where the checkout's
+`node_modules/.bin/tsx` is a shell script that cannot be started, `node`
+runs the entry its package names instead (`node_modules/tsx/package.json`);
+elsewhere the command is as before. Each sample is expected to be accepted with no error, refused only for
 selling more than is held (this program cannot know what the ledger holds), or
 refused with exactly the errors planted in it. Two samples, which hold a
 trade in every time zone, are expected to be accepted except for one known
@@ -1379,9 +1408,14 @@ ledger's Node (tz 2026a, ICU 78.2) takes the four names for New York,
 Chicago, Denver and Los Angeles, whose offsets before 18 November 1883 have
 seconds in them; with both at once, the ledger's validator throws on those
 trades instead of refusing them, and the tier fails. With Python reading
-2026c and Node carrying 2026a, the sample was accepted. Why the sample and
-the tests are left as they are is in `docs/known-gaps.md`, "Time zone
-database versions".
+2026c and Node carrying 2026a, the sample was accepted. Asked through the
+import preflight, the ledger refuses those trades' offsets instead of
+throwing, and the sample still fails. Why the sample and the tests are left
+as they are is in `docs/known-gaps.md`, "Time zone database versions".
+
+The tier also fails while the ledger writes another schema than this
+program: since 2026-11-17 the ledger writes schema 8 and still reads the
+schema 5 this program writes, upgrading it.
 
 What is checked is listed in `tests/ledger_check/cases.py`: the golden sample,
 edge cases, batches of awkward trades (every time zone, the first and last
