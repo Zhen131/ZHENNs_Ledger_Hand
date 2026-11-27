@@ -26,7 +26,8 @@ script and the assistant page's demo buttons: ``save`` a pending proposal
 (only then does the book change) and ``reject`` one. Saving writes the
 proposal's trade into the book as it stands then; every other pending
 proposal that would no longer pass, or that changes or deletes the same
-trade, becomes void, since it was checked against the book as it was. The
+trade, becomes void, since it was checked against the book as it was; a
+card with an empty cell has no trade to check yet and stays waiting. The
 page reaches them only through ``flows/standing.py``, which does nothing
 with any other ledger; the assistant's model is never handed them.
 
@@ -494,6 +495,10 @@ class FakeLedger:
         )
         for key, other in self._proposals.items():
             if other.state.status is not ProposalStatus.PENDING:
+                continue
+            # A card with an empty cell has no trade to put in the book yet;
+            # like the real ledger, saving another proposal leaves it waiting.
+            if other.kind is _Kind.ADD and other.facts is None:
                 continue
             same_target = other.target is not None and other.target == proposal.target
             if same_target or self._applied(other, self._trades) is None:
