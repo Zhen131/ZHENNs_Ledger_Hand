@@ -1829,14 +1829,17 @@ What reaching the ledger page from the Assistant page does not do yet:
   tried here (`dev@a6ba639`) has no tool for a cash balance, so with it
   the assistant says it cannot look one up. The ledger's `dev` has since
   added one (`5762751`), and since 2026-11-26 the plug reads it (see "The
-  real ledger's plug" and "The assistant: cash"); that was tried only
-  against answers written from the ledger's README, never on a running
-  ledger page.
+  real ledger's plug" and "The assistant: cash"). On 2026-11-27 it was
+  tried on a running ledger page (`dev@050e7dd`): asked in Chinese and in
+  English, the balances agreed with the ledger's home page
+  (`docs/walkthrough-with-the-ledger-page.md`).
 - **A trade in another money than the asset's own goes only with its
   rate.** The assistant works the rate out only for a trade that goes the
   way of "The assistant: trades paid in another money"; any other such
-  trade is not sent (see "The real ledger's plug"). Tried only on answers
-  written from the ledger's README, never on a running ledger.
+  trade is not sent (see "The real ledger's plug"). On 2026-11-27 two
+  such trades were walked through on a running ledger page: one saved with
+  its rate as worked out, one with a rate far off marked suspicious
+  (`docs/walkthrough-with-the-ledger-page.md`).
 - **After a timeout or a reload, the assistant only says it cannot tell.**
   The ledger's rules for an assistant (its `assistant-link/README.md`,
   "Rules an assistant must keep", 4 and 5) ask it to look through the
@@ -1846,6 +1849,15 @@ What reaching the ledger page from the Assistant page does not do yet:
   be there, or that its result can no longer be looked up, and asks the
   user to look at the ledger. What is missing is that one look by the
   program; the user is never told a proposal was not saved.
+- **Small things seen on a running ledger page.** The walk of 2026-11-27
+  (`docs/walkthrough-with-the-ledger-page.md`, "Seen in this program, not
+  changed") found no figure saved wrong and unmarked, but wrote down these:
+  "没有手续费" leaves the fee empty rather than 0; changing a fee "to 2 美元"
+  on a trade whose fee is in USD is refused as "'美元' is not USD"; a card
+  with empty cells names them by the ledger's field names ("fee,
+  feeAssetId") and shows its Fee as "none none"; "MSFT (MSFT)" says the code
+  twice; the reply for "美金" read as USD says "no currency was said"; the
+  reminder about unused numbers lists the "一" of "一个" and "一共".
 - **A ledger page left in the background overnight was not tried.** The
   ledger warns that the browser may pause a background tab, which drops
   the connection; the block then says the page disconnected. Whether a

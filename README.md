@@ -25,7 +25,8 @@ ledger, an invented book in memory, where confirming is tried with
 `scripts/try_assistant.py --save` or with the demo buttons on the
 Assistant page, which work on the demo ledger alone; the page can be
 switched to your own ledger page instead (see "Connecting the assistant to
-your ledger"), which has been walked through by hand once.
+your ledger"), which has been walked through twice, the second time
+sentence by sentence (`docs/walkthrough-with-the-ledger-page.md`).
 
 **Do not import an export file into the ledger yet.** The ledger's present
 import replaces the whole ledger with what the file holds, which would leave
@@ -125,10 +126,11 @@ does not do yet:
   `docs/project-report.md`, section 6).
 - **Not done yet.** Measuring how well real screenshots are read: none has
   been read yet. Measuring the assistant against the real ledger: the page
-  reaches your ledger page, but that was walked through by hand once, and
-  the changes to its plug since (market prices, a day alone, cells left
-  empty and marks, cash balances, rates) were tried only against written
-  samples. The exam said the owner's way (`evals/sets/spoken/`) is written
+  reaches your ledger page, and that was walked through twice: by hand
+  once, and on 2026-11-27 with 21 sentences, from typing on the Assistant
+  page to Save on the ledger page, with no figure saved wrong and unmarked
+  (`docs/walkthrough-with-the-ledger-page.md`); a walk is not a measure,
+  and every measure still uses the demo ledger. The exam said the owner's way (`evals/sets/spoken/`) is written
   and measured, and two of its lines are not met with `qwen2.5:7b` (see
   "The exam said the owner's way" and `docs/known-gaps.md`, "What you will
   meet"); comparing other local models is left to the owner. Known limits
@@ -458,7 +460,9 @@ Save in the ledger page's pending list.
 What you need:
 
 - the ledger's folder, at its `dev` version `3f4223e` or later (this was
-  walked through against `dev@a6ba639`; from `3f4223e` the ledger keeps a
+  walked through against `dev@a6ba639`, and again sentence by sentence
+  against `dev@050e7dd`, see `docs/walkthrough-with-the-ledger-page.md`;
+  from `3f4223e` the ledger keeps a
   card whose three figures do not agree instead of turning it down, which
   this program now leans on; from `1b016ec` it lists the exchange rates it
   keeps, and only then is the rate of a trade paid in another money
@@ -2414,6 +2418,7 @@ check and the hygiene scan).
 | `tests/ledger_check/` | What the ledger tier checks (`cases.py`), tests of the tier's own logic, and the one sample for it written by hand. |
 | `docs/architecture.md` | How the layers are divided, who may import whom, the house rules, and where new features go. |
 | `docs/known-gaps.md` | Known limits of the program as it stands, each with what it affects and, where a choice is needed, waiting for the project owner. |
+| `docs/walkthrough-with-the-ledger-page.md` | One walk, sentence by sentence, from the Assistant page to Save on a running ledger page, with an invented ledger and `qwen2.5:7b`: what each sentence did, how it was judged, and what was seen in this program and in the ledger. |
 | `docs/project-report.md` | The project described for a reader new to it: the problem, the steps, the prompt techniques, the parameters, the error handling, the experiments, the design decisions, the known limitations, and the course's checklist mapped onto the repository. `tests/test_project_report_paths.py` checks that every path it names is in the repository. |
 | `tests/storage/golden/` | The golden book of version 1, a SQLite file, and its text dump. Never edited once committed; a new version of the book gets one of its own. |
 | `tests/flows/golden/` | The golden assistant's records of versions 1 to 8 (`assistant-record-v1.jsonl` to `assistant-record-v8.jsonl`), invented entries. Never edited once committed; a new version of the record gets one of its own. |
