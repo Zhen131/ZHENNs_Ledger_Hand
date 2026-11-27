@@ -694,8 +694,15 @@ the cloud plug, or the zone).
 .venv/bin/python scripts/try_assistant.py "把10月6号那笔的手续费改成0.000009" "第二笔"
 .venv/bin/python scripts/try_assistant.py "把10月6号那笔BTC的数量改成0.0081" "总额"
 .venv/bin/python scripts/try_assistant.py --clock "What do I hold?"
+.venv/bin/python scripts/try_assistant.py --names-file /tmp/asset-names.json "2026年11月20号9点40分在IBKR买了2股小可，每股41美元，手续费1美元" "KO"
 .venv/bin/python scripts/try_assistant.py --help
 ```
+
+`--names-file PATH` reads and keeps the answers to "which asset" in the
+file at PATH, the same plain JSON the Assistant page keeps in the data
+folder, as the demo ledger's: the second run of the example above takes
+"小可" as KO at once. Without it no such file is read or written. The
+table of company names follows `LEDGER_HAND_NAME_TABLE`.
 
 The assistant is the beginning of a way to keep the ledger by talking: the
 model is handed eight tools (list the assets, list the trades, sum a
@@ -944,8 +951,45 @@ compared with: ...`), and the page's card shows a rate cell and the price
 said. What this does not do is in `docs/known-gaps.md`, "The assistant:
 trades paid in another money".
 
-A share or a coin said by a name the ledger's list does not hold as it is
-("微软", "微软的股票", "Coca Cola") is asked about today: "The ledger lists
+A share said by a name the ledger's list does not hold as it is ("微软",
+"微软的股票") is first matched by the program itself, with no call to the
+model, in two ways, in this order:
+
+1. The user's own earlier answers. When the assistant asked which asset a
+   trade was and the user answered with a code the ledger has ("KO"), the
+   name said ("小可") and that code are kept in `asset-names.json` in the
+   data folder, and the same name is matched at once the next time. Only a
+   name the user said, of two characters or more, is kept: never a word
+   for a kind of asset ("股票", "美股", "ETF"), a money or a coin's name.
+   The answers given on the demo ledger are used only there, and those
+   given on the ledger page only there. The file is plain JSON: open it,
+   change it or delete it; deleted, every answer is forgotten. A file that
+   cannot be read is taken as empty and never written to.
+2. The program's own table of about eighty common companies listed in the
+   United States, by the Chinese name people call them, each with its
+   codes there (`core/stock_names.py`).
+
+A name is matched only whole, once a trailing "的股票", "股票", "的股份",
+"股份", "的公司", "公司" or "集团" is cut off (at most twice): "微软的股票"
+is "微软", while "微软A股" and "可口可乐装瓶公司" are matched by nothing. A
+matched code must be in the ledger's list. Matched, the trade goes on as
+if the code had been said; its asset cell is sent marked as assumed, with
+the words, the code, the ledger's name and where it came from, for
+example `"微软的股票" was taken as MSFT (Microsoft) from the program's table
+of common company names`, and the reply says the same when recording
+begins and once it ends (`Took "微软的股票" as MSFT (Microsoft) from the
+program's table of common company names. Please check it before you
+confirm.`). A name the table holds whose codes the ledger lacks ("特斯拉")
+is neither asked about nor sent: the reply says the ledger has no TSLA yet
+and to add it first. A name with two codes the ledger both has ("谷歌",
+GOOGL and GOOG) is asked about, with a note naming both. Each way is a
+switch, on by default: `LEDGER_HAND_NAME_TABLE` and
+`LEDGER_HAND_REMEMBER_NAMES` (see "Settings"). With the table off, such a
+name is asked about as below, and the code answered is recorded, and kept
+when answers are remembered.
+
+A share or a coin said by a name neither way matches ("小可" the first
+time, "Coca Cola") is asked about: "The ledger lists
 no asset by that name; which asset was it?", with a note to answer with
 the code ("MSFT") or to add the asset in the ledger first. A step that
 hands such a name to the model to pick from the ledger's list is in the
@@ -1055,7 +1099,13 @@ off it) straight to the step that picks an asset, and
 `.venv/bin/python -m evals.name_run` says each sentence to the whole
 assistant against the demo book; both run one half of the set at a time
 (`--half practice`, the default, or `--half locked`, which prints the
-counts alone) and judge every asset picked, named or sent. `stock_run` and
+counts alone) and judge every asset picked, named or sent;
+`.venv/bin/python -m evals.name_table_run --direct` looks the same words up
+as the program does, by its table of company names, with no model, and
+`.venv/bin/python -m evals.name_table_run` says each sentence to the whole
+assistant with the table on and no file of answers, one half at a time
+(`--half locked` writes and prints the counts alone, and adds its line to
+the hidden-run log). `stock_run` and
 `name_run` say their sentences to a ledger that takes no trade with cells
 left empty, as every ledger before 2026-11-25, so they measure the way of
 asking each gap; sending a card with cells left empty is measured by the
@@ -1746,7 +1796,7 @@ proxy.
 
 | Variable | Default | What it sets | Why this default |
 | --- | --- | --- | --- |
-| `LEDGER_HAND_DATA_DIR` | `data` in the working directory | The data folder. The book is `ledger-hand-book.sqlite3` in it, export files go into `exports/` in it, and the assistant's record is `assistant-record.jsonl` in it. A relative folder is taken from the working directory; a leading `~` is the home folder. | Started from the top of the repository, as this README does, the program keeps everything it writes in one folder that the repository's ignore file keeps out of Git. |
+| `LEDGER_HAND_DATA_DIR` | `data` in the working directory | The data folder. The book is `ledger-hand-book.sqlite3` in it, export files go into `exports/` in it, the assistant's record is `assistant-record.jsonl` in it, and the names of assets the user answered are `asset-names.json` in it. A relative folder is taken from the working directory; a leading `~` is the home folder. | Started from the top of the repository, as this README does, the program keeps everything it writes in one folder that the repository's ignore file keeps out of Git. |
 
 The data folder and the exports folder are made when something is first
 written there; reading the setting makes nothing, and recording a passage
@@ -1784,6 +1834,19 @@ Like the step limit, this is not one of the model settings and is not
 shown on the settings page. The Assistant page and
 `scripts/try_assistant.py` read it when they start; a value it refuses
 stops the Assistant page alone, which says why.
+
+### How the assistant matches the name of an asset
+
+| Variable | Default | What it sets | Why this default |
+| --- | --- | --- | --- |
+| `LEDGER_HAND_NAME_TABLE` | `on` | Whether a name of an asset the ledger's list does not know ("微软") is matched by the program's table of common company names; `on` or `off`. Off, such a name is asked about, and a code answered is recorded as before. | On, decided on 2026-11-27: the table matches only whole names, and a code the ledger lacks is told, never sent. |
+| `LEDGER_HAND_REMEMBER_NAMES` | `on` | Whether a name answered with a code of the ledger is kept, and matched the next time; `on` or `off`. The answers are in `asset-names.json` in the data folder, plain JSON, apart for the demo ledger and the ledger page; open it, change it or delete it, and deleted, every answer is forgotten. Off, no answer is kept or used. | On, decided on 2026-11-27: only a name the user said, answered with a code the ledger has, is kept. |
+
+Neither is one of the model settings. The Settings page shows both, as
+they are now, under the data folder, with where the file of answers is.
+The Assistant page reads them when the program starts, and
+`scripts/try_assistant.py` reads the first; a value other than `on` or
+`off` stops the Assistant page alone, which says why.
 
 ### Variables the scripts read
 
@@ -2247,7 +2310,7 @@ check and the hygiene scan).
 | `tests/export/samples.py`, `tests/export/attack.py`, `tests/export/golden/` | Invented trades to export, batches of edge cases made to find where this program and the ledger part ways, both shared with the ledger tier, and the golden sample. A golden sample is never edited once committed; a new format version gets one of its own. |
 | `tests/guardrails/` | The layering check and the hygiene scan, the tests that prove they catch what they should, and the two gate tests that apply them to this repository. |
 | `scripts/check.sh` | One command that runs all checks. |
-| `evals/` | The experiment kit, outside the package: the test sentences and their gold answers (`sets/debug.json`, `sets/final.json`, read by `gold.py`), what they cover (`coverage.py`), the small set of hard ways of writing a number (`sets/writings.json`, described by `writings.py`), the ten passages in the owner's own voice (`sets/voice.json`, described by `voice.py`), judging one field (`cells.py`), pairing drafts with gold trades (`matching.py`), the scores (`scoring.py`), the results file (`records.py`), the summary and its tables (`tables.py`), the runner (`run.py`), the summary worked out again (`summarize.py`), three more counts beside the summary (`extra_counts.py`), prompt versions side by side with the rule that picks one (`compare.py`), prompt versions side by side on each set with the rule that picks a candidate over `first` (`compare_sets.py`), two runs compared sentence by sentence (`same_replies.py`), the two ways of reading a passage (`methods.py`) side by side with the rule that picks one (`compare_methods.py`), two models side by side on one set (`compare_models.py`), and the record of every reply read for a passage (`reads.py`), and the assistant's measures: its first step (`tool_set.py`, `tool_run.py`), asking the ledger (`ask_set.py`, `ask_run.py`), changing or deleting a trade (`sets/edits.json`, `edit_set.py`, `edit_run.py`), recording a share bought with dollars (`sets/stocks.json`, `stock_set.py`, `stock_run.py`), picking an asset named the way people say it from the ledger's list (`sets/stock_names.json`, `name_set.py`, `name_run.py`), the extraction sets run through the start of recording, judging and all (`judged_run.py`), and the exam said the owner's way: its ten sets (`sets/spoken/`), their gold answers and checks (`spoken_set.py`), the exam book (`exam_book.py`), judging each trade (`spoken_judge.py`), the counts (`spoken_tally.py`), its runner (`spoken_run.py`) and the log of every run of a hidden half (`hidden_runs.py`, `tool_results/hidden-runs.log`). |
+| `evals/` | The experiment kit, outside the package: the test sentences and their gold answers (`sets/debug.json`, `sets/final.json`, read by `gold.py`), what they cover (`coverage.py`), the small set of hard ways of writing a number (`sets/writings.json`, described by `writings.py`), the ten passages in the owner's own voice (`sets/voice.json`, described by `voice.py`), judging one field (`cells.py`), pairing drafts with gold trades (`matching.py`), the scores (`scoring.py`), the results file (`records.py`), the summary and its tables (`tables.py`), the runner (`run.py`), the summary worked out again (`summarize.py`), three more counts beside the summary (`extra_counts.py`), prompt versions side by side with the rule that picks one (`compare.py`), prompt versions side by side on each set with the rule that picks a candidate over `first` (`compare_sets.py`), two runs compared sentence by sentence (`same_replies.py`), the two ways of reading a passage (`methods.py`) side by side with the rule that picks one (`compare_methods.py`), two models side by side on one set (`compare_models.py`), and the record of every reply read for a passage (`reads.py`), and the assistant's measures: its first step (`tool_set.py`, `tool_run.py`), asking the ledger (`ask_set.py`, `ask_run.py`), changing or deleting a trade (`sets/edits.json`, `edit_set.py`, `edit_run.py`), recording a share bought with dollars (`sets/stocks.json`, `stock_set.py`, `stock_run.py`), picking an asset named the way people say it from the ledger's list (`sets/stock_names.json`, `name_set.py`, `name_run.py`) and matching it by the program's own table (`name_table_run.py`), the extraction sets run through the start of recording, judging and all (`judged_run.py`), and the exam said the owner's way: its ten sets (`sets/spoken/`), their gold answers and checks (`spoken_set.py`), the exam book (`exam_book.py`), judging each trade (`spoken_judge.py`), the counts (`spoken_tally.py`), its runner (`spoken_run.py`) and the log of every run of a hidden half (`hidden_runs.py`, `tool_results/hidden-runs.log`). |
 | `evals/results/` | One results file per run (`*.jsonl`) and its summary (`*.summary.json`). In Git: all of it is invented data. |
 | `evals/tool_set.py`, `evals/tool_run.py`, `evals/sets/tools.json`, `evals/tool_results/` | The assistant's nineteen sentences, the measure of the model's first step on each, its runner and its results. |
 | `evals/ask_set.py`, `evals/ask_run.py`, `evals/sets/asks.json` | The questions about the ledger with their gold answers, how one answer is judged, and the runner that runs each to the end; its results go to `evals/tool_results/` too. |

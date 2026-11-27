@@ -50,11 +50,14 @@ see. Each item's detail stays in the section it points to.
   "每股" instead of "一股" was sent in dollars the same way, its fee in
   euros marked suspicious ("The assistant: trades paid in
   another money", "Euros and dollars both said as the total").
-- **A share said by its Chinese name is asked about.** "微软", "可口可乐"
-  get "which asset was it?", to be answered with the code ("MSFT"): the
-  step that lets the model pick from the ledger's list is off, since it
-  picked listed shares for names the ledger lacks ("The assistant:
-  recording a trade", "A share's Chinese name is not matched").
+- **A share's Chinese name is matched only by a short table and by
+  answers kept.** "微软", "可口可乐" are matched by the program's table of
+  about eighty common companies listed in the United States; a name it
+  does not hold gets "which asset was it?" once, and the code answered is
+  kept for the next time. The step that lets the model pick from the
+  ledger's list stays off, since it picked listed shares for names the
+  ledger lacks ("The assistant: recording a trade", "A share's Chinese
+  name is matched by a table and by answers kept").
 - **The owner's long euro sentences are asked twice before a card.** On
   the practice halves, four of five were first asked buy or sell, then
   which asset; the fifth came back empty from the model. A sentence with
@@ -968,28 +971,57 @@ price said in the asset's own money (`flows/paid_apart.py`,
   lacks ("TSLA", "狗狗币") is not sent, with the word the user said, and the
   user adds it in the ledger first. No coin is confirmed on the spot, as
   the Record page lets one be.
-- **A share's Chinese name is not matched; the user answers with the
-  code.** A name of an asset the ledger's list does not hold as it is
-  ("微软的股票", "英特尔") is asked about ("which asset was it?"), and the
-  user answers "MSFT". The step that hands such a name to the model to
-  pick from the list (`extraction/asset_picking.py`) is off
+- **A share's Chinese name is matched by a table and by answers kept.**
+  A name of an asset the ledger's list does not hold as it is
+  ("微软的股票", "英特尔") is matched by the program itself: first by the
+  user's earlier answers kept in `asset-names.json`, then by its table of
+  common companies (`core/stock_names.py`). A name the table holds is
+  sent as its code when the ledger has it, marked as assumed with where
+  it came from; a name the table does not hold is asked about ("which
+  asset was it?") once, and the code answered is kept and used the next
+  time. The step that hands such a name to the model to pick from the
+  list (`extraction/asset_picking.py`) stays off
   (`ASSISTANT_PICKS_ASSETS`): measured on the names set on 2026-11-25,
   each of three prompt versions picked a listed asset for names the
   ledger lacks ("雪碧" as PepsiCo or Coca-Cola, "谷歌" and "亚马逊" as
   Apple, "柚子币" as SOL, "可口可乐装瓶公司" as Coca-Cola), and the whole
   assistant sent two shares for "2股微软和英特尔"; the checks of the words
   left over cannot catch a name picked whole. Turned on, a pick is said
-  in the reply and marked as assumed on the trade's card; the ledger is
-  not handed the mark yet.
+  in the reply and marked as assumed on the trade's card.
+- **The table holds only common companies listed in the United States,
+  matched whole.** About eighty companies, by the Chinese name people
+  call them, chosen as large companies and household brands; a company
+  listed only in Hong Kong or Shanghai ("腾讯", "小米", "美团") is not in
+  it, nor a product ("iPhone", "雪碧", "百事可乐"). A name is matched only
+  whole once a trailing "的股票", "股票", "的股份", "股份", "的公司", "公司"
+  or "集团" is cut off: "微软A股", "微软的期权" and "可口可乐装瓶公司" are
+  asked about as before. A name the table holds whose codes the ledger
+  lacks ("特斯拉" with no TSLA) is not sent, and the user is told to add
+  it in the ledger first.
+- **A name the extraction leaves out cannot be kept.** When the model
+  leaves the asset cell empty, there is no name to keep with the code
+  answered; the trade is recorded, and the next time the same words are
+  asked about again.
+- **Answers kept are apart for the demo ledger and the ledger page, not
+  for each ledger.** A name answered on the demo ledger is used only on
+  the demo ledger, and one answered on the ledger page only there; but
+  the ledger page is not told apart by which ledger it reaches, so if
+  another ledger is ever reached, the names answered before go with it,
+  as long as that ledger has the same code.
+- **The answers kept were not measured with the real model.** Every
+  measure says each sentence with no file of answers, so that one
+  sentence's answer cannot change the next; the answers are checked by
+  tests with a scripted model, and by one walk through by hand.
 - **Answering "which asset" with a Chinese name is not understood.** Once
   the program asks which asset a trade was, the answer is read as before:
   answer with the asset's code as the ledger lists it ("MSFT"); "微软" is
   not matched there.
 - **Asking, changing and deleting do not match Chinese names.** Only
-  recording hands a name to the model to pick from the list; a question
+  recording matches a name by the table or by an answer kept; a question
   about "微软的交易", or a change of "微软那笔", finds no asset by that name.
 - **A fee taken in an asset named in Chinese is not matched.** Only the
-  asset traded is handed over; a fee said as "手续费0.1个英伟达" is not.
+  asset traded is matched or handed over; a fee said as "手续费0.1个英伟达"
+  is not.
 - **A ledger of more than 500 assets that can be traded is not handed
   over.** The whole list goes to the model each time; past 500 lines the
   program does not ask, and such a name is asked about as before. 500 was
@@ -1007,9 +1039,10 @@ price said in the asset's own money (`flows/paid_apart.py`,
   instead, nothing is left to check: with the step turned on,
   "2股微软A股" was sent as 2 MSFT on 2026-11-25, the model having picked
   out "微软A股" whole.
-- **How well names are picked was measured on one set.** The names set
-  (`evals/sets/stock_names.json`) and its results are in
-  `evals/RESULTS.md`; names said otherwise may fare otherwise.
+- **How well names are picked, or matched by the table, was measured on
+  one set.** The names set (`evals/sets/stock_names.json`) and its
+  results are in `evals/RESULTS.md`; names said otherwise may fare
+  otherwise.
 - **Changing the subject while a question waits.** While the recording
   flow's question waits, whatever the user says next is read as its
   answer. A question about the holdings at that moment is taken as an

@@ -47,6 +47,7 @@ src/ledger_hand/
         coins.py              a small table of common coins                           (exists)
         assets.py             the asset table: what may be traded, the money to price it in (exists)
         ledger_table.py       the asset table and the asset names the ledger's own list makes (exists)
+        stock_names.py        common companies' Chinese names to codes; a name matched whole (exists)
         asset_words.py        share, coin or asset: the word said for a trade's asset (exists)
         cash_words.py         the words that tell a question about cash; a figure beside a money (exists)
         money_asks.py         money moved said that is recorded by hand; a balance asked of any money (exists)
@@ -206,6 +207,7 @@ src/ledger_hand/
         exporting.py          the trades not exported yet, written as one file, marked (exists)
         export_file.py        a new file, whole, never replacing another              (exists)
         assistant_record.py   the assistant's record: one versioned line per thing said (exists)
+        asset_names.py        the names the user answered with a code, in a plain file (exists)
         cash_question.py      a question about cash caught before the model; the fixed words (exists)
         cash_answers.py       the ledger's cash balances answered; money moved said truthfully (exists)
         paid_apart.py         a trade paid in another money than its asset's own: when, and how (exists)
@@ -1039,8 +1041,29 @@ When the ledger takes cards with cells left empty, a quantity said in one
 money is taken as the total instead (`recording._totals_from_units`), and
 only a unit of no money, or of another money than the one said, is still
 held back.
-The name of an asset that the ledger's table does not find, and that
-cannot be written as a code ("微软的股票"), can be handed to the model before
+The name of an asset that the ledger's table does not find ("微软的股票")
+is first matched by the program, with no call to the model, before any
+question (`recording.start`, `name_table` and `remembered`, which only the
+assistant hands in; `core/stock_names.py`, `find_name`): by the user's
+earlier answers (read from `asset-names.json` by `flows/asset_names.py`
+each time recording begins, for the kind of ledger the page reaches), then
+by the program's table of common company names. Only a whole name counts,
+once a trailing word for a share or a company is cut off, and only a code
+the ledger's table has. A code matched stands in the trade's cell, the
+words in `picked`; its record or card says where it came from
+(`TradeRecord.picked_from`), its asset cell is marked as assumed with that
+reason, and the reply says it when recording begins and once it ends
+(`record_words.NAMED_WORDS`). A name whose codes the ledger lacks holds the
+trade back, asked nothing (`LeftOut.NAME_NOT_IN_LEDGER`); one with two
+codes in the ledger is asked about, with the program's note naming them,
+added after the question is worded. When the user answers which asset a
+trade was with a code of the ledger, the name its cell held is kept
+(`conversation`, `stock_names.worth_remembering`, `asset_names.remember`).
+Both are on for the assistant by default (`ASSISTANT_NAME_TABLE`; the
+settings `LEDGER_HAND_NAME_TABLE` and `LEDGER_HAND_REMEMBER_NAMES`), and
+the Record page never matches a name.
+Then the name of an asset still not found, and that
+cannot be written as a code, can be handed to the model before
 any question, with the list of the assets that can be traded, to pick one
 or none (`recording.start`, `pick_assets`, which only the assistant turns
 on; `extraction/asset_picking.py`, prompt named in `flows/conversation.py`,
