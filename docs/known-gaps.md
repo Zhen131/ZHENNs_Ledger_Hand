@@ -76,7 +76,7 @@ eight models measured met that last line.
   and cannot be saved as they are.** "0.1个BTC，成交价65000 USDT，总共6000 USDT"
   goes with all three figures and all three marked suspicious; the ledger
   keeps it pending until they are put right on its page. This needs a
-  ledger of 2026-11-27 (its `dev` at `3f4223e`) or later: an older one
+  ledger of 2026-11-27 or later, which keeps such a card: an older one
   turns such a card down whole, and the program does not ask which
   version it is talking to. When the figures disagree and the sell is
   more than was held as well, the ledger turns the whole card down and
