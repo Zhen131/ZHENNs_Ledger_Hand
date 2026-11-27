@@ -10,11 +10,13 @@ look for it in every place it must not be.
 
 from __future__ import annotations
 
+import io
 import logging
 import stat
 import subprocess
 import sys
 import time
+import zipfile
 from collections.abc import Iterator
 from dataclasses import replace
 from pathlib import Path
@@ -49,9 +51,39 @@ def ledger_folder(tmp_path: Path) -> Path:
 @pytest.fixture
 def node(tmp_path: Path) -> str:
     """A stand-in for Node.js: a shell script that runs the fake link with this Python."""
+    if sys.platform == "win32":
+        return windows_node(tmp_path)
     path = tmp_path / "node"
     path.write_text(f'#!/bin/sh\nexec "{sys.executable}" "{FAKE_LINK}" "$@"\n', encoding="utf-8")
     path.chmod(path.stat().st_mode | stat.S_IXUSR)
+    return str(path)
+
+
+def windows_node(tmp_path: Path) -> str:
+    """The stand-in for Node.js on Windows, which cannot start a shell script.
+
+    It is pip's own Windows script launcher (the one every installed command
+    uses) with a small zip appended that runs the fake link. The launcher
+    starts Python as its child inside a Windows job that is ended with it, so
+    when the client kills the "node" it started, the fake link dies with it,
+    as the shell script's ``exec`` does on macOS and Linux. Python is the base
+    interpreter, not the virtual environment's: that one is itself a launcher,
+    and its child would escape the job. The fake link needs only the standard
+    library.
+    """
+    from pip._vendor import distlib  # noqa: PLC0415 - Windows only
+
+    launcher = (Path(distlib.__file__).parent / "t64.exe").read_bytes()
+    program = io.BytesIO()
+    with zipfile.ZipFile(program, "w") as archive:
+        archive.writestr(
+            "__main__.py",
+            f"import runpy, sys\nsys.argv[0] = {str(FAKE_LINK)!r}\n"
+            f"runpy.run_path({str(FAKE_LINK)!r}, run_name='__main__')\n",
+        )
+    interpreter = getattr(sys, "_base_executable", sys.executable)
+    path = tmp_path / "node.exe"
+    path.write_bytes(launcher + f'#!"{interpreter}"\n'.encode() + program.getvalue())
     return str(path)
 
 
@@ -270,6 +302,11 @@ def test_a_handshake_never_answered_times_out_and_the_link_is_closed(
     assert "running=False" in repr(link)
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="on Windows the stand-in node is a launcher that keeps its own copy of the "
+    "link's output open, so the link closing its output is not seen until it is killed",
+)
 def test_a_link_slow_to_leave_after_it_refused_is_stopped_and_said_in_words(
     ledger_folder: Path, node: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
