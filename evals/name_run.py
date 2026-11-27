@@ -332,9 +332,9 @@ def _run(
     stamp = datetime.fromisoformat(str(head["started_at"])).strftime("%Y%m%dT%H%M%SZ")
     name = f"run-{stamp}-stock_names-{head['pick_prompt']}-{head['way']}-{half.value}.jsonl"
     path = TOOL_RESULTS_DIR / name
-    path.write_text(json.dumps(head, ensure_ascii=False) + "\n", encoding="utf-8")
+    path.write_text(json.dumps(head, ensure_ascii=False) + "\n", encoding="utf-8", newline="\n")
     lines: list[dict[str, object]] = []
-    with path.open("a", encoding="utf-8") as file:
+    with path.open("a", encoding="utf-8", newline="\n") as file:
         for sentence in load_name_set().sentences:
             if sentence.half is not half:
                 continue

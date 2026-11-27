@@ -41,7 +41,7 @@ def log_hidden_run(
         "results": results.name,
         "totals": dict(totals),
     }
-    with log.open("a", encoding="utf-8") as out:
+    with log.open("a", encoding="utf-8", newline="\n") as out:
         out.write(json.dumps(line, ensure_ascii=False) + "\n")
 
 

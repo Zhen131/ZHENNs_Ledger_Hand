@@ -284,7 +284,7 @@ def read_results(path: Path) -> Results:
 def append_line(path: Path, data: Mapping[str, object]) -> None:
     """Add one line to the file at ``path`` and make sure it reaches the disk."""
     text = json.dumps(data, ensure_ascii=False, sort_keys=False) + "\n"
-    with path.open("a", encoding="utf-8") as stream:
+    with path.open("a", encoding="utf-8", newline="\n") as stream:
         stream.write(text)
         stream.flush()
         os.fsync(stream.fileno())

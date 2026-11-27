@@ -250,7 +250,7 @@ def _run(options: argparse.Namespace, out: TextIO) -> int:
     head = _head(set_file, options.group, backend, steps, now, zone, started)
     ports = {"model": backend.model, "now": now, "zone": zone, "max_steps": steps, "tuning": tuning}
     lines = []
-    with path.open("w", encoding="utf-8") as kept:
+    with path.open("w", encoding="utf-8", newline="\n") as kept:
         kept.write(json.dumps(head, ensure_ascii=False) + "\n")
         for sentence in sentences:
             if options.group not in (None, sentence.group):

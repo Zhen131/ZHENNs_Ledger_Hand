@@ -221,7 +221,7 @@ def run(
     """Every sentence through the start of recording; each line added as it is done."""
     totals = {"sentences": 0, "gold_trades": 0, "whole_right": 0, "silent_wrong": 0}
     judged_no_trade = 0
-    with path.open("a", encoding="utf-8") as out:
+    with path.open("a", encoding="utf-8", newline="\n") as out:
         for sentence in sentences:
             began = time.monotonic()
             progress = _one(sentence, backend.model, screen, extract, hold=hold, tidy=tidy)
@@ -297,7 +297,7 @@ def main(arguments: Sequence[str] = (), *, out: TextIO = sys.stdout) -> int:
     name = f"judged-{stamp}-{split.value}-{screen.name}-{extract.name}{held}{tidied}.jsonl"
     path = TOOL_RESULTS_DIR / name
     head = _head(options, set_file, backend, started)
-    path.write_text(json.dumps(head, ensure_ascii=False) + "\n", encoding="utf-8")
+    path.write_text(json.dumps(head, ensure_ascii=False) + "\n", encoding="utf-8", newline="\n")
     end = {
         "record": "end",
         **run(
@@ -310,7 +310,7 @@ def main(arguments: Sequence[str] = (), *, out: TextIO = sys.stdout) -> int:
             tidy=options.tidy,
         ),
     }
-    with path.open("a", encoding="utf-8") as tail:
+    with path.open("a", encoding="utf-8", newline="\n") as tail:
         tail.write(json.dumps(end, ensure_ascii=False) + "\n")
     print(f"results: {_shown(path)}", file=out)
     print(json.dumps(end, ensure_ascii=False), file=out)

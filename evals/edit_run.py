@@ -215,7 +215,7 @@ def run(
     """Run every sentence of the set, writing each sentence's line as it comes."""
     edit_set = load_edit_set(set_file)
     rows: list[tuple[EditSentence, Outcome, Verdict, str]] = []
-    with path.open("a", encoding="utf-8") as out:
+    with path.open("a", encoding="utf-8", newline="\n") as out:
         for sentence in edit_set.sentences:
             began = time.monotonic()
             said = _one(
@@ -250,7 +250,7 @@ def main(arguments: Sequence[str] = (), *, out: TextIO = sys.stdout) -> int:
     stamp = started.strftime("%Y%m%dT%H%M%SZ")
     path = TOOL_RESULTS_DIR / f"run-{stamp}-{set_file.stem}-{prompt}.jsonl"
     head = _conditions(backend, started, set_file, steps)
-    path.write_text(json.dumps(head, ensure_ascii=False) + "\n", encoding="utf-8")
+    path.write_text(json.dumps(head, ensure_ascii=False) + "\n", encoding="utf-8", newline="\n")
     rows = run(backend, set_file, path, steps)
     _finish(rows, head, set_file, path, out)
     return 0
@@ -274,7 +274,7 @@ def _finish(
         "silently_wrong": sum(verdict is Verdict.SILENTLY_WRONG for verdict in verdicts.values()),
         "passes": passes(verdicts, first),
     }
-    with path.open("a", encoding="utf-8") as tail:
+    with path.open("a", encoding="utf-8", newline="\n") as tail:
         tail.write(json.dumps(end, ensure_ascii=False) + "\n")
     print(f"results: {path.relative_to(REPO_ROOT).as_posix()}", file=out)
     if edit_set.half == "hidden":

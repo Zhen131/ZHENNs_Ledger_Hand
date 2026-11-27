@@ -507,7 +507,7 @@ def run(
 ) -> list[SentenceRow]:
     """Say every sentence of the set, writing each sentence's line as it comes."""
     rows: list[SentenceRow] = []
-    with path.open("a", encoding="utf-8") as out:
+    with path.open("a", encoding="utf-8", newline="\n") as out:
         for sentence in spoken.sentences:
             began = time.monotonic()
             row, saids, tries = _one(sentence, spoken, ports, wait)
@@ -572,7 +572,7 @@ def finish(
     """The ``end`` line, the hidden-run log for a hidden half, and the tables printed."""
     counts = tally(rows)
     end = {"record": "end", **counts, "void": voided(counts)}
-    with path.open("a", encoding="utf-8") as tail:
+    with path.open("a", encoding="utf-8", newline="\n") as tail:
         tail.write(json.dumps(end, ensure_ascii=False) + "\n")
     if spoken.hidden:
         log_hidden_run(
@@ -620,7 +620,7 @@ def main(arguments: Sequence[str] = (), *, out: TextIO = sys.stdout) -> int:
     name = f"spoken-{stamp}-{set_file.stem}-{prompts}"
     path = TOOL_RESULTS_DIR / f"{name}.jsonl"
     head = _conditions(backend, started, set_file, spoken, steps, chinese)
-    path.write_text(json.dumps(head, ensure_ascii=False) + "\n", encoding="utf-8")
+    path.write_text(json.dumps(head, ensure_ascii=False) + "\n", encoding="utf-8", newline="\n")
     ports = Ports(
         model=backend.model, ledger_of=exam_ledger, steps=steps, tuning=tuning, chinese=chinese
     )

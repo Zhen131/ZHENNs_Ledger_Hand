@@ -637,7 +637,7 @@ def _finish(path: Path, sentences: int, seconds: float, out: TextIO) -> None:
     )
     summary = summarize(read_results(path))
     saved = json.dumps(summary, ensure_ascii=False, indent=2) + "\n"
-    summary_path(path).write_text(saved, encoding="utf-8")
+    summary_path(path).write_text(saved, encoding="utf-8", newline="\n")
     print(markdown(summary), file=out)
 
 

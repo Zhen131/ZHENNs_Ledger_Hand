@@ -240,7 +240,7 @@ def run(
 ) -> list[tuple[StockSentence, Outcome, Verdict, str]]:
     """Run every sentence of the set, writing each sentence's line as it comes."""
     rows: list[tuple[StockSentence, Outcome, Verdict, str]] = []
-    with path.open("a", encoding="utf-8") as out:
+    with path.open("a", encoding="utf-8", newline="\n") as out:
         for sentence in load_stock_set(set_file).sentences:
             began = time.monotonic()
             said = _said(sentence, backend.model, max_steps, tuning, set_file, chinese)
@@ -283,7 +283,7 @@ def main(arguments: Sequence[str] = (), *, out: TextIO = sys.stdout) -> int:
     head = _conditions(
         backend, started, set_file, steps, chinese or ASSISTANT_CHINESE_EXTRACT_PROMPT
     )
-    path.write_text(json.dumps(head, ensure_ascii=False) + "\n", encoding="utf-8")
+    path.write_text(json.dumps(head, ensure_ascii=False) + "\n", encoding="utf-8", newline="\n")
     rows = run(backend, set_file, path, steps, tuning, chinese)
     verdicts = {sentence.id: verdict for sentence, _, verdict, _ in rows}
     end = {
@@ -293,7 +293,7 @@ def main(arguments: Sequence[str] = (), *, out: TextIO = sys.stdout) -> int:
         "silently_wrong": sum(verdict is Verdict.SILENTLY_WRONG for verdict in verdicts.values()),
         "passes": passes(verdicts),
     }
-    with path.open("a", encoding="utf-8") as tail:
+    with path.open("a", encoding="utf-8", newline="\n") as tail:
         tail.write(json.dumps(end, ensure_ascii=False) + "\n")
     print(f"results: {path.relative_to(REPO_ROOT).as_posix()}", file=out)
     print(markdown(rows, head), file=out)

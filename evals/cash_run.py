@@ -132,7 +132,7 @@ def _run(arguments: argparse.Namespace, out: TextIO) -> int:
         "started_at": started.isoformat(timespec="seconds"),
     }
     rows: list[str] = ["| Sentence | Group | Way | Reply |", "| --- | --- | --- | --- |"]
-    with path.open("w", encoding="utf-8") as kept:
+    with path.open("w", encoding="utf-8", newline="\n") as kept:
         kept.write(json.dumps(head, ensure_ascii=False) + "\n")
         for sentence in sentences:
             began = time.monotonic()

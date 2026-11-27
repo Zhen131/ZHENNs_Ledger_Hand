@@ -141,7 +141,7 @@ def run(prompt_name: str, backend: Backend, set_file: Path, path: Path) -> list[
     system = system_message(prompt, tool_set.now, tool_set.zone)
     tools = tool_specs()
     steps: list[FirstStep] = []
-    with path.open("a", encoding="utf-8") as out:
+    with path.open("a", encoding="utf-8", newline="\n") as out:
         for sentence in tool_set.sentences:
             seconds, failure = None, None
             try:
@@ -175,10 +175,10 @@ def main(arguments: Sequence[str] = (), *, out: TextIO = sys.stdout) -> int:
     stamp = started.strftime("%Y%m%dT%H%M%SZ")
     path = TOOL_RESULTS_DIR / f"run-{stamp}-tools-{options.prompt}.jsonl"
     head = conditions(options.prompt, backend, started, TOOL_SET)
-    path.write_text(json.dumps(head, ensure_ascii=False) + "\n", encoding="utf-8")
+    path.write_text(json.dumps(head, ensure_ascii=False) + "\n", encoding="utf-8", newline="\n")
     steps = run(options.prompt, backend, TOOL_SET, path)
     right = sum(step.right for step in steps)
-    with path.open("a", encoding="utf-8") as end:
+    with path.open("a", encoding="utf-8", newline="\n") as end:
         end.write(json.dumps({"record": "end", "right": right, "of": len(steps)}) + "\n")
     print(f"results: {path.relative_to(REPO_ROOT).as_posix()}", file=out)
     print(markdown(steps, head), file=out)
