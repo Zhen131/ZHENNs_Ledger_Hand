@@ -79,6 +79,12 @@ A trade whose fee is taken in a money other than the one it was paid in
 (paid in USD, fee in EUR) has its fee's money marked suspicious: nothing
 else changes (2026-11-26).
 
+When the user's words name a time zone other than the ledger's
+(``Progress.other_zone``), every trade with a time has its time of day, or
+its day when only the day is sent, marked suspicious: the time is written
+in the ledger's zone and never converted (2026-11-27). A trade with no time
+gets no such mark.
+
 Each trade is priced in the money its record names. The ledger checks each
 trade on its own: those it takes wait there, each as a proposal of its
 own, and those it turns down are told with its reason; it may take all,
@@ -122,6 +128,7 @@ from ledger_hand.core.marks import (
     fee_money_mark,
     fields_sent,
     marks_for,
+    other_zone_mark,
     sent_marks,
     with_mark,
 )
@@ -188,7 +195,9 @@ def propose(
         dataclasses.replace(card, cost_rate=rates[number].rate) if number in rates else card
         for number, card in zip(numbers, trades, strict=True)
     )
-    marked = _marked(numbers, dict(records), ledger, assets, gap, rates)
+    said_zone = progress.other_zone
+    zone_words = (said_zone, progress.setting.zone) if said_zone is not None else None
+    marked = _marked(numbers, dict(records), ledger, assets, gap, rates, zone_words)
     trades = tuple(
         dataclasses.replace(card, marks=sent_marks(one.marks, fields_sent(card)))
         for card, one in zip(trades, marked, strict=True)
@@ -282,11 +291,14 @@ def _marked(
     assets: Mapping[str, Asset],
     gap: Decimal,
     rates: Mapping[int, RateNote],
+    zone_words: tuple[str, str] | None = None,
 ) -> tuple[MarkedTrade, ...]:
     """Each trade to send, its price compared with the market price and its cells marked.
 
     The ledger is asked for its market prices once. When it cannot be asked,
     no price is compared and the trades are still sent (decided on 2026-11-25).
+    ``zone_words`` is another zone said in the passage and the ledger's zone
+    (``other_zone_said``): every trade with a time then has it marked.
     """
     markets: tuple[MarketPrice, ...] = ()
     failure: str | None = None
@@ -307,6 +319,11 @@ def _marked(
         fee_money = _fee_money_apart(record, assets)
         if fee_money is not None:
             marks = with_mark(marks, fee_money_mark(fee_money, record.quote or ""))
+        occurred = record.occurred
+        if zone_words is not None and occurred is not None:
+            date_only = not isinstance(occurred.value, datetime)
+            words, zone = zone_words
+            marks = with_mark(marks, other_zone_mark(words, zone, date_only=date_only))
         note = rates.get(number)
         if note is not None:
             note = dataclasses.replace(

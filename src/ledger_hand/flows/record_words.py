@@ -55,6 +55,9 @@ price in another money: the price said was compared instead. (2026-11-26.)
 
 A trade waiting whose fee's money is not the money it was paid in gets a
 line saying its fee's money is marked suspicious, and why (``DOUBT_WORDS``).
+A trade waiting whose time is marked because the user named another time
+zone gets a line saying so, and that the time was not converted
+(``OTHER_ZONE_WORDS``, 2026-11-27).
 
 Each trade sent whose price was compared with the ledger's market price
 and found far from it, or could not be compared, gets one line after
@@ -90,7 +93,7 @@ Names defined here: ``ENDING_WORDS``, ``LEFT_OUT_WORDS``,
 ``SAID_FAR_WORDS``, ``DROPPED_WORDS``, ``rate_lines``, ``PRICE_WORDS``,
 ``NOT_CHECKED_WORDS``, ``EMPTY_WORDS``, ``LEDGER_PROBLEM_WORDS``,
 ``NOT_CHECKED_YET_WORDS``, ``SELL_NOT_CHECKED_WORDS``, ``DISAGREE_WORDS``,
-``DOUBT_WORDS``, ``reply_for``, ``price_line``, ``price_check_words``,
+``DOUBT_WORDS``, ``OTHER_ZONE_WORDS``, ``reply_for``, ``price_line``, ``price_check_words``,
 ``not_checked_words`` and ``spoken_reminders``.
 """
 
@@ -102,7 +105,13 @@ from types import MappingProxyType
 
 from ledger_hand.core.card_record import Doubt
 from ledger_hand.core.cost_rate import RateNote, written
-from ledger_hand.core.marks import FAR_REASON_START, FEE_MONEY_REASON_START, Field, MarkKind
+from ledger_hand.core.marks import (
+    FAR_REASON_START,
+    FEE_MONEY_REASON_START,
+    OTHER_ZONE_REASON_START,
+    Field,
+    MarkKind,
+)
 from ledger_hand.core.price_check import PriceCheck, PriceVerdict
 from ledger_hand.core.proposals import CheckOutcome, TradeCheck
 from ledger_hand.core.stock_names import NameMatched
@@ -356,6 +365,13 @@ DISAGREE_WORDS = (
 # The line for any other cell marked suspicious for being wrong, with its reason.
 DOUBT_WORDS = "Trade {number}: {field} is marked suspicious: {reason}."
 
+# The line for a trade whose time was said with another zone named; "was not
+# converted" is the word to look for.
+OTHER_ZONE_WORDS = (
+    'Trade {number}: you said "{words}", another time zone. The time is written as said, '
+    "in {zone}, the ledger's zone; it was not converted. Check it before you confirm."
+)
+
 # The cells whose emptiness keeps the ledger from checking a card in full:
 # the day, the amounts and the money used (72C1, "the holdings cannot be checked").
 _CHECKED_ONLY_WHEN_GIVEN = ("occurredDate", "quantity", "price", "totalValue", "quoteAssetId")
@@ -395,6 +411,7 @@ def reply_for(recorded: Recorded, *, begun: bool = False) -> str:
         *_guessed(recorded),
         *_rated(recorded),
         *_fee_money(recorded),
+        *_other_zone(recorded),
         *_priced(recorded),
         *_cards(recorded),
     ]
@@ -551,6 +568,26 @@ def _fee_money(recorded: Recorded) -> list[str]:
         if FEE_MONEY_REASON_START not in mark.reason:
             continue
         lines.append(DOUBT_WORDS.format(number=number, field=mark.field.value, reason=mark.reason))
+    return lines
+
+
+def _other_zone(recorded: Recorded) -> list[str]:
+    """One line for each trade waiting whose time is marked for another zone said."""
+    if len(recorded.marked) != len(recorded.numbers):
+        return []
+    words = recorded.progress.other_zone
+    if words is None:
+        return []
+    lines: list[str] = []
+    for place, number in _waiting_trades(recorded):
+        marks = recorded.marked[place].marks
+        mark = marks.on(Field.OCCURRED_TIME) or marks.on(Field.OCCURRED_DATE)
+        if mark is None or mark.kind is not MarkKind.SUSPICIOUS or mark.reason is None:
+            continue
+        if f'{OTHER_ZONE_REASON_START} "{words}"' not in mark.reason:
+            continue
+        zone = recorded.progress.setting.zone
+        lines.append(OTHER_ZONE_WORDS.format(number=number, words=words, zone=zone))
     return lines
 
 

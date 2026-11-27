@@ -38,6 +38,7 @@ from ledger_hand.core.followup import (
     ConfirmCoin,
     Problem,
 )
+from ledger_hand.core.other_zone import other_zone_words, own_zone_names
 from ledger_hand.core.stock_names import NameOutcome
 from ledger_hand.core.trade import MoneysSaid, OccurredTime, SaidPrice, TradeDraft, TradeRecord
 from ledger_hand.extraction.asset_picking import AssetPick
@@ -343,3 +344,18 @@ class Progress:
     def can_save(self) -> bool:
         """Whether the records can be made final and saved now: all is settled, one is a record."""
         return self.stage is Stage.REVIEWING and bool(self.records)
+
+    @property
+    def other_zone(self) -> str | None:
+        """Another time zone than the setting's that the user named, as said, or ``None``.
+
+        Read from the words as the user said them (``raw_text``, else the
+        passage), by ``core/other_zone.py``; the ledger's own Latin names are
+        those of the year of ``Setting.now``. Every trade of the passage with
+        a time then has it marked (decided on 2026-11-27: which trade the
+        zone was said for cannot be told, so all are). An answer given later
+        is not read: it is not kept here.
+        """
+        said = self.raw_text if self.raw_text is not None else self.passage
+        zone = self.setting.zone
+        return other_zone_words(said, zone, own_zone_names(zone, self.setting.now.year))

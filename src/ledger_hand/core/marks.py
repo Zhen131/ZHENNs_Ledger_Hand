@@ -50,7 +50,13 @@ Names defined here: ``MarkKind``, ``Field``, ``REASON_MOST``,
 ``reason_length``, ``cut_reason``, ``FieldMark``, ``TradeMarks``,
 ``FAR_REASON_START``, ``marks_for``, ``marks_from``, ``far_reason``,
 ``fields_sent``, ``SentMark``, ``sent_marks``, ``as_sent``,
-``FEE_MONEY_REASON_START``, ``fee_money_mark`` and ``with_mark``.
+``FEE_MONEY_REASON_START``, ``fee_money_mark``, ``OTHER_ZONE_REASON_START``,
+``other_zone_mark`` and ``with_mark``.
+
+A time the user said with another zone named than the ledger's
+(``core/other_zone.py``) is marked suspicious on its time of day, or on
+its day when only the day is sent (``other_zone_mark``): it is written in
+the ledger's zone and never converted.
 """
 
 from __future__ import annotations
@@ -386,6 +392,29 @@ def fee_money_mark(fee_money: str, paid: str) -> FieldMark:
         cut_reason(
             f"{FEE_MONEY_REASON_START} {fee_money}, but this trade is recorded as paid in "
             f"{paid}; check which money you paid in"
+        ),
+    )
+
+
+# The start of the reason on a time said with another zone than the ledger's.
+OTHER_ZONE_REASON_START = "you said"
+
+
+def other_zone_mark(words: str, zone: str, *, date_only: bool) -> FieldMark:
+    """The suspicious mark on a time said with another zone named, written in the ledger's.
+
+    Example: "北京时间" with Europe/Budapest: 'you said "北京时间", which
+    names another time zone; this time is written in Europe/Budapest, the
+    ledger's zone, and was not converted'. On the time of day, or on the
+    day when only the day is sent. Only marked, nothing changed (decided by
+    the session that hands out the work, 2026-11-27).
+    """
+    return FieldMark(
+        Field.OCCURRED_DATE if date_only else Field.OCCURRED_TIME,
+        MarkKind.SUSPICIOUS,
+        cut_reason(
+            f'{OTHER_ZONE_REASON_START} "{words}", which names another time zone; this time '
+            f"is written in {zone}, the ledger's zone, and was not converted"
         ),
     )
 
