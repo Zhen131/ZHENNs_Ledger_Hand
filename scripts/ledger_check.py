@@ -34,7 +34,8 @@ variable ``LEDGER_HAND_LEDGER_DIR``. Nothing in this repository names a path
 on any machine.
 
 The ledger checkout is only ever read. The validator runs from inside it, with
-the checkout's own ``tsx`` (with ``--no-cache``, so nothing is cached either)
+the checkout's own ``tsx`` (with ``--no-cache``, so nothing is cached either;
+on Windows run by ``node`` through the entry its package names, ``tsx_command``)
 and a configuration file that extends the checkout's own. That file has to
 name the checkout, so it is generated in the temporary directory. Before and
 after, the script asks Git whether the checkout is clean, in the one way that
@@ -78,6 +79,8 @@ ZONE_DATA_DOC = 'docs/known-gaps.md, section "Time zone database versions"'
 # Inside a ledger checkout.
 LEDGER_ENTRY = Path("src/features/backup/backupEnvelope.ts")
 LEDGER_TSX = Path("node_modules/.bin/tsx")
+# On Windows tsx is run through the entry its package names (``tsx_command``).
+LEDGER_TSX_PACKAGE = Path("node_modules/tsx/package.json")
 LEDGER_CONFIG = Path("tsconfig.json")
 
 # The lines on which the two TypeScript scripts print their findings start with these.
@@ -364,12 +367,40 @@ def locate_ledger(argument: str | None, environ: Mapping[str, str]) -> Path | st
         return f"there is no directory at {ledger}"
     if not (ledger / LEDGER_ENTRY).is_file():
         return f"{ledger} has no {LEDGER_ENTRY}, so it is not a ledger checkout this tier knows"
-    if not (ledger / LEDGER_TSX).is_file():
+    if isinstance(tsx_command(ledger), str):
         return f"{ledger} has no {LEDGER_TSX}; the ledger's packages are not installed there"
     for tool in ("node", "git"):
         if shutil.which(tool) is None:
             return f"{tool} is not on the PATH"
     return ledger
+
+
+def tsx_command(ledger: Path, platform: str | None = None) -> list[str] | str:
+    """How the checkout's own ``tsx`` is started, or why it cannot be.
+
+    ``platform`` is the system's name as ``sys.platform`` gives it, this
+    one's when ``None``. Elsewhere than Windows it is ``node_modules/.bin/tsx``
+    itself. On Windows that file is a shell script Windows cannot start
+    (WinError 193), so ``node`` runs the entry its package names (``bin`` in
+    ``node_modules/tsx/package.json``, one path or one per command name).
+    """
+    system = sys.platform if platform is None else platform
+    if system != "win32":
+        tsx = ledger / LEDGER_TSX
+        return [str(tsx)] if tsx.is_file() else f"no {LEDGER_TSX}"
+    try:
+        package = json.loads((ledger / LEDGER_TSX_PACKAGE).read_text(encoding="utf-8"))
+    except (OSError, ValueError) as error:
+        return f"{LEDGER_TSX_PACKAGE} could not be read: {error}"
+    named = package.get("bin") if isinstance(package, dict) else None
+    if isinstance(named, dict):
+        named = named.get("tsx")
+    if not isinstance(named, str) or not named:
+        return f"{LEDGER_TSX_PACKAGE} names no entry for tsx"
+    entry = ledger / LEDGER_TSX_PACKAGE.parent / named
+    if not entry.is_file():
+        return f"the entry {named} that {LEDGER_TSX_PACKAGE} names is not there"
+    return ["node", str(entry)]
 
 
 def checkout_state(ledger: Path) -> CheckoutState:
@@ -434,7 +465,10 @@ def run_validator(
     ``today`` is handed to the ledger as its today. ``zone``, when given, is
     the time zone the validator's process runs in, in place of the machine's.
     """
-    command = [str(ledger / LEDGER_TSX), "--no-cache", "--tsconfig", str(config), str(VALIDATOR)]
+    tsx = tsx_command(ledger)
+    if isinstance(tsx, str):
+        return f"the validator could not be run: {tsx}"
+    command = [*tsx, "--no-cache", "--tsconfig", str(config), str(VALIDATOR)]
     command += [str(ledger), today.isoformat(), *map(str, files)]
     environment = dict(os.environ) if zone is None else {**os.environ, "TZ": zone}
     try:
@@ -600,7 +634,10 @@ def run_offsets(
     """The ledger's versions and its offset for each (instant, zone), or why it could not tell."""
     probes_file = directory / "offset-probes.json"
     probes_file.write_text(json.dumps([list(probe) for probe in probes]), encoding="utf-8")
-    command = [str(ledger / LEDGER_TSX), "--no-cache", "--tsconfig", str(config), str(OFFSETS)]
+    tsx = tsx_command(ledger)
+    if isinstance(tsx, str):
+        return f"the ledger's offsets could not be asked for: {tsx}"
+    command = [*tsx, "--no-cache", "--tsconfig", str(config), str(OFFSETS)]
     command += [str(ledger), str(probes_file)]
     try:
         done = subprocess.run(
