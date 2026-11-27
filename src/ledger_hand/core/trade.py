@@ -165,8 +165,8 @@ class InferredFrom:
 
     ``own_money`` is the asset's own currency in the ledger when the guess
     took that instead, because the last trade's money was neither USDT nor
-    the US dollar (the product owner's decision of 2026-11-27, 90A part 2
-    item 1); ``None`` when the guess is the last trade's money. Example: KO
+    the US dollar (the product owner's decision of 2026-11-27 on
+    "美金"); ``None`` when the guess is the last trade's money. Example: KO
     last bought for EUR, priced in USD: ``money`` EUR, ``own_money`` USD.
     """
 

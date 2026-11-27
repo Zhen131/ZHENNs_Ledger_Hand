@@ -29,7 +29,7 @@ When the last trade's money is neither USDT nor the US dollar (KO last
 bought for euros), the asset's own currency is taken instead when the
 ledger names it and it is USDT or the US dollar (KO priced in USD), marked
 as a guess from it, the last trade still named (``InferredFrom.own_money``;
-the product owner's decision of 2026-11-27, 90A part 2 item 1). Only then:
+the product owner's decision of 2026-11-27 on "美金"). Only then:
 with no trade, a failure, or two moneys on the last day, nothing is guessed
 as before.
 

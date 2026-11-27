@@ -1,6 +1,6 @@
 """Tests of a vague word for money ("美金", "刀") taken as the asset's own currency in the ledger.
 
-The product owner's decision of 2026-11-27 (90A part 2 item 1): when the
+The product owner's decision of 2026-11-27 on "美金": when the
 asset's last trade in the ledger used a money that is neither USDT nor the
 US dollar, a vague word is taken as the asset's own currency in the ledger,
 marked as a guess, when that is USDT or the US dollar and the ledger prices

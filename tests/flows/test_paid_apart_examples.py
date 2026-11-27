@@ -213,7 +213,7 @@ E4_ROW = {
 
 
 def test_e4_meijin_after_a_euro_trade_is_the_shares_own_dollars_as_a_guess() -> None:
-    # Since 2026-11-27 (90A part 2 item 1): AAPL's last trade used EUR, neither
+    # Since the product owner's decision of 2026-11-27: AAPL's last trade used EUR, neither
     # USDT nor USD, so "美金" is AAPL's own currency in the ledger, USD, a guess.
     ledger = books.jia()
     said = one(E4, E4_ROW, ledger)

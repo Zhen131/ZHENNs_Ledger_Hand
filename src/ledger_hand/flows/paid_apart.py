@@ -198,7 +198,7 @@ def _vague_meant(
     of the asset's last trade in the ledger, when it is one of the two and
     one the ledger prices in, as a guess; when that trade used neither,
     the asset's own currency ``own``, when it is one of the two and one the
-    ledger prices in, as a guess from it (2026-11-27, 90A part 2 item 1);
+    ledger prices in, as a guess from it (the product owner's decision of 2026-11-27);
     otherwise nothing.
     """
     assets = progress.setting.assets

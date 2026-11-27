@@ -261,7 +261,7 @@ NOT_THIS_WAY: list[tuple[str, Book, str, dict[str, str]]] = [
 
 
 def test_e4_now_goes_this_way_with_its_price_a_guess_from_the_shares_own_currency() -> None:
-    # Since 2026-11-27 (90A part 2 item 1) E4 is no longer one that does not go this way.
+    # Since the product owner's decision of 2026-11-27 on "美金", E4 goes this way.
     said = "今天15:30花了210欧元买了1股AAPL，一股230美金，换汇费0.3欧元"
     cells = {"side": "buy", "coin": "AAPL", "quantity": "1股", "price": "230美金",
              "total": "210欧元", "fee": "0.3欧元", "time": "今天15:30"}  # fmt: skip
