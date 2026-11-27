@@ -351,7 +351,7 @@
         ],
         "reminder_line": true
       },
-      "shows": "One trade sent to the ledger, waiting there, paid in euros for a share priced in US dollars: a buy of 2 KO at 64 EUR (worked out as 128 ÷ 2), total 128 EUR, the FX fee 0.19 EUR as its fee, on 20 November 2026 at 15:30, IBKR, with the rate 1.0859375 USD for 1 EUR worked out from the 69.5 USD a share said (2 × 69.5 ÷ 128). The reply says the euro amount is taken without the FX fee, and that the rate was compared with none, the ledger having no earlier trade paid in euros. A reminder line names a number no trade used (一)."
+      "shows": "One trade sent to the ledger, waiting there, paid in euros for a share priced in US dollars: a buy of 2 KO at 64 EUR (worked out as 128 ÷ 2), total 128 EUR, the FX fee 0.19 EUR as its fee, on 20 November 2026 at 15:30, IBKR, with the rate 1.0859375 USD for 1 EUR worked out from the 69.5 USD a share said (2 × 69.5 ÷ 128). The reply says the euro amount is taken without the FX fee, and that the rate was compared with the demo ledger's made-up exchange rate of 2026-11-20, typed in by hand (1 EUR = 1.08 USD), 0.5% apart: not marked. A reminder line names a number no trade used (一)."
     }
   ]
 }

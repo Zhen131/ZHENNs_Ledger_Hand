@@ -88,6 +88,7 @@ from __future__ import annotations
 import atexit
 import enum
 import secrets
+import time
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
@@ -366,7 +367,9 @@ def link_ledger(link: LedgerLink, model_name: str) -> LinkLedger:
     ``model_name`` is what the ledger writes into its change history as the
     model behind the assistant.
     """
-    return LinkLedger(link, model_name=model_name, today=lambda: datetime.now().date())
+    return LinkLedger(
+        link, model_name=model_name, today=lambda: datetime.now().date(), timer=time.monotonic
+    )
 
 
 def ledger_link(settings: LedgerLinkSettings | None = None) -> LedgerLink | None:
@@ -423,7 +426,9 @@ def link_keeper() -> LinkKeeper | NoLink:
         return built
 
     def make_plug(caller: ToolCaller, model_name: str) -> LedgerPort:
-        return LinkLedger(caller, model_name=model_name, today=lambda: datetime.now().date())
+        return LinkLedger(
+            caller, model_name=model_name, today=lambda: datetime.now().date(), timer=time.monotonic
+        )
 
     keeper = LinkKeeper(make_link, make_plug)
     atexit.register(keeper.stop)

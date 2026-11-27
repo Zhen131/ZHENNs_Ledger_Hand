@@ -108,7 +108,6 @@ from __future__ import annotations
 
 import enum
 import re
-import time
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from datetime import date, datetime, timezone
 from decimal import Decimal, InvalidOperation
@@ -308,6 +307,12 @@ def codes_on_no_table(readme: str) -> list[str]:
 _LINK_TIMED_OUT = frozenset({LinkFailure.TIMED_OUT})
 _LINK_ODD = frozenset({LinkFailure.REPLY_NOT_JSON, LinkFailure.REPLY_UNEXPECTED})
 _RESTART = frozenset({"LEDGER_CHANGED_START_FROM_FIRST_PAGE", "INVALID_PAGE_TOKEN"})
+
+
+def _no_time_passes() -> float:
+    return 0.0
+
+
 _NO_RATE_TOOL_WORDS = "This ledger has no tool for exchange rates: it is older than that tool."
 _RATES_LATE = f"The ledger did not hand back its exchange rates within {RATE_SECONDS:g} seconds."
 # The fields of a row of exchange rates that are always text.
@@ -333,15 +338,17 @@ class LinkLedger:
         *,
         model_name: str,
         today: Callable[[], date],
-        timer: Callable[[], float] = time.monotonic,
+        timer: Callable[[], float] | None = None,
     ) -> None:
-        """``timer`` counts seconds, only to keep a lookup of exchange rates in its time."""
+        """``timer`` counts seconds (``time.monotonic``, handed in where the plug is built), only
+        to keep a lookup of exchange rates in its time; without it, no time passes between
+        calls, and each call still waits at most ``RATE_SECONDS``."""
         if not isinstance(model_name, str) or not model_name.strip():
             raise ValueError("the model's name is text that is not blank")
         self._link = link
         self._model = model_name
         self._today = today
-        self._timer = timer
+        self._timer = timer or _no_time_passes
         # The trades as last listed, as the ledger wrote them, by their identifier.
         self._rows: dict[str, Mapping[str, Any]] = {}
         # Whether the ledger takes cards, once read from its list of tools.
