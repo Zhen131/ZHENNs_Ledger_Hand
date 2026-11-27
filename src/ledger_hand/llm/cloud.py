@@ -30,8 +30,9 @@ What the local plug does with the connection is done here the same way,
 because both go through ``exchange``: the cap on the answer's size, the time
 allowed, no proxy taken from the environment, no redirect followed, and the
 key hidden in every error. On top of that, with the cloud or the deepseek
-plug, nothing of what the service answered goes into an error that is not
-a reply (``snippet`` is left empty), and a failed connection is said
+plug, nothing of what the service answered goes into an error, not even
+from a reply it could not read (``snippet`` is left empty), and a failed
+connection is said
 without its own words: a service may write the key back in a
 form the hiding does not know (DeepSeek, measured 2026-11-27, writes the
 last four characters of a key it refuses), and errors are shown, recorded
@@ -232,12 +233,16 @@ class CloudModel:
             raise self._quiet(error) from None
 
     def _quiet(self, error: ModelError) -> ModelError:
-        """``error`` without what the service answered, unless it was a reply (status 200).
+        """``error`` without what the service answered, with the cloud or the deepseek plug.
+
+        That holds for a reply with status 200 the program could not read as
+        well: its beginning would be printed by the try-out script and kept
+        in results files, and a service's own words may repeat the key.
 
         A failed connection's own words are left out too: they may repeat
         what was sent, and they are not needed to say what happened.
         """
-        if self._plug is Plug.LOCAL or error.status == 200:
+        if self._plug is Plug.LOCAL:
             return error
         message = error.message
         if error.status is None and error.kind in _CONNECTION_WORDS:
