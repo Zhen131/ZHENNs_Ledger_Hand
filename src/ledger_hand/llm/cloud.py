@@ -31,7 +31,8 @@ because both go through ``exchange``: the cap on the answer's size, the time
 allowed, no proxy taken from the environment, no redirect followed, and the
 key hidden in every error. On top of that, with the cloud or the deepseek
 plug, nothing of what the service answered goes into an error that is not
-a reply (``snippet`` is left empty): a service may write the key back in a
+a reply (``snippet`` is left empty), and a failed connection is said
+without its own words: a service may write the key back in a
 form the hiding does not know (DeepSeek, measured 2026-11-27, writes the
 last four characters of a key it refuses), and errors are shown, recorded
 and written into results files.
@@ -75,6 +76,7 @@ from ledger_hand.ports import (
     JsonSchema,
     Message,
     ModelError,
+    ModelErrorKind,
     ModelParameters,
     ModelReply,
     Picture,
@@ -95,6 +97,14 @@ NO_PICTURES = (
     "the cloud plug sends no pictures; pictures are read through the local plug only. "
     f"Set {Variable.PLUG.value} to {Plug.LOCAL.value} to read a picture."
 )
+
+# What a failed connection is said as with a cloud plug, in place of its own words.
+_CONNECTION_WORDS = {
+    ModelErrorKind.UNREACHABLE: "cannot reach the model server at {address}",
+    ModelErrorKind.SERVER_ERROR: (
+        "the exchange with the model server at {address} failed in a way no other kind fits"
+    ),
+}
 
 # The plugs whose service turned ``response_format`` down for want of the word
 # "json", in this process; their calls are sent without it from then on.
@@ -222,12 +232,21 @@ class CloudModel:
             raise self._quiet(error) from None
 
     def _quiet(self, error: ModelError) -> ModelError:
-        """``error`` without what the service answered, unless it was a reply (status 200)."""
-        if self._plug is Plug.LOCAL or error.snippet is None or error.status == 200:
+        """``error`` without what the service answered, unless it was a reply (status 200).
+
+        A failed connection's own words are left out too: they may repeat
+        what was sent, and they are not needed to say what happened.
+        """
+        if self._plug is Plug.LOCAL or error.status == 200:
+            return error
+        message = error.message
+        if error.status is None and error.kind in _CONNECTION_WORDS:
+            message = _CONNECTION_WORDS[error.kind].format(address=self._endpoint.base_url)
+        if message == error.message and error.snippet is None:
             return error
         return ModelError(
             error.kind,
-            error.message,
+            message,
             status=error.status,
             retry_after_seconds=error.retry_after_seconds,
         )

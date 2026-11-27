@@ -149,7 +149,8 @@ MODEL_FAILURES_BY_PLUG: Mapping[tuple[ModelErrorKind, Plug], str] = MappingProxy
     {
         (ModelErrorKind.MODEL_NOT_FOUND, Plug.CLOUD): (
             "The service at {address} has no model named {model}. Check the name on the "
-            "Settings page against the service's own list of models."
+            "Settings page against the service's own list of models. Nothing was sent to the "
+            "local model instead."
         ),
         (ModelErrorKind.MODEL_NOT_FOUND, Plug.DEEPSEEK): (
             "{service} has no model named {model}. Check the name on the Settings page "
