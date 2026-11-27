@@ -1481,6 +1481,32 @@ price said in the asset's own money (`flows/paid_apart.py`,
 
 ## The assistant: changing and deleting
 
+- **A date the model put this year to is let through; any other date not
+  copied is said.** Since 2026-11-27, when the model writes the user's
+  date with this year put to it ("2026年8月3号" for "把8月3号那笔BTC删掉",
+  "August 3, 2026" for "August 3"), the change or deletion goes on with the
+  user's own words, and the reply ends "The date was read as this year
+  (2026)." once the trade was looked for. Only when: the year is this year
+  in the ledger's zone; once that year is taken off (written before the
+  date as "2026年", "2026 年", "2026-", "2026/", "2026.", "26年",
+  "二〇二六年", "二零二六年", or after it as ", 2026" or " 2026"), the rest is
+  the user's words; no sentence it is found in says a year anywhere
+  ("去年", "last year's", "2025", "3年"); and the user's words read as the
+  same days. "12月5号" before 5 December, and "2月29号" in a year with no
+  29 February, are read by the program as some other day or not at all,
+  so they are not let through. Anything else not copied (another year, a
+  day changed, "2026-8-3" for "8月3号") is held back as before; after two
+  such tries, or when the model then answers in its own words, the user
+  is told: 'I could not use the date: the assistant wrote "2025年8月3号",
+  but you said "8月3号". Dates are taken only as you said them. ...', with
+  an example of the latest past year ("2026年8月3号"; for "12月5号",
+  "2025年12月5号"); the model's own answer is kept before it. In tries with
+  `qwen2.5:7b` on 2026-11-27 the model put no year to a date in any of
+  eleven changes and deletions tried (in two English ones it wrote the
+  month in Chinese instead), so no year it puts to a date has been seen
+  with the real model; the list of year forms above is not checked
+  against one. Asking the ledger ("我8月3号买了哪些BTC") is not let through
+  this way; the model copied the date there too in both tries.
 - **One trade and one part at a time, and the rest not always told.** A
   change or a deletion touches one trade, and a change one part of it.
   Changing many trades at once is not built. When one thing said asks for

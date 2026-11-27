@@ -1064,7 +1064,11 @@ for a fee taken in BTC changes nothing). A value the trade already has
 changes nothing. One change or deletion is done at a time. Say the trade's
 time in full ("9月13号那笔", not only "9月"): a time the model copies as only
 part of what you said, such as the month of a day, is not looked up, and
-you are asked to say it again with the date. The ledger
+you are asked to say it again with the date. When the model puts this
+year to your date ("2026年8月3号" for "8月3号"), your words are taken, and the
+reply ends "The date was read as this year (2026)."; any other date that
+is not your words is not used, and the reply says what the assistant wrote
+and what you said ("Dates are taken only as you said them."). The ledger
 checks each proposal; one it turns down, such as deleting a buy that a later
 sell rests on, waits nowhere, and the program gives the ledger's reason.
 
