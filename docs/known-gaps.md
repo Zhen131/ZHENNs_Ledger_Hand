@@ -1116,15 +1116,17 @@ price said in the asset's own money (`flows/paid_apart.py`,
   and whose figures do not agree is turned down whole, and the reply says
   what the ledger said; before, it got a card with the total empty. The
   ledger's `dev` should be at `3f4223e` or later.
-- **On Windows the ledger's assistant link is started with SYSTEMROOT as
-  well.** The link is started with PATH and HOME alone on macOS and Linux.
-  On Windows, Node.js cannot get random numbers from the system without
-  SYSTEMROOT and stops at once (exit status 134), so it is handed on there
-  too; each other system variable tried (WINDIR, SYSTEMDRIVE, TEMP, TMP,
-  USERPROFILE, APPDATA, LOCALAPPDATA, PATHEXT, COMSPEC) was not needed for
-  the link to start and answer a tool (2026-11-27). Without TEMP and TMP,
-  the `tsx` the link runs with keeps its cache in the Windows folder's own
-  `Temp` rather than the user's. No key, token, secret or password is ever
+- **On Windows the ledger's assistant link is started with SYSTEMROOT,
+  TEMP and TMP as well.** The link is started with PATH and HOME alone on
+  macOS and Linux. On Windows, Node.js cannot get random numbers from the
+  system without SYSTEMROOT and stops at once (exit status 134), so it is
+  handed on there too. Without TEMP and TMP the link still starts, but the
+  `tsx` it runs with then keeps its cache in the Windows folder's own
+  `Temp`, a folder of the system; with them it keeps it in the user's own
+  temporary folder, so they are handed on as well (decided 2026-11-27).
+  Each other system variable tried (WINDIR, SYSTEMDRIVE, USERPROFILE,
+  APPDATA, LOCALAPPDATA, PATHEXT, COMSPEC) was not needed for the link to
+  start and answer a tool. No key, token, secret or password is ever
   handed on.
 - **A ledger whose tools do not take cells left empty is asked every gap
   as before.** Whether the ledger takes cards is read once from its list

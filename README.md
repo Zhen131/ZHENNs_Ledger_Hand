@@ -189,7 +189,9 @@ printed); the tests that need a folder that cannot be written into make one
 with `icacls`, which comes with Windows. To run the ledger tier, set
 `LEDGER_HAND_LEDGER_DIR` on that one command only. The ledger's assistant
 link starts on Windows too: there it is handed SYSTEMROOT besides PATH and
-HOME, since Node.js stops at once without it, and the ledger tier starts the
+HOME, since Node.js stops at once without it, and TEMP and TMP, so that the
+cache of its `tsx` goes into your own temporary folder, not into the Windows
+folder's `Temp`; and the ledger tier starts the
 checkout's `tsx` through `node` (see "The ledger tier").
 
 The quick checks need no model. The interface, the command-line scripts,

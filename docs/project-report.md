@@ -118,7 +118,8 @@ page, reached through the ledger's assistant link
 connects the ledger page with the port and token it shows, and saves each
 proposal on the ledger page itself (section 8). The link is started with
 PATH and HOME alone, and on Windows with SYSTEMROOT too, without which
-Node.js cannot start there. Three figures said that do not agree are sent as
+Node.js cannot start there, and TEMP and TMP, so that nothing is cached in
+a folder of the system. Three figures said that do not agree are sent as
 said, all three marked suspicious; the ledger (its `dev` at `3f4223e` or
 later) keeps such a card from being saved until they are put right on its
 page, and the reply says so (`docs/known-gaps.md`).

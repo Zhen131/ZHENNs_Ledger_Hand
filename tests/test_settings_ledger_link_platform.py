@@ -1,7 +1,8 @@
 """Tests of the variables handed on to the ledger's assistant link, by the system named.
 
 On Windows, Node.js stops at once without SYSTEMROOT, so it is handed on
-there too; on any other system PATH and HOME alone are, as before. Each
+there too, with TEMP and TMP so that the cache of tsx goes into the user's
+own temporary folder; on any other system PATH and HOME alone are, as before. Each
 test names its system, so all run on every system. No key, token, secret or
 password is ever handed on.
 """
@@ -45,13 +46,15 @@ def test_on_a_mac_or_linux_only_path_and_home_are_handed_on(platform: str) -> No
     assert dict(read.environment) == {"PATH": "path-value", "HOME": "home-value"}
 
 
-def test_on_windows_systemroot_is_handed_on_besides_path_and_home() -> None:
+def test_on_windows_systemroot_temp_and_tmp_are_handed_on_besides_path_and_home() -> None:
     read = load_ledger_link_settings(_EVERYTHING, platform="win32")
 
     assert dict(read.environment) == {
         "PATH": "path-value",
         "HOME": "home-value",
         "SYSTEMROOT": r"C:\Windows",
+        "TEMP": "temp-value",
+        "TMP": "tmp-value",
     }
 
 

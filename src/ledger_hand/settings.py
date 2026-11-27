@@ -839,12 +839,15 @@ DEFAULT_LEDGER_PAGE_PORT = 3000
 # The only variables of this process the link is started with, besides the
 # token: PATH finds Node.js, HOME is where Node.js looks for its own settings.
 _LINK_INHERITED_VARIABLES = ("PATH", "HOME")
-# On Windows one more is handed on: without SYSTEMROOT, Node.js cannot get
+# On Windows three more are handed on. Without SYSTEMROOT, Node.js cannot get
 # random numbers from the system and stops at once with exit status 134
 # (measured on Windows 11 with Node.js 24, 2026-11-27; with each other one of
 # WINDIR, SYSTEMDRIVE, TEMP, TMP, USERPROFILE, APPDATA, LOCALAPPDATA, PATHEXT
-# and COMSPEC taken out, the link still started and answered a tool).
-_LINK_INHERITED_ON_WINDOWS = ("SYSTEMROOT",)
+# and COMSPEC taken out, the link still started and answered a tool). Without
+# TEMP and TMP the link still starts, but tsx keeps its cache in the Windows
+# folder's own Temp; with them it keeps it in the user's own temporary folder,
+# and nothing is written into a folder of the system (decided 2026-11-27).
+_LINK_INHERITED_ON_WINDOWS = ("SYSTEMROOT", "TEMP", "TMP")
 _HIGHEST_PORT = 65535
 
 
@@ -873,7 +876,7 @@ def load_ledger_link_settings(
     65535 is a ``SettingsError`` naming the variable. Nothing is checked on
     disk here and nothing is started. ``platform`` is the system's name as
     ``sys.platform`` gives it, this one's when ``None``: on ``win32`` the
-    variables handed on are PATH, HOME and SYSTEMROOT, elsewhere PATH and
+    variables handed on are PATH, HOME, SYSTEMROOT, TEMP and TMP, elsewhere PATH and
     HOME alone; one that is not set is not handed on.
     """
     source = os.environ if environ is None else environ
