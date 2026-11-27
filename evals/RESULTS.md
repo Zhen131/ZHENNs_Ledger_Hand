@@ -10261,3 +10261,43 @@ totals were read. They are the same as after cards with empty cells.
 Against the lines, as before: r70 passes both; r80 has no ③ and a share
 of 63.6%, under eight in ten; r100 has two ③, where the line is none.
 The hidden halves stay closed: no sentence of them has been read.
+
+## 2026-11-27: the same code measured again on Windows, `qwen2.5:7b`
+
+The measures of the end of the last round, run once each on a second
+machine: Windows 11, an RTX 5080 with 16 GB, Ollama 0.40.16, model
+`qwen2.5:7b` (fingerprint `845dbda0ea48…`, the same as on the Mac),
+temperature 0, `first-3` and `assistant-5`. The code is `ead5ca9`, whose
+`src/` is byte for byte that of `9b1607d`; between them only tests,
+`scripts/check.sh`, the README and the line ending the measures write
+changed. Work tree clean. The Mac's figures are those of the same code
+(`src/` and `evals/` unchanged since `4ff8a0b`), on an Apple M5 with
+Ollama 0.34.3.
+
+| Ruler | Set | Windows | Mac | Results (Windows) |
+| --- | --- | --- | --- | --- |
+| Final set (`judged_run --screen screen-2 --extract first-3 --hold-other-unit --tidy --final-exam`) | `final.json` | 22 of 22 trades whole, 0 fields wrong with nothing said | 22 of 22, 0 | `judged-20261127T145228Z-final-screen-2-first-3-hold-tidy.jsonl` |
+| `stock_run` | `stocks.json` | 16 of 18, 0 silently wrong (K14, K15 not done) | 16 of 18, 0 | `run-20261127T145250Z-stocks-assistant-5.jsonl` |
+| `edit_run` | `edits.json` | 14 of 17, 0 wrong (N4, N9, N10 not done) | 14 of 17, 0 | `run-20261127T145314Z-edits-assistant-5.jsonl` |
+| `edit_run` | `spoken-edits-practice.json` | 4 of 4 | 4 of 4 | `run-20261127T145323Z-spoken-edits-practice-assistant-5.jsonl` |
+
+Recording, the three tiers (`spoken_run --extract first-3`). The practice
+halves were not measured on the Mac at this code.
+
+| Tier | Half | Trades | ① | ①a | ①b | ② (code) | ③ (code) | ④ rightly | ④ not rightly | ⑤ | ① and ①a share (of) | First tool right | Mac | Results (Windows) |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| r100 | practice | 15 | 6 | 0 | 1 | 1 (0) | 1 (1) | 6 | 0 | 0 | 46.2% (13) | 15 of 15 | not measured | `spoken-20261127T145105Z-spoken-r100-practice-first-3-assistant-5.jsonl` |
+| r80 | practice | 15 | 4 | 1 | 1 | 6 (5) | 1 (0) | 1 | 0 | 1 | 38.5% (13) | 12 of 13 | not measured | `spoken-20261127T145134Z-spoken-r80-practice-first-3-assistant-5.jsonl` |
+| r70 | practice | 14 | 8 | 3 | 1 | 0 | 2 (0) | 0 | 0 | 0 | 84.6% (13) | 13 of 13 | not measured | `spoken-20261127T145202Z-spoken-r70-practice-first-3-assistant-5.jsonl` |
+| r100 | hidden | 17 | 4 | 0 | 2 | 6 (5) | 2 (1) | 1 | 0 | 2 | 33.3% (12) | 15 of 15 | the same | not in the repository |
+| r80 | hidden | 11 | 7 | 0 | 0 | 3 (3) | 0 | 1 | 0 | 0 | 63.6% (11) | 11 of 11 | the same | not in the repository |
+| r70 | hidden | 9 | 6 | 2 | 0 | 0 | 0 | 1 | 0 | 0 | 100.0% (8) | 9 of 9 | the same | not in the repository |
+
+The hidden halves give, total for total, what the Mac gave at `4ff8a0b`;
+only their totals were read. Their results files and the lines the run
+added to `evals/tool_results/hidden-runs.log` are kept outside the
+repository, untouched, until it is decided whether such files are
+committed. The other four rulers also give the Mac's totals. One practice
+sentence of `r80`, R80-23 (a payment in euros), came back with no reply
+the program could use (`malformed_reply`), ⑤, as in every run on the Mac
+since `assistant-5`.
