@@ -9,107 +9,166 @@ described with the trades or passages it affects; where a choice is needed,
 it waits for the project owner. How the model did in the experiments, and
 what was not measured, is in `docs/project-report.md`.
 
-## What you will meet (the assistant, at the end of the round, 2026-11-26)
+## What you will meet (the assistant, at the end of the round, 2026-11-27)
 
-A summary only, the most costly first: what a user of the assistant will
-see. Each item's detail stays in the section it points to.
+A summary only, the most costly first: money recorded wrong with nothing
+to say so, then wrong but marked or asked, then not done until it is said
+another way, then words that are not right. Each item's detail stays in
+the section it points to. Where the round stands against its lines, with
+the default model `qwen2.5:7b` (`evals/RESULTS.md`, "2026-11-27: eight
+models on the same rulers"): the final set 22 of 22 trades whole with no
+field wrong and unsaid, the share set 16 of 18 with none sent wrong, the
+change set 14 of 17 and the spoken changes 4 of 4 with none done wrong;
+on the exam said the owner's way, hidden halves, totals only, the tidy
+tier met both its lines, but the tier as said had 2 trades with a wrong
+figure and no mark, where the line is none, and the tier a little tidier
+saved 63.6% of 11 with no cell changed, under its line of 80%. None of the
+eight models measured met that last line.
 
-- **A wrong figure can still reach a card with no mark of its own.** On
-  the exam said the owner's way, hidden halves, at the end of the round
-  (totals only): as said, 2 wrong figures with no mark, where the line is
-  none, and 33.3% of 12 trades saved with no cell changed (no line); a
-  little tidier, none, but 63.6% of 11, under its line of 80%; tidy, none
-  and 100% of 8, both lines met (`evals/RESULTS.md`, "The hidden halves,
-  three tiers, at the end of the round"). The kinds seen on the practice
-  halves, with made-up figures: a number the user said that the model did
-  not copy, the cell worked out from the other two a hair off it (150 said,
-  150.00078 sent; 0.2314547 said, 0.23145469 sent), marked only "worked
-  out by the program"; and what was paid in all copied as the price (950
-  U for 0.301823 ETH sent as a price of 950), which is less than five
-  times off the market price and so not marked suspicious ("The assistant:
-  recording a trade", "A figure worked out a hair off the one said keeps
-  the figure worked out" and "Figures copied into the wrong field, with
-  nothing to say"). Comparing other local models is left to the owner.
-- **A time said in another zone is written in the ledger's zone, marked,
-  not converted.** When the words name another zone and the time is
-  written so the model can read it, the trade is sent with that clock time
-  in the ledger's zone (Budapest): "按北京时间算，2026年11月20号下午3点在OKX买了0.1个ETH，成交价2700 USDT，手续费0.1 USDT"
-  (invented; by Beijing time, 3 p.m.) is sent as 2026-11-20 15:00
-  +01:00, and so is the same with the date and time in Chinese number
-  words ("二零二六年十一月二十号下午三点"). Since 2026-11-27 its time cell is
-  marked suspicious, the reason naming the words said ("北京时间") and the
-  ledger's zone, and the reply says the time was not converted; the user
-  fixes it on the ledger's page. The program still converts nothing. A
-  zone said with neither 时间, 时区 nor a Latin name ("按国内算", "北京下午三点")
-  is not seen, and gets no mark ("A time said with another zone is not
-  tidied").
-- **Buy or sell the model filled in itself is not marked.** Words that say
-  neither are sometimes sent as a buy, with no mark on that cell ("The
-  assistant: recording a trade").
+- **A wrong figure can still reach a card with no mark of its own.** The
+  2 trades just named are of this kind (hidden halves, totals only). The
+  kinds seen on the practice halves, with made-up figures: a number the
+  user said that the model did not copy, the cell worked out from the
+  other two a hair off it (150 said, 150.00078 sent), marked only "worked
+  out by the program"; and what was paid in all copied as the price (950 U
+  for 0.301823 ETH sent as a price of 950), less than five times off the
+  market price and so not marked suspicious. Also seen with the real
+  model: a price said with no money beside a total said with one ("一个65000，
+  一共6000 USDT"), sent as the total ÷ the quantity, 60000, marked only
+  "worked out". `gemma4:12b` and both DeepSeek models had none of these
+  on the hidden halves (`docs/choosing-a-model.md`); the default is
+  unchanged ("The assistant: recording a trade", "A figure worked out a
+  hair off the one said keeps the figure worked out", "A price said with
+  no money, beside a total with one, can give way to the total" and
+  "Figures copied into the wrong field, with nothing to say").
+- **A time zone said in words the program does not know goes unmarked.**
+  "按国内算", "北京下午三点", "9:30 ET" and "香港交易所的时间" are not seen
+  as another zone: once the model reads the time, it is written in the
+  ledger's zone (Budapest), hours off, with no mark ("A time said with
+  another zone is not tidied").
 - **Euros and dollars both said as the total, with no FX fee, are
   recorded in dollars, unmarked.** "128欧元（约139美元）" may be sent as
-  paid 139 USD, so the ledger would take dollars, not euros; at most a
-  reminder names 128 as a number not used. The share price said with
-  "每股" instead of "一股" was sent in dollars the same way, its fee in
-  euros marked suspicious ("The assistant: trades paid in
-  another money", "Euros and dollars both said as the total").
+  paid 139 USD; at most a reminder names 128 as a number not used. With no
+  FX fee and no dollar total either ("花了150欧元买了2股 KO，一股54美元"), the
+  euros were left out and the trade sent in dollars, the reminder naming
+  150 ("Euros and dollars both said as the total: marked, not settled" and
+  "With no FX fee said, the euros paid may be left out").
+- **Buy or sell the model filled in itself is not marked.** Words that say
+  neither are sometimes sent as a buy, with no mark on that cell ("Buy or
+  sell the model filled in itself is sent unmarked").
+- **With the table of company names turned on, a share can be matched
+  wrong.** The table is off by default. Turned on, "2股微软和英特尔" was
+  sent as two trades, and a name the model copied short ("小微软" as
+  "微软") is matched to the share the shorter name means ("A share's
+  Chinese name is matched by a table and by answers kept").
+- **A time said in another zone that the program knows is written in the
+  ledger's zone, marked, not converted.** "按北京时间算，2026年11月20号下午3点……"
+  (by Beijing time) is sent as 2026-11-20 15:00 Budapest time, its time
+  cell marked suspicious, the reason naming "北京时间" and the ledger's
+  zone, and the reply says it was not converted; the user puts it right on
+  the ledger's page. In English sentences, and in some Chinese ones, the
+  model wrote the time so the program could not read it: the card then
+  goes with its date empty, named in the reply, with no word of the zone
+  said. A sentence with 时间 or 时区 in it and no zone ("成交的时间是二六年十一月
+  二十号下午三点，……") keeps its Chinese time as said, and may go with its date
+  empty the same way ("A time said with another zone is not tidied").
+- **Three figures that do not agree are sent as said, all three marked,
+  and cannot be saved as they are.** "0.1个BTC，成交价65000 USDT，总共6000 USDT"
+  goes with all three figures and all three marked suspicious; the ledger
+  keeps it pending until they are put right on its page. This needs a
+  ledger of 2026-11-27 (its `dev` at `3f4223e`) or later: an older one
+  turns such a card down whole, and the program does not ask which
+  version it is talking to. When the figures disagree and the sell is
+  more than was held as well, the ledger turns the whole card down and
+  there is no card at all ("Three figures that do not agree are sent as
+  said, and the ledger keeps the card from being saved" and the two items
+  after it).
+- **A rate paid in euros is compared with the ledger's own exchange rate,
+  when it has one.** More than 10% apart (`LEDGER_HAND_RATE_GAP_PERCENT`)
+  marks the rate suspicious. This needs a ledger of 2026-11-27 or later;
+  with no exchange rate in the ledger, the rate is compared with the
+  latest trade paid the same way, and with neither, with nothing: a euro
+  amount said one place wrong (128 as 12.8) is then not marked, and the
+  reply says nothing was compared ("The rate's reference is the ledger's
+  own exchange rate, else its latest such trade").
+- **After a share was paid for in euros, "美金" for it is taken as the
+  share's own currency, a guess.** Once the last KO trade was paid in
+  euros, "一股70美金" for KO is taken as KO's own currency in the ledger
+  (US dollars), marked assumed, the reason naming the last trade's EUR,
+  and the reply says it is a guess, though it also says "no currency was
+  said". Only when the ledger names the asset's own currency and it is
+  USDT or the US dollar ("\"美金\" for the share price follows the asset's
+  last trade, then its own currency").
+- **"没有手续费" leaves the fee empty, not 0.** The card goes with the fee
+  and its money empty, named in the reply, and the ledger will not save it
+  until they are filled in on its page ("Small things seen on a running
+  ledger page").
 - **A share's Chinese name is asked about once, then matched by the
-  answer kept; the table is off.** "微软", "可口可乐" get "which asset was
-  it?" once, and the code answered is kept for the next time. The
-  program's table of about eighty common companies is off by default:
-  with it on, "2股微软和英特尔" was sent as two shares. The step that lets the model pick from the
-  ledger's list stays off, since it picked listed shares for names the
-  ledger lacks ("The assistant: recording a trade", "A share's Chinese
-  name is matched by a table and by answers kept").
-- **The owner's long euro sentences are asked twice before a card.** On
-  the practice halves, four of five were first asked buy or sell, then
-  which asset; the fifth came back empty from the model. A sentence with
-  the code and "买了" (the euro sentence for a demo in the README) goes
-  through at once ("The assistant: trades paid in another money", "The
-  owner's long euro sentences are first asked buy or sell").
-- **The first trade paid in euros has no rate to be compared with.** A
-  euro amount said one place wrong (128 said as 12.8) is then not marked;
-  the reply says nothing was compared ("The rate's reference is the
-  ledger's latest such trade, as listed").
-- **After a share was bought for euros, "美金" for it is taken as the
-  share's own currency, a guess.** Since 2026-11-27, once the last KO trade
-  was paid in euros, "一股70美金" for KO is taken as KO's own currency in the
-  ledger (US dollars), marked assumed, the reason naming that currency and
-  the last KO trade's EUR, and the reply says it is a guess; a new KO trade
-  paid in euros with "一股70美金" goes with its rate the same way. Only when
-  the ledger names the asset's own currency and it is USDT or the US dollar
-  the ledger prices in: an asset with no own currency named, or one priced
-  in another money (DOT in EUR, invented), is left as before (money empty
-  and marked suspicious, or asked which money). With no trade of the asset,
-  or two moneys on its last day, nothing changes ("\"美金\" for the share
-  price follows the asset's last trade").
+  answer kept.** "微软", "可口可乐" get "which asset was it?" once; the code
+  answered is kept in `asset-names.json` in the data folder, apart for the
+  demo ledger and the ledger page, and the next time the asset cell is
+  marked assumed, naming the answer. The step that lets the model pick
+  from the ledger's list stays off ("A share's Chinese name is matched by
+  a table and by answers kept").
 - **One go and two answers can record different moneys, with a ledger
   that takes no cards.** "每股400刀" with the fee "1 USDT" said in the same
-  sentence is all USDT; with the fee given only as an answer to the
-  question for it, the price stays the guessed US dollar and the fee is
-  USDT, its money marked suspicious ("the fee is in USDT, but this trade
-  is recorded as paid in USD"). A ledger that takes cards (the demo ledger,
-  and the real one now) asks no fee: the fee is sent empty, so this is not
-  met there ("Vague words for money: what the rule does not cover").
-- **A time said with "时间" or "时区" in the sentence may be left empty.**
-  "成交的时间是二六年十一月二十号下午三点，……" keeps its Chinese time as said;
-  when the model cannot read it, the card is sent with its date empty, and
-  the reply names it, to be filled in on the ledger's page (a ledger that
-  takes no cards asks for the time instead). "匈牙利时间" and a time with
-  neither word are read ("A time said with another zone is not tidied").
+  sentence is all USDT; with the fee given only as an answer, the fee is
+  USDT and the price the guessed US dollar, its money marked suspicious.
+  A ledger that takes cards (the demo ledger, and the real one now) asks
+  no fee, so this is not met there ("Vague words for money: what the rule
+  does not cover").
+- **Changing a fee "to 2美元" is refused; "2 USD" works.** On a trade whose
+  fee is in USD, "把11月6号那笔MSFT的手续费改成2美元" got "'美元' is not USD"
+  and changed nothing, though "美元" is taken as USD when a trade is
+  recorded ("Small things seen on a running ledger page").
+- **The owner's long euro sentences are asked twice before a card.** On
+  the practice halves, four of five were first asked buy or sell, then
+  which asset; a sentence with the code and "买了" goes through at once
+  ("The owner's long euro sentences are first asked buy or sell").
 - **Some money moved is not recognised.** "把0.1个ETH提到了钱包" is not
-  read as a withdrawal and goes to the model like any sentence; a deposit
-  or a dividend that names a coin or share ("入金了0.5个BTC", "KO分红了2.1美元")
-  goes to the model too, which may propose a buy, and the reply ends
-  with the line to record the rest by hand ("The assistant: money
-  recorded by hand", "Moving a coin in is handed to the model").
-- **The real ledger was not tried this round.** The ledger tier of the
-  checks (`scripts/check.sh ledger`) was not run in this round, and the
-  plug's changes of the round (market prices asked, a day sent alone,
-  cells left empty and their marks, cash balances, the rate) were tried
-  only against answers written from the ledger's README and tests, never
-  on a running ledger page ("The real ledger's plug" and "The assistant
-  page and your ledger page").
+  read as a withdrawal; a deposit or a dividend that names a coin or a
+  share ("入金了0.5个BTC", "KO分红了2.1美元") goes to the model, which may
+  propose a buy, and the reply ends with the line to record the rest by
+  hand ("Moving a coin in is handed to the model").
+- **A date the model puts this year to is let through, tried by the
+  program's tests alone.** A change or deletion said without a year
+  ("把11月10号那笔的平台改成OKX") works because the model copies the date as
+  said; when the model itself adds this year, the program lets it through
+  if all else is as said, but `qwen2.5:7b` never added one in any run, so
+  that way has not been met with a real model ("A date the model put this
+  year to is let through; any other date not copied is said").
+- **Some words on the page are not right.** None of these sends a wrong
+  figure: the cells a card was sent without are named by the ledger's
+  field names ("fee, feeAssetId") and its Fee line reads "none none"; "Took
+  "微软" as MSFT (MSFT)" says the code twice; the reminder of numbers no
+  trade used lists the "一" of "一个", "一共" and "一股"; a reason says
+  "6500.0 USDT" for a total said with no decimals; a cost held is shown
+  with every decimal (351.42325119992 USD); a deletion saved reads "saved
+  in your ledger, as trade ..."; a change is shown twice, as lines and as
+  a table; and "How this was done" for a cash question says "which it
+  cannot look up" although it was looked up. On the ledger's own page, a
+  card changed in the pending list and then saved is described in its
+  "已保存" line as it was proposed, not as saved
+  (`docs/walkthrough-with-the-ledger-page.md`).
+- **With a cloud plug, what is said and looked up leaves this machine.**
+  Each passage and answer, everything said on the Assistant page, what the
+  assistant looks up in the ledger to answer it (holdings, trades, cash
+  balances) and the prompts are sent to the service; a line at the top of
+  both pages says so. The key is read from the environment only and never
+  shown. A failure is said in the program's own words, never the
+  service's ("A cloud service: what is not the same as on this machine").
+- **The real ledger has been walked, not measured.** On 2026-11-27 the
+  Assistant page was walked against a running ledger page with an invented
+  ledger, 21 sentences, from typing to Save, with no figure saved wrong and
+  unmarked; every measure still uses the demo ledger or the exam's book
+  (`docs/walkthrough-with-the-ledger-page.md`). The demo ledger voids a
+  pending proposal that saving another one has spoiled, where the real
+  ledger keeps it until it is saved ("Saving one proposal in the demo
+  ledger voids others; the ledger keeps them").
+- **On Windows, the checks run from Git Bash; a Mac has not run this
+  round's changes.** Every change of 2026-11-27 was made and checked on
+  Windows 11; the seconds a sentence takes on a Mac are not measured
+  (README, "Setting up from scratch"; `docs/choosing-a-model.md`).
 
 ## Time zone database versions
 
@@ -494,7 +553,11 @@ cloud model" in the README):
   with a failure, nor a failed connection's own words, because a service
   may write the key back in a form that cannot be hidden (DeepSeek writes
   the last four characters of a key it refuses). A failure is said by its
-  kind and its status.
+  kind and its status; since 2026-11-27 that holds for a reply with status
+  200 that could not be read too, whose start used to be kept, and a
+  server error with no sentence of its own (500, 503, 422 and the like) is
+  said as the service's error, to be tried again in a while, not as the
+  local model server's.
 - **The balance is known to the cent.** `scripts/cloud_balance.py` prints
   what DeepSeek says is left, to two decimals in yuan; a few calls may cost
   less than that shows. The tokens each call used are in its record.
@@ -615,11 +678,13 @@ changed.
 
 ## The assistant: what is not there yet
 
-- **The cloud model runs the assistant, measured only a little.** With the
-  cloud or the deepseek plug the assistant hands the service its tools (see
-  "A cloud service: what is not the same as on this machine"). DeepSeek has
-  been walked through the sentences for a demo once and two practice sets
-  (2026-11-27); it is not measured on the rest.
+- **The cloud model runs the assistant, measured once.** With the cloud or
+  the deepseek plug the assistant hands the service its tools (see "A
+  cloud service: what is not the same as on this machine"). DeepSeek's two
+  models were run once on every ruler on 2026-11-27 (`evals/RESULTS.md`,
+  "2026-11-27: eight models on the same rulers";
+  `docs/choosing-a-model.md`); the hidden halves were sent to DeepSeek
+  then, so for a later DeepSeek model they may no longer be unseen.
 - **The demo ledger is still where a new tab starts.** It is an invented
   book in memory with its own way of working out cost and profit, which
   says nothing about the real ledger's. The try-out script, the tests of
@@ -1037,6 +1102,12 @@ price said in the asset's own money (`flows/paid_apart.py`,
   (invented) was sent, five times of five on 2026-11-26, as 2 KO at 69.5
   USD, total 139 USD, its fee's money marked suspicious, and the reminder
   naming 128; with "一股" it went the euro way each time.
+- **With no FX fee said, the euros paid may be left out.**
+  "2026年11月20号15点30分在IBKR花了150欧元买了2股 KO，一股54美元" (invented) was
+  sent, five times of five on 2026-11-27, as 2 KO at 54 USD, total 108 USD
+  worked out, its fee empty; the reminder line named 150 as a number no
+  trade used, and nothing else pointed at it. With "换汇费0.2欧元" added, it
+  went the euro way each time, its rate compared with the ledger's.
 - **A rate of 0 in the ledger stops the sentence.** An earlier trade whose
   rate is 0 is taken as the reference, and comparing with it raises an
   error, so what was said ends in a failure. The real ledger keeps no rate
@@ -1240,6 +1311,13 @@ price said in the asset's own money (`flows/paid_apart.py`,
   number no cell used, it could move a time, a fee or another trade's
   number into the cell, and it took that number off the reminder that a
   trade may be missing.
+- **A price said with no money, beside a total with one, can give way to
+  the total.** "……买了0.1个BTC，一个65000，一共6000 USDT，手续费5 USDT" and the same
+  with "一共花了" (invented) were each sent, once each on 2026-11-27, as
+  0.1 BTC at 60000 USDT, the price worked out as total ÷ quantity and
+  marked only "worked out by the program"; 65000 was not named in the
+  reminder line. Said "成交价65000 USDT，总共6000 USDT", all three figures
+  went as said and were marked suspicious, five times of five.
 - **Buy or sell the model filled in itself is sent unmarked.** When the
   words say neither buy nor sell ("今天上午10点0.1个ETH，成交价2700 USDT，
   手续费0", invented), the model sometimes fills in buy, and the card is
@@ -1507,7 +1585,19 @@ price said in the asset's own money (`flows/paid_apart.py`,
   ("按国内算下午三点", by home reckoning three in the afternoon; "北京下午三点",
   Beijing three in the afternoon) is not seen at all: the time is tidied and
   read in the ledger's zone, hours off, with no mark. That wording is not
-  dealt with here.
+  dealt with here. Tried on 2026-11-27 against the program's own reading
+  alone, with no model: "9:30 ET" (the way US share times are often
+  written), "Tokyo's time" and "香港交易所的时间" (a place four characters
+  before 时间) are not seen either, so once the model reads such a time it
+  goes in the ledger's zone with no mark; and "est. price" in lower case,
+  or "美国人下单时间", is taken for a zone and marks the time when nothing
+  needed marking. With the real model (`qwen2.5:7b`, 2026-11-27, seven
+  invented sentences naming another zone, each said twice), two were
+  marked; in the other five, among them every English one, the model wrote
+  the time in a way the program could not read, and the card went with its
+  date empty, named in the reply, to be filled in on the ledger's page,
+  with no word that another zone was said. None went in the ledger's zone
+  unmarked.
 - **Some numbers are not tidied, and stay as said.** These are left as
   they were said, and read as before or asked about:
   a number ending in 一 that may be the start of the next word ("三十万一个",
@@ -1955,6 +2045,15 @@ What reaching the ledger page from the Assistant page does not do yet:
   is the owner's call; removing them changes one place of the page. The
   demo ledger lives as long as the browser tab: it is kept when a setting
   is changed, and starts again from the invented book in a new tab.
+- **Saving one proposal in the demo ledger voids others; the ledger keeps
+  them.** When one proposal is saved, the demo ledger makes every other
+  pending one void that changes or deletes the same trade, or that would
+  no longer fit the book (a sell of more than would now be held, say); the
+  real ledger voids only a change or deletion whose trade has changed, and
+  leaves the rest in its pending list, to be refused when they are saved.
+  A card with an empty cell is left waiting in both. (Until 2026-11-27,
+  saving another proposal while such a card waited in the demo ledger
+  stopped with an error after the trade had already been saved.)
 - **With a cloud plug, what is said here leaves this machine.** A line at
   the top of the page says so, naming the address; a screenshot is turned
   down as on the Record page.
