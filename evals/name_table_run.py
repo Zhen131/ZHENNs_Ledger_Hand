@@ -146,6 +146,8 @@ def whole_assets(
         name_table=True,
     )
     found, line = _came(said)
+    name = bare_name(spoken_key(sentence.words))
+    line["table_gives"] = list(codes_named(name)) if name is not None else []
     return found, line, _failed(said)
 
 
