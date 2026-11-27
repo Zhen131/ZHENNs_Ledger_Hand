@@ -281,7 +281,9 @@ def locked(tmp_path: Path) -> Iterator[Path]:
     folder.chmod(stat.S_IRWXU)
 
 
-@pytest.mark.skipif(os.geteuid() == 0, reason="the superuser writes anywhere")
+@pytest.mark.skipif(
+    hasattr(os, "geteuid") and os.geteuid() == 0, reason="the superuser writes anywhere"
+)
 def test_a_folder_that_cannot_be_written_says_so_and_makes_nothing(locked: Path) -> None:
     kept = keep(locked / "assistant-record.jsonl", an_entry())
 
@@ -291,7 +293,9 @@ def test_a_folder_that_cannot_be_written_says_so_and_makes_nothing(locked: Path)
     assert list(locked.iterdir()) == []
 
 
-@pytest.mark.skipif(os.geteuid() == 0, reason="the superuser writes anywhere")
+@pytest.mark.skipif(
+    hasattr(os, "geteuid") and os.geteuid() == 0, reason="the superuser writes anywhere"
+)
 def test_a_full_file_in_a_folder_that_cannot_be_written_is_left_as_it_is(
     locked: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

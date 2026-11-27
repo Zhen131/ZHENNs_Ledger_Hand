@@ -210,7 +210,9 @@ def locked(tmp_path: Path) -> Iterator[Path]:
     folder.chmod(stat.S_IRWXU)
 
 
-@pytest.mark.skipif(os.geteuid() == 0, reason="the superuser writes anywhere")
+@pytest.mark.skipif(
+    hasattr(os, "geteuid") and os.geteuid() == 0, reason="the superuser writes anywhere"
+)
 def test_a_folder_that_cannot_be_written_still_sends_and_the_page_says_it_was_not_kept(
     locked: Path,
 ) -> None:
