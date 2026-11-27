@@ -32,12 +32,13 @@ docs/                     documentation                                         
     known-gaps.md         known limits, each waiting for a decision                   (exists)
     project-report.md     the project described for a reader new to it                (exists)
 scripts/                  scripts outside the package                                 (exists)
-    check.sh              every check, one tier at a time: quick, ledger, live        (exists)
+    check.sh              every check, one tier at a time: quick, ledger, live, cloud (exists)
     ledger_check.py       the ledger tier, with ledger_validate.ts and ledger_offsets.ts (exists)
     record_trades.py      record, save, list and export at the command line           (exists)
     try_extraction.py     try extraction by hand with the real model                  (exists)
     try_screenshot.py     try a screenshot by hand: the text read, then the drafts    (exists)
     try_assistant.py      try the assistant by hand: every step, with the fake ledger (exists)
+    cloud_balance.py      the money left on the DeepSeek account, one line a money    (exists)
 data/                     run-time output: the book, the export files and the assistant's record; never in Git
 src/ledger_hand/
     core/                 core rules: no network, database or user interface          (exists)
@@ -219,6 +220,7 @@ src/ledger_hand/
         record_page.py        the Record page: chat and screenshot beside the table, Export (exists)
         settings_page.py      the Settings page: every setting, its value, default and why (exists)
         settings_form.py      changing the settings for this browser tab              (exists)
+        cloud_notice.py       the line saying what is sent where, with a cloud plug   (exists)
         chat.py               the chat so far and the one input                       (exists)
         preview.py            the table of what will be recorded, and its buttons     (exists)
         export_panel.py       Export, the warning always beside it, and its outcome   (exists)
@@ -636,16 +638,38 @@ with the key as a bearer token and a reply schema as a strict JSON schema in
 `response_format`. Both go through `llm/exchange.py`, so the cap on the
 answer, the time allowed, no proxy from the environment, no redirect
 followed and the key hidden in every error hold for both. Which plug is
-used is a setting, `LEDGER_HAND_MODEL_PLUG` (`local` by default, or
-`cloud`). `llm/connect.py` builds the plug it chooses, wrapped in the
-retries, and checks first that the settings fit a cloud plug: an address of
-its own, and off this machine https and a key. That check is made where the
+used is a setting, `LEDGER_HAND_MODEL_PLUG`: `local` by default, `cloud`
+for a service at an address you set, or `deepseek`. The last names a
+service whose settings are fixed, one row of `settings.SERVICES`: its
+address (`https://api.deepseek.com`), the model asked when none is named
+(`deepseek-v4-pro`), the one variable its key is read from
+(`DEEPSEEK_API_KEY`; the general `LEDGER_HAND_MODEL_KEY` is never sent
+there), how a table is asked for (`{"type": "json_object"}`, since DeepSeek
+takes no JSON schema) and what every body carries besides (`"thinking":
+{"type": "disabled"}`). Another such service is one more row. The address
+and the model are filled in once, by `settings.effective_settings`, where
+the wiring module puts the settings together; the plug, the sentences
+that name the address or the model, the assistant's record, the model's
+name the ledger is told and the experiment tools all use what it gives.
+`llm/connect.py` builds the plug the setting chooses, wrapped in the
+retries, and checks first that the settings fit it: for `cloud` an address
+of its own, and off this machine https and a key; for `deepseek` its own
+address, its key, and no thinking asked for. That check is made where the
 plug is built rather than where the settings are read, so that every
 variable is still read on its own; settings that do not fit are a
-`SettingsError` naming the variable to set. The experiment tools keep using
-the local plug alone (`llm/local.py`), because they ask Ollama for the
-model's fingerprint; with the cloud plug set they refuse to start, before
-anything is sent, with a `SettingsError` that names `LEDGER_HAND_MODEL_PLUG`.
+`SettingsError` naming the variable to set. With either cloud plug, nothing
+a service answered goes into an error that is not a reply, and a failed
+connection is said without its own words: DeepSeek writes the last four
+characters of a refused key back, which the hiding cannot find. When
+DeepSeek turns a call down for want of the word "json" in the prompt
+(status 400, the error saying "json", the call carrying `response_format`),
+the plug stops sending `response_format` for the rest of the process and
+sends that call again without it; the prompts are never changed. The
+experiment tools take the plug the settings choose: with the local plug
+they ask Ollama for the model's fingerprint, as before; with a cloud plug
+they ask nothing, and the first line of a results file names the plug, the
+service and how a table was asked for, with "not given by the service" for
+the fingerprint and the version.
 
 Pictures are sent by the local plug only. It puts them in the `images`
 field of the last message, as the standard base64 of their bytes, and reads
@@ -681,10 +705,18 @@ local plug sends the tools in Ollama's `tools` field and reads the calls
 from `message.tool_calls`; an answer whose calls cannot be read (a name that
 is not text, arguments that are not a JSON object) is a `MALFORMED_REPLY`.
 Whether the tool is on the list and its arguments follow its schema is not
-the plug's to judge (`assistant/judging.py` does). The cloud plug refuses a
-call with tools before sending anything, as it refuses pictures
-(`ValueError` naming `LEDGER_HAND_MODEL_PLUG`); the retries treat a call
-with tools as any other.
+the plug's to judge (`assistant/judging.py` does). The cloud plug sends the
+tools the OpenAI way (`llm/cloud_request.py`, `tool_body`): each call of an
+earlier turn with an id this side makes, `call_<turn>_<call>` by its place
+in the conversation, and each result with the id of its call, matched to
+the first call of its name, not matched yet, in the turn just before it.
+A call left without a result (the ledger failed part way through a step)
+is not sent, since the endpoint refuses a call whose result does not
+follow; the local plug sends it as it is. The arguments go as JSON text,
+Chinese as it is. The calls come back from `message.tool_calls`, their
+arguments read from JSON text (`llm/cloud_reply.py`); the service's own ids
+and any `reasoning_content` are not kept. The retries treat a call with
+tools as any other.
 
 Whether a reply's text is valid JSON that follows the schema is not checked
 by the plug. A model reply is untrusted input (rule 6), and the code that
@@ -907,7 +939,9 @@ call and result, so what the user says next can be tied to what was listed;
 a call to one of the four tools that take none is kept in it with its
 arguments emptied, so that figures the model wrote never reach it again.
 The four read tools, where a proposal stands, and changing and deleting
-one trade reach the ledger. The assistant runs on the local plug only.
+one trade reach the ledger. The assistant runs on whichever plug the
+settings choose; with a cloud plug, a line at the top of the Assistant and
+Record pages says what is sent where (`ui/cloud_notice.py`).
 
 Asking the ledger is the program's as well (`flows/asking.py`). The model
 picks a read tool and copies the user's words for the period; the program

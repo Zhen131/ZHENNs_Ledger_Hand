@@ -441,16 +441,67 @@ that has hard links.
   the environment variable has to be corrected and the program started
   again.
 
-## The experiment tools measure local models only
+## The experiment tools on a cloud service: no fingerprint
 
-**What it is.** The experiment tools (`evals/run.py`) use the local plug
-only, because they ask Ollama itself for the model's fingerprint, which a
-cloud service has no way of giving. So a model on a cloud service cannot be
-measured with them. With the cloud plug set (`LEDGER_HAND_MODEL_PLUG=cloud`)
-they refuse to start, before anything is sent, and say why.
+**What it is.** With a cloud plug set, the experiment tools run as they do
+with the local one, but a cloud service gives no fingerprint of its model
+and no version of its server, so the first line of a results file says
+"not given by the service" for both. Two runs of `deepseek-v4-pro` are the
+same model only by name; DeepSeek may change what is behind the name. Each
+call's record keeps the model the service says answered and its
+`system_fingerprint`, which shows a change between calls, but no run can
+be tied to one fixed model as a local run is.
 
-**What the user can do.** Unset `LEDGER_HAND_MODEL_PLUG`, or set it to
-`local`, before running an experiment.
+**What the user can do.** Read the `system_fingerprint` of the calls when
+comparing two runs made on different days.
+
+## A cloud service: what is not the same as on this machine
+
+**What it is.** With the cloud or the deepseek plug (see "Switching to a
+cloud model" in the README):
+
+- **No table is held to the reply by DeepSeek.** DeepSeek takes no JSON
+  schema, only "some JSON object" (`json_object`), so the reply is checked
+  against the table by the program alone, as it always is; a reply that
+  does not fit is read as unreadable, as with the local model. DeepSeek's
+  own documents say `json_object` may give a reply of nothing but blanks;
+  that is read as a reply not in the agreed form and not tried again (none
+  came in the walk-through of 2026-11-27, 56 calls).
+- **`json_object` needs the word "json" in the prompt.** Every prompt that
+  asks for a table holds "JSON" in capitals (checked 2026-11-27); DeepSeek
+  took it. Should it ever turn a call down for want of the word, the plug
+  stops asking for a JSON object for the rest of the process and asks for
+  nothing instead; a results file's first line says which way was in use,
+  and its end line says if it changed during the run.
+- **The ids of tool calls are made on this side** (`call_<turn>_<call>`),
+  since the program keeps none; DeepSeek took ids made this way.
+- **A call left without a result is not sent.** When the ledger fails part
+  way through a step, the calls of that step after the failure have no
+  result. The local model is sent them as they are; a cloud service refuses
+  a call without its result, so they are left out of what it is sent, and
+  it does not see that it asked for them. Nothing is written in their place.
+- **No streaming and no thinking.** The whole reply is waited for, and
+  DeepSeek's thinking is turned off for every call (`LEDGER_HAND_MODEL_THINK`
+  set to `on` is refused with the deepseek plug), since a model that thinks
+  must be handed its thinking back at each step of a turn.
+- **Screenshots are read through the local plug only**, as before; with a
+  cloud plug a screenshot is turned down in one sentence on both pages.
+- **No proxy is taken from the environment.** The plug ignores
+  `HTTP_PROXY` and the like, so a machine that reaches the internet only
+  through a proxy cannot reach DeepSeek; the page says it could not be
+  reached.
+- **A failure says less.** What a service answered is never shown or kept
+  with a failure, nor a failed connection's own words, because a service
+  may write the key back in a form that cannot be hidden (DeepSeek writes
+  the last four characters of a key it refuses). A failure is said by its
+  kind and its status.
+- **The balance is known to the cent.** `scripts/cloud_balance.py` prints
+  what DeepSeek says is left, to two decimals in yuan; a few calls may cost
+  less than that shows. The tokens each call used are in its record.
+
+**What the user can do.** For a trade that must stay on this machine, keep
+the local plug; for the rest, the line at the top of the Assistant and
+Record pages always says where what is typed goes.
 
 ## Reading a screenshot: no guard that the model only copies
 
@@ -564,9 +615,11 @@ changed.
 
 ## The assistant: what is not there yet
 
-- **The cloud model does not run the assistant.** The cloud plug refuses a
-  call with tools before sending anything, naming `LEDGER_HAND_MODEL_PLUG`.
-  Whether it should hand tools to a cloud service is a later choice.
+- **The cloud model runs the assistant, measured only a little.** With the
+  cloud or the deepseek plug the assistant hands the service its tools (see
+  "A cloud service: what is not the same as on this machine"). DeepSeek has
+  been walked through the sentences for a demo once and two practice sets
+  (2026-11-27); it is not measured on the rest.
 - **The demo ledger is still where a new tab starts.** It is an invented
   book in memory with its own way of working out cost and profit, which
   says nothing about the real ledger's. The try-out script, the tests of
@@ -1902,9 +1955,9 @@ What reaching the ledger page from the Assistant page does not do yet:
   is the owner's call; removing them changes one place of the page. The
   demo ledger lives as long as the browser tab: it is kept when a setting
   is changed, and starts again from the invented book in a new tab.
-- **The cloud model does not run the assistant.** With the cloud plug set,
-  the page says so in one fixed sentence, greys the input out and sends
-  nothing; a screenshot is turned down as on the Record page.
+- **With a cloud plug, what is said here leaves this machine.** A line at
+  the top of the page says so, naming the address; a screenshot is turned
+  down as on the Record page.
 - **What a tool handed back is cut short under "How this was done".** Each
   result is shown as one line of at most 160 characters with how long it is
   in all; the tables above it show what the ledger found in full.

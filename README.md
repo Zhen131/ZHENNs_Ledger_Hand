@@ -1378,8 +1378,8 @@ promise that every one will be (see "Recording from a screenshot").
 scripts/check.sh          # the same as: scripts/check.sh quick
 ```
 
-The script takes one argument, the tier: `quick` (the default), `ledger` or
-`live`.
+The script takes one argument, the tier: `quick` (the default), `ledger`,
+`live` or `cloud`.
 
 `quick` needs no network and no running model, and runs these steps in order:
 
@@ -1564,6 +1564,22 @@ To see what happens when no model server is running, do not stop the one you
 have: point the address at a port nothing listens on instead, for example
 `LEDGER_HAND_MODEL_URL=http://127.0.0.1:59999 scripts/check.sh live`.
 `quick` gives the same result either way, because it never talks to a model.
+
+### The cloud tier
+
+```sh
+scripts/check.sh cloud
+```
+
+Runs the tests marked `live_cloud` (`tests/live/test_live_deepseek.py`),
+which ask DeepSeek itself, with the key in `DEEPSEEK_API_KEY`: a table asked
+for as a JSON object comes back as one the program reads, the assistant
+calls a tool and answers in words, and a model DeepSeek does not have is
+said as missing. Each says an invented sentence, against the demo ledger,
+and prints nothing. Without the key each is skipped, saying so. It costs a
+little money; run it by hand, with `scripts/cloud_balance.py` before and
+after. Every other test runs with `DEEPSEEK_API_KEY` taken out of its
+environment, whatever the machine has set.
 
 ## Running an experiment
 
@@ -1964,15 +1980,66 @@ The Assistant page reads them when the program starts, and
 By default the model runs on this machine, through Ollama, and nothing that
 is typed leaves it. The program can instead talk to a cloud service through
 the chat endpoint most of them offer, first made by OpenAI
-(`POST <address>/chat/completions`). Nothing else changes: the same
-prompts, the same checks of every reply, the same questions.
+(`POST <address>/chat/completions`): DeepSeek, whose address and key are
+fixed in the program, or any other such service at an address you set.
+Nothing else changes: the same prompts, word for word, the same tools, the
+same checks of every reply, the same questions. The model reads what is
+said; the program still works out every figure, and a trade still waits on
+the ledger's own page until it is confirmed there.
 
-**Once you switch, everything you type is sent to that service:** each
-passage, each answer to a question, and the prompts with their examples. Do
-not switch for passages you would not hand to that service.
+**Once you switch, what you type is sent to that service:** each passage
+and each answer on the Record page; on the Assistant page, everything said
+there, and what the assistant looks up in your ledger to answer it
+(holdings, trades, cash balances); and the prompts with their examples.
+While a cloud plug is set, a line at the top of both pages says so, naming
+the service, its address and the model. Do not switch for words you would
+not hand to that service. Screenshots are read through the local plug
+only: with a cloud plug, a screenshot is turned down in one sentence and
+nothing is sent.
 
-To switch, set four variables before the program starts (see "Model
-settings" for all of them):
+### DeepSeek
+
+Set two variables before the program starts:
+
+```sh
+export LEDGER_HAND_MODEL_PLUG=deepseek
+export DEEPSEEK_API_KEY=...            # the key DeepSeek gave you; set it here only
+```
+
+The address is `https://api.deepseek.com` and the model `deepseek-v4-pro`,
+unless `LEDGER_HAND_MODEL_NAME` names another of DeepSeek's (such as
+`deepseek-flash`). The key is read from `DEEPSEEK_API_KEY` and from no other
+variable, and sent to DeepSeek only; `LEDGER_HAND_MODEL_KEY`, which may hold
+a key for another service, is never sent there. Neither key is shown
+anywhere, written to any file or changed on the settings page: the page says
+only whether each is set. The plug can also be switched on the settings
+page, for the browser tab only; switching it back to `local`, or "Back to
+the environment and the defaults", goes back to the model on this machine.
+
+What is sent with each call: the model's name, the messages, `temperature`,
+`top_p`, `max_tokens` (the longest reply) and `"thinking": {"type":
+"disabled"}`, since a model that thinks must be handed its thinking back at
+each step of a turn; with tools, the tools. When the program wants a reply
+in the shape of a table, it asks for `{"type": "json_object"}`: DeepSeek
+takes no table, so the program checks the reply against the table itself,
+as it always does. DeepSeek asks for the word "json" in such a prompt; every
+prompt that asks for a table holds "JSON" in capitals, and DeepSeek took it
+(2026-11-27). Should DeepSeek ever turn a call down for want of the word,
+the program stops asking for a JSON object until it starts again, and the
+prompts stay as they are.
+
+The program refuses to start the plug, and names the variable, when
+`DEEPSEEK_API_KEY` is not set, when `LEDGER_HAND_MODEL_URL` is set to another
+address (use `cloud` for that), or when `LEDGER_HAND_MODEL_THINK` is `on`.
+
+`scripts/cloud_balance.py` prints what is left on the DeepSeek account, one
+line for each money ("CNY 100.11"); run it before and after a run to see
+what the run cost. DeepSeek gives it to the cent.
+
+### Another service, at an address you set
+
+Set four variables before the program starts (see "Model settings" for all
+of them):
 
 ```sh
 export LEDGER_HAND_MODEL_PLUG=cloud
@@ -1981,41 +2048,59 @@ export LEDGER_HAND_MODEL_KEY=...                          # the key the service 
 export LEDGER_HAND_MODEL_NAME=...                         # a model the service offers
 ```
 
-`api.example.com` stands for the service's own address; the program names
-no service and has no cloud address of its own. Only
-`LEDGER_HAND_MODEL_PLUG` switches: setting an address or a key alone
-leaves the local plug in use. The plug, the address and the model can also
-be changed on the settings page, for the browser tab only; the key cannot.
-Unsetting `LEDGER_HAND_MODEL_PLUG`, or "Back to the environment and the
-defaults" when the switch was made on the page, goes back to the local
-model.
+`api.example.com` stands for the service's own address. The program refuses
+to build this plug, and says which variable to set, when the address is
+still the local Ollama's own, when an address off this machine does not
+start with `https://` (the key and every passage would travel unencrypted),
+or when an address off this machine has no key. A server on this machine
+that offers the same endpoint (`127.0.0.1`, `localhost` or `::1`) may go
+without https and without a key. What is sent is as for DeepSeek, but
+without `thinking`, and a reply in the shape of a table is asked for as the
+table itself, a JSON schema in `response_format` (`strict` true); a service
+that does not take it that way turns every such call down with 400.
 
-The program refuses to build the cloud plug, and says which variable to
-set, when the address is still the local Ollama's own, when an address off
-this machine does not start with `https://` (the key and every passage
-would travel unencrypted), or when an address off this machine has no key.
-A server on this machine that offers the same endpoint (`127.0.0.1`,
-`localhost` or `::1`) may go without https and without a key. Reading the
-settings checks each variable on its own; these checks are made when the
-plug is built, so a refusal names the variable to change.
+### With either
 
-What is sent with each call: the model's name, the messages, `temperature`,
-`top_p` and `max_tokens` (the longest reply), and, when the program wants a
-reply in the shape of a table, that table as a JSON schema in
-`response_format` (type `json_schema`, `strict` true). The key goes in the
-`Authorization: Bearer` header and nowhere else. How much the model reads
-at once (`LEDGER_HAND_MODEL_CONTEXT_TOKENS`) is not sent: the endpoint has
-no such field, and the service decides it. The time allowed is how long
-this side waits, as for the local model.
+Only `LEDGER_HAND_MODEL_PLUG` switches: setting an address or a key alone
+leaves the local plug in use. The key goes in the `Authorization: Bearer`
+header and nowhere else. How much the model reads at once
+(`LEDGER_HAND_MODEL_CONTEXT_TOKENS`) is not sent: the service decides it.
+The time allowed is how long this side waits, as for the local model.
+
+The assistant hands the service its tools the OpenAI way. The program keeps
+no ids for the calls a model makes, so it gives each one as it sends the
+conversation (`call_<turn>_<call>`); a call left without its result, when
+the ledger failed part way through a step, is left out of what is sent (see
+`docs/known-gaps.md`). The ledger's change history names the model the
+service was asked for (`deepseek-v4-pro`), and the assistant's record on
+this machine says which plug, which service and which address.
 
 When the service answers 429, "called too often", the program waits as long
 as its `Retry-After` header asks (in seconds or as a date), up to a minute,
 then tries again; each such wait counts as one of the retries. A longer wait
 is not sat through: the page says how many seconds the service asked for.
 Without the header the waits double as for the local model. A key the
-service does not take (401, 403) and a request it turns down (400) are said
-in plain words at once and not tried again; a model the service does not
-have (404 saying so) is said as a missing model.
+service does not take (401, 403), no money left on the account (402), a
+model it does not have (400 or 404 saying so) and a request it turns down
+(400) are said in plain words at once and not tried again. Each sentence
+names the service and what to do, and says that nothing was sent to the
+local model instead: the program never falls back to another model, or to
+another service, on its own. What the service answered is not quoted:
+DeepSeek writes the last four characters of a key it refuses back, which
+could not be hidden.
+
+The experiment tools (`evals/`) run with a cloud plug as with the local
+one. The service gives no fingerprint of its model and no version of its
+server, so the first line of a results file says "not given by the service"
+for both, and names the plug (`plug`), the service (`service`) and how a
+table was asked for (`reply_format`: `json_schema`, `json_object` or
+`not_sent`); each call's record keeps the model the service says answered
+and its `system_fingerprint`. A run is carried on (`--resume`) only with the
+same plug, service and way of asking. A local run and a cloud run of the
+same set can be compared (`evals/compare_models.py`): their parameters
+cannot be the same (DeepSeek is sent `thinking`), so each one that differs
+is listed under the comparison's first line. A model's failure is written
+in a results file by its kind and its status only.
 
 Known limits:
 
@@ -2023,20 +2108,14 @@ Known limits:
   `max_completion_tokens`. This plug sends `max_tokens`, the name every such
   service takes; a model that takes only the newer name turns the call down
   with 400.
-- A service that does not take a reply table as a strict JSON schema in
-  `response_format` refuses every call with 400. There is no second way of
-  asking (such as plain JSON without the table); the page says the call was
-  turned down and quotes the start of the service's answer.
-- No test calls a real cloud service. The quick checks feed the cloud plug
-  answers shaped like a cloud service's through a fake transport; the live
-  tier sends it once to the local Ollama's OpenAI-style endpoint (`/v1`),
-  which shows that the request is in a form such a server takes, but not
-  how any one service answers.
-- The experiment tools (`evals/run.py`) use the local plug only, because
-  they ask Ollama itself for the model's fingerprint. With the cloud plug
-  set (`LEDGER_HAND_MODEL_PLUG=cloud`) they refuse to start, before anything
-  is sent, and say so with exit status 2. Unset it, or set it to `local`,
-  before running an experiment.
+- The plug takes no proxy from the environment (`HTTP_PROXY` and the like),
+  so a machine that reaches the internet only through a proxy cannot reach
+  the service.
+- No streaming and no thinking; the whole reply is waited for.
+- The quick checks feed the cloud plug answers shaped like a service's
+  through a fake transport. The cloud tier of the checks (see "The cloud
+  tier") asks DeepSeek itself three times; the live tier sends the cloud
+  plug once to the local Ollama's OpenAI-style endpoint (`/v1`).
 
 ## How it works, part by part
 
@@ -2421,6 +2500,7 @@ check and the hygiene scan).
 | `evals/RESULTS.md` | The results record: what each run measured, with the tables its results file gives. |
 | `scripts/try_extraction.py` | Try extraction by hand: a passage in, the drafts, the issues and a record of each call to the model out (see "Trying extraction by hand"). |
 | `scripts/try_screenshot.py` | Try a screenshot by hand: a picture and a note in, the text read, the passage, the drafts and a record of each call out (see "Trying a screenshot by hand"). |
+| `scripts/cloud_balance.py` | Print what is left on the DeepSeek account, one line for each money (see "Switching to a cloud model"). |
 | `scripts/try_assistant.py` | Try the assistant by hand: one or more sentences in, every step, what reached the ledger and the last words out; records a trade, asking what is missing (see "Trying the assistant by hand"). |
 | `scripts/record_trades.py` | Record trades from a passage at the command line, one question at a time (see "Recording trades by hand"). |
 | `scripts/ledger_check.py`, `scripts/ledger_validate.ts`, `scripts/ledger_offsets.ts` | The ledger tier of the checks: sample files judged by the ledger's own validator, and the ledger's offsets compared with ours. |
